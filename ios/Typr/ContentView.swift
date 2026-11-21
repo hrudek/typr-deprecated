@@ -178,6 +178,7 @@ struct ContentView: View {
                             case .speechEngine: SpeechEngineCard(dictation: dictation)
                             case .style: DictationStyleSettingsCard(dictation: dictation)
                             case .language: DictationLanguageSettingsCard(dictation: dictation)
+                            case .experimental: ExperimentalSettingsCard()
                             }
                         }
                     }

@@ -14,6 +14,10 @@ struct SettingsPreferences: View {
             NavigationLink(value: SettingsDestination.history) {
                 SettingsLink(title: "History & feedback", detail: "Review, rate and export dictations", icon: "clock.arrow.circlepath")
             }
+            SettingsDivider(leading: 52)
+            NavigationLink(value: SettingsDestination.experimental) {
+                SettingsLink(title: "Experimental", detail: "Try changes still being tested", icon: "flask")
+            }
         }
         .buttonStyle(.plain)
     }
