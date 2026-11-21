@@ -77,8 +77,6 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.text, "th")
     }
 
-    /// Space keeps its place in a rollover: it goes in when the next key goes down, even if
-    /// that key lifts first, and a space typed that way never becomes the trackpad.
     func testRolloverWithTheSpaceBarKeepsOrder() {
         down(1, .character("a"))
         down(2, .space)
@@ -528,7 +526,6 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.text, "a a a a a ")
     }
 
-    /// A slow drag still moves the cursor; travel before `trackpadDelay` doesn't count.
     func testASlowSpaceDragStillMovesTheCursor() {
         type("hallo")
         let start = point(.space)
@@ -539,7 +536,6 @@ final class FullKeyboardEngineTests: XCTestCase {
         }
         XCTAssertTrue(engine.isTrackpadActive)
         engine.touchEnded(id: 1, at: CGPoint(x: start.x - 40, y: start.y))
-        // Starts at 0.36 s (-24 pt); the last 16 pt are two characters: before "lo".
         XCTAssertEqual(target.text, "hallo")
         XCTAssertEqual(target.cursorIndex, 3)
     }

@@ -68,7 +68,6 @@ final class FullKeyboardEngine {
         var committed: Bool
         /// The page a 123/ABC press came from; releasing over a character returns there.
         var returnLayer: KeyboardLayer?
-        /// True once a spacebar press older than `trackpadDelay` crosses `trackpadActivationDistance`.
         var isTrackpad = false
         var trackpadAnchorX: CGFloat = 0
         /// Samples of a letter press that may still become a swipe; nil once it cannot.
@@ -676,7 +675,6 @@ final class FullKeyboardEngine {
             return
         }
 
-        // 2. Spacebar cursor trackpad: a press held `trackpadDelay` and dragged >= 10 pt slides the caret.
         if touch.key.kind == .space, !touch.committed {
             if !touch.isTrackpad, clock() - touch.startTime >= Self.trackpadDelay,
                abs(point.x - touch.startPoint.x) >= Self.trackpadActivationDistance {
