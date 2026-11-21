@@ -12,9 +12,7 @@ final class KeyboardKeyPlaneView: UIView {
         trailLayer.strokeColor = palette.actionFill.withAlphaComponent(0.35).cgColor
         setNeedsDisplay()
     } }
-    var returnLabel = "return" { didSet { if returnLabel != oldValue { setNeedsDisplay() } } }
-    var returnSymbol: String? = "return" { didSet { if returnSymbol != oldValue { setNeedsDisplay() } } }
-    var returnIsAction = false { didSet { if returnIsAction != oldValue { setNeedsDisplay() } } }
+    var returnStyle = ReturnKeyStyle(.default) { didSet { if returnStyle != oldValue { setNeedsDisplay() } } }
     var returnIsEnabled = true { didSet { if returnIsEnabled != oldValue { setNeedsDisplay() } } }
     /// Called on every key going down, for clicks and haptics.
     var onKeyDown: ((KeyKind) -> Void)?
@@ -108,12 +106,17 @@ final class KeyboardKeyPlaneView: UIView {
                 context.fillKeycap(key.frame, palette: palette, fill: fill, radius: radius)
             case .returnKey:
                 let isPressed = pressed.contains(.returnKey) && returnIsEnabled
-                let activeAction = returnIsAction && returnIsEnabled && !hideGlyphs
-                let fill: UIColor = activeAction
-                    ? (isPressed ? palette.actionPressedFill : palette.actionFill)
-                    : (isPressed ? palette.keyPressedFill : palette.keyFill)
+                let isAction = returnStyle.isAction && !hideGlyphs
+                let activeAction = isAction && returnIsEnabled
+                let fill: UIColor = if activeAction {
+                    isPressed ? palette.actionPressedFill : palette.actionFill
+                } else if isAction {
+                    palette.actionDisabledFill
+                } else {
+                    isPressed ? palette.keyPressedFill : palette.keyFill
+                }
                 let ink: UIColor = if !returnIsEnabled {
-                    palette.textMuted
+                    palette.returnDisabledInk
                 } else if activeAction {
                     .white
                 } else {
@@ -121,17 +124,13 @@ final class KeyboardKeyPlaneView: UIView {
                 }
                 context.fillKeycap(key.frame, palette: palette, fill: fill, radius: radius)
                 guard !hideGlyphs else { continue }
-                if let symbol = returnSymbol {
-                    drawSymbol(
-                        symbol,
-                        in: inkFrame(key.frame),
-                        color: ink,
-                        pointSize: glyphs.returnSymbol,
-                        weight: activeAction ? .medium : symbolWeight
-                    )
-                } else {
-                    drawText(returnLabel, in: inkFrame(key.frame), font: .systemFont(ofSize: glyphs.label, weight: labelWeight), color: ink)
-                }
+                drawSymbol(
+                    returnStyle.symbol,
+                    in: inkFrame(key.frame),
+                    color: ink,
+                    pointSize: glyphs.returnSymbol,
+                    weight: activeAction ? .medium : symbolWeight
+                )
             case .shift:
                 let state = engine.shift.state
                 let isPressed = pressed.contains(.shift)

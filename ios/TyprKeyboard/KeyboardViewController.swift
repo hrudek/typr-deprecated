@@ -458,20 +458,16 @@ final class KeyboardViewController: UIInputViewController {
         }
         // Fields that ask for a dark keyboard get one even in light mode, like the system keyboard.
         overrideUserInterfaceStyle = textDocumentProxy.keyboardAppearance == .dark ? .dark : .unspecified
-        let nextReturn: String = switch textDocumentProxy.returnKeyType {
-        case .send: "Send"
-        case .google, .yahoo, .search: "Search"
-        case .go: "Go"
-        case .done: "Done"
-        case .join: "Join"
-        case .next: "Next"
-        case .route: "Route"
-        case .continue: "Continue"
-        case .emergencyCall: "SOS"
-        default: "Return"
+        let nextReturn = ReturnKeyStyle(textDocumentProxy.returnKeyType)
+        if viewModel.returnKey != nextReturn {
+            viewModel.returnKey = nextReturn
         }
-        if viewModel.returnKeyLabel != nextReturn {
-            viewModel.returnKeyLabel = nextReturn
+        let returnOn = ReturnKeyStyle.isEnabled(
+            automatically: textDocumentProxy.enablesReturnKeyAutomatically,
+            hasText: textDocumentProxy.hasText
+        )
+        if viewModel.returnKeyEnabled != returnOn {
+            viewModel.returnKeyEnabled = returnOn
         }
     }
 
