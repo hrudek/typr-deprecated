@@ -61,7 +61,7 @@ nonisolated struct TapStatistics {
     static func board(_ signature: KeyboardLayoutSignature) -> KeyboardLayout {
         KeyboardLayout(width: CGFloat(signature.widthBucket),
                        orientation: KeyboardOrientation(rawValue: signature.orientation) ?? .portrait,
-                       showsGlobe: signature.showsGlobe, splitColumns: signature.splitColumns,
+                       showsGlobe: signature.showsGlobe, splitColumns: signature.splitColumns, letters: signature.letters,
                        horizontalInset: 0, showsStrip: signature.showsStrip)
     }
     /// Each letter once, in key order: the split letters have g and v on both halves.
@@ -148,5 +148,6 @@ extension KeyboardLayoutSignature {
         default: orientation.capitalized
         }
         return "\(pose) · \(widthBucket) pt · \(showsStrip ? "suggestions" : "no suggestions") · \(showsGlobe ? "globe" : "no globe")"
+            + (letters == .qwerty ? "" : " · \(letters.title)")
     }
 }

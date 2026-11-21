@@ -7,6 +7,35 @@ nonisolated enum KeyboardLayer: Equatable, Hashable, Sendable {
 }
 
 /// The kind of text field, as far as the key rows care.
+/// How the 26 letters are arranged (Settings › Keyboard › Appearance › Letter layout).
+/// Stored raw values must never change.
+nonisolated enum KeyboardLetterLayout: String, CaseIterable, Codable, Sendable {
+    case qwerty
+    case qwertz
+    case azerty
+    case dvorak
+
+    var title: String {
+        switch self {
+        case .qwerty: "QWERTY"
+        case .qwertz: "QWERTZ"
+        case .azerty: "AZERTY"
+        case .dvorak: "Dvorak"
+        }
+    }
+
+    /// The three letter rows, lowercase, as on Apple's keyboards of the same name.
+    var rows: [[String]] {
+        let rows = switch self {
+        case .qwerty: ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+        case .qwertz: ["qwertzuiop", "asdfghjkl", "yxcvbnm"]
+        case .azerty: ["azertyuiop", "qsdfghjklm", "wxcvbn"]
+        case .dvorak: ["pyfgcrl", "aoeuidhtns", "qjkxbmwvz"]
+        }
+        return rows.map { $0.map(String.init) }
+    }
+}
+
 nonisolated enum KeyboardFieldKind: Equatable, Sendable {
     case text
     /// Adds `.` and `/` right of space.
@@ -348,6 +377,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
     let numberRow: Bool
     /// Settings › Aligned columns: the split letters in straight columns. Always false off `.splitLandscape`.
     let splitColumns: Bool
+    let letters: KeyboardLetterLayout
     let horizontalInset: CGFloat
     /// Typr: whether the suggestion bar sits above the keys.
     let showsStrip: Bool
@@ -364,6 +394,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         bottomRow: BottomRow = BottomRow(),
         numberRow: Bool = false,
         splitColumns: Bool = false,
+        letters: KeyboardLetterLayout = .qwerty,
         horizontalInset: CGFloat = 0,
         showsStrip: Bool = true
     ) {
@@ -376,6 +407,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         self.bottomRow = bottomRow
         self.numberRow = numberRow
         self.splitColumns = splitColumns && orientation == .splitLandscape
+        self.letters = letters
         self.horizontalInset = max(0, horizontalInset)
         self.showsStrip = showsStrip
         let innerWidth = width - 2 * self.horizontalInset
@@ -391,7 +423,8 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
                 $0 != .period || Self.showsPeriodKey(bottomRow, layer: layer, field: field)
             },
             inset: self.horizontalInset,
-            splitColumns: self.splitColumns
+            splitColumns: self.splitColumns,
+            letters: letters
         )
     }
 
@@ -427,7 +460,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         guard metrics.splitGap > 0 else { return strip }
         let letters = layer == .letters ? self : KeyboardLayout(
             width: width, orientation: orientation, field: field, showsGlobe: showsGlobe, globeKey: globeKey,
-            bottomRow: bottomRow, numberRow: numberRow, splitColumns: splitColumns,
+            bottomRow: bottomRow, numberRow: numberRow, splitColumns: splitColumns, letters: letters,
             horizontalInset: horizontalInset, showsStrip: showsStrip
         )
         let firstLetterRow = letters.showsNumberRow ? 1 : 0
@@ -509,14 +542,20 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
     }
 
     /// Apple's split keyboard, left half then right half: the rows and where each starts, in key pitches from the half's
-    /// first column. The letters repeat g and v, staggered so z sits under s and the right v under g; aligned columns put
-    /// shift under a and delete under l. The other pages end in `splitPunctuation`.
-    static func splitHalves(_ layer: KeyboardLayer, aligned: Bool) -> [(rows: [[String]], offsets: [CGFloat])] {
+    /// first column. A row with an odd number of letters repeats its middle one on both halves (QWERTY's g and v),
+    /// staggered so z sits under s and the right v under g; aligned columns put shift under a and delete under l. The
+    /// other pages end in `splitPunctuation`.
+    static func splitHalves(
+        _ layer: KeyboardLayer, aligned: Bool, letters: KeyboardLetterLayout
+    ) -> [(rows: [[String]], offsets: [CGFloat])] {
         func rows(_ rows: String...) -> [[String]] { rows.map { $0.map(String.init) } }
         switch layer {
         case .letters:
-            return [(rows("qwert", "asdfg", "zxcv"), aligned ? [0, 0, 1] : [0, 0.5, 1.5]),
-                    (rows("yuiop", "ghjkl", "vbnm"), aligned ? [0, 0, 0] : [0, -0.5, -0.5])]
+            var left = letters.rows.map { Array($0.prefix(($0.count + 1) / 2)) }
+            let right = letters.rows.map { Array($0.suffix(($0.count + 1) / 2)) }
+            if letters == .dvorak { left[2].removeLast() }
+            return [(left, aligned ? [0, 0, 1] : [0, 0.5, 1.5]),
+                    (right, aligned ? [0, 0, 0] : [0, -0.5, -0.5])]
         case .numbers:
             return [(rows("12345", "-/:;("), [0, 0]), (rows("67890", ")€&@\""), [0, 0])]
         case .symbols:
@@ -530,11 +569,11 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
 
     static let numberRowCharacters = "1234567890".map(String.init)
 
-    static func characterRows(for layer: KeyboardLayer) -> [[String]] {
+    static func characterRows(for layer: KeyboardLayer, letters: KeyboardLetterLayout) -> [[String]] {
         let punctuation = [".", ",", "?", "!", "'"]
         switch layer {
         case .letters:
-            return ["qwertyuiop", "asdfghjkl", "zxcvbnm"].map { $0.map(String.init) }
+            return letters.rows
         case .numbers:
             return [
                 numberRowCharacters,
@@ -558,12 +597,13 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         globe: GlobeKey,
         aroundSpace: [BottomKey],
         inset: CGFloat,
-        splitColumns: Bool
+        splitColumns: Bool,
+        letters: KeyboardLetterLayout
     ) -> [KeyboardKey] {
         let lw = letterWidth(innerWidth: width - 2 * inset, metrics: m)
         let boardWidth = width - 2 * inset - m.splitGap
         let modW = lw * modifierWidthRatio
-        let rows = characterRows(for: layer)
+        let rows = characterRows(for: layer, letters: letters)
         let left = inset + m.side
         let right = width - inset - m.side
         let showsNumberRow = layer == .letters && m.numberRowHeight > 0
@@ -610,13 +650,17 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         if m.splitGap > 0 {
             let pitch = lw + m.gap
             let starts = [left, right + m.gap - 5 * pitch]
-            for (half, start) in zip(splitHalves(layer, aligned: splitColumns), starts) {
+            for (half, start) in zip(splitHalves(layer, aligned: splitColumns, letters: letters), starts) {
                 for (row, chars) in half.rows.enumerated() {
                     for (index, ch) in chars.enumerated() {
                         let x = start + (half.offsets[row] + CGFloat(index)) * pitch
                         add(.character(ch), row: firstRow + row, x: x, w: lw, label: ch)
                     }
                 }
+            }
+            if layer == .letters && letters == .dvorak {
+                let x = starts[1] + 4 * pitch
+                add(.delete, row: firstRow, x: x, w: right - x, label: "delete")
             }
             if layer != .letters {
                 let w = (4 * pitch - 2 * m.gap) / 3
@@ -626,6 +670,16 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
                     }
                 }
             }
+        } else if layer == .letters && letters == .dvorak {
+            // Apple's Dvorak: row 1's seven letters end at a delete key a pitch and a half wide, row 2's ten start at
+            // the edge, and row 3 is shift and nine narrower letters, edge to edge.
+            let dw = (boardWidth - 2 * m.side - modW) / 9 - m.gap
+            let pitch = dw + m.gap
+            let deleteW = 1.5 * pitch - m.gap
+            add(.delete, row: firstRow, x: right - deleteW, w: deleteW, label: "delete")
+            addCharacters(rows[0], row: firstRow, startX: right - deleteW - CGFloat(rows[0].count) * pitch, keyWidth: dw)
+            addCharacters(rows[1], row: firstRow + 1, startX: left, keyWidth: dw)
+            addCharacters(rows[2], row: shiftRow, startX: left + modW + m.gap, keyWidth: dw)
         } else {
             for row in 0..<2 {
                 let chars = rows[row]
@@ -651,7 +705,9 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         case .symbols:
             add(.layerSwitch(.numbers), row: shiftRow, x: left, w: modW, label: "123")
         }
-        add(.delete, row: shiftRow, x: right - shiftRowModW, w: shiftRowModW, label: "delete")
+        if !drawn.contains(where: { $0.0 == .delete }) {
+            add(.delete, row: shiftRow, x: right - shiftRowModW, w: shiftRowModW, label: "delete")
+        }
 
         let isCompactBottomRow = globe != .hidden || field != .text || aroundSpace.contains(.period)
         let switchW = isCompactBottomRow ? modW : lw * bottomSwitchWidthRatio

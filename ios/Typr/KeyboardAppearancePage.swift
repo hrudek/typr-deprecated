@@ -11,6 +11,8 @@ struct KeyboardAppearancePage: View {
     @State private var numberRow = FullKeyboardSettings().numberRow
     @State private var splitKeyboard = FullKeyboardSettings().splitKeyboard
     @State private var splitColumns = FullKeyboardSettings().splitColumns
+    @State private var letterLayouts = Self.storedLetterLayouts()
+    @State private var languageOrder = TyprSettings().autocorrectLanguageOrder
     @State private var draggedOrder: [BottomKey]?
     @State private var window: WindowReader.Window?
 
@@ -18,6 +20,11 @@ struct KeyboardAppearancePage: View {
     static let switchingKeyboardsHint = "With Spacer or Hidden, hold 123 in the full keyboard or space in the dictation bar to switch keyboards."
     static let bottomRowFooter = "Drag to change the order around the space bar."
     static let splitKeyboardFooter = "Only when iPhone Duo is open and sideways."
+    static let letterLayoutFooter = "The keyboard uses the layout of the first selected autocorrect language."
+
+    private static func storedLetterLayouts() -> [SpatialWordDecoder.Language: KeyboardLetterLayout] {
+        Dictionary(uniqueKeysWithValues: SpatialWordDecoder.Language.allCases.map { ($0, FullKeyboardSettings().letters(for: $0)) })
+    }
 
     /// `settings-keyboard-appearance-light` and `-dark` fix the preview's appearance for screenshots.
     static func snapshotIsDark(arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool? {
@@ -40,7 +47,8 @@ struct KeyboardAppearancePage: View {
             isDark: Self.snapshotIsDark() ?? window?.systemIsDark ?? true,
             container: container,
             splitKeyboard: splitKeyboard,
-            splitColumns: splitColumns
+            splitColumns: splitColumns,
+            letters: letterLayouts[FullKeyboardSettings().lettersLanguage] ?? .qwerty
         )
     }
 
@@ -151,6 +159,16 @@ struct KeyboardAppearancePage: View {
                     .onChange(of: hideSuggestionBar) { _, hidden in TyprSettings().hideSuggestionBar = hidden }
             }
 
+            VStack(alignment: .leading, spacing: 8) {
+                SettingsSection(title: "Letter layout") {
+                    ForEach(Array(languageOrder.enumerated()), id: \.element) { index, language in
+                        if index > 0 { SettingsDivider() }
+                        letterLayoutRow(language)
+                    }
+                }
+                SettingsFooter(Self.letterLayoutFooter)
+            }
+
             SettingsSection(title: "Top row") {
                 SettingsToggle(title: "Number row", detail: "1 to 0 above the letters. The keyboard grows taller.", isOn: $numberRow)
                     .onChange(of: numberRow) { _, shown in FullKeyboardSettings().numberRow = shown }
@@ -211,7 +229,29 @@ struct KeyboardAppearancePage: View {
         }
     }
 
+    private func letterLayoutRow(_ language: SpatialWordDecoder.Language) -> some View {
+        let selection = Binding(get: { letterLayouts[language] ?? .qwerty }, set: { letters in
+            FullKeyboardSettings().setLetters(letters, for: language)
+            letterLayouts[language] = letters
+        })
+        return HStack {
+            Text(language.title).font(.body).foregroundStyle(TyprTheme.textBase)
+            Spacer(minLength: 8)
+            Picker(language.title, selection: selection) {
+                ForEach(KeyboardLetterLayout.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .tint(TyprTheme.textMuted)
+            .accessibilityIdentifier("letter-layout-\(language.rawValue)")
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 50)
+    }
+
     private func refresh() {
+        letterLayouts = Self.storedLetterLayouts()
+        languageOrder = TyprSettings().autocorrectLanguageOrder
         design = FullKeyboardSettings().design
         hideSuggestionBar = TyprSettings().hideSuggestionBar
         globeKey = FullKeyboardSettings().globeKey
@@ -294,6 +334,7 @@ struct KeyboardAppearancePreview: UIViewRepresentable {
         var container: CGSize
         var splitKeyboard = false
         var splitColumns = false
+        var letters = KeyboardLetterLayout.qwerty
 
         var orientation: KeyboardOrientation { KeyboardOrientation(container: container, split: splitKeyboard) }
 
@@ -308,6 +349,7 @@ struct KeyboardAppearancePreview: UIViewRepresentable {
                     "number row \(numberRow ? "on" : "off")",
                     orientation == .splitLandscape ? "split" : nil,
                     orientation == .splitLandscape && splitColumns ? "aligned columns" : nil,
+                    letters.title,
                     "suggestions \(showsSuggestionBar ? "shown" : "hidden")"].compactMap { $0 }.joined(separator: ", ")
         }
     }
@@ -331,6 +373,7 @@ struct KeyboardAppearancePreview: UIViewRepresentable {
         model.numberRow = settings.numberRow
         model.splitKeyboard = settings.splitKeyboard
         model.splitColumns = settings.splitColumns
+        model.letters = settings.letters
         let learning = KeyboardLearningSession(store: nil, defaults: nil, allowsPersistence: { false })
         let view = FullKeyboardView(
             model: model,
@@ -351,6 +394,7 @@ struct KeyboardAppearancePreview: UIViewRepresentable {
         view.model.numberRow = settings.numberRow
         view.model.splitKeyboard = settings.splitKeyboard
         view.model.splitColumns = settings.splitColumns
+        view.model.letters = settings.letters
         view.applyPreview(FullKeyboardView.Preview(design: settings.design, showsSuggestionBar: settings.showsSuggestionBar))
         view.appearanceOverride = settings.isDark
         view.containerSize = settings.container
