@@ -107,9 +107,21 @@ final class DictationAudioSessionTests: XCTestCase {
             XCTAssertEqual(spy.modes, [.measurement], "\(choice)")
             let expected: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothA2DP, .defaultToSpeaker]
             XCTAssertEqual(spy.options, [choice == .bluetooth ? expected.union(.allowBluetoothHFP) : expected], "\(choice)")
-            XCTAssertEqual(spy.sampleRates, [], "\(choice): the hardware keeps its own rate")
+            XCTAssertEqual(spy.sampleRates, [0], "\(choice): the hardware keeps its own rate")
             XCTAssertEqual(spy.activations, [true], "\(choice)")
         }
+    }
+
+    func testMixingAfterADefaultRecordingClearsThe16kHzPreference() throws {
+        let spy = SessionSpy()
+        let session = spy.makeSession()
+        try session.activate(microphone: .automatic)
+        session.deactivate()
+        try session.activate(microphone: .automatic, mixWithOthers: true)
+        XCTAssertEqual(spy.sampleRates, [16_000, 0])
+        XCTAssertEqual(spy.categories, [.record, .playAndRecord])
+        try session.activate(microphone: .automatic)
+        XCTAssertEqual(spy.sampleRates, [16_000, 0, 16_000], "switching back asks for 16 kHz again")
     }
 
     func testResampledCaptureIs16kHzMonoAtAnyHardwareRate() throws {

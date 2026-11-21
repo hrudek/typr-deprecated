@@ -44,9 +44,7 @@ private final class FakeAudioManager: AudioManaging {
     var keepaliveMicrophones: [MicrophoneChoice] = []
     var captureMicrophones: [MicrophoneChoice] = []
     var keepaliveInputIsStale = false
-    /// The Keep other audio playing session: activating it leaves other apps' audio playing.
     var mixesWithOtherAudio = false
-    /// An input that stops again by itself right after it starts.
     var keepaliveStopsRightAway = false
 
     var onSystemEvent: ((AudioSystemEvent) -> Void)?
@@ -1090,16 +1088,16 @@ final class DictationControllerTests: XCTestCase {
         audio.isKeepaliveRunning = false
         try await waitForState("restarted at once") { audio.startKeepaliveCount == started + 1 }
         for (offset, delay) in [1.0, 2, 4, 8, 16, 30, 30].enumerated() {
-            now += delay - 0.25
-            try await Task.sleep(for: Self.sessionLoopTick * 2)
+            try await waitForState("next restart scheduled in \(delay) s") { controller.keepaliveRestartDue == now + delay }
             XCTAssertEqual(audio.startKeepaliveCount, started + 1 + offset, "waits \(delay) s")
-            now += 0.25
+            now += delay
             try await waitForState("restarted after \(delay) s") { audio.startKeepaliveCount == started + 2 + offset }
         }
         XCTAssertTrue(controller.keyboardSessionEnabled, "the warm session stays on meanwhile")
         try await waitForState("the keyboard sees the mic offline") { bridge.snapshot().state == .offline }
 
         audio.keepaliveStopsRightAway = false
+        try await waitForState("next restart scheduled in 30 s") { controller.keepaliveRestartDue == now + 30 }
         now += 30
         try await waitForState("running again") { audio.isKeepaliveRunning }
         now += DictationController.steadyKeepalive

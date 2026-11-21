@@ -159,7 +159,7 @@ final class DictationController {
     /// instead of 100 ms; one that ran a while restarts at once (anomalyco/hex #2160).
     @ObservationIgnored private var keepaliveRestartedAt = -TimeInterval.infinity
     @ObservationIgnored private var keepaliveRestartDelay: TimeInterval = 0
-    @ObservationIgnored private var keepaliveRestartDue: TimeInterval?
+    @ObservationIgnored private(set) var keepaliveRestartDue: TimeInterval?
     static let steadyKeepalive: TimeInterval = 10
     private static let maxKeepaliveRestartDelay: TimeInterval = 30
     @ObservationIgnored private var interruptionResumeTask: Task<Void, Never>?
