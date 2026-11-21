@@ -123,52 +123,37 @@ nonisolated enum CleanupGuard {
     }
 
     private static func normalized(_ heard: Words) -> Words {
-        var expanded = Words()
-        for (word, pause) in zip(heard.words, heard.pauseAfter) {
-            let parts = contractionExpansions[word] ?? [word]
-            expanded.words.append(contentsOf: parts)
-            expanded.pauseAfter.append(contentsOf: Array(repeating: false, count: parts.count - 1) + [pause])
-        }
         var result = Words()
-        var index = 0
-        while index < expanded.words.count {
-            if index + 1 < expanded.words.count,
-               let contraction = germanPrepositionContractions[expanded.words[index] + " " + expanded.words[index + 1]] {
-                result.words.append(contraction)
-                result.pauseAfter.append(expanded.pauseAfter[index + 1])
-                index += 2
-            } else {
-                result.words.append(expanded.words[index])
-                result.pauseAfter.append(expanded.pauseAfter[index])
-                index += 1
-            }
+        for (word, pause) in zip(heard.words, heard.pauseAfter) {
+            let parts = expansion(of: word)
+            result.words.append(contentsOf: parts)
+            result.pauseAfter.append(contentsOf: Array(repeating: false, count: parts.count - 1) + [pause])
         }
         return result
     }
 
-    private static let germanPrepositionContractions: [String: String] = [
-        "zu dem": "zum", "zu der": "zur", "in dem": "im", "an dem": "am", "in das": "ins",
-        "von dem": "vom", "bei dem": "beim", "an das": "ans", "auf das": "aufs",
-    ]
+    private static func expansion(of word: String) -> [String] {
+        if let parts = contractions[word] {
+            return parts.flatMap(expansion(of:))
+        }
+        if word.hasSuffix("'s"), word.count > 2 {
+            return [String(word.dropLast(2)), "es"]
+        }
+        return [word]
+    }
 
-    private static let contractionExpansions: [String: [String]] = [
-        "i'm": ["i", "am"],
-        "i've": ["i", "have"],
-        "i'll": ["i", "will"],
-        "i'd": ["i", "would"],
-        "you're": ["you", "are"],
-        "you've": ["you", "have"],
-        "you'll": ["you", "will"],
-        "you'd": ["you", "would"],
-        "we're": ["we", "are"],
-        "we've": ["we", "have"],
-        "we'll": ["we", "will"],
-        "we'd": ["we", "would"],
-        "gibt's": ["gibt", "es"], "gibts": ["gibt", "es"],
-        "geht's": ["geht", "es"], "gehts": ["geht", "es"],
-        "hab's": ["hab", "es"], "hat's": ["hat", "es"], "ist's": ["ist", "es"],
-        "war's": ["war", "es"], "wär's": ["wär", "es"], "wie's": ["wie", "es"],
-        "kann's": ["kann", "es"], "mach's": ["mach", "es"], "sag's": ["sag", "es"],
+    private static let contractions: [String: [String]] = [
+        "i'm": ["i", "am"], "i've": ["i", "have"], "i'll": ["i", "will"], "i'd": ["i", "would"],
+        "you're": ["you", "are"], "you've": ["you", "have"], "you'll": ["you", "will"], "you'd": ["you", "would"],
+        "we're": ["we", "are"], "we've": ["we", "have"], "we'll": ["we", "will"], "we'd": ["we", "would"],
+        "am": ["an", "dem"], "an'm": ["an", "dem"], "ans": ["an", "das"], "aufs": ["auf", "das"],
+        "beim": ["bei", "dem"], "durchs": ["durch", "das"], "fürs": ["für", "das"],
+        "hinterm": ["hinter", "dem"], "hinters": ["hinter", "das"], "im": ["in", "dem"], "ins": ["in", "das"],
+        "überm": ["über", "dem"], "übers": ["über", "das"], "ums": ["um", "das"],
+        "unterm": ["unter", "dem"], "unters": ["unter", "das"], "vom": ["von", "dem"],
+        "vorm": ["vor", "dem"], "vors": ["vor", "das"], "zum": ["zu", "dem"], "zur": ["zu", "der"],
+        "gibts": ["gibt", "es"], "gehts": ["geht", "es"], "kanns": ["kann", "es"], "hats": ["hat", "es"],
+        "ists": ["ist", "es"], "wars": ["war", "es"], "habs": ["hab", "es"],
     ]
 
     private static func addedWordCount(_ original: [String], _ cleaned: [String]) -> Int {
@@ -193,15 +178,8 @@ nonisolated enum CleanupGuard {
 
     private static let germanSelfCorrections: [[String]] = [
         ["nein", "warte"],
-        ["warte"],
-        ["ich", "meine"],
-        ["ich", "meinte"],
-        ["eigentlich"],
-        ["streich", "das"],
-        ["vergiss", "das"],
+        ["nein", "ich", "meine"],
         ["korrektur"],
-        ["quatsch"],
-        ["beziehungsweise"],
     ]
 
     private static func keepsSelfCorrectionTail(_ heard: Words, _ cleaned: [String]) -> Bool {
