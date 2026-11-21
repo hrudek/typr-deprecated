@@ -55,7 +55,6 @@ final class KeyboardViewModel: ObservableObject {
     @Published var splitKeyboard = false
     @Published var splitColumns = false
     @Published var keyDesign = KeyboardDesign.standard
-    /// The bar's return key for the field's type, as the full keyboard's, and whether it's on.
     @Published var returnKey = ReturnKeyStyle(.default)
     @Published var returnKeyEnabled = true
     @Published var isModelInstalled = false
@@ -412,7 +411,6 @@ private extension View {
 
 private struct KeyboardKeyButtonStyle: ButtonStyle {
     let palette: KeyboardChromePalette
-    /// Another keycap colour, idle and pressed: the return key's blue.
     var fill: (idle: UIColor, pressed: UIColor)?
 
     func makeBody(configuration: Configuration) -> some View {

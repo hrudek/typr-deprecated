@@ -76,7 +76,6 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     var hasAllocatedRecordingPanel: Bool { recordingPanel != nil }
     /// What the feedback panel shows, for tests; `nil` while the keys are up.
     var shownPanelContent: TyprFeedbackPanel.Content? { panelContent }
-    /// How the return key is drawn, for tests.
     var shownReturnKey: (style: ReturnKeyStyle, isEnabled: Bool) { (plane.returnStyle, plane.returnIsEnabled) }
 
     init(model: KeyboardViewModel, target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil,
