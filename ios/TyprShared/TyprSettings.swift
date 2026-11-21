@@ -1,5 +1,22 @@
 import Foundation
 
+/// An opt-in switch in Settings > Experimental for behavior that deviates from the default.
+/// Always off by default. To add one: declare a static constant and list it in `all`.
+struct ExperimentalSwitch: Hashable {
+    let key: String
+    let title: String
+    let detail: String
+
+    init(name: String, title: String, detail: String) {
+        key = "typr.experimental.\(name)"
+        self.title = title
+        self.detail = detail
+    }
+
+    /// The switches shown in Settings > Experimental, in display order.
+    static let all: [ExperimentalSwitch] = []
+}
+
 /// Typr switches, stored in the App Group so the keyboard reads them too.
 /// Each switch documents its default. Dictation log deliberately retains saved history while off;
 /// other switches keep upstream's behavior when off.
@@ -89,6 +106,12 @@ struct TyprSettings {
                 defaults?.removeObject(forKey: Key.preferredSpeechEngine)
             }
         }
+    }
+
+    /// Read in the keyboard, written by Settings > Experimental.
+    subscript(experiment experiment: ExperimentalSwitch) -> Bool {
+        get { defaults?.bool(forKey: experiment.key) ?? false }
+        nonmutating set { defaults?.set(newValue, forKey: experiment.key) }
     }
 
     /// The full keyboard without its suggestion bar: the keys move up and the keyboard gets

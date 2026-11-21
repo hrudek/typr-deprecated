@@ -17,6 +17,7 @@ final class SettingsPresentationTests: XCTestCase {
             (.speechEngine, "Speech engine", "settings-speech-engine"),
             (.style, "Style", "settings-style"),
             (.language, "Language", "settings-language"),
+            (.experimental, "Experimental", "settings-experimental"),
         ]
         XCTAssertEqual(pages.map(\.0), SettingsDestination.allCases)
         for (destination, title, scene) in pages {
