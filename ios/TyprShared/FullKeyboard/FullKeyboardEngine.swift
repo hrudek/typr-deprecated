@@ -60,6 +60,7 @@ final class FullKeyboardEngine {
         var key: KeyboardKey
         var startPoint: CGPoint
         var point: CGPoint
+        var startTime: TimeInterval
         /// Captured geometry; layout changes and key-to-key slides make evidence ambiguous.
         var evidenceLayout: KeyboardLayout
         var hasUnambiguousPoint = true
@@ -67,7 +68,7 @@ final class FullKeyboardEngine {
         var committed: Bool
         /// The page a 123/ABC press came from; releasing over a character returns there.
         var returnLayer: KeyboardLayer?
-        /// True once a spacebar press crosses `trackpadActivationDistance`.
+        /// True once a spacebar press older than `trackpadDelay` crosses `trackpadActivationDistance`.
         var isTrackpad = false
         var trackpadAnchorX: CGFloat = 0
         /// Samples of a letter press that may still become a swipe; nil once it cannot.
@@ -89,6 +90,9 @@ final class FullKeyboardEngine {
     static let accentSlop: CGFloat = 10
     static let nextKeyboardHoldDelay: TimeInterval = 0.5
     static let trackpadActivationDistance: CGFloat = 10
+    /// A space press slides the cursor only from this age on; a quicker tap that drifted is still a
+    /// space, as on Apple's (its trackpad starts 330 to 365 ms after touch-down; Hex #2233).
+    static let trackpadDelay: TimeInterval = 0.35
     static let trackpadPointsPerCharacter: CGFloat = 7.5
     /// A letter press becomes a swipe after travelling this many letter widths (iikb: 0.8):
     /// beyond a slipped tap, short of a deliberate slide.
@@ -594,6 +598,7 @@ final class FullKeyboardEngine {
             key: key,
             startPoint: point,
             point: point,
+            startTime: clock(),
             evidenceLayout: layout,
             committed: false,
             returnLayer: nil
@@ -671,9 +676,10 @@ final class FullKeyboardEngine {
             return
         }
 
-        // 2. Spacebar cursor trackpad: horizontal drag >= 10 pt slides the text caret.
+        // 2. Spacebar cursor trackpad: a press held `trackpadDelay` and dragged >= 10 pt slides the caret.
         if touch.key.kind == .space, !touch.committed {
-            if !touch.isTrackpad, abs(point.x - touch.startPoint.x) >= Self.trackpadActivationDistance {
+            if !touch.isTrackpad, clock() - touch.startTime >= Self.trackpadDelay,
+               abs(point.x - touch.startPoint.x) >= Self.trackpadActivationDistance {
                 discardTouchEvidence()
                 endTypingLogWord("cursor")
                 touch.isTrackpad = true

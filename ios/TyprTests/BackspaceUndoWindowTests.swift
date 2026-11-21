@@ -149,6 +149,7 @@ final class BackspaceUndoWindowTests: XCTestCase {
         autocorrect()
         let space = engine.layout.key(.space)!.frame
         engine.touchBegan(id: 1, at: CGPoint(x: space.midX, y: space.midY))
+        now += FullKeyboardEngine.trackpadDelay + 0.1
         engine.touchMoved(id: 1, to: CGPoint(x: space.midX - 40, y: space.midY))
         XCTAssertFalse(engine.deleteUndoes)
     }
