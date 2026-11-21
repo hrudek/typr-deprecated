@@ -703,11 +703,18 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
             add(kind, row: spaceRow, x: x, w: w, label: label)
             x += w + m.gap
         }
-        let trailingWidth = trailing.reduce(0) { $0 + $1.1 } + CGFloat(trailing.count) * m.gap
+        let rightKeysStart = drawn.filter { $0.1 < spaceRow && $0.2.minX >= width / 2 }.map { $0.2.minX }.min() ?? 0
+        let trailingNatural = trailing.reduce(0) { $0 + $1.1 }
+        var trailingScale: CGFloat = 1
         if m.splitGap > 0 {
-            let pitch = lw + m.gap
+            let room = right - rightKeysStart - CGFloat(trailing.count) * m.gap - lw
+            trailingScale = min(1, max(0, room) / trailingNatural)
+            trailing = trailing.map { ($0.0, $0.1 * trailingScale, $0.2) }
+        }
+        let trailingWidth = trailingNatural * trailingScale + CGFloat(trailing.count) * m.gap
+        if m.splitGap > 0 {
             let rightSpaceEnd = right - trailingWidth
-            let rightSpaceStart = min(left + 5 * pitch + m.splitGap, rightSpaceEnd - lw)
+            let rightSpaceStart = rightKeysStart
             add(.space, row: spaceRow, x: x, w: leftKeysEnd - x, label: "space")
             add(.space, row: spaceRow, x: rightSpaceStart, w: rightSpaceEnd - rightSpaceStart, label: "space")
             x = rightSpaceEnd + m.gap
