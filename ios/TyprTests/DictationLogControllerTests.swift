@@ -146,8 +146,8 @@ final class DictationLogControllerTests: XCTestCase {
         XCTAssertNotNil(entry.modelMilliseconds)
         XCTAssertNotNil(entry.cleanupMilliseconds)
         XCTAssertNotNil(entry.stopToFinalMilliseconds)
-        XCTAssertEqual(entry.promptRevision, "hex-ios-536cffef")
-        XCTAssertEqual(entry.guardRevision, "hex-ios-536cffef")
+        XCTAssertEqual(entry.promptRevision, CleanupGuard.revision)
+        XCTAssertEqual(entry.guardRevision, CleanupGuard.revision)
         try await f.dispose()
     }
 

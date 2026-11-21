@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated enum CleanupGuard {
-    static let revision = "hex-ios-536cffef"
+    static let revision = "hex-ios-6f0b20c1-de"
 
     static func wordCount(_ text: String) -> Int {
         var count = 0
@@ -20,29 +20,267 @@ nonisolated enum CleanupGuard {
         "needn't", "neednt", "ain't", "aint",
     ]
 
-    static func isAcceptable(original: String, cleaned: String) -> Bool {
+    private static let people: Set<String> = [
+        "i", "me", "my", "mine", "myself", "you", "your", "yours", "yourself",
+        "we", "us", "our", "ours",
+        "i'm", "i've", "i'll", "i'd",
+        "you're", "you've", "you'll", "you'd",
+        "we're", "we've", "we'll", "we'd",
+        "ich", "mich", "mir", "mein", "meine", "meinen", "meinem", "meiner", "meines",
+        "du", "dich", "dir", "dein", "deine", "deinen", "deinem", "deiner", "deines",
+        "wir", "uns", "unser", "unsere", "unseren", "unserem", "unserer", "unseres",
+        "euch", "euer", "eure", "euren", "eurem", "eurer", "eures",
+    ]
+
+    private static let replyOpeners: Set<String> = [
+        "yes", "yeah", "yep", "no", "nope", "sure", "okay", "ok", "certainly",
+        "absolutely", "here", "here's", "sorry",
+        "ja", "jawohl", "jep", "nein", "nee", "klar", "sicher", "gern", "gerne",
+        "natürlich", "selbstverständlich", "hier", "entschuldigung",
+    ]
+
+    private static let preamblePhrases = [
+        "here's the", "here is the", "cleaned transcript", "cleaned text",
+        "hier ist der ", "hier ist die ", "hier ist das ", "hier ist dein",
+        "bereinigte text", "bereinigter text", "bereinigte transkript", "bereinigtes transkript",
+        "korrigierte text", "korrigierter text",
+    ]
+
+    static func rejection(original: String, cleaned: String) -> String? {
         let originalText = original.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanedText = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !originalText.isEmpty, !cleanedText.isEmpty else { return false }
+        guard !originalText.isEmpty, !cleanedText.isEmpty else {
+            return "the cleaned text is empty"
+        }
 
-        guard cleanedText.count <= originalText.count * 3 / 2 + 16 else { return false }
-        guard digits(in: originalText) == digits(in: cleanedText) else { return false }
+        guard cleanedText.count <= originalText.count * 3 / 2 + 16 else {
+            return "the cleaned text is much longer than the transcript"
+        }
+        guard digits(in: originalText) == digits(in: cleanedText) else {
+            return "a number changed"
+        }
 
-        let originalWords = words(in: originalText)
-        let cleanedWords = words(in: cleanedText)
-        guard !originalWords.isEmpty, !cleanedWords.isEmpty else { return false }
-        guard cleanedWords.count <= originalWords.count * 2 + 4 else { return false }
+        let originalHeard = words(in: originalText)
+        let cleanedHeard = words(in: cleanedText)
+        guard !originalHeard.isEmpty, !cleanedHeard.isEmpty else {
+            return "the cleaned text is empty"
+        }
 
         guard negationCounts(in: originalText) == negationCounts(in: cleanedText) else {
-            return false
+            return "a negation was added or dropped"
+        }
+
+        let originalWords = expandedWords(originalHeard)
+        let cleanedWords = expandedWords(cleanedHeard)
+        guard cleanedWords.count <= originalWords.count * 2 + 4 else {
+            return "the cleaned text has many more words than the transcript"
+        }
+
+        let addedWords = addedWordCount(originalWords, cleanedWords)
+        guard addedWords <= droppedWordCount(originalWords, cleanedWords),
+              addedWords <= addedWordBudget(originalWords.count) else {
+            return "the cleaned text added words the speaker did not say"
+        }
+
+        let originalPeople = personCounts(in: originalWords)
+        let cleanedPeople = personCounts(in: cleanedWords)
+        guard !cleanedPeople.contains(where: {
+            $0.value > originalPeople[$0.key, default: 0]
+        }) else {
+            return "the cleaned text changed who is speaking"
+        }
+
+        let hearFix = hearBecameHere(originalWords, cleanedWords)
+        if let cleanedOpener = replyOpener(in: cleanedWords),
+           replyOpener(in: originalWords, skippingFillers: true) != cleanedOpener,
+           !(cleanedOpener == "here" && hearFix) {
+            return "the cleaned text starts with a reply"
+        }
+
+        guard !hasPreamble(original: originalText, cleaned: cleanedText, hearFix: hearFix) else {
+            return "the cleaned text starts with a preamble"
         }
 
         let shared = sharedWordCount(originalWords, cleanedWords)
-        guard Double(shared) / Double(cleanedWords.count) >= 0.5 else { return false }
-        if !(originalWords.count <= 6 && cleanedWords.count <= 3) {
-            guard Double(shared) / Double(originalWords.count) >= 0.5 else { return false }
+        guard Double(shared) / Double(cleanedWords.count) >= 0.5 else {
+            return "the cleaned text is about something else"
         }
-        return true
+        if !(originalWords.count <= 6 && cleanedWords.count <= 3),
+           Double(shared) / Double(originalWords.count) < 0.5,
+           !(addedWords == 0 && keepsSelfCorrectionTail(originalWords, cleanedWords)) {
+            return "the cleaned text dropped most of the transcript"
+        }
+        return nil
+    }
+
+    static func isAcceptable(original: String, cleaned: String) -> Bool {
+        rejection(original: original, cleaned: cleaned) == nil
+    }
+
+    private static func addedWordBudget(_ originalWords: Int) -> Int {
+        max(2, originalWords / 4)
+    }
+
+    private static func expandedWords(_ words: [String]) -> [String] {
+        var expanded: [String] = []
+        for word in words {
+            if let expansion = contractionExpansions[word] {
+                expanded.append(contentsOf: expansion)
+            } else {
+                expanded.append(word)
+            }
+        }
+        return expanded
+    }
+
+    private static let contractionExpansions: [String: [String]] = [
+        "i'm": ["i", "am"],
+        "i've": ["i", "have"],
+        "i'll": ["i", "will"],
+        "i'd": ["i", "would"],
+        "you're": ["you", "are"],
+        "you've": ["you", "have"],
+        "you'll": ["you", "will"],
+        "you'd": ["you", "would"],
+        "we're": ["we", "are"],
+        "we've": ["we", "have"],
+        "we'll": ["we", "will"],
+        "we'd": ["we", "would"],
+        "gibt's": ["gibt", "es"], "gibts": ["gibt", "es"],
+        "geht's": ["geht", "es"], "gehts": ["geht", "es"],
+        "hab's": ["hab", "es"], "hat's": ["hat", "es"], "ist's": ["ist", "es"],
+        "war's": ["war", "es"], "wär's": ["wär", "es"], "wie's": ["wie", "es"],
+        "kann's": ["kann", "es"], "mach's": ["mach", "es"], "sag's": ["sag", "es"],
+    ]
+
+    private static func addedWordCount(_ original: [String], _ cleaned: [String]) -> Int {
+        let originalSet = Set(original)
+        return cleaned.filter { !originalSet.contains($0) }.count
+    }
+
+    private static func droppedWordCount(_ original: [String], _ cleaned: [String]) -> Int {
+        let cleanedSet = Set(cleaned)
+        return original.filter { !cleanedSet.contains($0) }.count
+    }
+
+    private static let selfCorrections: [[String]] = [
+        ["no", "wait"],
+        ["wait"],
+        ["i", "mean"],
+        ["actually"],
+        ["scratch", "that"],
+        ["sorry"],
+        ["rather"],
+        ["nein", "warte"],
+        ["warte"],
+        ["ich", "meine"],
+        ["ich", "meinte"],
+        ["eigentlich"],
+        ["streich", "das"],
+        ["vergiss", "das"],
+        ["korrektur"],
+        ["quatsch"],
+        ["beziehungsweise"],
+    ]
+
+    private static func keepsSelfCorrectionTail(_ original: [String], _ cleaned: [String]) -> Bool {
+        var last: (end: Int, start: Int)?
+        for start in original.indices {
+            for marker in selfCorrections where start + marker.count <= original.count {
+                if original[start..<(start + marker.count)].elementsEqual(marker) {
+                    let end = start + marker.count
+                    if let current = last {
+                        if end > current.end {
+                            last = (end, start)
+                        } else if end == current.end {
+                            last = (end, min(current.start, start))
+                        }
+                    } else {
+                        last = (end, start)
+                    }
+                }
+            }
+        }
+        guard let last else { return false }
+        let tail = Array(original[last.end...])
+        guard !tail.isEmpty else { return false }
+        for k in 0...last.start {
+            guard last.start - k <= tail.count + 2 else { continue }
+            guard cleaned.count == k + tail.count else { continue }
+            if cleaned.prefix(k).elementsEqual(original.prefix(k)),
+               cleaned.suffix(tail.count).elementsEqual(tail) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func personCounts(in words: [String]) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for word in words where people.contains(word) {
+            counts[word, default: 0] += 1
+        }
+        return counts
+    }
+
+    private static func replyOpener(in words: [String], skippingFillers: Bool = false) -> String? {
+        var index = 0
+        if skippingFillers {
+            while index < words.count, fillers.contains(words[index]) {
+                index += 1
+            }
+        }
+        guard index < words.count else { return nil }
+        let first = words[index]
+        if first == "of", index + 1 < words.count, words[index + 1] == "course" {
+            return "of course"
+        }
+        guard replyOpeners.contains(first) else { return nil }
+        return first == "ok" ? "okay" : first
+    }
+
+    private static let fillers: Set<String> = [
+        "um", "uh", "er", "ah", "so", "well", "like",
+        "äh", "ähm", "öh", "hm", "hmm", "also", "na", "naja", "tja",
+    ]
+
+    private static func hearBecameHere(_ original: [String], _ cleaned: [String]) -> Bool {
+        original.first == "hear"
+            && original.count == cleaned.count
+            && original.dropFirst() == cleaned.dropFirst()
+    }
+
+    private static func hasPreamble(original: String, cleaned: String, hearFix: Bool) -> Bool {
+        let clause = firstClause(in: cleaned)
+        if !hasRealColon(original), hasRealColon(String(clause)) {
+            return true
+        }
+        let originalLowered = original.lowercased().replacingOccurrences(of: "’", with: "'")
+        let cleanedLowered = cleaned.lowercased().replacingOccurrences(of: "’", with: "'")
+        return preamblePhrases.contains {
+            cleanedLowered.contains($0)
+                && !originalLowered.contains($0)
+                && !(hearFix && $0 == "here is the")
+        }
+    }
+
+    private static func hasRealColon(_ text: String) -> Bool {
+        let characters = Array(text)
+        for index in characters.indices where characters[index] == ":" || characters[index] == "：" {
+            let before: Character? = index > characters.startIndex ? characters[index - 1] : nil
+            let after: Character? = index + 1 < characters.endIndex ? characters[index + 1] : nil
+            if !(before?.isNumber == true && after?.isNumber == true) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func firstClause(in text: String) -> Substring {
+        if let end = text.firstIndex(where: { ".!?;\n\r\n。！？；".contains($0) }) {
+            return text[..<end]
+        }
+        return text[...]
     }
 
     private static func digits(in text: String) -> [Character] {

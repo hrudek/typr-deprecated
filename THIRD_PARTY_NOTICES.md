@@ -679,9 +679,11 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 Typr's Apple Intelligence cleaner (`ios/Typr/TyprAppleCleaner.swift`) and its answer check
 (`ios/Typr/CleanupGuard.swift`) are taken word for word from
 [anomalyco/hex](https://github.com/anomalyco/hex) at
-`536cffef8d5e508b92e50a31a562edd43803ab22`: `AppleIntelligenceCleaner` (instructions,
-time budget, generation options) and `TranscriptCleanupGuard` in
-the iOS app's `TranscriptCleanup.swift`. MIT, © Christopher Langton, the same license as
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (last changed in Hex #2212):
+`AppleIntelligenceCleaner` (instructions, time budget, generation options) and
+`TranscriptCleanupGuard` in the iOS app's `TranscriptCleanup.swift`; Typr adds German
+entries to its word lists. `ios/TyprTests/CleanupGuardHexTests.swift` is Hex's
+`TranscriptCleanupTests.swift` guard tests from the same commit. MIT, © Christopher Langton, the same license as
 this repository ([LICENSE](LICENSE)).
 
 ## Hex iOS return key style
