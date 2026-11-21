@@ -116,11 +116,22 @@ final class NeverSuggestTests: XCTestCase {
         XCTAssertEqual(target.text, "ficke ")
     }
 
-    func testImportedWordIsOffered() {
+    func testImportedSlurIsNeverCompletedButImportedSwearWordIs() async {
         var builder = ProtectedPersonalLexicon.Builder()
+        builder.add("Schwuchtel")
         builder.add("Schlampe")
         engine.autocorrect.loadProtectedLexicon(builder.build())
-        XCTAssertTrue(engine.autocorrect.mayOffer("Schlampe", before: ""))
+        engine.autocorrect.loadLexiconEntries([("Schwuchtel", "Schwuchtel"), ("Schlampe", "Schlampe")])
+        let slur = await stripThenSpace("schw")
+        XCTAssertFalse(slur.contains("schwuchtel"))
+        let swear = await stripThenSpace("schla")
+        XCTAssertTrue(swear.contains("schlampe"))
+    }
+
+    func testTextReplacementTypedInFullStillExpands() async {
+        engine.autocorrect.loadLexiconEntries([("sw", "Schwuchtel")])
+        _ = await stripThenSpace("sw")
+        XCTAssertEqual(target.text, "Schwuchtel ")
         XCTAssertFalse(engine.autocorrect.mayOffer("Schwuchtel", before: ""))
     }
 

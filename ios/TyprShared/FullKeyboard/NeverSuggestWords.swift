@@ -17,13 +17,13 @@ nonisolated enum NeverSuggestWords {
 
     /// Whether `candidate` may not be offered: one of its words (split at spaces and hyphens),
     /// or a two-word expression it forms, also with `previous`, the word before it, is a slur
-    /// or a swear word, unless `allowsSwearing` or `isLearned` knows it.
+    /// or a swear word, unless `allowsSwearing` or `isYours` knows it.
     static func blocks(_ candidate: String, after previous: String?, allowsSwearing: Bool,
-                       isLearned: (String) -> Bool) -> Bool {
+                       isYours: (String) -> Bool) -> Bool {
         func blocked(_ text: String) -> Bool {
             switch kind(of: text) {
             case .slur: true
-            case .swear: !allowsSwearing && !isLearned(text)
+            case .swear: !allowsSwearing && !isYours(text)
             case nil: false
             }
         }

@@ -217,17 +217,18 @@ final class AutocorrectEngine {
     private(set) var protectedLexicon: ProtectedPersonalLexicon = .empty
 
     /// Whether `candidate` may be suggested, autocorrected to or swiped after `beforeInput`:
-    /// never a slur, a swear word only with `allowsSwearing` or once Typr learned it (kept or
-    /// typed twice). Your imported words and text replacements are always offered.
+    /// never a slur, a swear word only with `allowsSwearing`, once Typr learned it (kept or typed
+    /// twice) or when it is one of your imported words or text replacements.
     func mayOffer(_ candidate: String, before beforeInput: String?) -> Bool {
         mayOffer(candidate, after: Self.lastWord(of: RejectedCorrection.context(before: beforeInput, token: "")))
     }
 
     private func mayOffer(_ candidate: String, after previous: String?) -> Bool {
-        guard NeverSuggestWords.blocks(candidate, after: previous, allowsSwearing: allowsSwearing,
-                                       isLearned: learning.protections.knows) else { return true }
-        return protectedLexicon.contains(candidate) || lexiconTermKeys.contains(candidate.lowercased())
-            || lexiconShortcuts.values.contains { $0.caseInsensitiveCompare(candidate) == .orderedSame }
+        !NeverSuggestWords.blocks(candidate, after: previous, allowsSwearing: allowsSwearing) { word in
+            learning.protections.knows(word) || protectedLexicon.contains(word)
+                || lexiconTermKeys.contains(word.lowercased())
+                || lexiconShortcuts.values.contains { $0.lowercased() == word.lowercased() }
+        }
     }
 
     private func mayReplace(_ token: String, with candidate: String) -> Bool {
