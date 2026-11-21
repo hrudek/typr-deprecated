@@ -683,3 +683,13 @@ Typr's Apple Intelligence cleaner (`ios/Typr/TyprAppleCleaner.swift`) and its an
 time budget, generation options) and `TranscriptCleanupGuard` in
 the iOS app's `TranscriptCleanup.swift`. MIT, © Christopher Langton, the same license as
 this repository ([LICENSE](LICENSE)).
+
+## Hex iOS return key style
+
+The return key's symbol, blue action style, off state and accessibility label per
+`UIReturnKeyType` (`ios/TyprShared/FullKeyboard/ReturnKeyStyle.swift`, the off-key colours
+in `FullKeyboardPalette.swift` and the dictation bar's return key in `KeyboardSurface.swift`)
+are adapted from [anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2200: `ReturnKeyStyle.swift` and its use in
+`FullKeyboardView.swift`, `KeyboardKeyPlaneView.swift` and `KeyboardSurface.swift`).
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
