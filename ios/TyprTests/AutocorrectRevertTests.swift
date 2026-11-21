@@ -119,6 +119,22 @@ final class AutocorrectRevertTests: XCTestCase {
         XCTAssertFalse(older.contains { $0.kind == .revert })
     }
 
+    func testAReplacementEndingInPunctuationIsRevertedLikeAWord() async throws {
+        engine.autocorrect.loadLexiconEntries([(userInput: "mfg", documentText: "Mit freundlichen Grüßen!")])
+        type("mfg ")
+        XCTAssertEqual(target.text, "Mit freundlichen Grüßen! ")
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "Mit freundlichen Grüßen!")
+        let chips = await strip()
+        let revert = try XCTUnwrap(chips.first)
+        XCTAssertEqual(revert.kind, .revert)
+        XCTAssertEqual(revert.replacement, "mfg")
+        engine.acceptSuggestion(revert)
+        XCTAssertEqual(target.text, "mfg")
+        type(" ")
+        XCTAssertEqual(target.text, "mfg ")
+    }
+
     func testANewFieldForgetsTheOffer() async {
         type("nciht ")
         engine.configureForField()

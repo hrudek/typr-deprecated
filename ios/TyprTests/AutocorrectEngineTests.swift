@@ -170,18 +170,15 @@ final class AutocorrectEngineTests: XCTestCase {
         XCTAssertEqual(engine.suggestions[1].replacement, "the")
         XCTAssertTrue(engine.suggestions[1].willAutoReplace)
 
-        // 1. Space applies cautious autocorrect (`teh` -> `the `).
         tap(.space)
         XCTAssertEqual(target.text, "the ")
 
         engine.deleteAndRevert()
         XCTAssertEqual(target.text, "teh")
 
-        // 2. Pressing Space again keeps `teh ` untouched!
         tap(.space)
         XCTAssertEqual(target.text, "teh ")
 
-        // 3. A literal chip keeps the protection and records an independent trusted choice.
         typeWord("teh")
         engine.acceptSuggestion(engine.suggestions[0])
         XCTAssertEqual(target.text, "teh teh ")

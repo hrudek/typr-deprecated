@@ -841,7 +841,7 @@ final class FullKeyboardEngine {
     private func offeringRevert(_ next: [KeyboardSuggestion],
                                 ownership: KeyboardSuggestionOwnership?) -> [KeyboardSuggestion] {
         let others = next.filter { $0.kind != .revert }
-        guard let ownership, ownership.token != nil, ownership.permitsCorrection,
+        guard let ownership, ownership.permitsCorrection,
               showsStrip, field == .text,
               let offer = autocorrect.revertOffer(before: target.documentContextBeforeInput) else { return others }
         let original = offer.correction.original
