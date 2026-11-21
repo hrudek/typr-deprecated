@@ -4,6 +4,11 @@ import XCTest
 
 @MainActor
 final class DictationAudioSessionTests: XCTestCase {
+    private static let iPhone = Microphone(uid: "Built-In Microphone", port: .builtInMic)
+    private static let car = Microphone(uid: "CarPlay", port: .carAudio)
+    private static let airPods = Microphone(uid: "AirPods", port: .bluetoothHFP)
+    private static let wired = Microphone(uid: "Wired Headset", port: .headsetMic)
+
     @MainActor
     private final class SessionSpy {
         var categories: [AVAudioSession.Category] = []
@@ -12,6 +17,8 @@ final class DictationAudioSessionTests: XCTestCase {
         var activations: [Bool] = []
         var activationOptions: [AVAudioSession.SetActiveOptions] = []
         var sampleRates: [Double] = []
+        var preferredInputs: [Microphone?] = []
+        var inputs: [Microphone] = [DictationAudioSessionTests.iPhone]
         var failCategory = false
 
         func makeSession() -> DictationAudioSession {
@@ -25,6 +32,10 @@ final class DictationAudioSessionTests: XCTestCase {
             }, setActive: { active, options in
                 self.activations.append(active)
                 self.activationOptions.append(options)
+            }, availableInputs: {
+                self.inputs
+            }, setPreferredInput: {
+                self.preferredInputs.append($0)
             })
         }
     }
@@ -32,7 +43,7 @@ final class DictationAudioSessionTests: XCTestCase {
     func testActivationUsesProvenInputOnlyMeasurementSession() throws {
         let spy = SessionSpy()
         let session = spy.makeSession()
-        try session.activate(allowBluetooth: false)
+        try session.activate(microphone: .automatic)
         XCTAssertEqual(spy.categories, [.record])
         XCTAssertEqual(spy.modes, [.measurement])
         XCTAssertEqual(spy.options, [[]])
@@ -41,22 +52,33 @@ final class DictationAudioSessionTests: XCTestCase {
         XCTAssertEqual(spy.activationOptions, [[]])
     }
 
-    func testBluetoothIsTheOnlyOptionalCategoryFlag() throws {
+    func testOnlyBluetoothAllowsHandsFreeInputs() throws {
+        for choice in MicrophoneChoice.allCases {
+            let spy = SessionSpy()
+            try spy.makeSession().activate(microphone: choice)
+            XCTAssertEqual(spy.options, [choice == .bluetooth ? [.allowBluetoothHFP] : []], "\(choice)")
+        }
+    }
+
+    func testActivationAlwaysSetsTheChoicesInput() throws {
         let spy = SessionSpy()
+        spy.inputs = [Self.iPhone, Self.car]
         let session = spy.makeSession()
-        try session.activate(allowBluetooth: true)
-        XCTAssertEqual(spy.categories, [.record])
-        XCTAssertEqual(spy.options, [[.allowBluetoothHFP]])
+        XCTAssertEqual(try session.activate(microphone: .automatic), Self.car)
+        XCTAssertEqual(try session.activate(microphone: .iPhone), Self.iPhone)
+        spy.inputs = []
+        XCTAssertNil(try session.activate(microphone: .automatic))
+        XCTAssertEqual(spy.preferredInputs, [Self.car, Self.iPhone, nil], "an earlier preference never sticks")
     }
 
     func testReleaseNotifiesInterruptedAppsBeforeNextActivation() throws {
         let spy = SessionSpy()
         let session = spy.makeSession()
-        try session.activate(allowBluetooth: false)
+        try session.activate(microphone: .automatic)
         session.deactivate()
         XCTAssertEqual(spy.activations, [true, false])
         XCTAssertEqual(spy.activationOptions.last, .notifyOthersOnDeactivation)
-        try session.activate(allowBluetooth: false)
+        try session.activate(microphone: .automatic)
         XCTAssertEqual(spy.activations, [true, false, true])
         XCTAssertEqual(spy.options, [[], []])
     }
@@ -65,7 +87,23 @@ final class DictationAudioSessionTests: XCTestCase {
         let spy = SessionSpy()
         let session = spy.makeSession()
         spy.failCategory = true
-        XCTAssertThrowsError(try session.activate(allowBluetooth: false))
+        XCTAssertThrowsError(try session.activate(microphone: .automatic))
         XCTAssertTrue(spy.activations.isEmpty)
+        XCTAssertTrue(spy.preferredInputs.isEmpty)
+    }
+
+    func testEachChoicePicksItsInputOnEachRoute() {
+        let routes: [(String, [Microphone], [MicrophoneChoice: Microphone])] = [
+            ("iPhone only", [Self.iPhone], [.automatic: Self.iPhone, .iPhone: Self.iPhone, .bluetooth: Self.iPhone]),
+            ("CarPlay", [Self.iPhone, Self.car], [.automatic: Self.car, .iPhone: Self.iPhone, .bluetooth: Self.car]),
+            ("AirPods", [Self.iPhone, Self.airPods], [.automatic: Self.iPhone, .iPhone: Self.iPhone, .bluetooth: Self.airPods]),
+            ("wired headset", [Self.iPhone, Self.wired], [.automatic: Self.wired, .iPhone: Self.iPhone, .bluetooth: Self.wired]),
+        ]
+        for (name, inputs, expected) in routes {
+            for choice in MicrophoneChoice.allCases {
+                XCTAssertEqual(MicrophoneRoute.input(for: choice, from: inputs), expected[choice], "\(choice) on \(name)")
+            }
+        }
+        XCTAssertNil(MicrophoneRoute.input(for: .iPhone, from: [Self.car]))
     }
 }

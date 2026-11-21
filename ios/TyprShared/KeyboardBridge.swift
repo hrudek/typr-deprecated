@@ -42,6 +42,33 @@ nonisolated enum WarmSessionDuration: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Settings › Microphone: which input dictation records from while a car, headset or
+/// headphones are connected.
+nonisolated enum MicrophoneChoice: String, CaseIterable, Sendable {
+    /// A wired or USB headset's microphone, the car's in CarPlay, otherwise the iPhone's.
+    case automatic
+    case iPhone
+    /// Bluetooth hands-free microphones too (AirPods, Bluetooth car kits), which switch the
+    /// device to call audio while Typr holds the microphone.
+    case bluetooth
+
+    var label: String {
+        switch self {
+        case .automatic: "Automatic"
+        case .iPhone: "iPhone"
+        case .bluetooth: "Bluetooth"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .automatic: "Car mic in CarPlay, else iPhone mic"
+        case .iPhone: "Always the iPhone mic"
+        case .bluetooth: "AirPods and car mics, in call quality"
+        }
+    }
+}
+
 nonisolated enum KeyboardCommandKind: String, Codable, Sendable {
     case start
     case stop
@@ -306,7 +333,7 @@ struct KeyboardBridge {
         static let snapshot = "keyboard.snapshot"
         static let warmDuration = "settings.warmDuration"
         static let style = "settings.dictationStyle"
-        static let allowBluetoothMic = "settings.allowBluetoothMic"
+        static let microphone = "settings.microphone"
         static let feedbackJobs = "keyboard.feedbackJobs"
         static let lastInsertedResultID = "keyboard.lastInsertedResultID"
         static let fullAccessSeenAt = "keyboard.fullAccessSeenAt"
@@ -393,12 +420,12 @@ struct KeyboardBridge {
         }
     }
 
-    var allowBluetoothMic: Bool {
+    var microphone: MicrophoneChoice {
         get {
-            defaults?.bool(forKey: Key.allowBluetoothMic) ?? false
+            defaults?.string(forKey: Key.microphone).flatMap(MicrophoneChoice.init(rawValue:)) ?? .automatic
         }
         nonmutating set {
-            defaults?.set(newValue, forKey: Key.allowBluetoothMic)
+            defaults?.set(newValue.rawValue, forKey: Key.microphone)
         }
     }
 
