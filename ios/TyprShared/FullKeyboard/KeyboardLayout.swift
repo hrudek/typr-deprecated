@@ -6,7 +6,6 @@ nonisolated enum KeyboardLayer: Equatable, Hashable, Sendable {
     case symbols
 }
 
-/// The kind of text field, as far as the key rows care.
 /// Stored raw values must never change.
 nonisolated enum KeyboardLetterLayout: String, CaseIterable, Codable, Sendable {
     case qwerty
@@ -34,6 +33,7 @@ nonisolated enum KeyboardLetterLayout: String, CaseIterable, Codable, Sendable {
     }
 }
 
+/// The kind of text field, as far as the key rows care.
 nonisolated enum KeyboardFieldKind: Equatable, Sendable {
     case text
     /// Adds `.` and `/` right of space.

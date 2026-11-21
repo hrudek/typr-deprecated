@@ -95,6 +95,16 @@ final class KeyboardLetterLayoutTests: XCTestCase {
         XCTAssertLessThan(onQwertz, onQwerty)
     }
 
+    func testSpaceBoundaryRepairUsesTheDrawnBottomRow() {
+        let qwerty = KeyboardBoundaryTouch.adjacentLetters(in: KeyboardLayout(width: 393))
+        let qwertz = KeyboardBoundaryTouch.adjacentLetters(in: KeyboardLayout(width: 393, letters: .qwertz))
+        let dvorak = KeyboardBoundaryTouch.adjacentLetters(in: KeyboardLayout(width: 393, letters: .dvorak))
+        XCTAssertFalse(qwerty.isEmpty)
+        XCTAssertEqual(qwertz.map(\.frame), qwerty.map(\.frame))
+        XCTAssertFalse(dvorak.isEmpty)
+        XCTAssertTrue(dvorak.allSatisfy { "kxbmwvz".contains($0.character!) })
+    }
+
     func testLearnedTouchesAndTypingLogsKeepTheLayout() throws {
         let qwerty = KeyboardLayoutSignature(KeyboardLayout(width: 393))
         let qwertz = KeyboardLayoutSignature(KeyboardLayout(width: 393, letters: .qwertz))
