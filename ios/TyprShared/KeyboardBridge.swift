@@ -42,10 +42,7 @@ nonisolated enum WarmSessionDuration: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// Settings › Microphone: which input dictation records from while a car, headset or
-/// headphones are connected.
 nonisolated enum MicrophoneChoice: String, CaseIterable, Sendable {
-    /// A wired or USB headset's microphone, the car's in CarPlay, otherwise the iPhone's.
     case automatic
     case iPhone
     /// Bluetooth hands-free microphones too (AirPods, Bluetooth car kits), which switch the

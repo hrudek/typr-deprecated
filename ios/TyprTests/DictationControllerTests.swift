@@ -43,7 +43,6 @@ private final class FakeAudioManager: AudioManaging {
     var createdCaptures: [FakeAudioCapture] = []
     var keepaliveMicrophones: [MicrophoneChoice] = []
     var captureMicrophones: [MicrophoneChoice] = []
-    /// A car or headset connected that the running keepalive's choice would now record from.
     var keepaliveInputIsStale = false
 
     var onSystemEvent: ((AudioSystemEvent) -> Void)?

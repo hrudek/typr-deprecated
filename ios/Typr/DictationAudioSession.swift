@@ -46,14 +46,11 @@ final class DictationAudioSession {
         self.currentInput = currentInput
     }
 
-    /// The input `choice` records from on the current route.
     func input(for choice: MicrophoneChoice) -> Microphone? {
         MicrophoneRoute.input(for: choice, from: availableInputs())
     }
 
-    /// Always sets the input, so a preference from an earlier choice or route never sticks.
-    /// Returns the input the route records from, which is iOS's choice when it refuses the
-    /// preference: recording from another microphone beats not recording.
+    /// Returns the input the route records from: iOS keeps its own when it refuses the preference.
     @discardableResult
     func activate(microphone: MicrophoneChoice) throws -> Microphone? {
         try setCategory(.record, .measurement, MicrophoneRoute.categoryOptions(for: microphone))

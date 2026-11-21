@@ -157,8 +157,6 @@ final class DictationController {
     @ObservationIgnored private var interruptionResumeTask: Task<Void, Never>?
     /// Between `.interruptionBegan` and `.interruptionEnded`, independent of a pending resume.
     private var interruptionInProgress = false
-    /// An interruption (a phone call) hit this warm session: it keeps off Bluetooth hands-free
-    /// microphones until it ends, so it never takes or holds the call's route after the call.
     private var warmSessionInterrupted = false
     private let audioRetryDelays: [Duration]
     /// Set when a transcription failed in a way that may come from the engine itself. Other
@@ -1713,8 +1711,6 @@ final class DictationController {
             }
 
         case .routeNewDeviceAvailable:
-            // A car or headset that just connected can change the choice's input. Not while a
-            // call holds the microphone: `.interruptionEnded` resumes the session.
             if keyboardSessionEnabled && phase == .ready && !suspendedWarmSessionOnInterruption
                 && !audio.keepaliveFollows(idleMicrophone) {
                 do { try startWarmInput() }
