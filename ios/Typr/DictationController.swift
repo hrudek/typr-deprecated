@@ -157,6 +157,7 @@ final class DictationController {
     @ObservationIgnored private var interruptionResumeTask: Task<Void, Never>?
     /// Between `.interruptionBegan` and `.interruptionEnded`, independent of a pending resume.
     private var interruptionInProgress = false
+    private var warmSessionInterrupted = false
     private let audioRetryDelays: [Duration]
     /// Set when a transcription failed in a way that may come from the engine itself. Other
     /// failures (microphone, silence) keep the prepared model for the next dictation.
@@ -181,7 +182,9 @@ final class DictationController {
         }
     }
     private(set) var copied = false
-    private(set) var keyboardSessionEnabled = false
+    private(set) var keyboardSessionEnabled = false {
+        didSet { if !keyboardSessionEnabled { warmSessionInterrupted = false } }
+    }
     @ObservationIgnored private var rawKeyboardSessionRemaining: TimeInterval = 0
     private(set) var keyboardSessionDisplayRemaining = "0:00"
     private(set) var keyboardSessionRemaining: TimeInterval {
@@ -198,7 +201,7 @@ final class DictationController {
     @ObservationIgnored private var lastPublishedSnapshotAt: TimeInterval = -100
     private(set) var warmDuration: WarmSessionDuration
     private(set) var style: DictationStyle
-    private(set) var allowBluetoothMic: Bool
+    private(set) var microphone: MicrophoneChoice
     private(set) var autoReturnState: AutoReturnState = .idle
     private(set) var handoffNotice: String?
     private(set) var engineName = "Local speech"
@@ -271,7 +274,7 @@ final class DictationController {
         self.now = now
         self.warmDuration = resolvedBridge.warmDuration
         self.style = resolvedBridge.style
-        self.allowBluetoothMic = resolvedBridge.allowBluetoothMic
+        self.microphone = resolvedBridge.microphone
         self.hostReturner = hostReturner ?? .live
 
         let hasCachedModel = ParakeetTranscriber.hasCachedModel
@@ -502,10 +505,10 @@ final class DictationController {
         return .selected
     }
 
-    func setAllowBluetoothMic(_ allow: Bool) {
-        guard allowBluetoothMic != allow else { return }
-        allowBluetoothMic = allow
-        keyboardBridge.allowBluetoothMic = allow
+    func setMicrophone(_ choice: MicrophoneChoice) {
+        guard microphone != choice else { return }
+        microphone = choice
+        keyboardBridge.microphone = choice
         if keyboardSessionEnabled, phase == .ready {
             do { try startWarmInput() }
             catch { endWarmSession() }
@@ -878,7 +881,15 @@ final class DictationController {
     /// Never seize the microphone just to keep it warm while media is playing.
     private func startWarmInput() throws {
         guard !audio.isOtherAudioPlaying else { throw CancellationError() }
-        try audio.startKeepalive(allowBluetooth: allowBluetoothMic)
+        try audio.startKeepalive(microphone: idleMicrophone)
+    }
+
+    private var captureMicrophone: MicrophoneChoice {
+        warmSessionInterrupted && microphone == .bluetooth ? .automatic : microphone
+    }
+
+    private var idleMicrophone: MicrophoneChoice {
+        languageSettings[experiment: .warmMicOnIPhone] ? .iPhone : captureMicrophone
     }
 
     private func enableWarmSessionBookkeeping() {
@@ -1118,7 +1129,7 @@ final class DictationController {
                     return try self.audio.beginCapture(
                         at: captureURL,
                         maxDuration: Self.maxCaptureDuration,
-                        allowBluetooth: self.allowBluetoothMic
+                        microphone: self.captureMicrophone
                     )
                 }
                 guard self.jobGeneration == captureGeneration else {
@@ -1401,7 +1412,7 @@ final class DictationController {
             do {
                 // The capture recorded from the keepalive input, so it is normally still
                 // running. Restarting it here would fail in the background and end the session.
-                try audio.ensureKeepalive(allowBluetooth: allowBluetoothMic)
+                try audio.ensureKeepalive(microphone: idleMicrophone)
             } catch {
                 keyboardSessionEnabled = false
                 keyboardSessionRemaining = 0
@@ -1641,6 +1652,7 @@ final class DictationController {
             interruptionResumeTask?.cancel()
             interruptionResumeTask = nil
             suspendedWarmSessionOnInterruption = keyboardSessionEnabled
+            warmSessionInterrupted = warmSessionInterrupted || keyboardSessionEnabled
             if audio.isOtherAudioPlaying {
                 if activeCapture == nil {
                     endWarmSession()
@@ -1699,7 +1711,8 @@ final class DictationController {
             }
 
         case .routeNewDeviceAvailable:
-            if keyboardSessionEnabled && phase == .ready && allowBluetoothMic {
+            if keyboardSessionEnabled && phase == .ready && !suspendedWarmSessionOnInterruption
+                && !audio.keepaliveFollows(idleMicrophone) {
                 do { try startWarmInput() }
                 catch { endWarmSession() }
                 publishKeyboardSnapshot()

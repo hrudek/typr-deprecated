@@ -26,6 +26,15 @@ An explicit engine or language choice never silently falls back to another.
   options on a running input. Later playback/interruption events are also checked
   before restarting idle input. Detection is a momentary iOS audio signal, not a
   per-app media inventory; actual resumption is controlled by the media app and iOS.
+- **Microphone** picks the input. Automatic (default) records from a wired or USB
+  headset, from the car in CarPlay, else from the iPhone; iPhone always uses the
+  iPhone's. Neither turns on Bluetooth hands-free (HFP), so headphones and car kits
+  never switch to call audio. Bluetooth also records from hands-free microphones, and
+  its warm session holds that call audio for as long as it runs, between dictations
+  too. After a phone call, a Bluetooth warm session resumes without hands-free until
+  it ends. Experimental › **Warm mic on iPhone** follows Hex: the idle warm input stays
+  on the iPhone and each dictation moves to the chosen microphone, which can end the
+  warm session while Typr is in the background.
 - Text processing combines vocabulary corrections, optional AI cleanup and
   formatting styles. Cleanup runs on-device with Apple Intelligence (iOS 26+,
   default) or, with your own Anthropic API key (stored in the Keychain), with

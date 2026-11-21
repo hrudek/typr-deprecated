@@ -29,10 +29,10 @@ private final class VocabularyAudio: AudioManaging {
     var onSystemEvent: ((AudioSystemEvent) -> Void)?
     var onUnexpectedCaptureEnd: ((URL, Bool) -> Void)?
     func requestPermission() async -> Bool { true }
-    func startKeepalive(allowBluetooth: Bool) throws { isKeepaliveRunning = true }
+    func startKeepalive(microphone: MicrophoneChoice) throws { isKeepaliveRunning = true }
     func stopKeepalive() { isKeepaliveRunning = false }
     func deactivateSession() { isKeepaliveRunning = false }
-    func beginCapture(at url: URL, maxDuration: TimeInterval, allowBluetooth: Bool) throws -> any ActiveAudioCapture {
+    func beginCapture(at url: URL, maxDuration: TimeInterval, microphone: MicrophoneChoice) throws -> any ActiveAudioCapture {
         VocabularyCapture(url: url)
     }
 }

@@ -48,12 +48,12 @@ private final class EngineAudio: AudioManaging {
         waiters.forEach { $0.resume(returning: true) }
     }
 
-    func startKeepalive(allowBluetooth: Bool) throws { isKeepaliveRunning = true }
+    func startKeepalive(microphone: MicrophoneChoice) throws { isKeepaliveRunning = true }
     func stopKeepalive() { isKeepaliveRunning = false }
     func deactivateSession() { isKeepaliveRunning = false }
 
-    func beginCapture(at url: URL, maxDuration: TimeInterval, allowBluetooth: Bool) throws -> any ActiveAudioCapture {
-        try ensureKeepalive(allowBluetooth: allowBluetooth)
+    func beginCapture(at url: URL, maxDuration: TimeInterval, microphone: MicrophoneChoice) throws -> any ActiveAudioCapture {
+        try ensureKeepalive(microphone: microphone)
         let capture = EngineCapture(url: url, duration: 1.4)
         captures.append(capture)
         return capture

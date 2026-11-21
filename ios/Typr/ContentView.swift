@@ -559,17 +559,20 @@ struct ContentView: View {
 
             rowDivider
 
-            Toggle(
-                isOn: Binding(
-                    get: { dictation.allowBluetoothMic },
-                    set: { dictation.setAllowBluetoothMic($0) }
-                )
-            ) {
-                rowTitle("Bluetooth microphone")
+            Menu {
+                Picker(
+                    "Microphone",
+                    selection: Binding(get: { dictation.microphone }, set: { dictation.setMicrophone($0) })
+                ) {
+                    ForEach(MicrophoneChoice.allCases, id: \.self) { choice in
+                        Text(choice.label).tag(choice)
+                    }
+                }
+            } label: {
+                SettingsLink(title: "Microphone", detail: dictation.microphone.detail,
+                             value: dictation.microphone.label)
             }
-            .tint(TyprTheme.success)
-            .padding(.horizontal, 16)
-            .frame(minHeight: 50)
+            .buttonStyle(.plain)
         }
         .background(
             TyprTheme.bgBase,
@@ -811,13 +814,6 @@ struct ContentView: View {
     }
 
     // MARK: - Pieces
-
-    private func rowTitle(_ text: String) -> some View {
-        Text(text)
-            .font(.body)
-            .foregroundStyle(TyprTheme.textBase)
-            .fixedSize(horizontal: false, vertical: true)
-    }
 
     private var rowDivider: some View {
         Rectangle()

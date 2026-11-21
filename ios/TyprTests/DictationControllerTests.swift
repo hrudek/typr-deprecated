@@ -41,6 +41,9 @@ private final class FakeAudioManager: AudioManaging {
     var nextCaptureIsRecording = true
     var deactivateCount = 0
     var createdCaptures: [FakeAudioCapture] = []
+    var keepaliveMicrophones: [MicrophoneChoice] = []
+    var captureMicrophones: [MicrophoneChoice] = []
+    var keepaliveInputIsStale = false
 
     var onSystemEvent: ((AudioSystemEvent) -> Void)?
     var onUnexpectedCaptureEnd: ((URL, Bool) -> Void)?
@@ -49,8 +52,9 @@ private final class FakeAudioManager: AudioManaging {
         permissionGranted
     }
 
-    func startKeepalive(allowBluetooth: Bool) throws {
+    func startKeepalive(microphone: MicrophoneChoice) throws {
         startKeepaliveCount += 1
+        keepaliveMicrophones.append(microphone)
         if busyActivationsRemaining > 0 {
             busyActivationsRemaining -= 1
             isKeepaliveRunning = false
@@ -61,8 +65,18 @@ private final class FakeAudioManager: AudioManaging {
             throw CocoaError(.coderInvalidValue)
         }
         isKeepaliveRunning = true
+        keepaliveInputIsStale = false
         // Activating input interrupts media, so subsequent queries no longer see it.
         isOtherAudioPlaying = false
+    }
+
+    func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool {
+        isKeepaliveRunning && keepaliveMicrophones.last == microphone && !keepaliveInputIsStale
+    }
+
+    func ensureKeepalive(microphone: MicrophoneChoice) throws {
+        guard !isKeepaliveRunning || keepaliveMicrophones.last != microphone else { return }
+        try startKeepalive(microphone: microphone)
     }
 
     func stopKeepalive() {
@@ -77,10 +91,11 @@ private final class FakeAudioManager: AudioManaging {
     func beginCapture(
         at url: URL,
         maxDuration: TimeInterval,
-        allowBluetooth: Bool
+        microphone: MicrophoneChoice
     ) throws -> any ActiveAudioCapture {
         // Captures record from the keepalive input, starting it when it isn't running.
-        try ensureKeepalive(allowBluetooth: allowBluetooth)
+        try ensureKeepalive(microphone: microphone)
+        captureMicrophones.append(microphone)
         if captureShouldThrow {
             throw CocoaError(.fileWriteUnknown)
         }
@@ -924,6 +939,109 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertTrue(audio.isKeepaliveRunning, "the session loop must not skip a dead input after the suspension")
     }
 
+    func testWarmInputAndCapturesFollowTheMicrophoneChoice() async throws {
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        bridge.microphone = .bluetooth
+        let controller = try await recoveryController(audio: audio, bridge: bridge, now: 28_000, retryDelays: [])
+        XCTAssertEqual(controller.microphone, .bluetooth)
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        XCTAssertEqual(audio.keepaliveMicrophones, [.bluetooth])
+
+        controller.startRecording(keyboardJobID: "bluetooth")
+        try await activationSettled(controller)
+        XCTAssertEqual(audio.captureMicrophones, [.bluetooth])
+        controller.cancelCurrentJob()
+
+        controller.setMicrophone(.iPhone)
+        XCTAssertEqual(bridge.microphone, .iPhone)
+        XCTAssertEqual(audio.keepaliveMicrophones.last, .iPhone, "the warm input moves to the new choice")
+        controller.startRecording(keyboardJobID: "iphone")
+        try await activationSettled(controller)
+        XCTAssertEqual(audio.captureMicrophones.last, .iPhone)
+        controller.cancelCurrentJob()
+    }
+
+    func testBluetoothWarmSessionStaysOffTheCallRouteAfterACall() async throws {
+        let now = 29_000.0
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        bridge.microphone = .bluetooth
+        let controller = try await recoveryController(audio: audio, bridge: bridge, now: now, retryDelays: [])
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+
+        controller.handleAudioSystemEvent(.interruptionBegan)
+        let startsBeforeResume = audio.startKeepaliveCount
+        controller.handleAudioSystemEvent(.interruptionEnded(shouldResume: true))
+        try await waitForState("resume activated the input") { audio.startKeepaliveCount == startsBeforeResume + 1 }
+        XCTAssertEqual(audio.keepaliveMicrophones.last, .automatic, "the resumed input takes no hands-free route")
+
+        audio.canStartInput = false
+        let startsAfterResume = audio.startKeepaliveCount
+        bridge.send(.start, jobID: "after-call", style: .polished, sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        XCTAssertEqual(audio.captureMicrophones.last, .automatic)
+        XCTAssertEqual(audio.startKeepaliveCount, startsAfterResume)
+        controller.cancelCurrentJob()
+
+        audio.canStartInput = true
+        controller.endWarmSession()
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        XCTAssertEqual(audio.keepaliveMicrophones.last, .bluetooth)
+    }
+
+    func testNewRouteDeviceRestartsWarmInputOnlyWhenItsInputChanged() async throws {
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await recoveryController(audio: audio, bridge: bridge, now: 30_000, retryDelays: [])
+        XCTAssertEqual(controller.microphone, .automatic, "Automatic is the default")
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        var starts = audio.startKeepaliveCount
+
+        controller.handleAudioSystemEvent(.routeNewDeviceAvailable)
+        XCTAssertEqual(audio.startKeepaliveCount, starts)
+
+        audio.keepaliveInputIsStale = true
+        controller.handleAudioSystemEvent(.routeNewDeviceAvailable)
+        XCTAssertEqual(audio.startKeepaliveCount, starts + 1)
+        XCTAssertEqual(audio.keepaliveMicrophones.last, .automatic)
+        XCTAssertTrue(controller.keyboardSessionEnabled)
+
+        controller.handleAudioSystemEvent(.interruptionBegan)
+        starts = audio.startKeepaliveCount
+        controller.handleAudioSystemEvent(.routeNewDeviceAvailable)
+        XCTAssertEqual(audio.startKeepaliveCount, starts)
+        XCTAssertTrue(controller.keyboardSessionEnabled)
+    }
+
+    func testExperimentalWarmMicOnIPhoneMovesEachDictationToTheChosenMicrophone() async throws {
+        let settings = TyprSettings(defaults: defaults)
+        settings[experiment: .warmMicOnIPhone] = true
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        bridge.microphone = .bluetooth
+        let controller = try await readyController(audio: audio, bridge: bridge, now: { 31_000 }, retryDelays: [],
+                                                   settings: settings)
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        XCTAssertEqual(audio.keepaliveMicrophones, [.iPhone], "idle warm input holds no hands-free route")
+
+        controller.startRecording(keyboardJobID: "airpods")
+        try await activationSettled(controller)
+        XCTAssertEqual(audio.captureMicrophones, [.bluetooth])
+        XCTAssertEqual(audio.keepaliveMicrophones, [.iPhone, .bluetooth])
+        controller.finishRecording()
+        try await transcribed(controller)
+        XCTAssertEqual(audio.keepaliveMicrophones.last, .iPhone, "back on the iPhone after the dictation")
+        XCTAssertTrue(controller.keyboardSessionEnabled)
+    }
+
     func testOnlyEngineFailuresRequireReloadingTheModel() {
         XCTAssertTrue(DictationController.transcriptionFailureKeepsModel(WhisperTranscriber.TranscriberError.silentAudio))
         XCTAssertTrue(DictationController.transcriptionFailureKeepsModel(WhisperTranscriber.TranscriberError.emptyTranscript))
@@ -941,12 +1059,14 @@ final class DictationControllerTests: XCTestCase {
         audio: FakeAudioManager, bridge: KeyboardBridge? = nil, transcriber: ControlledTranscriber = ControlledTranscriber(),
         now: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }, hostReturner: HostReturner? = nil,
         vocabulary: CustomVocabularySettings = CustomVocabularySettings(),
-        retryDelays: [Duration] = DictationController.audioActivationRetryDelays, onPrepare: @escaping () -> Void = {}
+        retryDelays: [Duration] = DictationController.audioActivationRetryDelays, onPrepare: @escaping () -> Void = {},
+        settings: TyprSettings = TyprSettings()
     ) async throws -> DictationController {
         let controller = DictationController(
             audio: audio, keyboardBridge: bridge ?? KeyboardBridge(defaults: defaults), transcriber: transcriber,
             transcriberFactory: { onPrepare(); return transcriber }, now: now, autoPrepareOnInit: false,
-            hostReturner: hostReturner, customVocabularySettings: vocabulary, audioActivationRetryDelays: retryDelays)
+            hostReturner: hostReturner, customVocabularySettings: vocabulary, languageSettings: settings,
+            audioActivationRetryDelays: retryDelays)
         controllers.append(controller)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }

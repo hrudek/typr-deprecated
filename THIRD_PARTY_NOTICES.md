@@ -703,3 +703,13 @@ follow `FullKeyboardEngine` and `FullKeyboardEngineTests` from
 [anomalyco/hex](https://github.com/anomalyco/hex) PR #2233 at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb`. MIT, © Christopher Langton, the same license as
 this repository ([LICENSE](LICENSE)).
+
+## Hex iOS microphone choice
+
+Typr's microphone choice (`MicrophoneChoice` in `ios/TyprShared/KeyboardBridge.swift`,
+`ios/Typr/MicrophoneRoute.swift`) is adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb`: the choices and the input order per choice
+in `MicrophoneChoice` and `MicrophoneRoute.capture` in the iOS app's
+`HEXShared/MicrophoneChoice.swift` (anomalyco/hex #2179). MIT, © Christopher Langton, the
+same license as this repository ([LICENSE](LICENSE)).

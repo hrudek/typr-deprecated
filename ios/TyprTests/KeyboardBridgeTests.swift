@@ -53,6 +53,20 @@ final class KeyboardBridgeTests: XCTestCase {
         XCTAssertEqual(bridge.warmDuration, .fifteenMinutes)
     }
 
+    func testMicrophonePersistsAndDefaultsToAutomatic() {
+        let suite = "typr.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let bridge = KeyboardBridge(defaults: defaults)
+        XCTAssertEqual(bridge.microphone, .automatic)
+
+        bridge.microphone = .bluetooth
+        XCTAssertEqual(KeyboardBridge(defaults: defaults).microphone, .bluetooth)
+
+        defaults.set("carKit", forKey: "settings.microphone")
+        XCTAssertEqual(bridge.microphone, .automatic)
+    }
+
     func testDeliverableResultSurvivesWarmSessionShutdownUntilTTL() {
         let now = 5_000.0
         let closedWithResult = KeyboardSnapshot(

@@ -10,10 +10,10 @@ private final class LogAudio: AudioManaging {
     /// The controller's transcription task removes its capture file in its final `defer`.
     private(set) var captureURLs: [URL] = []
     func requestPermission() async -> Bool { true }
-    func startKeepalive(allowBluetooth: Bool) throws { isKeepaliveRunning = true }
+    func startKeepalive(microphone: MicrophoneChoice) throws { isKeepaliveRunning = true }
     func stopKeepalive() { isKeepaliveRunning = false }
     func deactivateSession() { isKeepaliveRunning = false }
-    func beginCapture(at url: URL, maxDuration: TimeInterval, allowBluetooth: Bool) throws -> any ActiveAudioCapture {
+    func beginCapture(at url: URL, maxDuration: TimeInterval, microphone: MicrophoneChoice) throws -> any ActiveAudioCapture {
         captureURLs.append(url)
         return LogCapture(url: url, duration: duration)
     }

@@ -33,23 +33,28 @@ protocol AudioManaging: AnyObject {
     var onUnexpectedCaptureEnd: ((URL, Bool) -> Void)? { get set }
 
     func requestPermission() async -> Bool
-    func startKeepalive(allowBluetooth: Bool) throws
-    /// Starts the keepalive only when it isn't already running with these options. Never
+    func startKeepalive(microphone: MicrophoneChoice) throws
+    /// Starts the keepalive only when it isn't already running for this choice's input. Never
     /// restarts a running input: iOS refuses to start microphone input in the background,
     /// so a restart there would end the warm session.
-    func ensureKeepalive(allowBluetooth: Bool) throws
+    func ensureKeepalive(microphone: MicrophoneChoice) throws
+    /// Whether the running keepalive records from the input `microphone` picks on the
+    /// current route, which a newly connected car or headset can change.
+    func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool
     func stopKeepalive()
     func deactivateSession()
-    func beginCapture(at url: URL, maxDuration: TimeInterval, allowBluetooth: Bool) throws -> any ActiveAudioCapture
+    func beginCapture(at url: URL, maxDuration: TimeInterval, microphone: MicrophoneChoice) throws -> any ActiveAudioCapture
 }
 
 extension AudioManaging {
     var isOtherAudioPlaying: Bool { false }
 
-    func ensureKeepalive(allowBluetooth: Bool) throws {
+    func ensureKeepalive(microphone: MicrophoneChoice) throws {
         guard !isKeepaliveRunning else { return }
-        try startKeepalive(allowBluetooth: allowBluetooth)
+        try startKeepalive(microphone: microphone)
     }
+
+    func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool { isKeepaliveRunning }
 }
 
 /// Writes the running input tap into a 16 kHz mono 16-bit WAV (the format the recorder used to
@@ -292,7 +297,8 @@ private final class TapCaptureAdapter: ActiveAudioCapture {
 final class SystemAudioManager: AudioManaging {
     private var inputGraph = TyprAudioInput()
     private let audioSession = DictationAudioSession()
-    private var keepaliveAllowsBluetooth: Bool?
+    private var keepaliveMicrophone: MicrophoneChoice?
+    private var keepaliveInput: Microphone?
     private let tapRouter = TapRouter()
     nonisolated(unsafe) private var observers: [NSObjectProtocol] = []
 
@@ -325,23 +331,31 @@ final class SystemAudioManager: AudioManaging {
         }
     }
 
-    func startKeepalive(allowBluetooth: Bool) throws {
+    func startKeepalive(microphone: MicrophoneChoice) throws {
         stopKeepalive()
-        try audioSession.activate(allowBluetooth: allowBluetooth)
+        let input = try audioSession.activate(microphone: microphone)
 
         try inputGraph.start(bufferHandler: Self.tapBlock(routingTo: tapRouter))
-        keepaliveAllowsBluetooth = allowBluetooth
+        keepaliveMicrophone = microphone
+        keepaliveInput = input
     }
 
-    func ensureKeepalive(allowBluetooth: Bool) throws {
-        if inputGraph.isRunning, keepaliveAllowsBluetooth == allowBluetooth {
+    func ensureKeepalive(microphone: MicrophoneChoice) throws {
+        if inputGraph.isRunning, keepaliveMicrophone == microphone || keepaliveFollows(microphone) {
             return
         }
-        try startKeepalive(allowBluetooth: allowBluetooth)
+        try startKeepalive(microphone: microphone)
+    }
+
+    func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool {
+        guard inputGraph.isRunning, let keepaliveMicrophone else { return false }
+        return MicrophoneRoute.categoryOptions(for: keepaliveMicrophone) == MicrophoneRoute.categoryOptions(for: microphone)
+            && audioSession.input(for: microphone) == keepaliveInput
     }
 
     func stopKeepalive() {
-        keepaliveAllowsBluetooth = nil
+        keepaliveMicrophone = nil
+        keepaliveInput = nil
         inputGraph.stop()
     }
 
@@ -353,12 +367,12 @@ final class SystemAudioManager: AudioManaging {
     func beginCapture(
         at url: URL,
         maxDuration: TimeInterval,
-        allowBluetooth: Bool
+        microphone: MicrophoneChoice
     ) throws -> any ActiveAudioCapture {
         // Record from the keepalive input instead of switching to a recorder: stopping the
         // input after a capture and starting it again fails while Typr is in the background,
         // which ended the warm session after every keyboard dictation.
-        try ensureKeepalive(allowBluetooth: allowBluetooth)
+        try ensureKeepalive(microphone: microphone)
 
         let writer = try TapFileWriter(url: url, maxDuration: maxDuration)
         let capture = TapCaptureAdapter(url: url, writer: writer, router: tapRouter) { [weak self] finishedURL, ok in
