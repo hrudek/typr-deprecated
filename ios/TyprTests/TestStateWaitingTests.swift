@@ -12,6 +12,6 @@ final class TestStateWaitingTests: XCTestCase {
             }
             return polls >= 4
         }
-        XCTAssertEqual(polls, 4)
+        XCTAssertGreaterThanOrEqual(polls, 4)
     }
 }

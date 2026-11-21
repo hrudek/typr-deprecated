@@ -8,7 +8,7 @@ struct TestStateTimeout: Error, CustomStringConvertible {
 /// Waits for a named state instead of a fixed delay. Returns as soon as the state holds; a
 /// timeout fails and throws, so the test stops instead of asserting or tearing down files and
 /// defaults while work is still running. The timeout counts only time the process was responsive:
-/// a poll that takes far longer than its 5 ms sleep means the whole process stood still (a cold
+/// an iteration that takes far longer than its 5 ms poll means the whole process stood still (a cold
 /// CI simulator can freeze for seconds), and work queued behind that freeze has not had its turn.
 @MainActor
 func waitForState(_ description: String, timeout: Duration = .seconds(10),
@@ -16,16 +16,22 @@ func waitForState(_ description: String, timeout: Duration = .seconds(10),
                   _ condition: @MainActor () async -> Bool) async throws {
     let poll = Duration.milliseconds(5)
     var deadline = ContinuousClock.now.advanced(by: timeout)
+    var credit = Duration.zero
+    var lastTick = ContinuousClock.now
     while true {
-        let started = ContinuousClock.now
         if await condition() { return }
-        guard ContinuousClock.now < deadline else {
+        let now = ContinuousClock.now
+        let stall = min(lastTick.duration(to: now) - poll, timeout * 3 - credit)
+        if stall > .milliseconds(100) {
+            deadline = deadline.advanced(by: stall)
+            credit += stall
+        }
+        lastTick = now
+        guard now < deadline else {
             XCTFail("Timed out waiting for: \(description)", file: file, line: line)
             throw TestStateTimeout(description: description)
         }
         try await Task.sleep(for: poll)
-        let stall = started.duration(to: .now) - poll
-        if stall > .milliseconds(100) { deadline = deadline.advanced(by: stall) }
     }
 }
 
