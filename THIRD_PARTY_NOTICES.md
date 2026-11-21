@@ -682,8 +682,8 @@ Typr's Apple Intelligence cleaner (`ios/Typr/TyprAppleCleaner.swift`) and its an
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (last changed in Hex #2212):
 `AppleIntelligenceCleaner` (instructions, time budget, generation options) and
 `TranscriptCleanupGuard` in the iOS app's `TranscriptCleanup.swift`; Typr adds German
-entries to its word lists and counts the words a cleanup keeps as heard, without expanding
-contractions. `ios/TyprTests/CleanupGuardHexTests.swift` is Hex's
+entries to its word lists and counts word overlap on the words as heard, without Hex's
+pronoun-contraction expansion. `ios/TyprTests/CleanupGuardHexTests.swift` is Hex's
 `TranscriptCleanupTests.swift` guard tests from the same commit. MIT, © Christopher Langton, the same license as
 this repository ([LICENSE](LICENSE)).
 

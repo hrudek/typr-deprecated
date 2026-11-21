@@ -46,8 +46,9 @@ An explicit engine or language choice never silently falls back to another.
   Claude in the cloud; the plain transcript is used whenever cleanup is
   unavailable. Apple Intelligence cleanup is Hex's iOS cleaner at `d65b02d3` word for word
   (instructions, options, 2 s budget, answer check), with German words added to the
-  check's reply, speaker, preamble and contraction rules; the share of the transcript a cleanup
-  must keep is still counted on the words as heard, so it never drops more than before; Claude gets Hex's dictation rewrite prompt word for
+  check's reply, speaker and preamble rules; the share of the transcript a cleanup must keep
+  is counted on the words as heard, as before, so it never accepts a shorter cleanup than
+  before; Claude gets Hex's dictation rewrite prompt word for
   word, with the host app and the text around the cursor as context. The full keyboard adds German/English autocorrect and adaptive
   suggestions. Unless a keyboard Anthropic key is stored (then Claude predicts), on iOS 26+
   with Apple Intelligence available for every enabled language, the on-device model adds up to three next-word predictions from the current paragraph before the

@@ -50,15 +50,11 @@ final class CleanupGuardTests: XCTestCase {
         XCTAssertTrue(CleanupGuard.isAcceptable(original: "hier ist der plan für morgen", cleaned: "Hier ist der Plan für morgen."))
     }
 
-    func testGermanStuttersMisheardWordsAndContractionsAreAccepted() {
+    func testGermanStuttersAndMisheardWordsAreAccepted() {
         XCTAssertTrue(CleanupGuard.isAcceptable(original: "ich ich glaube wir sollten das so machen", cleaned: "Ich glaube, wir sollten das so machen."))
         XCTAssertTrue(CleanupGuard.isAcceptable(original: "wir wir müssen den bericht bis freitag fertig machen",
                                                 cleaned: "Wir müssen den Bericht bis Freitag fertig machen."))
         XCTAssertTrue(CleanupGuard.isAcceptable(original: "ich öffne get hub und cloud code", cleaned: "Ich öffne GitHub und Claude Code."))
-        XCTAssertTrue(CleanupGuard.isAcceptable(original: "wie geht es dir", cleaned: "Wie geht's dir?"))
-        XCTAssertTrue(CleanupGuard.isAcceptable(original: "gibts noch kaffee", cleaned: "Gibt es noch Kaffee?"))
-        XCTAssertTrue(CleanupGuard.isAcceptable(original: "gibt es noch kaffee", cleaned: "Gibt's noch Kaffee?"))
-        XCTAssertTrue(CleanupGuard.isAcceptable(original: "hab's vergessen", cleaned: "Habe es vergessen."))
     }
 
     func testTruncationsTheBaseGuardRejectedStayRejected() {
@@ -81,36 +77,12 @@ final class CleanupGuardTests: XCTestCase {
             ("Wir gehen heute trotz des Regens nicht zum Arzt und zum Bäcker.", "Zum Arzt und zum Bäcker."),
             ("Ich gehe heute wegen der Arbeit nicht zum Arzt und zum Bäcker.", "Zum Arzt und zum Bäcker."),
             ("Wir fahren morgen früh nicht mit dem Auto zum Büro, sondern zur Bank.", "Zum Büro, zur Bank."),
-            ("Danke für das leckere Essen gestern Abend beim Fest im Garten", "Danke fürs Essen im Garten.")
+            ("Danke für das leckere Essen gestern Abend beim Fest im Garten", "Danke fürs Essen im Garten."),
+            ("Ich gehe nicht zum Arzt im Haus vorm Bahnhof.", "Ich gehe zu dem Arzt in dem Haus vor dem Bahnhof."),
+            ("Ich gehe erst morgen zum Arzt im Haus vorm Bahnhof.", "Ich gehe zu dem Arzt in dem Haus vor dem Bahnhof.")
         ]
         for (original, cleaned) in truncations {
-            XCTAssertEqual(CleanupGuard.rejection(original: original, cleaned: cleaned),
-                           "the cleaned text dropped most of the transcript", original)
-        }
-    }
-
-    func testGermanContractionsCompareAsTheirExpansions() {
-        let pairs = [
-            ("Ich gehe zum Arzt", "Ich gehe zu dem Arzt."), ("wir fahren zur bank", "Wir fahren zu der Bank."),
-            ("wir treffen uns im büro", "Wir treffen uns in dem Büro."), ("wir sehen uns am montag", "Wir sehen uns an dem Montag."),
-            ("er wartet an'm tor", "Er wartet an dem Tor."), ("häng es ans fenster", "Häng es an das Fenster."),
-            ("leg es aufs regal", "Leg es auf das Regal."), ("wir warten beim eingang", "Wir warten bei dem Eingang."),
-            ("wir gehen durchs tor", "Wir gehen durch das Tor."), ("danke fürs essen", "Danke für das Essen."),
-            ("es liegt hinterm haus", "Es liegt hinter dem Haus."), ("stell es hinters haus", "Stell es hinter das Haus."),
-            ("komm ins haus", "Komm in das Haus."), ("es hängt überm tisch", "Es hängt über dem Tisch."),
-            ("wir reden übers wetter", "Wir reden über das Wetter."), ("es geht ums geld", "Es geht um das Geld."),
-            ("es liegt unterm tisch", "Es liegt unter dem Tisch."), ("leg es unters bett", "Leg es unter das Bett."),
-            ("ich komme vom bahnhof", "Ich komme von dem Bahnhof."), ("wir warten vorm kino", "Wir warten vor dem Kino."),
-            ("stell es vors haus", "Stell es vor das Haus."), ("gibts noch kaffee", "Gibt es noch Kaffee?"),
-            ("gibt es noch kaffee", "Gibt's noch Kaffee?"), ("wie geht es dir", "Wie geht's dir?"),
-            ("wie gehts dir", "Wie geht es dir?"), ("kanns sein dass er kommt", "Kann es sein, dass er kommt?"),
-            ("hats geklappt", "Hat es geklappt?"), ("ists schon spät", "Ist es schon spät?"),
-            ("wars schön", "War es schön?"), ("hab's vergessen", "Habe es vergessen."), ("habs vergessen", "Hab es vergessen."),
-            ("mach's gut", "Mach es gut."), ("i am going home", "I'm going home.")
-        ]
-        for (original, cleaned) in pairs {
-            XCTAssertTrue(CleanupGuard.isAcceptable(original: original, cleaned: cleaned), original)
-            XCTAssertTrue(CleanupGuard.isAcceptable(original: cleaned, cleaned: original), cleaned)
+            XCTAssertNotNil(CleanupGuard.rejection(original: original, cleaned: cleaned), original)
         }
     }
 

@@ -31,7 +31,7 @@ nonisolated enum CleanupGuard {
 
     private static let replyOpeners: Set<String> = [
         "yes", "yeah", "yep", "no", "nope", "sure", "okay", "ok", "certainly",
-        "absolutely", "here", "sorry",
+        "absolutely", "here", "here's", "sorry",
         "ja", "jawohl", "jep", "nein", "nee", "klar", "sicher", "gern", "gerne",
         "natürlich", "selbstverständlich", "hier", "entschuldigung",
     ]
@@ -67,11 +67,12 @@ nonisolated enum CleanupGuard {
             return "a negation was added or dropped"
         }
 
-        let originalWords = normalized(originalHeard)
-        let cleanedWords = normalized(cleanedHeard)
-        guard cleanedWords.count <= originalWords.count * 2 + 4 else {
+        guard cleanedHeard.count <= originalHeard.count * 2 + 4 else {
             return "the cleaned text has many more words than the transcript"
         }
+
+        let originalWords = expandedWords(originalHeard)
+        let cleanedWords = expandedWords(cleanedHeard)
 
         let addedWords = addedWordCount(originalWords, cleanedWords)
         guard addedWords <= droppedWordCount(originalWords, cleanedWords),
@@ -98,13 +99,12 @@ nonisolated enum CleanupGuard {
             return "the cleaned text starts with a preamble"
         }
 
-        let shared = sharedWordCount(originalWords, cleanedWords)
-        guard Double(shared) / Double(cleanedWords.count) >= 0.5 else {
+        let shared = sharedWordCount(originalHeard, cleanedHeard)
+        guard Double(shared) / Double(cleanedHeard.count) >= 0.5 else {
             return "the cleaned text is about something else"
         }
-        let retained = sharedWordCount(originalHeard, cleanedHeard)
         if !(originalHeard.count <= 6 && cleanedHeard.count <= 3),
-           Double(retained) / Double(originalHeard.count) < 0.5,
+           Double(shared) / Double(originalHeard.count) < 0.5,
            !(addedWords == 0 && keepsSelfCorrectionTail(originalWords, cleanedWords)) {
             return "the cleaned text dropped most of the transcript"
         }
@@ -119,32 +119,14 @@ nonisolated enum CleanupGuard {
         max(2, originalWords / 4)
     }
 
-    private static func normalized(_ heard: [String]) -> [String] {
-        heard.flatMap(expansion(of:))
+    private static func expandedWords(_ words: [String]) -> [String] {
+        words.flatMap { pronounExpansions[$0] ?? [$0] }
     }
 
-    private static func expansion(of word: String) -> [String] {
-        if let parts = contractions[word] {
-            return parts.flatMap(expansion(of:))
-        }
-        if word.hasSuffix("'s"), word.count > 2 {
-            return [String(word.dropLast(2)), "es"]
-        }
-        return [word]
-    }
-
-    private static let contractions: [String: [String]] = [
+    private static let pronounExpansions: [String: [String]] = [
         "i'm": ["i", "am"], "i've": ["i", "have"], "i'll": ["i", "will"], "i'd": ["i", "would"],
         "you're": ["you", "are"], "you've": ["you", "have"], "you'll": ["you", "will"], "you'd": ["you", "would"],
         "we're": ["we", "are"], "we've": ["we", "have"], "we'll": ["we", "will"], "we'd": ["we", "would"],
-        "am": ["an", "dem"], "an'm": ["an", "dem"], "ans": ["an", "das"], "aufs": ["auf", "das"],
-        "beim": ["bei", "dem"], "durchs": ["durch", "das"], "fürs": ["für", "das"],
-        "hinterm": ["hinter", "dem"], "hinters": ["hinter", "das"], "im": ["in", "dem"], "ins": ["in", "das"],
-        "überm": ["über", "dem"], "übers": ["über", "das"], "ums": ["um", "das"],
-        "unterm": ["unter", "dem"], "unters": ["unter", "das"], "vom": ["von", "dem"],
-        "vorm": ["vor", "dem"], "vors": ["vor", "das"], "zum": ["zu", "dem"], "zur": ["zu", "der"],
-        "gibts": ["gibt", "es"], "gehts": ["geht", "es"], "kanns": ["kann", "es"], "hats": ["hat", "es"],
-        "ists": ["ist", "es"], "wars": ["war", "es"], "habs": ["hab", "es"],
     ]
 
     private static func addedWordCount(_ original: [String], _ cleaned: [String]) -> Int {
