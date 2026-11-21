@@ -55,7 +55,8 @@ final class KeyboardViewModel: ObservableObject {
     @Published var splitKeyboard = false
     @Published var splitColumns = false
     @Published var keyDesign = KeyboardDesign.standard
-    @Published var returnKeyLabel = "Return"
+    @Published var returnKey = ReturnKeyStyle(.default)
+    @Published var returnKeyEnabled = true
     @Published var isModelInstalled = false
     @Published private(set) var isWarmAvailable = false
     @Published private(set) var stagePhase: StagePhase = .idle
@@ -366,6 +367,7 @@ private struct KeyboardChromePalette {
 struct Keycap: UIViewRepresentable {
     let palette: FullKeyboardPalette
     let isPressed: Bool
+    var fill: UIColor?
 
     static let shadowOverhang: CGFloat = 6
 
@@ -374,11 +376,13 @@ struct Keycap: UIViewRepresentable {
     func updateUIView(_ view: KeycapView, context: Context) {
         view.palette = palette
         view.isPressed = isPressed
+        view.fill = fill
     }
 
     final class KeycapView: UIView {
         var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { setNeedsDisplay() } } }
         var isPressed = false { didSet { if isPressed != oldValue { setNeedsDisplay() } } }
+        var fill: UIColor? { didSet { if fill != oldValue { setNeedsDisplay() } } }
 
         override init(frame: CGRect) {
             super.init(frame: frame)
@@ -393,23 +397,28 @@ struct Keycap: UIViewRepresentable {
 
         override func draw(_ rect: CGRect) {
             guard let context = UIGraphicsGetCurrentContext() else { return }
-            let fill = isPressed ? palette.keyPressedFill : palette.keyFill
+            let fill = fill ?? (isPressed ? palette.keyPressedFill : palette.keyFill)
             context.fillKeycap(bounds.insetBy(dx: Keycap.shadowOverhang, dy: Keycap.shadowOverhang), palette: palette, fill: fill)
         }
     }
 }
 
 private extension View {
-    func keycap(_ palette: FullKeyboardPalette, isPressed: Bool = false) -> some View {
-        background(Keycap(palette: palette, isPressed: isPressed).padding(-Keycap.shadowOverhang).allowsHitTesting(false))
+    func keycap(_ palette: FullKeyboardPalette, isPressed: Bool = false, fill: UIColor? = nil) -> some View {
+        background(Keycap(palette: palette, isPressed: isPressed, fill: fill).padding(-Keycap.shadowOverhang).allowsHitTesting(false))
     }
 }
 
 private struct KeyboardKeyButtonStyle: ButtonStyle {
     let palette: KeyboardChromePalette
+    var fill: (idle: UIColor, pressed: UIColor)?
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.keycap(palette.keys, isPressed: configuration.isPressed)
+        configuration.label.keycap(
+            palette.keys,
+            isPressed: configuration.isPressed,
+            fill: fill.map { configuration.isPressed ? $0.pressed : $0.idle }
+        )
     }
 }
 
@@ -920,14 +929,29 @@ struct KeyboardSurfaceView: View {
             Button {
                 model.onReturn?()
             } label: {
-                Image(systemName: "return")
+                Image(systemName: model.returnKey.symbol)
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(p.keyGlyph)
+                    .foregroundStyle(returnInk(p))
                     .frame(width: 56, height: 42)
                     .contentShape(RoundedRectangle(cornerRadius: FullKeyboardPalette.cornerRadius, style: .continuous))
             }
-            .buttonStyle(KeyboardKeyButtonStyle(palette: p))
-            .accessibilityLabel(model.returnKeyLabel)
+            .buttonStyle(KeyboardKeyButtonStyle(palette: p, fill: returnFill(p)))
+            .disabled(!model.returnKeyEnabled)
+            .accessibilityLabel(model.returnKey.accessibilityLabel)
         }
+    }
+
+    /// Send, go, search and the other acting types are blue, grey while the field is empty and
+    /// the host turns them off, as on the full keyboard.
+    private func returnFill(_ p: KeyboardChromePalette) -> (idle: UIColor, pressed: UIColor)? {
+        guard model.returnKey.isAction else { return nil }
+        return model.returnKeyEnabled
+            ? (p.keys.actionFill, p.keys.actionPressedFill)
+            : (p.keys.actionDisabledFill, p.keys.actionDisabledFill)
+    }
+
+    private func returnInk(_ p: KeyboardChromePalette) -> Color {
+        if !model.returnKeyEnabled { return Color(uiColor: p.keys.returnDisabledInk) }
+        return model.returnKey.isAction ? .white : p.keyGlyph
     }
 }

@@ -9,7 +9,9 @@ public enum UIKeyboardType: Sendable {
     case `default`, asciiCapable, numbersAndPunctuation, URL, numberPad, phonePad, namePhonePad
     case emailAddress, decimalPad, twitter, webSearch, asciiCapableNumberPad
 }
-public enum UIReturnKeyType: Sendable { case `default`, go, send, search, done }
+public enum UIReturnKeyType: Sendable {
+    case `default`, go, google, join, next, route, search, send, yahoo, done, emergencyCall, `continue`
+}
 public enum UIKeyboardAppearance: Sendable { case `default`, dark, light }
 
 public struct UILexiconEntry {

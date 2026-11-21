@@ -76,6 +76,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     var hasAllocatedRecordingPanel: Bool { recordingPanel != nil }
     /// What the feedback panel shows, for tests; `nil` while the keys are up.
     var shownPanelContent: TyprFeedbackPanel.Content? { panelContent }
+    var shownReturnKey: (style: ReturnKeyStyle, isEnabled: Bool) { (plane.returnStyle, plane.returnIsEnabled) }
 
     init(model: KeyboardViewModel, target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil,
          statistics: UsageStatisticsSession? = nil, typingLog: TypingLogRecorder? = nil, preview: Preview? = nil) {
@@ -468,32 +469,11 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     private func refreshReturnKey() {
-        let type = engine.target.returnKeyType ?? .default
-        plane.returnLabel = switch type {
-        case .go: "go"
-        case .google, .yahoo, .search: "search"
-        case .join: "join"
-        case .next: "next"
-        case .route: "route"
-        case .send: "send"
-        case .done: "done"
-        case .emergencyCall: "SOS"
-        case .continue: "continue"
-        default: "return"
-        }
-        plane.returnSymbol = switch type {
-        case .send: "arrow.up"
-        case .go, .continue, .route, .join: "arrow.right"
-        case .google, .yahoo, .search: "magnifyingglass"
-        case .done: "checkmark"
-        case .emergencyCall: nil
-        default: "return"
-        }
-        plane.returnIsAction = switch type {
-        case .go, .google, .yahoo, .search, .join, .route, .send, .done, .continue, .emergencyCall: true
-        default: false
-        }
-        plane.returnIsEnabled = !(engine.target.enablesReturnKeyAutomatically == true && !engine.target.hasText)
+        plane.returnStyle = ReturnKeyStyle(engine.target.returnKeyType)
+        plane.returnIsEnabled = ReturnKeyStyle.isEnabled(
+            automatically: engine.target.enablesReturnKeyAutomatically,
+            hasText: engine.target.hasText
+        )
     }
 
     private func refreshFromModel() {

@@ -756,9 +756,8 @@ final class FullKeyboardEngine {
                 typeSpace(sample: sample)
             }
         case .returnKey:
-            if target.enablesReturnKeyAutomatically == true && !target.hasText {
-                break
-            }
+            guard ReturnKeyStyle.isEnabled(automatically: target.enablesReturnKeyAutomatically, hasText: target.hasText)
+            else { break }
             autocorrect.clearPendingUndo()
             // Return never autocorrects or settles learning.
             autocorrect.discardFeedback()
