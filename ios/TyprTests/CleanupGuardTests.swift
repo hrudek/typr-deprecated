@@ -73,10 +73,25 @@ final class CleanupGuardTests: XCTestCase {
             ("wir müssen das budget und den startplan mit dem ganzen team vor freitag besprechen, eigentlich machen wir es am montag",
              "Machen wir es am Montag.")
         ]
-        for (original, cleaned) in truncations {
+        for (original, cleaned) in truncations + Self.ordinaryMarkerWordTruncations {
             XCTAssertEqual(CleanupGuard.rejection(original: original, cleaned: cleaned),
                            "the cleaned text dropped most of the transcript", original)
         }
+    }
+
+    private static let ordinaryMarkerWordTruncations = [
+        ("Bitte sag ihm ich warte bis morgen früh", "Bis morgen früh."),
+        ("Bitte sag ihm, ich warte bis morgen früh.", "Bis morgen früh."),
+        ("Das ist das Buch das ich meine lies es bitte", "Lies es bitte."),
+        ("Das ist das Buch, das ich meine, lies es bitte.", "Lies es bitte.")
+    ]
+
+    func testGermanPrepositionContractionsCompareAsTheirExpansions() {
+        XCTAssertTrue(CleanupGuard.isAcceptable(original: "Ich gehe zum Arzt", cleaned: "Ich gehe zu dem Arzt."))
+        XCTAssertTrue(CleanupGuard.isAcceptable(original: "ich gehe zu dem arzt", cleaned: "Ich gehe zum Arzt."))
+        XCTAssertTrue(CleanupGuard.isAcceptable(original: "wir treffen uns im büro und fahren dann zur bank",
+                                                cleaned: "Wir treffen uns in dem Büro und fahren dann zu der Bank."))
+        XCTAssertTrue(CleanupGuard.isAcceptable(original: "leg es aufs regal beim eingang", cleaned: "Leg es auf das Regal bei dem Eingang."))
     }
 
     func testCoordinatorPastesTranscriptWhenTheEngineRejectsTheAnswer() async {

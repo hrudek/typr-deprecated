@@ -60,9 +60,9 @@ nonisolated enum CleanupGuard {
             return "a number changed"
         }
 
-        let originalHeard = words(in: originalText)
-        let cleanedHeard = words(in: cleanedText)
-        guard !originalHeard.isEmpty, !cleanedHeard.isEmpty else {
+        let originalHeard = heardWords(in: originalText)
+        let cleanedHeard = heardWords(in: cleanedText)
+        guard !originalHeard.words.isEmpty, !cleanedHeard.words.isEmpty else {
             return "the cleaned text is empty"
         }
 
@@ -70,8 +70,9 @@ nonisolated enum CleanupGuard {
             return "a negation was added or dropped"
         }
 
-        let originalWords = expandedWords(originalHeard)
-        let cleanedWords = expandedWords(cleanedHeard)
+        let original = normalized(originalHeard)
+        let originalWords = original.words
+        let cleanedWords = normalized(cleanedHeard).words
         guard cleanedWords.count <= originalWords.count * 2 + 4 else {
             return "the cleaned text has many more words than the transcript"
         }
@@ -107,7 +108,7 @@ nonisolated enum CleanupGuard {
         }
         if !(originalWords.count <= 6 && cleanedWords.count <= 3),
            Double(shared) / Double(originalWords.count) < 0.5,
-           !(addedWords == 0 && keepsSelfCorrectionTail(originalWords, cleanedWords)) {
+           !(addedWords == 0 && keepsSelfCorrectionTail(original, cleanedWords)) {
             return "the cleaned text dropped most of the transcript"
         }
         return nil
@@ -121,17 +122,34 @@ nonisolated enum CleanupGuard {
         max(2, originalWords / 4)
     }
 
-    private static func expandedWords(_ words: [String]) -> [String] {
-        var expanded: [String] = []
-        for word in words {
-            if let expansion = contractionExpansions[word] {
-                expanded.append(contentsOf: expansion)
+    private static func normalized(_ heard: Words) -> Words {
+        var expanded = Words()
+        for (word, pause) in zip(heard.words, heard.pauseAfter) {
+            let parts = contractionExpansions[word] ?? [word]
+            expanded.words.append(contentsOf: parts)
+            expanded.pauseAfter.append(contentsOf: Array(repeating: false, count: parts.count - 1) + [pause])
+        }
+        var result = Words()
+        var index = 0
+        while index < expanded.words.count {
+            if index + 1 < expanded.words.count,
+               let contraction = germanPrepositionContractions[expanded.words[index] + " " + expanded.words[index + 1]] {
+                result.words.append(contraction)
+                result.pauseAfter.append(expanded.pauseAfter[index + 1])
+                index += 2
             } else {
-                expanded.append(word)
+                result.words.append(expanded.words[index])
+                result.pauseAfter.append(expanded.pauseAfter[index])
+                index += 1
             }
         }
-        return expanded
+        return result
     }
+
+    private static let germanPrepositionContractions: [String: String] = [
+        "zu dem": "zum", "zu der": "zur", "in dem": "im", "an dem": "am", "in das": "ins",
+        "von dem": "vom", "bei dem": "beim", "an das": "ans", "auf das": "aufs",
+    ]
 
     private static let contractionExpansions: [String: [String]] = [
         "i'm": ["i", "am"],
@@ -171,6 +189,9 @@ nonisolated enum CleanupGuard {
         ["scratch", "that"],
         ["sorry"],
         ["rather"],
+    ]
+
+    private static let germanSelfCorrections: [[String]] = [
         ["nein", "warte"],
         ["warte"],
         ["ich", "meine"],
@@ -183,10 +204,15 @@ nonisolated enum CleanupGuard {
         ["beziehungsweise"],
     ]
 
-    private static func keepsSelfCorrectionTail(_ original: [String], _ cleaned: [String]) -> Bool {
+    private static func keepsSelfCorrectionTail(_ heard: Words, _ cleaned: [String]) -> Bool {
+        let original = heard.words
         var last: (end: Int, start: Int)?
         for start in original.indices {
-            for marker in selfCorrections where start + marker.count <= original.count {
+            let setOff = germanSelfCorrections.filter {
+                (start == 0 || heard.pauseAfter[start - 1])
+                    && start + $0.count <= original.count && heard.pauseAfter[start + $0.count - 1]
+            }
+            for marker in selfCorrections + setOff where start + marker.count <= original.count {
                 if original[start..<(start + marker.count)].elementsEqual(marker) {
                     let end = start + marker.count
                     if let current = last {
@@ -287,8 +313,17 @@ nonisolated enum CleanupGuard {
         Array(text.filter(\.isNumber))
     }
 
+    private struct Words {
+        var words: [String] = []
+        var pauseAfter: [Bool] = []
+    }
+
     private static func words(in text: String) -> [String] {
-        var result: [String] = []
+        heardWords(in: text).words
+    }
+
+    private static func heardWords(in text: String) -> Words {
+        var result = Words()
         var current = ""
         for character in text.lowercased() {
             if character.isLetter || character.isNumber {
@@ -297,13 +332,20 @@ nonisolated enum CleanupGuard {
                 if !current.isEmpty {
                     current.append("'")
                 }
-            } else if !current.isEmpty {
-                result.append(trimTrailingApostrophes(current))
-                current = ""
+            } else {
+                if !current.isEmpty {
+                    result.words.append(trimTrailingApostrophes(current))
+                    result.pauseAfter.append(false)
+                    current = ""
+                }
+                if !character.isWhitespace, !result.pauseAfter.isEmpty {
+                    result.pauseAfter[result.pauseAfter.count - 1] = true
+                }
             }
         }
         if !current.isEmpty {
-            result.append(trimTrailingApostrophes(current))
+            result.words.append(trimTrailingApostrophes(current))
+            result.pauseAfter.append(true)
         }
         return result
     }
