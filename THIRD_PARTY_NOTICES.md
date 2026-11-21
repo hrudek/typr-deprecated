@@ -713,3 +713,13 @@ Typr's microphone choice (`MicrophoneChoice` in `ios/TyprShared/KeyboardBridge.s
 in `MicrophoneChoice` and `MicrophoneRoute.capture` in the iOS app's
 `HEXShared/MicrophoneChoice.swift` (anomalyco/hex #2179). MIT, © Christopher Langton, the
 same license as this repository ([LICENSE](LICENSE)).
+
+## Hex iOS autocorrection revert
+
+Delete after an autocorrection taking only its space, the strip's revert chip with the undo
+arrow, its anchor check (`AutocorrectEngine.RevertOffer`, the last 64 characters for long
+text) and the small chip around an autocorrection (`KeyboardStripView.swift`) are adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2192: `FullKeyboardEngine+Revert.swift` and
+`AutocorrectEngine.AppliedCorrection.isAtEnd`; PR #2207: the autocorrection chip).
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).

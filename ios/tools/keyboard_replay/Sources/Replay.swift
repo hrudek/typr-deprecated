@@ -314,6 +314,7 @@ final class Replayer {
         case .keepLiteral: "keep"
         case .primary: "primary"
         case .secondary: "secondary"
+        case .revert: "revert"
         }
     }
 }

@@ -76,7 +76,7 @@ final class UsageStatisticsEngineTests: XCTestCase {
     func testCorrectionDoubleSpaceUndoAndRepeatAreSemanticEvents() throws {
         type("teh ")
         XCTAssertEqual(target.text, "the ")
-        engine.deleteBackward() // Restores teh, but is one deletion, not four deletes + insert.
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "teh")
         clock += 0.1; tap(.space)
         tap(.space)
@@ -85,7 +85,7 @@ final class UsageStatisticsEngineTests: XCTestCase {
         clock += 0.1; engine.deleteWordBackward()
         let value = try totals()
         XCTAssertEqual(value.directGraphemes, 6)
-        XCTAssertEqual(value.deletions, 3)
+        XCTAssertEqual(value.deletions, 4)
         XCTAssertEqual(value.completedWords, 1) // Undo never reopens a counted word.
     }
     func testRefusedSuggestionIsNothingAndAcceptedSuggestionBreaksTimeChain() throws {

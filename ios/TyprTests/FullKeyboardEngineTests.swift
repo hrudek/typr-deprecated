@@ -403,7 +403,7 @@ final class FullKeyboardEngineTests: XCTestCase {
     func testDeleteUndoesPunctuationCorrectionWithoutLearningPunctuationAsAWord() {
         type("teh")
         punctuation("?")
-        engine.deleteBackward()
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "teh")
         XCTAssertTrue(engine.autocorrect.learning.model.lexicon.isRejected(typed: "teh", replacement: "the"))
         XCTAssertFalse(engine.autocorrect.learning.model.lexicon.isRejected(typed: "teh", replacement: "the?"))

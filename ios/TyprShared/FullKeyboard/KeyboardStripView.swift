@@ -116,10 +116,6 @@ final class KeyboardStripView: UIView {
     override func draw(_ rect: CGRect) {
         let slots = slotsRect
         guard statusLabel.isHidden, slots.width > 60 else { return }
-        // Hide the divider adjacent to a highlighted primary pill, matching Apple's strip.
-        let primaryHighlighted = currentSuggestions.count > 1 && currentSuggestions[1].willAutoReplace
-        guard !primaryHighlighted else { return }
-
         let scale = max(1, traitCollection.displayScale)
         let hairline = 1 / scale
         // 18.5 pt dividers, as in the owner's 2026-11-11 reference.
@@ -176,7 +172,7 @@ final class KeyboardStripView: UIView {
         func configure(with suggestion: KeyboardSuggestion, palette: FullKeyboardPalette) {
             self.suggestion = suggestion
             self.palette = palette
-            accessibilityLabel = suggestion.displayText
+            accessibilityLabel = suggestion.kind == .revert ? "Revert to \(suggestion.displayText)" : suggestion.displayText
             setNeedsDisplay()
         }
 
@@ -196,35 +192,53 @@ final class KeyboardStripView: UIView {
                 width: max(0, bounds.width - 10),
                 height: pillH
             )
-            if isHighlighted {
-                palette.keyPressedFill.setFill()
-                UIBezierPath(roundedRect: pillInset, cornerRadius: 8).fill()
-            } else if suggestion.willAutoReplace {
-                palette.selectFill.setFill()
-                UIBezierPath(roundedRect: pillInset, cornerRadius: 8).fill()
-            }
-
             let isLiteral = suggestion.kind == .keepLiteral
+            let isRevert = suggestion.kind == .revert
             let font = UIFont.systemFont(
                 ofSize: 15.5,
-                weight: suggestion.willAutoReplace ? .medium : .regular
+                weight: suggestion.willAutoReplace || isRevert ? .medium : .regular
             )
             let ink = isLiteral && !suggestion.willAutoReplace ? palette.textBase.withAlphaComponent(0.88) : palette.textBase
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: font,
                 .foregroundColor: ink,
             ]
-            let maxTextW = max(20, pillInset.width - 12)
+            let arrow = isRevert ? UIImage(systemName: "arrow.uturn.backward",
+                                           withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))?
+                .withTintColor(ink, renderingMode: .alwaysOriginal) : nil
+            let arrowW = arrow.map { $0.size.width + 4 } ?? 0
+            let textW = (suggestion.displayText as NSString).size(withAttributes: attributes).width
+            let marked = suggestion.willAutoReplace || isRevert
+            let chipH: CGFloat = 22
+            let chip = marked ? CGRect(
+                x: max(pillInset.minX, bounds.midX - (textW + arrowW + 20) / 2),
+                y: max(0.5, midY - chipH / 2),
+                width: min(pillInset.width, textW + arrowW + 20),
+                height: chipH
+            ) : pillInset
+            if isHighlighted {
+                palette.keyPressedFill.setFill()
+                UIBezierPath(roundedRect: chip, cornerRadius: marked ? chipH / 2 : 8).fill()
+            } else if marked {
+                palette.selectFill.setFill()
+                UIBezierPath(roundedRect: chip, cornerRadius: chipH / 2).fill()
+            }
+            if let arrow {
+                let x = max(chip.minX + 6, bounds.midX - (textW + arrowW) / 2)
+                arrow.draw(at: CGPoint(x: x, y: midY - arrow.size.height / 2))
+            }
+
+            let maxTextW = max(20, pillInset.width - 12 - arrowW)
             var drawString = suggestion.displayText
             var size = (drawString as NSString).size(withAttributes: attributes)
             if size.width > maxTextW {
                 let smallAttrs: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 13.5, weight: suggestion.willAutoReplace ? .medium : .regular),
+                    .font: UIFont.systemFont(ofSize: 13.5, weight: suggestion.willAutoReplace || isRevert ? .medium : .regular),
                     .foregroundColor: ink,
                 ]
                 size = (drawString as NSString).size(withAttributes: smallAttrs)
                 let drawRect = CGRect(
-                    x: bounds.midX - min(maxTextW, size.width) / 2,
+                    x: bounds.midX + arrowW / 2 - min(maxTextW, size.width) / 2,
                     y: midY - size.height / 2,
                     width: min(maxTextW, size.width),
                     height: size.height
@@ -239,7 +253,7 @@ final class KeyboardStripView: UIView {
             }
             drawString = suggestion.displayText
             (drawString as NSString).draw(
-                at: CGPoint(x: bounds.midX - size.width / 2, y: midY - size.height / 2),
+                at: CGPoint(x: bounds.midX + arrowW / 2 - size.width / 2, y: midY - size.height / 2),
                 withAttributes: attributes
             )
         }

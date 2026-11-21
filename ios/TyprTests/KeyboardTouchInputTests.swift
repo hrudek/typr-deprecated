@@ -102,7 +102,7 @@ final class KeyboardTouchInputTests: XCTestCase {
         engine.typeSpaceFromTyprKey()
         XCTAssertEqual(target.text, "the ")
         XCTAssertNil(evidence)
-        tap(.delete)
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "teh")
         XCTAssertNil(evidence)
         type("s")

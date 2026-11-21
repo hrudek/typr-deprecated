@@ -176,7 +176,7 @@ final class SpatialPrefixSearchTests: XCTestCase {
             engine.typeSpaceFromTyprKey()
             XCTAssertEqual(target.text, "signature ")
             XCTAssertEqual(ac.pendingFeedback?.kind, .autoRule)
-            engine.deleteBackward()
+            engine.deleteAndRevert()
             XCTAssertEqual(target.text, "sig", "Text-replacement undo remains linked")
             await engine.waitForSuggestions()
             XCTAssertFalse(engine.suggestions.contains(where: \.willAutoReplace), "Undo protection also clears the highlight")

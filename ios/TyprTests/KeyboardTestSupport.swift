@@ -1,4 +1,5 @@
 import Foundation
+import XCTest
 @testable import Typr
 
 nonisolated enum BundledKeyboardData {
@@ -39,5 +40,13 @@ extension FullKeyboardEngine {
         var owned = suggestion
         owned.ownership = suggestionOwnership
         acceptSuggestion(owned)
+    }
+
+    func deleteAndRevert(file: StaticString = #filePath, line: UInt = #line) {
+        deleteBackward()
+        guard let revert = suggestions.first(where: { $0.kind == .revert }) else {
+            return XCTFail("no revert in \(suggestions.map(\.displayText))", file: file, line: line)
+        }
+        acceptSuggestion(revert)
     }
 }
