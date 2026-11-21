@@ -442,6 +442,8 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
             case "trackpad":
                 let space = try XCTUnwrap(engine.layout.key(.space)).frame
                 engine.touchBegan(id: 8, at: CGPoint(x: space.midX, y: space.midY))
+                let held = engine.clock() + FullKeyboardEngine.trackpadDelay + 0.1
+                engine.clock = { held }
                 engine.touchMoved(id: 8, to: CGPoint(x: space.midX + 12, y: space.midY))
                 XCTAssertTrue(engine.isTrackpadActive)
                 XCTAssertFalse(engine.suggestions.isEmpty, "Strip blanked on trackpad activation")

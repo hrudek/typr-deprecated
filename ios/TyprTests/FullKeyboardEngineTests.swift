@@ -77,6 +77,26 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.text, "th")
     }
 
+    func testRolloverWithTheSpaceBarKeepsOrder() {
+        down(1, .character("a"))
+        down(2, .space)
+        up(1, .character("a"))
+        down(3, .character("b"))
+        up(3, .character("b"))
+        up(2, .space)
+        XCTAssertEqual(target.text, "a b")
+
+        let start = point(.space)
+        down(4, .space)
+        down(5, .character("c"))
+        now += FullKeyboardEngine.trackpadDelay + 0.1
+        engine.touchMoved(id: 4, to: CGPoint(x: start.x - 30, y: start.y))
+        XCTAssertFalse(engine.isTrackpadActive, "a space already typed doesn't become the trackpad")
+        engine.touchEnded(id: 4, at: CGPoint(x: start.x - 30, y: start.y))
+        up(5, .character("c"))
+        XCTAssertEqual(target.text, "a b c")
+    }
+
     func testSlidingToAnotherKeyTypesWhereTheFingerLifts() {
         down(1, .character("f"))
         engine.touchMoved(id: 1, to: point(.character("g")))
@@ -475,6 +495,7 @@ final class FullKeyboardEngineTests: XCTestCase {
         type("helo")
         let spaceStart = point(.space)
         engine.touchBegan(id: 1, at: spaceStart)
+        now += FullKeyboardEngine.trackpadDelay + 0.1
         // Enter trackpad mode (-12 pt) then drag left by 16 pt (-2 chars: before "lo").
         let enterPoint = CGPoint(x: spaceStart.x - 12, y: spaceStart.y)
         engine.touchMoved(id: 1, to: enterPoint)
@@ -485,6 +506,38 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.cursorIndex, 2)
         tap(.character("l"))
         XCTAssertEqual(target.text, "hello")
+    }
+
+    /// A quick space tap that drifts still types a space, as on Apple's: taps of 60 to 150 ms
+    /// sliding 12 to 40 pt used to start the trackpad and type nothing (Hex #2233).
+    func testAQuickSpaceTapThatDriftsTypesASpace() {
+        let start = point(.space)
+        for (id, ms, dx) in [(1, 60.0, CGFloat(12)), (2, 100, 16), (3, 150, 24), (4, 100, -16), (5, 150, 40)] {
+            type("a")
+            engine.touchBegan(id: id, at: start)
+            now += ms / 2000
+            engine.touchMoved(id: id, to: CGPoint(x: start.x + dx / 2, y: start.y))
+            now += ms / 2000
+            engine.touchMoved(id: id, to: CGPoint(x: start.x + dx, y: start.y))
+            XCTAssertFalse(engine.isTrackpadActive, "\(ms) ms, \(dx) pt")
+            engine.touchEnded(id: id, at: CGPoint(x: start.x + dx, y: start.y))
+            now += 0.5
+        }
+        XCTAssertEqual(target.text, "a a a a a ")
+    }
+
+    func testASlowSpaceDragStillMovesTheCursor() {
+        type("hallo")
+        let start = point(.space)
+        engine.touchBegan(id: 1, at: start)
+        for step in 1...10 {
+            now += 0.06
+            engine.touchMoved(id: 1, to: CGPoint(x: start.x - 4 * CGFloat(step), y: start.y))
+        }
+        XCTAssertTrue(engine.isTrackpadActive)
+        engine.touchEnded(id: 1, at: CGPoint(x: start.x - 40, y: start.y))
+        XCTAssertEqual(target.text, "hallo")
+        XCTAssertEqual(target.cursorIndex, 3)
     }
 
     func testEnablesReturnKeyAutomaticallyBlocksEmptyField() {

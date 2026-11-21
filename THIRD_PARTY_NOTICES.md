@@ -693,3 +693,13 @@ are adapted from [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2200: `ReturnKeyStyle.swift` and its use in
 `FullKeyboardView.swift`, `KeyboardKeyPlaneView.swift` and `KeyboardSurface.swift`).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Hex space-tap drift and space rollover
+
+The space-bar drift fix in `ios/TyprShared/FullKeyboard/FullKeyboardEngine.swift` (a space
+press slides the cursor only after 0.35 s) and the tests `testRolloverWithTheSpaceBarKeepsOrder`
+and `testAQuickSpaceTapThatDriftsTypesASpace` in `ios/TyprTests/FullKeyboardEngineTests.swift`
+follow `FullKeyboardEngine` and `FullKeyboardEngineTests` from
+[anomalyco/hex](https://github.com/anomalyco/hex) PR #2233 at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb`. MIT, © Christopher Langton, the same license as
+this repository ([LICENSE](LICENSE)).

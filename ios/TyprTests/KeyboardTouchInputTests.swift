@@ -176,6 +176,8 @@ final class KeyboardTouchInputTests: XCTestCase {
         type("cat")
         let p = point(.space)
         engine.touchBegan(id: 1, at: p)
+        let held = engine.clock() + FullKeyboardEngine.trackpadDelay + 0.1
+        engine.clock = { held }
         engine.touchMoved(id: 1, to: CGPoint(x: p.x + 15, y: p.y))
         XCTAssertTrue(engine.isTrackpadActive)
         XCTAssertNil(evidence)
