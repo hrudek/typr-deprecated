@@ -48,7 +48,7 @@ struct KeyboardAppearancePage: View {
             container: container,
             splitKeyboard: splitKeyboard,
             splitColumns: splitColumns,
-            letters: letterLayouts[FullKeyboardSettings().lettersLanguage] ?? .qwerty
+            letters: FullKeyboardSettings().letters
         )
     }
 

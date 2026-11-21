@@ -211,7 +211,6 @@ final class AutocorrectEngine {
     /// The language that wins ties while both are on: first in displayed spelling guesses, and
     /// ranked ahead of the other language's spatial candidates.
     var preferredLanguage = SpatialWordDecoder.Language.german
-    /// The arrangement whose neighbouring keys make a typo cheap.
     var letters = KeyboardLetterLayout.qwerty
     private(set) var lexiconShortcuts: [String: String] = [:]
     private(set) var protectedLexicon: ProtectedPersonalLexicon = .empty
@@ -1606,15 +1605,14 @@ final class AutocorrectEngine {
         return (leftAdj || rightAdj) ? 0.70 : 0.90
     }
 
-    /// Each letter's (row, column) on the drawn phone keyboard, in key pitches.
-    private static let keyCoordinates: [KeyboardLetterLayout: [Character: (Double, Double)]] = {
+    private static let keyCoordinates: [KeyboardLetterLayout: [Character: (row: Double, column: Double)]] = {
         Dictionary(uniqueKeysWithValues: KeyboardLetterLayout.allCases.map { letters in
             let layout = KeyboardLayout(width: 375, letters: letters)
-            let keys = layout.keys.filter { $0.character != nil && $0.row < layout.bottomRowIndex }
-            let pitch = keys.map(\.frame.width).min()! + layout.metrics.gap
-            var map: [Character: (Double, Double)] = [:]
-            for key in keys {
-                map[Character(key.character!)] = (Double(key.row), Double((key.frame.minX - layout.metrics.side) / pitch))
+            let pitch = layout.key(.character("a"))!.frame.width + layout.metrics.gap
+            var map: [Character: (row: Double, column: Double)] = [:]
+            for key in layout.keys where key.row < layout.bottomRowIndex {
+                guard let letter = key.character?.first else { continue }
+                map[letter] = (Double(key.row), Double((key.frame.minX - layout.metrics.side) / pitch))
             }
             return (letters, map)
         })

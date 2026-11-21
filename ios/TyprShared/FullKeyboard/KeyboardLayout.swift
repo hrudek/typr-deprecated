@@ -7,7 +7,6 @@ nonisolated enum KeyboardLayer: Equatable, Hashable, Sendable {
 }
 
 /// The kind of text field, as far as the key rows care.
-/// How the 26 letters are arranged (Settings › Keyboard › Appearance › Letter layout).
 /// Stored raw values must never change.
 nonisolated enum KeyboardLetterLayout: String, CaseIterable, Codable, Sendable {
     case qwerty
@@ -24,7 +23,6 @@ nonisolated enum KeyboardLetterLayout: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// The three letter rows, lowercase, as on Apple's keyboards of the same name.
     var rows: [[String]] {
         let rows = switch self {
         case .qwerty: ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
@@ -542,9 +540,8 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
     }
 
     /// Apple's split keyboard, left half then right half: the rows and where each starts, in key pitches from the half's
-    /// first column. A row with an odd number of letters repeats its middle one on both halves (QWERTY's g and v),
-    /// staggered so z sits under s and the right v under g; aligned columns put shift under a and delete under l. The
-    /// other pages end in `splitPunctuation`.
+    /// first column. The letters repeat g and v, staggered so z sits under s and the right v under g; aligned columns put
+    /// shift under a and delete under l. The other pages end in `splitPunctuation`.
     static func splitHalves(
         _ layer: KeyboardLayer, aligned: Bool, letters: KeyboardLetterLayout
     ) -> [(rows: [[String]], offsets: [CGFloat])] {
@@ -671,8 +668,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
                 }
             }
         } else if layer == .letters && letters == .dvorak {
-            // Apple's Dvorak: row 1's seven letters end at a delete key a pitch and a half wide, row 2's ten start at
-            // the edge, and row 3 is shift and nine narrower letters, edge to edge.
+            // Apple's Dvorak geometry: delete ends row 1; row 3 is shift and nine narrower letters, edge to edge.
             let dw = (boardWidth - 2 * m.side - modW) / 9 - m.gap
             let pitch = dw + m.gap
             let deleteW = 1.5 * pitch - m.gap

@@ -80,7 +80,6 @@ struct FullKeyboardSettings {
         nonmutating set { defaults?.set(newValue, forKey: Key.splitColumns) }
     }
 
-    /// Each language's letter layout. QWERTY by default.
     func letters(for language: SpatialWordDecoder.Language) -> KeyboardLetterLayout {
         defaults?.string(forKey: Key.letters(language)).flatMap(KeyboardLetterLayout.init(rawValue:)) ?? .qwerty
     }
@@ -89,14 +88,12 @@ struct FullKeyboardSettings {
         defaults?.set(letters.rawValue, forKey: Key.letters(language))
     }
 
-    /// The language whose layout the keyboard shows: the first selected autocorrect language, else the first one.
     var lettersLanguage: SpatialWordDecoder.Language {
         let typr = TyprSettings(defaults: defaults)
         let order = typr.autocorrectLanguageOrder
         return order.first { $0 == .german ? typr.autocorrectGerman : typr.autocorrectEnglish } ?? order[0]
     }
 
-    /// The letter layout the keyboard shows.
     var letters: KeyboardLetterLayout { letters(for: lettersLanguage) }
 
     var design: KeyboardDesign {

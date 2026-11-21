@@ -187,10 +187,10 @@ final class AutocorrectEngineTests: XCTestCase {
     }
 
     func testQwertyAdjacencyPrefersPhysicalNeighbor() {
-        let near = AutocorrectEngine.singleEditKeyboardCost(from: "tge", to: "the")!
-        let far = AutocorrectEngine.singleEditKeyboardCost(from: "tpe", to: "the")!
+        let near = AutocorrectEngine.singleEditKeyboardCost(from: "tge", to: "the", on: .qwerty)!
+        let far = AutocorrectEngine.singleEditKeyboardCost(from: "tpe", to: "the", on: .qwerty)!
         XCTAssertLessThan(near, far, "g is adjacent to h; p is across the keyboard")
-        XCTAssertNil(AutocorrectEngine.singleEditKeyboardCost(from: "abcdef", to: "abxyef"), "two substitutions are rejected")
+        XCTAssertNil(AutocorrectEngine.singleEditKeyboardCost(from: "abcdef", to: "abxyef", on: .qwerty), "two substitutions are rejected")
     }
 
     func testTurningAutocorrectSettingOffKeepsSuggestionsWithoutAutoReplacing() async {
