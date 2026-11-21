@@ -23,9 +23,6 @@ nonisolated enum CleanupGuard {
     private static let people: Set<String> = [
         "i", "me", "my", "mine", "myself", "you", "your", "yours", "yourself",
         "we", "us", "our", "ours",
-        "i'm", "i've", "i'll", "i'd",
-        "you're", "you've", "you'll", "you'd",
-        "we're", "we've", "we'll", "we'd",
         "ich", "mich", "mir", "mein", "meine", "meinen", "meinem", "meiner", "meines",
         "du", "dich", "dir", "dein", "deine", "deinen", "deinem", "deiner", "deines",
         "wir", "uns", "unser", "unsere", "unseren", "unserem", "unserer", "unseres",
@@ -34,7 +31,7 @@ nonisolated enum CleanupGuard {
 
     private static let replyOpeners: Set<String> = [
         "yes", "yeah", "yep", "no", "nope", "sure", "okay", "ok", "certainly",
-        "absolutely", "here", "here's", "sorry",
+        "absolutely", "here", "sorry",
         "ja", "jawohl", "jep", "nein", "nee", "klar", "sicher", "gern", "gerne",
         "natürlich", "selbstverständlich", "hier", "entschuldigung",
     ]
@@ -60,9 +57,9 @@ nonisolated enum CleanupGuard {
             return "a number changed"
         }
 
-        let originalHeard = heardWords(in: originalText)
-        let cleanedHeard = heardWords(in: cleanedText)
-        guard !originalHeard.words.isEmpty, !cleanedHeard.words.isEmpty else {
+        let originalHeard = words(in: originalText)
+        let cleanedHeard = words(in: cleanedText)
+        guard !originalHeard.isEmpty, !cleanedHeard.isEmpty else {
             return "the cleaned text is empty"
         }
 
@@ -70,9 +67,8 @@ nonisolated enum CleanupGuard {
             return "a negation was added or dropped"
         }
 
-        let original = normalized(originalHeard)
-        let originalWords = original.words
-        let cleanedWords = normalized(cleanedHeard).words
+        let originalWords = normalized(originalHeard)
+        let cleanedWords = normalized(cleanedHeard)
         guard cleanedWords.count <= originalWords.count * 2 + 4 else {
             return "the cleaned text has many more words than the transcript"
         }
@@ -106,9 +102,10 @@ nonisolated enum CleanupGuard {
         guard Double(shared) / Double(cleanedWords.count) >= 0.5 else {
             return "the cleaned text is about something else"
         }
-        if !(originalWords.count <= 6 && cleanedWords.count <= 3),
-           Double(shared) / Double(originalWords.count) < 0.5,
-           !(addedWords == 0 && keepsSelfCorrectionTail(original, cleanedWords)) {
+        let retained = sharedWordCount(originalHeard, cleanedHeard)
+        if !(originalHeard.count <= 6 && cleanedHeard.count <= 3),
+           Double(retained) / Double(originalHeard.count) < 0.5,
+           !(addedWords == 0 && keepsSelfCorrectionTail(originalWords, cleanedWords)) {
             return "the cleaned text dropped most of the transcript"
         }
         return nil
@@ -122,14 +119,8 @@ nonisolated enum CleanupGuard {
         max(2, originalWords / 4)
     }
 
-    private static func normalized(_ heard: Words) -> Words {
-        var result = Words()
-        for (word, pause) in zip(heard.words, heard.pauseAfter) {
-            let parts = expansion(of: word)
-            result.words.append(contentsOf: parts)
-            result.pauseAfter.append(contentsOf: Array(repeating: false, count: parts.count - 1) + [pause])
-        }
-        return result
+    private static func normalized(_ heard: [String]) -> [String] {
+        heard.flatMap(expansion(of:))
     }
 
     private static func expansion(of word: String) -> [String] {
@@ -176,21 +167,10 @@ nonisolated enum CleanupGuard {
         ["rather"],
     ]
 
-    private static let germanSelfCorrections: [[String]] = [
-        ["nein", "warte"],
-        ["nein", "ich", "meine"],
-        ["korrektur"],
-    ]
-
-    private static func keepsSelfCorrectionTail(_ heard: Words, _ cleaned: [String]) -> Bool {
-        let original = heard.words
+    private static func keepsSelfCorrectionTail(_ original: [String], _ cleaned: [String]) -> Bool {
         var last: (end: Int, start: Int)?
         for start in original.indices {
-            let setOff = germanSelfCorrections.filter {
-                (start == 0 || heard.pauseAfter[start - 1])
-                    && start + $0.count <= original.count && heard.pauseAfter[start + $0.count - 1]
-            }
-            for marker in selfCorrections + setOff where start + marker.count <= original.count {
+            for marker in selfCorrections where start + marker.count <= original.count {
                 if original[start..<(start + marker.count)].elementsEqual(marker) {
                     let end = start + marker.count
                     if let current = last {
@@ -291,17 +271,8 @@ nonisolated enum CleanupGuard {
         Array(text.filter(\.isNumber))
     }
 
-    private struct Words {
-        var words: [String] = []
-        var pauseAfter: [Bool] = []
-    }
-
     private static func words(in text: String) -> [String] {
-        heardWords(in: text).words
-    }
-
-    private static func heardWords(in text: String) -> Words {
-        var result = Words()
+        var result: [String] = []
         var current = ""
         for character in text.lowercased() {
             if character.isLetter || character.isNumber {
@@ -310,20 +281,13 @@ nonisolated enum CleanupGuard {
                 if !current.isEmpty {
                     current.append("'")
                 }
-            } else {
-                if !current.isEmpty {
-                    result.words.append(trimTrailingApostrophes(current))
-                    result.pauseAfter.append(false)
-                    current = ""
-                }
-                if !character.isWhitespace, !result.pauseAfter.isEmpty {
-                    result.pauseAfter[result.pauseAfter.count - 1] = true
-                }
+            } else if !current.isEmpty {
+                result.append(trimTrailingApostrophes(current))
+                current = ""
             }
         }
         if !current.isEmpty {
-            result.words.append(trimTrailingApostrophes(current))
-            result.pauseAfter.append(true)
+            result.append(trimTrailingApostrophes(current))
         }
         return result
     }

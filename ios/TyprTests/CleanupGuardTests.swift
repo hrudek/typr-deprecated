@@ -61,26 +61,31 @@ final class CleanupGuardTests: XCTestCase {
         XCTAssertTrue(CleanupGuard.isAcceptable(original: "hab's vergessen", cleaned: "Habe es vergessen."))
     }
 
-    func testGermanSelfCorrectionTailsNeedAnExplicitMarker() {
-        let cases: [(original: String, cleaned: String, accepted: Bool)] = [
-            ("schick den bericht an thomas müller, nein, ich meine, an julia", "Schick den Bericht an Julia.", true),
-            ("ruf den kunden an. korrektur: schreib ihm eine mail", "Schreib ihm eine Mail.", true),
-            ("schick es am dienstag, nein warte, am mittwoch", "Schick es am Mittwoch.", true),
+    func testTruncationsTheBaseGuardRejectedStayRejected() {
+        let truncations = [
             ("schick bitte den quartalsbericht an das vertriebsteam und frag sie ob die zahlen bis freitag stimmen",
-             "Schick bitte den Quartalsbericht an das Vertriebsteam.", false),
+             "Schick bitte den Quartalsbericht an das Vertriebsteam."),
             ("wir müssen das budget und den startplan mit dem ganzen team vor freitag besprechen, eigentlich machen wir es am montag",
-             "Machen wir es am Montag.", false),
-            ("ruf den kunden an, streich das, schreib ihm eine mail", "Schreib ihm eine Mail.", false),
-            ("Bitte sag ihm ich warte bis morgen früh", "Bis morgen früh.", false),
-            ("Bitte sag ihm, ich warte bis morgen früh.", "Bis morgen früh.", false),
-            ("Das ist das Buch das ich meine lies es bitte", "Lies es bitte.", false),
-            ("Das ist das Buch, das ich meine, lies es bitte.", "Lies es bitte.", false),
-            ("Bitte bleib hier, warte, bis ich zurückkomme.", "Bis ich zurückkomme.", false),
-            ("Sag bitte Bescheid. Ich meine, das ist wichtig.", "Das ist wichtig.", false),
-            ("Das war eigentlich ganz gut, beziehungsweise sehr gut, wir machen weiter", "Sehr gut, wir machen weiter.", false)
+             "Machen wir es am Montag."),
+            ("schick den bericht an thomas müller, nein, ich meine, an julia", "Schick den Bericht an Julia."),
+            ("ruf den kunden an. korrektur: schreib ihm eine mail", "Schreib ihm eine Mail."),
+            ("ruf den kunden an, streich das, schreib ihm eine mail", "Schreib ihm eine Mail."),
+            ("Bitte sag ihm ich warte bis morgen früh", "Bis morgen früh."),
+            ("Bitte sag ihm, ich warte bis morgen früh.", "Bis morgen früh."),
+            ("Das ist das Buch das ich meine lies es bitte", "Lies es bitte."),
+            ("Das ist das Buch, das ich meine, lies es bitte.", "Lies es bitte."),
+            ("Bitte bleib hier, warte, bis ich zurückkomme.", "Bis ich zurückkomme."),
+            ("Sag bitte Bescheid. Ich meine, das ist wichtig.", "Das ist wichtig."),
+            ("Das war eigentlich ganz gut, beziehungsweise sehr gut, wir machen weiter", "Sehr gut, wir machen weiter."),
+            ("Wir gehen heute trotz des Regens zum Arzt und zum Bäcker.", "Zum Arzt und zum Bäcker."),
+            ("Wir gehen heute trotz des Regens nicht zum Arzt und zum Bäcker.", "Zum Arzt und zum Bäcker."),
+            ("Ich gehe heute wegen der Arbeit nicht zum Arzt und zum Bäcker.", "Zum Arzt und zum Bäcker."),
+            ("Wir fahren morgen früh nicht mit dem Auto zum Büro, sondern zur Bank.", "Zum Büro, zur Bank."),
+            ("Danke für das leckere Essen gestern Abend beim Fest im Garten", "Danke fürs Essen im Garten.")
         ]
-        for item in cases {
-            XCTAssertEqual(CleanupGuard.isAcceptable(original: item.original, cleaned: item.cleaned), item.accepted, item.original)
+        for (original, cleaned) in truncations {
+            XCTAssertEqual(CleanupGuard.rejection(original: original, cleaned: cleaned),
+                           "the cleaned text dropped most of the transcript", original)
         }
     }
 
