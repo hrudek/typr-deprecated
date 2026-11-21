@@ -176,10 +176,7 @@ final class SpatialWordDecoderTests: XCTestCase {
         keyboard.typeSpaceFromTyprKey()
         XCTAssertEqual(target.text, "hello ")
         XCTAssertNil(ac.touchInput.evidence(beforeInput: target.text))
-        let delete = try XCTUnwrap(keyboard.layout.key(.delete)).frame
-        let point = CGPoint(x: delete.midX, y: delete.midY)
-        keyboard.touchBegan(id: 1, at: point)
-        keyboard.touchEnded(id: 1, at: point)
+        keyboard.deleteAndRevert()
         XCTAssertEqual(target.text, "gello")
         XCTAssertEqual(ac.learning.diagnostics[.undoSpatial], 1)
         XCTAssertFalse(ac.learning.model.lexicon.isKept("gello"), "Undo does not permanently keep the literal")

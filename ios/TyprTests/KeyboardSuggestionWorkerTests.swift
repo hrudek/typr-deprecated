@@ -336,7 +336,7 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
         await gate.release()
         await engine.waitForSuggestions()
         XCTAssertTrue(engine.suggestions.isEmpty)
-        engine.deleteBackward()
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "Teh", "Immediate undo remains linked")
         engine.cancelSuggestions()
     }
@@ -362,7 +362,7 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
         await engine.waitForSuggestions()
         XCTAssertEqual(engine.suggestions.count, 3)
         XCTAssertTrue(engine.suggestions.allSatisfy { !$0.willAutoReplace && $0.kind != .keepLiteral })
-        engine.deleteBackward()
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "Teh", "Prediction publication must not clear the boundary undo")
         engine.cancelSuggestions()
     }
@@ -514,7 +514,7 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
         XCTAssertTrue(engine.suggestionsAreActive)
         XCTAssertEqual(engine.layerState.layer, .numbers, "Host activation must not reset the layer")
         XCTAssertEqual(engine.shift, shift)
-        engine.deleteBackward()
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "Teh", "Immediate autocorrect undo survives host activation")
 
         // A missed activation notice: the first keyboard touch resumes suggestions.

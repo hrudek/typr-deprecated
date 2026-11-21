@@ -56,7 +56,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         let (engine, target) = keyboard(session: session)
         type("send to teh ", engine)
         XCTAssertEqual(target.text, "send to the ")
-        tap(.delete, engine)
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "send to teh")
         XCTAssertEqual(session.model.state.rejected.first?.context, "send to")
         let ac = engine.autocorrect
@@ -77,7 +77,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         let session = KeyboardLearningSession()
         let (engine, _) = keyboard(session: session)
         type("teh ", engine)
-        tap(.delete, engine)
+        engine.deleteAndRevert()
         type(" w", engine)
         XCTAssertFalse(session.protections.isKept("teh"), "Undo's restored taps are not a new literal")
         let (fresh, target) = keyboard(session: session)
@@ -347,7 +347,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
     func testUndoLearnsIdentityAndRejectsPairWithoutKeepOrWordCount() {
         let (engine, target) = keyboard()
         type("teh ", engine)
-        tap(.delete, engine)
+        engine.deleteAndRevert()
         let session = engine.autocorrect.learning
         XCTAssertEqual(target.text, "teh")
         XCTAssertEqual(session.diagnostics.acceptedBySource["undo"], 3)
@@ -372,7 +372,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         let (engine, target) = keyboard(session: session)
         type("dont ", engine)
         XCTAssertEqual(target.text, "don't ")
-        tap(.delete, engine)
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "dont")
         XCTAssertTrue(session.protections.isRejected(typed: "dont", replacement: "don't"))
         XCTAssertFalse(session.protections.isKept("dont"))
@@ -400,7 +400,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         engine.autocorrect.loadLexiconEntries([(userInput: "omw", documentText: "On my way!")])
         type("omw ", engine)
         XCTAssertEqual(target.text, "On my way! ")
-        tap(.delete, engine)
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "omw")
         XCTAssertFalse(session.protections.isKept("omw"))
         XCTAssertFalse(session.protections.isRejected(typed: "omw", replacement: "On my way!"))
@@ -418,7 +418,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
     func testSpellingUndoHasSeparateCounter() {
         let (engine, _) = keyboard(checker: Checker(answers: ["helo": ["hello"]]))
         type("helo ", engine)
-        tap(.delete, engine)
+        engine.deleteAndRevert()
         XCTAssertEqual(engine.autocorrect.learning.diagnostics[.undoSpelling], 1)
         XCTAssertEqual(engine.autocorrect.learning.diagnostics.acceptedBySource["undo"], 4)
     }
@@ -440,7 +440,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
     func testPickingReplacementImmediatelyRevertsNewRejection() async {
         let (engine, target) = keyboard()
         type("teh ", engine)
-        tap(.delete, engine)
+        engine.deleteAndRevert()
         XCTAssertTrue(engine.autocorrect.learning.protections.isRejected(typed: "teh", replacement: "the"))
         await engine.waitForSuggestions()
         let replacement = engine.suggestions.first { $0.replacement == "the" }
@@ -455,7 +455,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
     func testRejectionRevertDoesNotCrossNewTypingOrEraseOlderPair() {
         let (engine, _) = keyboard()
         type("teh ", engine)
-        tap(.delete, engine)
+        engine.deleteAndRevert()
         type("x", engine)
         engine.acceptOwnedFixtureSuggestion(.init(displayText: "the", replacement: "the", kind: .secondary))
         XCTAssertTrue(engine.autocorrect.learning.protections.isRejected(typed: "teh", replacement: "the"))
@@ -597,7 +597,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         let session = KeyboardLearningSession(defaults: defaults)
         let (engine, _) = keyboard(session: session)
         type("teh ", engine)
-        tap(.delete, engine)
+        engine.deleteAndRevert()
         XCTAssertTrue(session.protections.isRejected(typed: "teh", replacement: "the"))
         XCTAssertFalse(session.protections.isKept("teh"))
         XCTAssertEqual(session.diagnostics[.correctionsRejected], 1)

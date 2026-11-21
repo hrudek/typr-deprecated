@@ -174,15 +174,14 @@ final class AutocorrectEngineTests: XCTestCase {
         tap(.space)
         XCTAssertEqual(target.text, "the ")
 
-        // 2. Single Backspace reverts `the ` -> `teh` and suppresses `"teh"` for this session.
-        tap(.delete)
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "teh")
 
-        // 3. Pressing Space again keeps `teh ` untouched!
+        // 2. Pressing Space again keeps `teh ` untouched!
         tap(.space)
         XCTAssertEqual(target.text, "teh ")
 
-        // 4. A literal chip keeps the protection and records an independent trusted choice.
+        // 3. A literal chip keeps the protection and records an independent trusted choice.
         typeWord("teh")
         engine.acceptSuggestion(engine.suggestions[0])
         XCTAssertEqual(target.text, "teh teh ")

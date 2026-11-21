@@ -79,7 +79,7 @@ final class TypingLogTests: XCTestCase {
     func testAutocorrectionThenUndoRecordsBothAndTheRestoredWord() throws {
         type("teh ")
         XCTAssertEqual(target.text, "the ")
-        engine.deleteBackward()
+        engine.deleteAndRevert()
         XCTAssertEqual(target.text, "teh")
         type(" x")
         let word = try XCTUnwrap(written.first)

@@ -9,6 +9,8 @@ nonisolated struct KeyboardSuggestion: Equatable, Sendable {
         case primary(autoReplace: Bool)
         /// Right slot: runner-up completion or spelling guess.
         case secondary
+        /// Left slot right after an autocorrection: puts back what was typed, as Apple's bubble does.
+        case revert
     }
 
     let displayText: String
@@ -117,6 +119,24 @@ final class AutocorrectEngine {
         let window: KeyboardUndoWindow
     }
 
+    /// The latest autocorrection, offered for revert while the cursor is right after the
+    /// corrected word again, as Apple's keyboard offers its bubble.
+    struct RevertOffer: Equatable {
+        let correction: AppliedCorrection
+        let corrected: String
+        /// The text before the cursor right after `corrected`, without the separator.
+        let anchor: String
+
+        /// Hosts share only a window of long text, so compare its tail.
+        static let anchorTail = 64
+
+        func matches(before: String?) -> Bool {
+            guard let before, before.hasSuffix(corrected) else { return false }
+            guard anchor.count >= Self.anchorTail, before.count >= Self.anchorTail else { return before == anchor }
+            return before.suffix(Self.anchorTail) == anchor.suffix(Self.anchorTail)
+        }
+    }
+
     /// One completed word awaiting trust: RAM only, never persisted, logged or exported.
     // Delayed word feedback adapted from AVGVSTVS96/iikb
     // Packages/KeyboardModules/Sources/KeyboardCore/Typing/TypingEngine+Words.swift (MIT).
@@ -217,6 +237,7 @@ final class AutocorrectEngine {
     static let boundaryRejectionLimit = 64
     var boundaryRejectionCount: Int { boundaryRejections.count }
     private var lastCorrection: PendingUndo?
+    private var revertOffer: RevertOffer?
     private(set) var pendingFeedback: PendingFeedback?
     /// Manual choices also wait until the next unambiguous letter before pair training.
     private var pendingPairChoice: (word: String, epoch: Int)?
@@ -515,11 +536,19 @@ final class AutocorrectEngine {
         record(AppliedCorrection(original: word, insertedText: word + " ", keptWordWasNew: wasNew), at: now)
     }
 
-    func recordAppliedCorrection(original: String, insertedText: String, at now: TimeInterval) {
-        record(AppliedCorrection(original: original, insertedText: insertedText,
-                                 kind: pendingFeedback?.kind ?? .autoRule, context: rejectionContext,
-                                 boundary: appliedBoundary), at: now)
+    /// `before`: the text before the cursor right after the correction went in.
+    func recordAppliedCorrection(original: String, corrected: String, separator: String, before: String?) {
+        let correction = AppliedCorrection(original: original, insertedText: corrected + separator,
+                                           kind: pendingFeedback?.kind ?? .autoRule, context: rejectionContext,
+                                           boundary: appliedBoundary)
         appliedBoundary = nil
+        lastCorrection = nil
+        guard let before, before.hasSuffix(correction.insertedText) else {
+            revertOffer = nil
+            return
+        }
+        revertOffer = RevertOffer(correction: correction, corrected: corrected,
+                                  anchor: String(before.dropLast(separator.count)))
     }
 
     func recordAppliedBoundary(_ candidate: KeyboardBoundaryDecoder.Candidate, replacement: String,
@@ -535,6 +564,14 @@ final class AutocorrectEngine {
     func pendingUndo(at now: TimeInterval) -> PendingUndo? {
         guard let lastCorrection, lastCorrection.window.isOpen(at: now) else { return nil }
         return lastCorrection
+    }
+
+    func revertOffer(before: String?) -> RevertOffer? {
+        revertOffer.flatMap { $0.matches(before: before) ? $0 : nil }
+    }
+
+    func clearRevertOffer() {
+        revertOffer = nil
     }
 
     func consumePendingUndo(at now: TimeInterval) -> AppliedCorrection? {
@@ -557,6 +594,7 @@ final class AutocorrectEngine {
             pendingPairChoice = nil
             learning.breakWordSequence()
             lastCorrection = nil
+            revertOffer = nil
             reversibleRejection = nil
             reversibleBoundary = nil
         }
@@ -588,8 +626,10 @@ final class AutocorrectEngine {
         reversibleBoundary = nil
     }
 
-    func discardFeedback(preservingTrustedContext: Bool = false) {
-        pendingFeedback = nil
+    /// `keepingCorrection`: Delete took only the space after an autocorrection, whose revert
+    /// still learns from the word's taps.
+    func discardFeedback(preservingTrustedContext: Bool = false, keepingCorrection: Bool = false) {
+        if !keepingCorrection { pendingFeedback = nil }
         pendingPairChoice = nil
         reversibleRejection = nil
         reversibleBoundary = nil
@@ -679,7 +719,7 @@ final class AutocorrectEngine {
                               epoch: learning.feedbackEpoch, typedThrough: afterInput)
     }
 
-    /// Backspace restored the typed word right after an automatic replacement.
+    /// The strip's revert restored the typed word of an autocorrection, or Delete undid a keep or a pick.
     func recordUndo(_ undo: AppliedCorrection) {
         pendingPairChoice = nil
         learning.breakWordSequence()

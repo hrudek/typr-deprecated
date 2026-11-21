@@ -290,11 +290,13 @@ final class TypingLogRecorder {
         open = draft.isBounded ? draft : nil
     }
 
-    /// Backspace restored `original` in place of the word's automatic change.
+    /// Delete or the strip's revert restored `original` in place of the word's change.
     func undone(original: String, field: String?) {
         let token = Self.word(in: field)
-        guard var draft = settled, let token, original.hasSuffix(token) else { discard(); return }
+        let reopened = settled == nil && open?.word.corrections.last?.kind == .reopen
+        guard var draft = reopened ? open : settled, let token, original.hasSuffix(token) else { discard(); return }
         settled = nil
+        if reopened { draft.word.corrections.removeLast() }
         draft.word.corrections.append(.init(kind: .undo, from: draft.text, to: original))
         draft.word.end = ""
         draft.text = token

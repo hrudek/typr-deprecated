@@ -55,16 +55,16 @@ final class BackspaceUndoWindowTests: XCTestCase {
     }
 
     @discardableResult
-    private func autocorrect() -> TimeInterval {
+    private func keep() -> TimeInterval {
         type("teh")
-        let correctedAt = now
-        tap(.space)
-        XCTAssertTrue(target.text.hasSuffix("the "))
-        return correctedAt
+        let keptAt = now
+        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
+        XCTAssertTrue(target.text.hasSuffix("teh "))
+        return keptAt
     }
 
     func testDeleteUndoesJustBeforeTheWindowCloses() {
-        let correctedAt = autocorrect()
+        let correctedAt = keep()
         XCTAssertTrue(engine.deleteUndoes)
         now = correctedAt + KeyboardUndoWindow.duration - 0.01
         engine.deleteBackward()
@@ -73,19 +73,19 @@ final class BackspaceUndoWindowTests: XCTestCase {
     }
 
     func testDeleteRemovesOneCharacterOnceTheWindowClosed() {
-        let correctedAt = autocorrect()
+        let correctedAt = keep()
         now = correctedAt + KeyboardUndoWindow.duration
         engine.deleteBackward()
-        XCTAssertEqual(target.text, "the")
+        XCTAssertEqual(target.text, "teh")
         XCTAssertFalse(engine.deleteUndoes)
         engine.deleteBackward()
-        XCTAssertEqual(target.text, "th", "an expired undo is gone, not deferred")
-        type("e x")
+        XCTAssertEqual(target.text, "te", "an expired undo is gone, not deferred")
+        type("h x")
         XCTAssertFalse(written.flatMap(\.corrections).contains { $0.kind == .undo })
     }
 
     func testKeyRevertsToDeleteExactlyWhenTheWindowCloses() throws {
-        let correctedAt = autocorrect()
+        let correctedAt = keep()
         let expiry = try XCTUnwrap(scheduled.last)
         XCTAssertEqual(expiry.delay, KeyboardUndoWindow.duration, accuracy: 0.0001)
         XCTAssertEqual(scheduled.count, 1)
@@ -99,7 +99,7 @@ final class BackspaceUndoWindowTests: XCTestCase {
     }
 
     func testEarlyTimerKeepsUndoAndWaitsForTheRest() throws {
-        let correctedAt = autocorrect()
+        let correctedAt = keep()
         now = correctedAt + 2.5
         changes = 0
         try XCTUnwrap(scheduled.last).action()
@@ -110,19 +110,19 @@ final class BackspaceUndoWindowTests: XCTestCase {
     }
 
     func testStaleTimerFromAnEarlierCorrectionKeepsTheNewerUndo() throws {
-        let firstAt = autocorrect()
+        let firstAt = keep()
         let first = try XCTUnwrap(scheduled.last)
-        autocorrect()
-        XCTAssertEqual(target.text, "the the ")
+        keep()
+        XCTAssertEqual(target.text, "teh teh ")
         now = firstAt + KeyboardUndoWindow.duration
         first.action()
         XCTAssertTrue(engine.deleteUndoes)
         engine.deleteBackward()
-        XCTAssertEqual(target.text, "the teh")
+        XCTAssertEqual(target.text, "teh teh")
     }
 
     func testUndoKeyEndsWhenUndoIsConsumed() {
-        autocorrect()
+        keep()
         changes = 0
         engine.deleteBackward()
         XCTAssertFalse(engine.deleteUndoes)
@@ -130,15 +130,15 @@ final class BackspaceUndoWindowTests: XCTestCase {
     }
 
     func testUndoKeyEndsWhenALetterFollows() {
-        autocorrect()
+        keep()
         type("x")
         XCTAssertFalse(engine.deleteUndoes)
         engine.deleteBackward()
-        XCTAssertEqual(target.text, "the ")
+        XCTAssertEqual(target.text, "teh ")
     }
 
     func testUndoKeyEndsWhenTheTextChangesElsewhere() {
-        autocorrect()
+        keep()
         changes = 0
         engine.textDidChange()
         XCTAssertFalse(engine.deleteUndoes)
@@ -146,7 +146,7 @@ final class BackspaceUndoWindowTests: XCTestCase {
     }
 
     func testUndoKeyEndsWhenTheSpacebarMovesTheCursor() {
-        autocorrect()
+        keep()
         let space = engine.layout.key(.space)!.frame
         engine.touchBegan(id: 1, at: CGPoint(x: space.midX, y: space.midY))
         now += FullKeyboardEngine.trackpadDelay + 0.1
@@ -155,22 +155,17 @@ final class BackspaceUndoWindowTests: XCTestCase {
     }
 
     func testUndoKeyEndsWhenTheFieldChanges() {
-        autocorrect()
+        keep()
         engine.configureForField()
         XCTAssertFalse(engine.deleteUndoes)
     }
 
-    func testKeptWordUndoExpiresToo() {
-        type("teh")
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
-        XCTAssertEqual(target.text, "teh ")
-        XCTAssertTrue(engine.deleteUndoes)
-        now += KeyboardUndoWindow.duration
-        engine.refreshDeleteUndo()
+    func testAnAutocorrectionLeavesDeleteToItsSpace() {
+        type("teh ")
+        XCTAssertEqual(target.text, "the ")
         XCTAssertFalse(engine.deleteUndoes)
+        XCTAssertTrue(scheduled.isEmpty)
         engine.deleteBackward()
-        XCTAssertEqual(target.text, "teh")
-        type(" x")
-        XCTAssertFalse(written.flatMap(\.corrections).contains { $0.kind == .undo })
+        XCTAssertEqual(target.text, "the")
     }
 }

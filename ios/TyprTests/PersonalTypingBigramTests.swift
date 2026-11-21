@@ -65,7 +65,7 @@ final class PersonalTypingBigramTests: XCTestCase {
             type("hello ", engine)
             if mode == "auto" || mode == "undo" {
                 type("teh ", engine)
-                if mode == "undo" { tap(.delete, engine); type(" ", engine) }
+                if mode == "undo" { engine.deleteAndRevert(); type(" ", engine) }
                 type("world n", engine)
             } else if mode == "retype" {
                 type("worla", engine); tap(.delete, engine); type("d next n", engine)

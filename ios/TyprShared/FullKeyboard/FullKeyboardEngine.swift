@@ -219,7 +219,7 @@ final class FullKeyboardEngine {
     var scheduleAfter: (TimeInterval, @escaping @MainActor () -> Void) -> Void = { delay, action in
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated(action) }
     }
-    /// The next Delete restores the last automatic correction; the delete key shows undo.
+    /// The next Delete undoes the last keep or strip pick; the delete key shows undo.
     private(set) var deleteUndoes = false
     private var undoRedrawAt: TimeInterval?
     /// Called whenever something visible changed (page, shift, pressed keys, suggestions, accents).
@@ -294,6 +294,7 @@ final class FullKeyboardEngine {
         shift.reset()
         lastSpaceAt = nil
         autocorrect.clearPendingUndo()
+        autocorrect.clearRevertOffer()
         refreshDeleteUndo()
         cancelAllTouches(republishing: false)
         autocorrect.touchInput.clearAtBoundary()
@@ -440,6 +441,7 @@ final class FullKeyboardEngine {
     private func publishSuggestions(_ next: [KeyboardSuggestion], ownership: KeyboardSuggestionOwnership?,
                                     evidence: KeyboardTouchWord?, final: Bool) {
         published = ownership.map { PublishedStrip(ownership: $0, evidence: evidence, final: final) }
+        let next = offeringRevert(next, ownership: ownership)
         guard next != suggestions else { return }
         suggestions = next
         onChange?()
@@ -489,8 +491,12 @@ final class FullKeyboardEngine {
             refreshSuggestions()
             return
         }
-        // Capture the word's taps before invalidating them: an explicit choice may teach Typr.
         let before = target.documentContextBeforeInput
+        if suggestion.kind == .revert {
+            revertAutocorrection(before: before)
+            return
+        }
+        // Capture the word's taps before invalidating them: an explicit choice may teach Typr.
         let evidence = autocorrect.touchInput.evidence(beforeInput: before)
         let token = AutocorrectEngine.currentToken(in: before)
         // Boundary chips own an exact bounded suffix, not just the current token. Ownership
@@ -832,6 +838,39 @@ final class FullKeyboardEngine {
         if hadTouches { onChange?() }
     }
 
+    private func offeringRevert(_ next: [KeyboardSuggestion],
+                                ownership: KeyboardSuggestionOwnership?) -> [KeyboardSuggestion] {
+        let others = next.filter { $0.kind != .revert }
+        guard let ownership, ownership.token != nil, ownership.permitsCorrection,
+              showsStrip, field == .text,
+              let offer = autocorrect.revertOffer(before: target.documentContextBeforeInput) else { return others }
+        let original = offer.correction.original
+        var revert = KeyboardSuggestion(displayText: original, replacement: original, kind: .revert)
+        revert.ownership = ownership
+        return [revert] + others.filter {
+            $0.kind != .keepLiteral && $0.replacement.caseInsensitiveCompare(original) != .orderedSame
+        }.prefix(2)
+    }
+
+    private func revertAutocorrection(before: String?) {
+        guard let offer = autocorrect.revertOffer(before: before) else {
+            refreshSuggestions()
+            return
+        }
+        prepareStatisticsEdit()
+        statistics?.deletion(undo: true)
+        autocorrect.clearRevertOffer()
+        autocorrect.clearPendingUndo()
+        for _ in 0..<offer.corrected.count { target.deleteBackward() }
+        target.insertText(offer.correction.original)
+        logTyping { $0.undone(original: offer.correction.original, field: target.documentContextBeforeInput) }
+        autocorrect.touchInput.clear()
+        autocorrect.recordUndo(offer.correction)
+        autocorrect.touchInput.deletedBackward(before: nil, after: target.documentContextBeforeInput)
+        lastSpaceAt = nil
+        didEdit()
+    }
+
     // MARK: - Delete
 
     /// The delete key repeats after 360 ms, accelerates at 850 ms, and removes whole words after 1.4 s.
@@ -890,7 +929,8 @@ final class FullKeyboardEngine {
             return
         }
         autocorrect.clearPendingUndo()
-        autocorrect.discardFeedback()
+        let takesCorrectionSpace = beforeDeletion.map { autocorrect.revertOffer(before: String($0.dropLast())) != nil } ?? false
+        autocorrect.discardFeedback(keepingCorrection: takesCorrectionSpace)
         if recordsStatistics { statistics?.deletion() }
         target.deleteBackward()
         logTyping { $0.deleted(field: target.documentContextBeforeInput) }
@@ -1009,7 +1049,8 @@ final class FullKeyboardEngine {
             for _ in 0..<original.count { target.deleteBackward() }
             target.insertText(replacement + text)
             logTyping { $0.boundary(text, replacement: replacement, correction: typingLogCorrection) }
-            autocorrect.recordAppliedCorrection(original: original, insertedText: replacement + text, at: clock())
+            autocorrect.recordAppliedCorrection(original: original, corrected: replacement, separator: text,
+                                                before: target.documentContextBeforeInput)
             autocorrect.discardFeedback()
             autocorrect.touchInput.clearAtBoundary()
             lastSpaceAt = nil
@@ -1082,7 +1123,8 @@ final class FullKeyboardEngine {
             autocorrect.touchInput.clear()
             target.insertText(inserted)
             logTyping { $0.boundary(" ", replacement: replacement, correction: typingLogCorrection) }
-            autocorrect.recordAppliedCorrection(original: original, insertedText: inserted, at: clock())
+            autocorrect.recordAppliedCorrection(original: original, corrected: replacement, separator: " ",
+                                                before: target.documentContextBeforeInput)
             if let sample {
                 autocorrect.spaceTyped(at: sample.point, layout: layout, afterInput: target.documentContextBeforeInput)
             }
@@ -1370,6 +1412,7 @@ final class FullKeyboardEngine {
         case .keepLiteral: "keep"
         case .primary: "primary"
         case .secondary: "secondary"
+        case .revert: "revert"
         }
     }
 
