@@ -9,6 +9,7 @@ final class DictationAudioSession {
     private let setActive: (Bool, AVAudioSession.SetActiveOptions) throws -> Void
     private let availableInputs: () -> [Microphone]
     private let setPreferredInput: (Microphone?) throws -> Void
+    private let currentInput: () -> Microphone?
 
     init(
         setCategory: @escaping (AVAudioSession.Category, AVAudioSession.Mode, AVAudioSession.CategoryOptions) throws -> Void = {
@@ -30,6 +31,11 @@ final class DictationAudioSession {
             try session.setPreferredInput(wanted.flatMap { wanted in
                 session.availableInputs?.first { $0.uid == wanted.uid }
             })
+        },
+        currentInput: @escaping () -> Microphone? = {
+            AVAudioSession.sharedInstance().currentRoute.inputs.first.map {
+                Microphone(uid: $0.uid, port: $0.portType)
+            }
         }
     ) {
         self.setCategory = setCategory
@@ -37,6 +43,7 @@ final class DictationAudioSession {
         self.setActive = setActive
         self.availableInputs = availableInputs
         self.setPreferredInput = setPreferredInput
+        self.currentInput = currentInput
     }
 
     /// The input `choice` records from on the current route.
@@ -45,15 +52,15 @@ final class DictationAudioSession {
     }
 
     /// Always sets the input, so a preference from an earlier choice or route never sticks.
-    /// Returns the input asked for; a refused preference leaves iOS's choice.
+    /// Returns the input the route records from, which is iOS's choice when it refuses the
+    /// preference: recording from another microphone beats not recording.
     @discardableResult
     func activate(microphone: MicrophoneChoice) throws -> Microphone? {
         try setCategory(.record, .measurement, MicrophoneRoute.categoryOptions(for: microphone))
         try setPreferredSampleRate(16_000)
         try setActive(true, [])
-        let input = input(for: microphone)
-        try? setPreferredInput(input)
-        return input
+        try? setPreferredInput(input(for: microphone))
+        return currentInput()
     }
 
     func deactivate() {

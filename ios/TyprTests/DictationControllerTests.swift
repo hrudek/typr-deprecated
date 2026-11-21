@@ -979,7 +979,6 @@ final class DictationControllerTests: XCTestCase {
         try await waitForState("resume activated the input") { audio.startKeepaliveCount == startsBeforeResume + 1 }
         XCTAssertEqual(audio.keepaliveMicrophones.last, .automatic, "the resumed input takes no hands-free route")
 
-        // Back in the host app, the next dictation records from that input without a restart.
         audio.canStartInput = false
         let startsAfterResume = audio.startKeepaliveCount
         bridge.send(.start, jobID: "after-call", style: .polished, sentAt: now)
@@ -990,7 +989,6 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertEqual(audio.startKeepaliveCount, startsAfterResume)
         controller.cancelCurrentJob()
 
-        // A new warm session uses Bluetooth again.
         audio.canStartInput = true
         controller.endWarmSession()
         controller.selectWarmDuration(.fifteenMinutes)
@@ -1007,18 +1005,15 @@ final class DictationControllerTests: XCTestCase {
         try await activationSettled(controller)
         var starts = audio.startKeepaliveCount
 
-        // e.g. AirPods connecting for playback: Automatic still records from the same input.
         controller.handleAudioSystemEvent(.routeNewDeviceAvailable)
         XCTAssertEqual(audio.startKeepaliveCount, starts)
 
-        // CarPlay connecting: Automatic now picks the car's microphone.
         audio.keepaliveInputIsStale = true
         controller.handleAudioSystemEvent(.routeNewDeviceAvailable)
         XCTAssertEqual(audio.startKeepaliveCount, starts + 1)
         XCTAssertEqual(audio.keepaliveMicrophones.last, .automatic)
         XCTAssertTrue(controller.keyboardSessionEnabled)
 
-        // During a call nothing takes the microphone; the call's end resumes the session.
         controller.handleAudioSystemEvent(.interruptionBegan)
         starts = audio.startKeepaliveCount
         controller.handleAudioSystemEvent(.routeNewDeviceAvailable)

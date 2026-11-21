@@ -19,7 +19,9 @@ final class DictationAudioSessionTests: XCTestCase {
         var sampleRates: [Double] = []
         var preferredInputs: [Microphone?] = []
         var inputs: [Microphone] = [DictationAudioSessionTests.iPhone]
+        var current: Microphone? = DictationAudioSessionTests.iPhone
         var failCategory = false
+        var refusePreferredInput = false
 
         func makeSession() -> DictationAudioSession {
             DictationAudioSession(setCategory: { category, mode, options in
@@ -36,6 +38,10 @@ final class DictationAudioSessionTests: XCTestCase {
                 self.inputs
             }, setPreferredInput: {
                 self.preferredInputs.append($0)
+                if self.refusePreferredInput { throw CocoaError(.coderInvalidValue) }
+                self.current = $0
+            }, currentInput: {
+                self.current
             })
         }
     }
@@ -69,6 +75,16 @@ final class DictationAudioSessionTests: XCTestCase {
         spy.inputs = []
         XCTAssertNil(try session.activate(microphone: .automatic))
         XCTAssertEqual(spy.preferredInputs, [Self.car, Self.iPhone, nil], "an earlier preference never sticks")
+    }
+
+    func testRefusedInputReportsTheInputTheRouteRecordsFrom() throws {
+        let spy = SessionSpy()
+        spy.inputs = [Self.iPhone, Self.car]
+        spy.current = Self.car
+        spy.refusePreferredInput = true
+        let session = spy.makeSession()
+        XCTAssertEqual(try session.activate(microphone: .iPhone), Self.car)
+        XCTAssertEqual(spy.activations, [true], "recording goes on from iOS's input")
     }
 
     func testReleaseNotifiesInterruptedAppsBeforeNextActivation() throws {
