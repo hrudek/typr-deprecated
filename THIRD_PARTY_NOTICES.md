@@ -737,3 +737,18 @@ options, no preferred sample rate) and the warm keepalive's restart backoff in
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (anomalyco/hex #2005, #2151, #2160). MIT,
 © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Never-suggest word list (LDNOOBW, curated by Hex)
+
+`ios/TyprShared/FullKeyboard/NeverSuggestWords.swift` holds the German, English and shared
+(`*`) lines of Hex's `ios/HEXShared/FullKeyboard/never-suggest.tsv` from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (#2093), unchanged except for the dropped
+layout column. Hex's curation and its `OffensiveWords.blocks` logic, adapted here, are MIT,
+© Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+The words come from the
+[List of Dirty, Naughty, Obscene, and Otherwise Bad Words](https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/tree/5faf2ba42d7b1c0977169ec3611df25a3c08eb13)
+(LDNOOBW), © 2012–2020 Shutterstock, Inc., and contributors, licensed under
+[Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
+Hex lowercased and classified the entries as slur or swear word, omitted ordinary,
+medical and search-only terms, and added common slurs, inflections and spelling variants.

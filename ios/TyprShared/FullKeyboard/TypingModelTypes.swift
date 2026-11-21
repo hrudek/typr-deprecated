@@ -337,6 +337,12 @@ nonisolated struct PersonalLexiconSnapshot: Equatable, Sendable {
         kept.contains(Self.normalize(word))
     }
 
+    /// Kept or typed at least twice, like the words `ScanList` offers.
+    func knows(_ word: String) -> Bool {
+        let key = Self.normalize(word)
+        return kept.contains(key) || (counts[key] ?? 0) >= 2
+    }
+
     func isRejected(typed: String, replacement: String, context: String? = nil) -> Bool {
         let pair = RejectedCorrection(typed: typed, replacement: replacement)
         return rejected.first(where: { $0 == pair })?.blocks(in: context) == true

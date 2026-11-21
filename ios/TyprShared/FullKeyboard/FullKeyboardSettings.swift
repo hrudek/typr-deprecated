@@ -11,6 +11,7 @@ struct FullKeyboardSettings {
     private enum Key {
         static let autocorrect = "settings.keyboardAutocorrect"
         static let swipeTyping = "settings.keyboardSwipeTyping"
+        static let suggestSwearWords = "settings.keyboardSuggestSwearWords"
         static let globeKey = "settings.keyboardGlobeKey"
         static let bottomRowOrder = "settings.keyboardBottomRowOrder"
         static let periodKey = "settings.keyboardPeriodKey"
@@ -30,6 +31,12 @@ struct FullKeyboardSettings {
     var autocorrect: Bool {
         get { defaults?.object(forKey: Key.autocorrect) as? Bool ?? true }
         nonmutating set { defaults?.set(newValue, forKey: Key.autocorrect) }
+    }
+
+    /// Suggestions, autocorrect and swipe may offer swear words; slurs never. Off by default.
+    var suggestSwearWords: Bool {
+        get { defaults?.object(forKey: Key.suggestSwearWords) as? Bool ?? false }
+        nonmutating set { defaults?.set(newValue, forKey: Key.suggestSwearWords) }
     }
 
     /// Swipe typing over the letters. On by default; off keeps sliding as slide-to-key.

@@ -434,6 +434,7 @@ final class FullKeyboardEngine {
 
     private func publishModelPredictions(_ words: [String], counted: [KeyboardSuggestion],
                                          ownership: KeyboardSuggestionOwnership, evidence: KeyboardTouchWord?) {
+        let words = words.filter { autocorrect.mayOffer($0, before: ownership.context) }
         publishSuggestions(ownedSuggestions(ModelPredictionSession.merge(words, into: counted), ownership: ownership),
                            ownership: ownership, evidence: evidence, final: true)
     }
@@ -1287,14 +1288,14 @@ final class FullKeyboardEngine {
     }
 
     private func commitSwipe(_ candidates: [SwipeSearch.Candidate], shift shiftState: ShiftState) {
+        let before = target.documentContextBeforeInput
         var words: [String] = []
-        for candidate in candidates.prefix(3) {
+        for candidate in candidates.filter({ autocorrect.mayOffer($0.word, before: before) }).prefix(3) {
             let word = Self.swipeCased(autocorrect.swipeSpelling(candidate.word, language: candidate.language), shift: shiftState)
             if !words.contains(word) { words.append(word) }
         }
         guard let word = words.first else { return }
         autocorrect.forgetSpaceTaps()
-        let before = target.documentContextBeforeInput
         let text = (Self.swipeNeedsSpace(before: before) ? " " : "") + word
         prepareStatisticsEdit()
         statistics?.direct(text)
