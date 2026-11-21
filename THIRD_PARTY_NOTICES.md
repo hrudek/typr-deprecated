@@ -723,3 +723,14 @@ text) and the small chip around an autocorrection (`KeyboardStripView.swift`) ar
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2192: `FullKeyboardEngine+Revert.swift` and
 `AutocorrectEngine.AppliedCorrection.isAtEnd`; PR #2207: the autocorrection chip).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Hex iOS audio mixing and keepalive backoff
+
+The Keep other audio playing session in `ios/Typr/DictationAudioSession.swift` (category,
+options, no preferred sample rate) and the warm keepalive's restart backoff in
+`ios/Typr/DictationController.swift` (`keepaliveRestartIsDue`) with its test
+`testAKeepaliveThatKeepsStoppingIsRestartedLessAndLessOften` are adapted from
+`SystemAudioManager.configureAudioSession` and `DictationController` in
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (anomalyco/hex #2005, #2151, #2160). MIT,
+© Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).

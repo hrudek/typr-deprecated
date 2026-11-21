@@ -99,6 +99,47 @@ final class DictationAudioSessionTests: XCTestCase {
         XCTAssertEqual(spy.options, [[], []])
     }
 
+    func testMixingSessionPlaysAndRecordsAtTheHardwaresRateWithoutDucking() throws {
+        for choice in MicrophoneChoice.allCases {
+            let spy = SessionSpy()
+            try spy.makeSession().activate(microphone: choice, mixWithOthers: true)
+            XCTAssertEqual(spy.categories, [.playAndRecord], "\(choice)")
+            XCTAssertEqual(spy.modes, [.measurement], "\(choice)")
+            let expected: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothA2DP, .defaultToSpeaker]
+            XCTAssertEqual(spy.options, [choice == .bluetooth ? expected.union(.allowBluetoothHFP) : expected], "\(choice)")
+            XCTAssertEqual(spy.sampleRates, [], "\(choice): the hardware keeps its own rate")
+            XCTAssertEqual(spy.activations, [true], "\(choice)")
+        }
+    }
+
+    func testResampledCaptureIs16kHzMonoAtAnyHardwareRate() throws {
+        for hardwareRate in [48_000.0, 44_100, 24_000, 16_000] {
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("resample-\(Int(hardwareRate))-\(UUID().uuidString).wav")
+            defer { try? FileManager.default.removeItem(at: url) }
+            let writer = try TapFileWriter(url: url, maxDuration: 30)
+            let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: hardwareRate, channels: 2))
+            let chunk = AVAudioFrameCount(hardwareRate / 10)
+            for index in 0..<10 {
+                let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: chunk))
+                buffer.frameLength = chunk
+                for channel in 0..<2 {
+                    for frame in 0..<Int(chunk) {
+                        let time = Double(index * Int(chunk) + frame) / hardwareRate
+                        buffer.floatChannelData![channel][frame] = Float(0.3 * sin(2 * .pi * 220 * time))
+                    }
+                }
+                writer.append(buffer)
+            }
+            writer.close()
+
+            let file = try AVAudioFile(forReading: url)
+            XCTAssertEqual(file.fileFormat.sampleRate, 16_000, "\(hardwareRate)")
+            XCTAssertEqual(file.fileFormat.channelCount, 1, "\(hardwareRate)")
+            XCTAssertEqual(Double(file.length), 16_000, accuracy: 400, "\(hardwareRate): one second")
+        }
+    }
+
     func testConfigurationFailureDoesNotActivateAnUnknownSession() {
         let spy = SessionSpy()
         let session = spy.makeSession()
