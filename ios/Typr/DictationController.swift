@@ -883,11 +883,15 @@ final class DictationController {
     /// Never seize the microphone just to keep it warm while media is playing.
     private func startWarmInput() throws {
         guard !audio.isOtherAudioPlaying else { throw CancellationError() }
-        try audio.startKeepalive(microphone: warmMicrophone)
+        try audio.startKeepalive(microphone: idleMicrophone)
     }
 
-    private var warmMicrophone: MicrophoneChoice {
+    private var captureMicrophone: MicrophoneChoice {
         warmSessionInterrupted && microphone == .bluetooth ? .automatic : microphone
+    }
+
+    private var idleMicrophone: MicrophoneChoice {
+        languageSettings[experiment: .warmMicOnIPhone] ? .iPhone : captureMicrophone
     }
 
     private func enableWarmSessionBookkeeping() {
@@ -1127,7 +1131,7 @@ final class DictationController {
                     return try self.audio.beginCapture(
                         at: captureURL,
                         maxDuration: Self.maxCaptureDuration,
-                        microphone: self.warmMicrophone
+                        microphone: self.captureMicrophone
                     )
                 }
                 guard self.jobGeneration == captureGeneration else {
@@ -1410,7 +1414,7 @@ final class DictationController {
             do {
                 // The capture recorded from the keepalive input, so it is normally still
                 // running. Restarting it here would fail in the background and end the session.
-                try audio.ensureKeepalive(microphone: warmMicrophone)
+                try audio.ensureKeepalive(microphone: idleMicrophone)
             } catch {
                 keyboardSessionEnabled = false
                 keyboardSessionRemaining = 0
@@ -1712,7 +1716,7 @@ final class DictationController {
             // A car or headset that just connected can change the choice's input. Not while a
             // call holds the microphone: `.interruptionEnded` resumes the session.
             if keyboardSessionEnabled && phase == .ready && !suspendedWarmSessionOnInterruption
-                && !audio.keepaliveFollows(warmMicrophone) {
+                && !audio.keepaliveFollows(idleMicrophone) {
                 do { try startWarmInput() }
                 catch { endWarmSession() }
                 publishKeyboardSnapshot()

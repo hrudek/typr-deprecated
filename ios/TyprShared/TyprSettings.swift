@@ -14,7 +14,16 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = []
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone]
+
+    /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
+    /// moves to the chosen one. Typr can't start input in the background, so a move there can
+    /// end the warm session.
+    static let warmMicOnIPhone = ExperimentalSwitch(
+        name: "warmMicOnIPhone",
+        title: "Warm mic on iPhone",
+        detail: "Between dictations the warm mic uses the iPhone's; each dictation switches to the chosen microphone. Switching can end the warm session while Typr is in the background."
+    )
 }
 
 /// Typr switches, stored in the App Group so the keyboard reads them too.

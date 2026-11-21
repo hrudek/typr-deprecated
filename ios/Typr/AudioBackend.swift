@@ -34,7 +34,7 @@ protocol AudioManaging: AnyObject {
 
     func requestPermission() async -> Bool
     func startKeepalive(microphone: MicrophoneChoice) throws
-    /// Starts the keepalive only when it isn't already running for this choice. Never
+    /// Starts the keepalive only when it isn't already running for this choice's input. Never
     /// restarts a running input: iOS refuses to start microphone input in the background,
     /// so a restart there would end the warm session.
     func ensureKeepalive(microphone: MicrophoneChoice) throws
@@ -341,14 +341,15 @@ final class SystemAudioManager: AudioManaging {
     }
 
     func ensureKeepalive(microphone: MicrophoneChoice) throws {
-        if inputGraph.isRunning, keepaliveMicrophone == microphone {
+        if inputGraph.isRunning, keepaliveMicrophone == microphone || keepaliveFollows(microphone) {
             return
         }
         try startKeepalive(microphone: microphone)
     }
 
     func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool {
-        inputGraph.isRunning && keepaliveMicrophone == microphone
+        guard inputGraph.isRunning, let keepaliveMicrophone else { return false }
+        return MicrophoneRoute.categoryOptions(for: keepaliveMicrophone) == MicrophoneRoute.categoryOptions(for: microphone)
             && audioSession.input(for: microphone) == keepaliveInput
     }
 

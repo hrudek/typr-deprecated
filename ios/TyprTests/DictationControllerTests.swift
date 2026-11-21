@@ -75,6 +75,11 @@ private final class FakeAudioManager: AudioManaging {
         isKeepaliveRunning && keepaliveMicrophones.last == microphone && !keepaliveInputIsStale
     }
 
+    func ensureKeepalive(microphone: MicrophoneChoice) throws {
+        guard !isKeepaliveRunning || keepaliveMicrophones.last != microphone else { return }
+        try startKeepalive(microphone: microphone)
+    }
+
     func stopKeepalive() {
         isKeepaliveRunning = false
     }
@@ -1021,6 +1026,28 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertTrue(controller.keyboardSessionEnabled)
     }
 
+    func testExperimentalWarmMicOnIPhoneMovesEachDictationToTheChosenMicrophone() async throws {
+        let settings = TyprSettings(defaults: defaults)
+        settings[experiment: .warmMicOnIPhone] = true
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        bridge.microphone = .bluetooth
+        let controller = try await readyController(audio: audio, bridge: bridge, now: { 31_000 }, retryDelays: [],
+                                                   settings: settings)
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        XCTAssertEqual(audio.keepaliveMicrophones, [.iPhone], "idle warm input holds no hands-free route")
+
+        controller.startRecording(keyboardJobID: "airpods")
+        try await activationSettled(controller)
+        XCTAssertEqual(audio.captureMicrophones, [.bluetooth])
+        XCTAssertEqual(audio.keepaliveMicrophones, [.iPhone, .bluetooth])
+        controller.finishRecording()
+        try await transcribed(controller)
+        XCTAssertEqual(audio.keepaliveMicrophones.last, .iPhone, "back on the iPhone after the dictation")
+        XCTAssertTrue(controller.keyboardSessionEnabled)
+    }
+
     func testOnlyEngineFailuresRequireReloadingTheModel() {
         XCTAssertTrue(DictationController.transcriptionFailureKeepsModel(WhisperTranscriber.TranscriberError.silentAudio))
         XCTAssertTrue(DictationController.transcriptionFailureKeepsModel(WhisperTranscriber.TranscriberError.emptyTranscript))
@@ -1038,12 +1065,14 @@ final class DictationControllerTests: XCTestCase {
         audio: FakeAudioManager, bridge: KeyboardBridge? = nil, transcriber: ControlledTranscriber = ControlledTranscriber(),
         now: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }, hostReturner: HostReturner? = nil,
         vocabulary: CustomVocabularySettings = CustomVocabularySettings(),
-        retryDelays: [Duration] = DictationController.audioActivationRetryDelays, onPrepare: @escaping () -> Void = {}
+        retryDelays: [Duration] = DictationController.audioActivationRetryDelays, onPrepare: @escaping () -> Void = {},
+        settings: TyprSettings = TyprSettings()
     ) async throws -> DictationController {
         let controller = DictationController(
             audio: audio, keyboardBridge: bridge ?? KeyboardBridge(defaults: defaults), transcriber: transcriber,
             transcriberFactory: { onPrepare(); return transcriber }, now: now, autoPrepareOnInit: false,
-            hostReturner: hostReturner, customVocabularySettings: vocabulary, audioActivationRetryDelays: retryDelays)
+            hostReturner: hostReturner, customVocabularySettings: vocabulary, languageSettings: settings,
+            audioActivationRetryDelays: retryDelays)
         controllers.append(controller)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
