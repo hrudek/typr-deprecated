@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated enum CleanupGuard {
-    static let revision = "hex-ios-6f0b20c1-de"
+    static let revision = "hex-ios-d65b02d3-de"
 
     static func wordCount(_ text: String) -> Int {
         var count = 0
