@@ -57,6 +57,29 @@ final class HexLanguageSettingsTests: XCTestCase {
         XCTAssertEqual(settings.keyboardDictationLanguage(keyboard: keyboard, current: "en-US", preferred: ["he-IL"]), "en-US")
     }
 
+    func testIPhoneLanguageWithAHexLayoutFollowsTheKeyboard() {
+        let settings = LanguageSettings(defaults: defaults)
+        settings.supportedDictationLanguages = ["de-DE", "en-US"]
+        XCTAssertEqual(settings.keyboardDictationLanguage(keyboard: ["de-DE", "en-US"], current: "en-US", preferred: ["fr-FR"]), "en-US")
+        XCTAssertTrue(LanguageSettings.hexHasLayout("sr-Latn-RS"))
+        XCTAssertFalse(LanguageSettings.hexHasLayout("sr-Cyrl-RS"))
+        XCTAssertFalse(LanguageSettings.hexHasLayout("ko-KR"))
+    }
+
+    func testCanadianAndSwissFrenchKeepTheirOwnRegion() {
+        let settings = LanguageSettings(defaults: defaults)
+        settings.supportedDictationLanguages = ["fr-FR", "fr-CA", "fr-CH"]
+        XCTAssertEqual(settings.dictationLanguage(forKeyboard: "fr-CA", preferred: ["fr-FR"]), "fr-CA")
+        XCTAssertEqual(settings.dictationLanguage(forKeyboard: "fr-CH", preferred: ["fr-FR"]), "fr-CH")
+        XCTAssertEqual(settings.dictationLanguage(forKeyboard: "fr-FR", preferred: ["fr-CA"]), "fr-CA")
+        settings.supportedDictationLanguages = ["fr-FR"]
+        XCTAssertNil(settings.dictationLanguage(forKeyboard: "fr-CA", preferred: ["fr-FR"]))
+    }
+
+    func testSerbianDictatesNothingBeforeSpeechListsItsLanguages() {
+        XCTAssertNil(LanguageSettings(defaults: defaults).dictationLanguage(forKeyboard: "sr-Latn-RS", preferred: []))
+    }
+
     func testKeyboardLanguageApplesSpeechLacksDictatesNothing() {
         let settings = LanguageSettings(defaults: defaults)
         settings.supportedDictationLanguages = ["en-US", "de-DE"]

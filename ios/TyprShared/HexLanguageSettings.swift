@@ -95,30 +95,42 @@ nonisolated struct LanguageSettings {
     /// where Apple Speech has it, so Spanish speech is never transcribed as English. `keyboard`
     /// is the keyboard's languages in order (BCP 47, such as `de-DE`). Nil with a dictation
     /// language picked by hand, with one keyboard language, and while the iPhone's own language
-    /// (what Automatic picks otherwise) is none of the keyboard's, where dictating is how that
-    /// language gets written, unless `dictationFollowsKeyboard` asks for it.
+    /// (what Automatic picks otherwise) has no layout to type it (`hasLayout`, Hebrew), where
+    /// dictating is how that language gets written, unless `dictationFollowsKeyboard` asks for it.
     func keyboardDictationLanguage(
         keyboard: [String],
         current: String?,
         preferred: [String] = Locale.preferredLanguages,
-        region: String? = Locale.current.region?.identifier
+        region: String? = Locale.current.region?.identifier,
+        hasLayout: (String) -> Bool = LanguageSettings.hexHasLayout
     ) -> String? {
         guard dictationLanguage == nil, keyboard.count > 1 else { return nil }
-        let bases = Set(keyboard.compactMap(DictationLanguageSwitch.languageCode(of:)))
         if !dictationFollowsKeyboard,
            let own = automaticDictationLanguage ?? preferred.first,
-           !bases.contains(DictationLanguageSwitch.languageCode(of: own) ?? own) {
+           !hasLayout(own) {
             return nil
         }
         let typing = current.flatMap { keyboard.contains($0) ? $0 : nil } ?? keyboard[0]
         return dictationLanguage(forKeyboard: typing, preferred: preferred, region: region)
     }
 
+    /// Whether Hex has a keyboard layout for a language identifier (Hex's
+    /// `KeyboardLanguage.matching`, Korean's experiment off): Serbian only in Latin script.
+    static func hexHasLayout(_ identifier: String) -> Bool {
+        let parts = identifier.lowercased().split(whereSeparator: { $0 == "-" || $0 == "_" }).map(String.init)
+        switch parts.first ?? "" {
+        case "nb", "no", "nn", "en", "es", "de", "it", "fr", "pt", "pl", "cs", "hu", "ro", "ru", "uk", "el": return true
+        case "sr": return parts.contains("latn")
+        default: return false
+        }
+    }
+
     /// What a keyboard language (BCP 47) dictates in on Automatic: the variant picked for that
     /// language last (`recentDictationLanguages`), then the iPhone's preferred variants, then
     /// the keyboard's own, among the languages Apple Speech has here (any while not listed yet).
-    /// Spanish follows `DictationLanguageSwitch.spanishCandidates`. Nil when Apple Speech has
-    /// none of it.
+    /// Spanish follows `DictationLanguageSwitch.spanishCandidates`. Canadian and Swiss French
+    /// keep their own region. Nil when Apple Speech has none of it, and for Serbian before the
+    /// list is known (Apple Speech has no Serbian).
     func dictationLanguage(
         forKeyboard keyboard: String,
         preferred: [String] = Locale.preferredLanguages,
@@ -135,8 +147,11 @@ nonisolated struct LanguageSettings {
             guard !supported.isEmpty else { return named ?? DictationLanguageSwitch.spanish(forRegion: region) }
             return DictationLanguageSwitch.supportedMatch(for: named ?? "es", in: supported, region: region)
         }
-        let candidates = [picked].compactMap { $0 } + preferred.filter(sameBase) + [keyboard]
-        guard !supported.isEmpty else { return candidates.first }
+        let keyboardRegion = Locale(identifier: keyboard).region?.identifier
+        let ownRegion = base == "fr" && (keyboardRegion == "CA" || keyboardRegion == "CH")
+        let mine = ownRegion ? [] : [picked].compactMap { $0 } + preferred.filter(sameBase)
+        let candidates = mine + [keyboard]
+        guard !supported.isEmpty else { return base == "sr" ? nil : candidates.first }
         func key(_ identifier: String) -> String {
             identifier.replacingOccurrences(of: "_", with: "-").lowercased()
         }
@@ -144,6 +159,7 @@ nonisolated struct LanguageSettings {
         for candidate in candidates {
             if let found = offered[key(candidate)] { return found }
         }
+        if ownRegion { return nil }
         return supported.first(where: sameBase)
     }
 
