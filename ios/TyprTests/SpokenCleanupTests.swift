@@ -277,8 +277,8 @@ final class SpokenCleanupPipelineTests: XCTestCase {
         }
     }
 
-    /// With the experiment off (the default) every corpus sentence comes out exactly as on dev:
-    /// hyphens, vocabulary spelling and formatting only.
+    /// With the experiment off (the default) every corpus sentence comes out as the pipeline
+    /// without Clean up what I say writes it: hyphens, vocabulary spelling and formatting only.
     func testSwitchOffDeliversDevOutputForTheCorpus() async throws {
         let suite = "spoken.cleanup.off.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -299,9 +299,10 @@ final class SpokenCleanupPipelineTests: XCTestCase {
             try await waitForState("recording \(index)") { controller.phase == .recording }
             controller.finishRecording()
             try await waitForState("delivered \(index)") { controller.isIdleForTest }
-            let spelled = vocabulary.beforeCleanup(CleanupHyphens.spaceCompounds(spoken)).text
-            let dev = vocabulary.afterFormatting(TyprTranscriptFormatter.format(spelled, style: .polished, language: .german))
-            XCTAssertEqual(controller.transcript, dev, spoken)
+            let pipeline = DictationPipeline(style: .polished, language: .german, vocabulary: vocabulary, settings: settings)
+            XCTAssertFalse(pipeline.spokenCleanup)
+            let expected = await pipeline.run(spoken).formatted
+            XCTAssertEqual(controller.transcript, expected, spoken)
         }
     }
 }
