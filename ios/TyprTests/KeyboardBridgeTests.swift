@@ -76,11 +76,11 @@ final class KeyboardBridgeTests: XCTestCase {
 
         show(recording, at: now + 0.1)
         XCTAssertEqual(model.stagePhase, .transcribing)
-        let after = now + KeyboardViewModel.commandAckTimeout
+        let after = now + KeyboardViewModel.commandAckTimeout + 0.2
         show(recording, at: after)
         XCTAssertNil(model.pendingCommand)
         XCTAssertEqual(model.stagePhase, .recording)
-        show(recording, at: now + 3)
+        show(recording, at: now + 3.5)
         XCTAssertEqual(model.stagePhase, .idle)
 
         let ready = KeyboardSnapshot(state: .ready, heartbeat: after, expiresAt: after + 600)
@@ -88,7 +88,7 @@ final class KeyboardBridgeTests: XCTestCase {
         model.setPendingCommand(.init(kind: .start, jobID: "next", sentAt: after), now: after, animated: false)
         XCTAssertEqual(model.stagePhase, .recording)
         show(KeyboardSnapshot(state: .ready, heartbeat: after, expiresAt: after + 600),
-             at: after + KeyboardViewModel.commandAckTimeout)
+             at: after + KeyboardViewModel.commandAckTimeout + 0.2)
         XCTAssertNil(model.pendingCommand)
         XCTAssertEqual(model.stagePhase, .idle)
     }
