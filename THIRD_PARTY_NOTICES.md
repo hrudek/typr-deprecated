@@ -45,7 +45,8 @@ No upstream code/executables, GPL/AGPL/LGPL code, audio or personal data enter.
 Hex+'s own code and the adopted Hex iOS base are covered by the repository's
 [MIT license](LICENSE), whose original © Christopher Langton notice is retained.
 Base and adoption pins: Hex iOS base `anomalyco/hex` at
-`cae389a833178c5e104e6d00db894078afc29ea0` (MIT, [LICENSE](LICENSE)); iOS 26 full
+`0c1c13d71b853ac3113d9a622e4fd9af3755d068` (MIT, [LICENSE](LICENSE)), earlier code
+from `cae389a833178c5e104e6d00db894078afc29ea0`; iOS 26 full
 keyboard parity from unmerged anomalyco/hex PR #938 at
 `9029d2bcafb5504019d9ad979fa3883dd1659161` (MIT, same license). Adoption history is
 in Git and the adopting PRs.

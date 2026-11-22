@@ -45,7 +45,7 @@ final class ExperimentalSettingsTests: XCTestCase {
     func testPageShowsEachSwitchWithItsStoredValue() async throws {
         let other = ExperimentalSwitch(name: "other", title: "Other experiment", detail: "Also only in tests.")
         TyprSettings(defaults: defaults)[experiment: other] = true
-        let host = mount(ExperimentalSettingsCard(switches: [experiment, other], defaults: defaults))
+        let host = mount(ExperimentalSettingsCard(hexExperiments: [experiment], typrVariants: [other], defaults: defaults))
         try await waitForState("the page shows two switches") { switchesTopToBottom(in: host).count == 2 }
         XCTAssertEqual(switchesTopToBottom(in: host).map(\.isOn), [false, true])
         for item in [experiment, other] {
@@ -57,9 +57,42 @@ final class ExperimentalSettingsTests: XCTestCase {
     }
 
     func testPageWithoutSwitchesSaysSo() {
-        let card = ExperimentalSettingsCard(switches: [], defaults: defaults)
+        let card = ExperimentalSettingsCard(hexExperiments: [], typrVariants: [], defaults: defaults)
         XCTAssertTrue(Self.descendants(of: card.body).contains { $0 as? String == ExperimentalSettingsCard.emptyNotice })
         XCTAssertTrue(switchesTopToBottom(in: mount(card)).isEmpty)
+    }
+
+    func testPageGroupsHexExperimentsBeforeTyprVariants() {
+        let strings = Self.descendants(of: ExperimentalSettingsCard(defaults: defaults).body).compactMap { $0 as? String }
+        let hex = strings.firstIndex(of: ExperimentalSettingsCard.hexTitle)
+        let typr = strings.firstIndex(of: ExperimentalSettingsCard.typrTitle)
+        XCTAssertNotNil(hex)
+        XCTAssertNotNil(typr)
+        XCTAssertLessThan(hex ?? .max, typr ?? .min)
+    }
+
+    func testExistingTyprSwitchesAreTyprVariantsWithTheirKeys() {
+        XCTAssertEqual(ExperimentalSwitch.typrVariants.map(\.key), [
+            "typr.experimental.warmMicOnIPhone", "typr.experimental.mixWithOtherAudio",
+            "typr.experimental.spokenPunctuation", "typr.experimental.spaceTrackpad",
+            "typr.experimental.formatLists", "typr.experimental.cleanUpWhatISay",
+            "typr.experimental.deleteSlide", "typr.experimental.learnFromEdits",
+            "typr.experimental.wordsFromContext", "typr.experimental.keyboardDictationAppleSpeech",
+            "typr.experimental.learnEachLanguage",
+        ])
+        XCTAssertEqual(ExperimentalSwitch.all, ExperimentalSwitch.hexExperiments + ExperimentalSwitch.typrVariants)
+    }
+
+    func testTyprOverridesAreOffUnlistedAndDistinct() {
+        let overrides = ExperimentalSwitch.typrOverrides
+        XCTAssertEqual(Set(overrides.map(\.key)).count, overrides.count)
+        XCTAssertTrue(Set(overrides).isDisjoint(with: Set(ExperimentalSwitch.all)))
+        let settings = TyprSettings(defaults: defaults)
+        for override in overrides {
+            XCTAssertTrue(override.key.hasPrefix("typr.experimental.variant."), override.key)
+            XCTAssertTrue(override.title.hasPrefix("Typr "), override.title)
+            XCTAssertFalse(settings[experiment: override], override.key)
+        }
     }
 
     private func mount(_ view: some View) -> UIViewController {
