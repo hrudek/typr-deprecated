@@ -1,33 +1,40 @@
 import Foundation
 
 /// Dictated lists and line breaks as lines, with string rules and no model, in German and
-/// English. With Settings › Style › Format lists on, runs inside every style but Verbatim, after
-/// its fillers and spoken punctuation and before the style's own capitalization and final
-/// period (`TranscriptFormatter.format(_:style:language:lists:punctuation:)`).
+/// English. With Settings › Experimental › Format lists on, runs inside every style but
+/// Verbatim, after its fillers and spoken punctuation and before the style's own capitalization
+/// and final period (`TranscriptFormatter.format(_:style:language:lists:punctuation:)`).
 /// Ported from Hex (anomalyco/hex `ios/HEXShared/SpokenLists.swift` at d65b02d3, MIT), English
 /// table unchanged, German table added; see THIRD_PARTY_NOTICES.md.
 ///
 /// - "neue Zeile", "neuer Absatz", "Zeilenumbruch" ("new line", "new paragraph", "line break")
 ///   become one or two line breaks, and the commas around them go (in German the comma before
-///   one line break stays: "Hallo Anna,"). Never at the very start,
-///   after a determiner ("eine neue Zeile", "a new line of shoes"), after a German lowercase
-///   word that could modify a noun ("eine völlig neue Zeile"), or before a word that continues
-///   the noun ("neue Zeile einfügen", "new line of").
-/// - Numbered lists: "erstens … zweitens …" ("als Erstes …", "first … second …", "1st … 2nd …"),
+///   one line break stays: "Hallo Anna,").
+/// - Numbered lists: "erstens … zweitens …" ("first … second …", "1st … 2nd …"),
 ///   "Punkt eins … Punkt zwei …" ("Nummer", "Schritt", "number", "step", "item", "point"), or
 ///   "eins, … zwei, …" ("one, … two, …", English "1. … 2. …") become "1. …" lines. The markers
 ///   count up from one, there are at least two items, none is empty, and every marker starts a
 ///   clause: the start, after a mark (".", ",", ";", ":", …) or a line break, or after
-///   connectors ("und", "dann", "and", "then") that do. In German only the first marker must:
+///   connectors ("und", "dann", "and", "then") that do. In German only "erstens" must:
 ///   "Erstens Milch zweitens Eier" is a list, "Das ist erstens teuer und zweitens hässlich"
-///   stays prose. A bare number needs its comma ("eins, …"); "zu guter
-///   Letzt" or "finally" ends a list of two or more.
+///   stays prose. "Punkt eins" followed by an article or a verb ("Nummer eins der Charts",
+///   "Schritt eins ist leicht") is no marker.
+///   A bare number needs its comma ("eins, …"); "zu guter Letzt" or "finally" ends a list.
 /// - Bullets: "Spiegelstrich", "Aufzählungspunkt", "bullet", "bullet point", "next item",
 ///   "dash" said at least twice become "- …" lines, as the Notes style writes bullets.
+/// - Line breaks and bullets stay words when they name a noun: after a determiner ("ein
+///   Zeilenumbruch", "a new line of shoes"), a German lowercase word that could modify a noun
+///   ("eine völlig neue Zeile"), a German noun with its article ("die Firma Neue Zeile"), a
+///   word like "Wort" or "called", inside quotes, or before a word that continues the sentence
+///   ("Spiegelstrich steht", "neue Zeile einfügen").
 /// - Text before the first marker is its own line, given a colon unless it ends a sentence;
 ///   a last item ends at its first sentence, and what follows is its own line. Items start
 ///   with a capital and lose a trailing comma, period, "und", "oder", "and" or "or".
 nonisolated enum SpokenLists {
+    /// German ordinals ("zweitens"), lowercased and unaccented: after a spoken "Punkt" they start
+    /// a clause (`SpokenPunctuation.format(_:language:starters:)`).
+    static let clauseStarters = Set(Table.german.ordinals.keys)
+
     /// `language` picks the word table; Automatic uses English only for text that reads as
     /// English (`TranscriptFormatter.readsAsEnglish`), else German.
     static func format(_ text: String, language: DictationLanguage) -> String {
@@ -39,7 +46,6 @@ nonisolated enum SpokenLists {
     private struct Token {
         let text: String
         let isWord: Bool
-        /// Lowercased, accents folded: "Aufzählungspunkt" reads "aufzahlungspunkt".
         let folded: String
     }
 
@@ -47,7 +53,6 @@ nonisolated enum SpokenLists {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
-    /// Alternating words (letters, digits, apostrophes) and the separators between them.
     private static func tokenize(_ text: String) -> [Token] {
         var tokens: [Token] = []
         var current = ""
@@ -75,7 +80,8 @@ nonisolated enum SpokenLists {
         tokens.map(\.text).joined()
     }
 
-    /// Marks that end a clause, so a marker after them starts one.
+    private static let quoteMarks: Set<Character> = ["\"", "„", "“", "”", "'", "‚", "‘", "’", "«", "»"]
+
     private static let clauseBoundaries: Set<Character> = [".", ",", ";", ":", "!", "?", "…", "—", "–", "\n", "(", "¿", "¡"]
 
     private struct Words {
@@ -89,7 +95,6 @@ nonisolated enum SpokenLists {
                 && tokens[index].text.allSatisfy { $0 == " " || $0 == "\t" }
         }
 
-        /// Where `words` said one after another (spaces between) starting at `index` end.
         func phrase(_ words: [String], at index: Int) -> Int? {
             var position = index
             for (number, word) in words.enumerated() {
@@ -103,18 +108,14 @@ nonisolated enum SpokenLists {
             return position
         }
 
-        /// The word right after the separator at `end`, when only spaces come between.
         func nextWord(after end: Int) -> String? {
             spacesOnly(end) && isWord(end + 1) ? tokens[end + 1].folded : nil
         }
 
-        /// The word right before `index`, when only spaces come between.
         func previousWord(before index: Int) -> String? {
             index >= 2 && spacesOnly(index - 1) && isWord(index - 2) ? tokens[index - 2].folded : nil
         }
 
-        /// Whether the word at `index` starts a clause: the text's start, after a mark or a
-        /// line break, or after connectors ("and then") that start one.
         func startsClause(_ index: Int) -> Bool {
             var position = index
             while position >= 2 {
@@ -125,23 +126,29 @@ nonisolated enum SpokenLists {
             return true
         }
 
-        /// Whether a command word at `index` reads as a command, not part of a noun phrase: at a
-        /// clause start, or not after a determiner ("a new line"). In German not after a
-        /// lowercase word that could modify a noun ("eine völlig neue Zeile", "ganz neuer Absatz").
         func commandMayFollow(_ index: Int) -> Bool {
+            if isMention(index) { return false }
             if startsClause(index) { return true }
             guard let previous = previousWord(before: index) else { return true }
             if table.determiners.contains(previous) || table.modifiers.contains(previous) { return false }
-            guard let first = tokens[index - 2].text.first, first.isLowercase else { return true }
+            guard let first = tokens[index - 2].text.first else { return true }
+            if first.isUppercase {
+                return !(table.capitalizedNouns && previousWord(before: index - 2).map(table.determiners.contains) == true)
+            }
             return !(previous.count > 3 && table.modifierEndings.contains { previous.hasSuffix($0) })
         }
 
-        /// The separator after the word ending at `end`, "" at the end of the text.
+        func isMention(_ index: Int) -> Bool {
+            if index >= 1, !tokens[index - 1].isWord, tokens[index - 1].text.contains(where: quoteMarks.contains) {
+                return true
+            }
+            return previousWord(before: index).map(table.mentionWords.contains) ?? false
+        }
+
         func separator(at end: Int) -> String {
             tokens.indices.contains(end) && !tokens[end].isWord ? tokens[end].text : ""
         }
 
-        /// A number said as a word or written in digits ("zwei", "two", "2"), 1 to 20.
         func number(at index: Int) -> Int? {
             guard isWord(index) else { return nil }
             let word = tokens[index].folded
@@ -197,7 +204,6 @@ nonisolated enum SpokenLists {
 
     private struct Marker {
         let family: Family
-        /// The item's number; 0 for "finally".
         let value: Int
         let start: Int
         let end: Int
@@ -233,7 +239,11 @@ nonisolated enum SpokenLists {
             return Marker(family: .ordinal, value: value, start: index, end: end)
         }
         if table.keywords.contains(word), words.spacesOnly(index + 1), let value = words.number(at: index + 2),
-           words.startsClause(index) || (table.laterMarkersFollowWords && value > 1 && words.commandMayFollow(index)) {
+           words.startsClause(index) {
+            if let next = words.nextWord(after: index + 3),
+               table.determiners.contains(next) || table.bulletFollowers.contains(next) || next == word {
+                return nil
+            }
             return Marker(family: .keyword(word), value: value, start: index, end: index + 3)
         }
         for (phrase, strict) in table.bullets {
@@ -242,7 +252,8 @@ nonisolated enum SpokenLists {
             if let next = words.nextWord(after: end), table.bulletFollowers.contains(next) { return nil }
             return Marker(family: .bullet, value: 1, start: index, end: end)
         }
-        if let value = table.ordinal(word), words.startsClause(index) || (table.laterMarkersFollowWords && value > 1) {
+        if let value = table.ordinal(word),
+           words.startsClause(index) || (table.laterMarkersFollowWords && value > 1 && !words.isMention(index)) {
             if !table.ofAll.isEmpty, words.spacesOnly(index + 1), words.phrase(table.ofAll, at: index + 2) != nil {
                 return Marker(family: .ordinal, value: value, start: index, end: index + 1 + 2 * table.ofAll.count)
             }
@@ -250,8 +261,6 @@ nonisolated enum SpokenLists {
             return Marker(family: .ordinal, value: value, start: index, end: index + 1)
         }
         if let value = words.number(at: index), words.startsClause(index) {
-            // A bare number counts only with its mark and a space after: "one, eggs", "1. eggs",
-            // never "1:30" or "1.5"; in German never "1." ("1. Mai, 2. Juni").
             let separator = words.separator(at: index + 1)
             guard let mark = separator.first, table.cardinalMarks.contains(mark),
                   separator.dropFirst().first?.isWhitespace ?? (index + 2 >= words.tokens.count) else { return nil }
@@ -260,8 +269,6 @@ nonisolated enum SpokenLists {
         return nil
     }
 
-    /// The lists among `markers` in order: numbered runs counting up from 1, and two bullets or
-    /// more.
     private static func lists(_ markers: [Marker]) -> [[Marker]] {
         var runs: [[Marker]] = []
         for (position, first) in markers.enumerated() {
@@ -288,7 +295,6 @@ nonisolated enum SpokenLists {
     private static func listing(_ text: String, _ table: Table) -> String {
         let words = Words(tokens: tokenize(text), table: table)
         for run in lists(markers(words)) {
-            // A run with an empty item ("one, two, three, go") is no list; a later one may be.
             if let formatted = format(run, words) { return formatted }
         }
         return text
@@ -299,7 +305,6 @@ nonisolated enum SpokenLists {
         let table = words.table
         guard let last = run.last else { return nil }
 
-        // The last item ends at its first sentence (or line); what follows is its own line.
         var itemsEnd = tokens.count
         var tailBreak = "\n"
         var sawWord = false
@@ -321,7 +326,6 @@ nonisolated enum SpokenLists {
         for (number, marker) in run.enumerated() {
             let end = number + 1 < run.count ? run[number + 1].start : itemsEnd
             var raw = joined(tokens[marker.end..<end])
-            // The last item keeps its sentence's mark ("?", "!") but not what follows.
             if number + 1 == run.count, itemsEnd < tokens.count {
                 let separator = tokens[itemsEnd].text
                 raw += separator.prefix { !$0.isWhitespace }
@@ -367,8 +371,6 @@ nonisolated enum SpokenLists {
         "evtl", "ggf", "vgl", "inkl", "bspw", "nr", "str",
     ]
 
-    /// Whether `separator` ends a sentence after `word`: ".", "!", "?" or "…" then a space,
-    /// never after "Dr" or an initial.
     private static func endsSentence(_ separator: String, after word: String) -> Bool {
         guard let markIndex = separator.firstIndex(where: { ".!?…".contains($0) }),
               separator[separator.index(after: markIndex)...].first?.isWhitespace == true else { return false }
@@ -378,8 +380,6 @@ nonisolated enum SpokenLists {
         return true
     }
 
-    /// An item's text: no leading marks, no trailing comma, period, "and" or "or", and a capital
-    /// first letter (never on "iPhone" or an address).
     private static func cleanItem(_ raw: String, _ table: Table) -> String {
         var item = String(raw.drop { " \t\n,:.;)-–—".contains($0) })
         var previous = ""
@@ -394,7 +394,6 @@ nonisolated enum SpokenLists {
         return capitalizingFirstWord(item)
     }
 
-    /// `text` without the connectors ("und", "and then") a next item's marker leaves at its end.
     private static func stripTrailingConnectors(_ text: String, _ table: Table) -> String {
         var text = text
         while let space = text.lastIndex(where: { $0 == " " || $0 == "," }) {
@@ -416,43 +415,27 @@ nonisolated enum SpokenLists {
     }
 
     private struct Table {
-        /// Phrases that break a line.
         let breaks: [([String], String)]
-        /// Words before a phrase that make it a noun, not a command: "a new line", "the bullet".
         let determiners: Set<String>
-        /// Words after "new line" that make it a noun: "new line of shoes".
         let breakFollowers: Set<String>
         let connectors: Set<String>
-        /// "or", stripped from an item's end like a connector.
         let alternatives: Set<String>
         let ordinals: [String: Int]
-        /// Ordinal suffixes written after digits: "1st", "2nd".
         let digitOrdinalSuffixes: [String]
         let ordinalPhrases: [([String], Int)]
-        /// Words right after an ordinal that keep it prose: "first time", "second guess".
         let ordinalFollowers: Set<String>
-        /// Words an ordinal marker takes along: "first of all", "erstens mal".
         let ofAll: [String]
-        /// "finally", "lastly"; the flag asks for a comma after ("last, …").
         let finals: [([String], Bool)]
         let cardinals: [String: Int]
-        /// Marks after a bare number that make it a marker: "eins, Eier", "1. eggs".
         let cardinalMarks: String
-        /// "number one", "Punkt eins".
         let keywords: Set<String>
-        /// Bullet phrases, longest first; the flag asks for a clause start.
         let bullets: [([String], Bool)]
-        /// Words right after "bullet" that keep it prose: "bullet points", "bullet train".
         let bulletFollowers: Set<String>
-        /// Lowercase words before a line break or bullet that make it a noun: "ganz neue Zeile".
         let modifiers: Set<String>
-        /// Endings of a lowercase word (over three letters) that could modify a noun: "völlig".
         let modifierEndings: [String]
-        /// "Hallo Anna, neue Zeile" keeps its comma before one line break, as a German letter's
-        /// greeting does.
         let keepsCommaBeforeBreak: Bool
-        /// Markers after the first ("zweitens", "Punkt zwei") may follow a word, not only start
-        /// a clause: German says "Erstens Milch zweitens Eier" without commas.
+        let mentionWords: Set<String>
+        let capitalizedNouns: Bool
         let laterMarkersFollowWords: Bool
 
         init(
@@ -461,7 +444,8 @@ nonisolated enum SpokenLists {
             ordinalPhrases: [([String], Int)], ordinalFollowers: Set<String>, ofAll: [String],
             finals: [([String], Bool)], cardinals: [String: Int], cardinalMarks: String, keywords: Set<String>,
             bullets: [([String], Bool)], bulletFollowers: Set<String>, modifiers: Set<String> = [],
-            modifierEndings: [String] = [], keepsCommaBeforeBreak: Bool = false, laterMarkersFollowWords: Bool = false
+            modifierEndings: [String] = [], keepsCommaBeforeBreak: Bool = false, laterMarkersFollowWords: Bool = false,
+            mentionWords: Set<String>, capitalizedNouns: Bool = false
         ) {
             let words = { (phrase: [String]) in phrase.map(SpokenLists.fold) }
             let set = { (words: Set<String>) in Set(words.map(SpokenLists.fold)) }
@@ -484,6 +468,8 @@ nonisolated enum SpokenLists {
             self.modifiers = set(modifiers)
             self.modifierEndings = modifierEndings
             self.keepsCommaBeforeBreak = keepsCommaBeforeBreak
+            self.mentionWords = set(mentionWords)
+            self.capitalizedNouns = capitalizedNouns
             self.laterMarkersFollowWords = laterMarkersFollowWords
         }
 
@@ -519,7 +505,9 @@ nonisolated enum SpokenLists {
             breakFollowers: [
                 "ist", "war", "wird", "hat", "haben", "sind", "gibt", "kommt", "beginnt", "fängt", "der", "des", "die",
                 "das", "im", "in", "mit", "für", "von", "vom", "zum", "zur", "auf", "an", "und", "oder", "einfügen",
-                "hinzufügen", "beginnen", "anfangen", "schreiben", "machen", "eingefügt", "setzen", "drücken",
+                "hinzufügen", "beginnen", "anfangen", "schreiben", "machen", "eingefügt", "setzen", "drücken", "habe",
+                "steht", "stehen", "erscheint", "fehlt", "bedeutet", "heißt", "kann", "muss", "soll", "sieht",
+                "wurde", "funktioniert", "klappt", "passt", "reicht",
             ],
             connectors: ["und", "dann", "sowie"],
             alternatives: ["oder"],
@@ -528,10 +516,7 @@ nonisolated enum SpokenLists {
                 "siebtens": 7, "siebentens": 7, "achtens": 8, "neuntens": 9, "zehntens": 10,
             ],
             digitOrdinalSuffixes: [],
-            ordinalPhrases: [
-                (["als", "Erstes"], 1), (["als", "Zweites"], 2), (["als", "Drittes"], 3), (["als", "Viertes"], 4),
-                (["als", "Fünftes"], 5),
-            ],
+            ordinalPhrases: [],
             ordinalFollowers: ["als", "wie"],
             ofAll: ["mal"],
             finals: [(["zu", "guter", "Letzt"], false), (["last", "but", "not", "least"], false), (["zuletzt"], true)],
@@ -546,8 +531,10 @@ nonisolated enum SpokenLists {
                 (["Bullet"], false),
             ],
             bulletFollowers: [
-                "ist", "war", "wird", "hat", "sind", "der", "des", "im", "in", "mit", "für", "von", "und", "oder",
-                "als", "points", "Liste", "Listen",
+                "ist", "war", "wird", "hat", "habe", "haben", "sind", "der", "des", "im", "in", "mit", "für", "von",
+                "und", "oder", "als", "points", "Liste", "Listen", "steht", "stehen", "erscheint", "erscheinen",
+                "fehlt", "fehlen", "bedeutet", "heißt", "kommt", "gibt", "sieht", "macht", "gefällt", "muss", "soll",
+                "kann", "darf", "wurde", "reicht", "passt", "bleibt", "geht", "liegt", "folgt", "läuft",
             ],
             modifiers: [
                 "ganz", "völlig", "komplett", "total", "sehr", "wieder", "noch", "so", "zu", "nur", "auch", "extra",
@@ -555,7 +542,13 @@ nonisolated enum SpokenLists {
             ],
             modifierEndings: ["e", "er", "en", "es", "em", "ig", "lich", "isch", "bar", "sam", "haft"],
             keepsCommaBeforeBreak: true,
-            laterMarkersFollowWords: true
+            laterMarkersFollowWords: true,
+            mentionWords: [
+                "Wort", "Wörter", "Begriff", "Ausdruck", "Befehl", "Kommando", "Zeichen", "Symbol", "Taste", "Name",
+                "heißt", "namens", "genannt", "sogenannte", "sogenannten", "sogenannter", "sogenanntes", "Titel",
+                "Überschrift", "Funktion", "Option", "Knopf", "Button", "word", "term", "called", "named",
+            ],
+            capitalizedNouns: true
         )
 
         static let english = Table(
@@ -607,6 +600,9 @@ nonisolated enum SpokenLists {
                 "points", "proof", "proofs", "train", "trains", "wound", "wounds", "hole", "holes", "journal",
                 "journals", "casing", "casings", "shell", "shells", "ant", "ants", "is", "was", "hit", "hits",
                 "went", "flew", "of", "in", "list", "lists",
+            ],
+            mentionWords: [
+                "word", "words", "term", "called", "named", "command", "key", "symbol", "title", "option", "button",
             ]
         )
     }

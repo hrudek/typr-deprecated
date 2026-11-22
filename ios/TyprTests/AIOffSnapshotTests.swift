@@ -123,7 +123,6 @@ final class AIOffSnapshotTests: XCTestCase {
         vocabulary.isEnabled = true
         vocabulary.terms = ["herdr", "Baden-Württemberg"]
         vocabulary.setSoundsLike(["Herder"], for: "herdr")
-        TyprSettings(defaults: defaults).formatLists = false
         let session = CleanupTestSession(), clock = CleanupTestSleeper()
         let deps = TranscriptCleanupDependencies(cleaner: CleanupTestCleaner(session: session),
             background: CleanupTestBackground(), isEnabled: { false },
@@ -183,7 +182,7 @@ final class AIOffSnapshotTests: XCTestCase {
 
         var delivered: [String] = []
         for enabled in [true, false] {
-            settings.formatLists = enabled
+            settings[experiment: .formatLists] = enabled
             controller.startRecording(styleOverride: .polished)
             try await waitForState("recording \(enabled)") { controller.phase == .recording }
             controller.finishRecording()

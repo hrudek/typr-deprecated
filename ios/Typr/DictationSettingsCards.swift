@@ -49,7 +49,6 @@ struct SettingsChoiceRow: View {
 @MainActor
 struct DictationStyleSettingsCard: View {
     @Bindable var dictation: DictationController
-    @State private var formatLists = TyprSettings().formatLists
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -66,14 +65,6 @@ struct DictationStyleSettingsCard: View {
                 .font(.footnote).foregroundStyle(TyprTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
-            SettingsSection {
-                SettingsToggle(
-                    title: "Format lists",
-                    detail: "Say “erstens … zweitens …”, “Punkt eins … Punkt zwei …” or “neue Zeile” for numbered lines and line breaks, in every style except Verbatim.",
-                    isOn: $formatLists
-                )
-                .onChange(of: formatLists) { _, enabled in TyprSettings().formatLists = enabled }
-            }
         }
     }
 }

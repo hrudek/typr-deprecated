@@ -1191,7 +1191,7 @@ final class DictationController {
                     transcriber: captureTranscriber,
                     language: captureLanguage,
                     speechLanguageName: captureLanguageName,
-                    formatLists: languageSettings.formatLists,
+                    formatLists: languageSettings[experiment: .formatLists],
                     spokenPunctuation: languageSettings[experiment: .spokenPunctuation]
                 )
                 refreshWarmExpiry()

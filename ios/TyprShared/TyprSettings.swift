@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -45,6 +45,13 @@ struct ExperimentalSwitch: Hashable {
         title: "Space bar trackpad like Apple's",
         detail: "Hold the space bar to move the cursor, also up and down through lines. Faster slides move it further."
     )
+
+    /// Hex's Format lists (anomalyco/hex #2131, `SpokenLists`), German and English.
+    static let formatLists = ExperimentalSwitch(
+        name: "formatLists",
+        title: "Format lists",
+        detail: "Say “erstens … zweitens …”, “Punkt eins … Punkt zwei …”, “Spiegelstrich” or “neue Zeile” for numbered lines, bullets and line breaks, in every style except Verbatim. Some commands stay words when they could be part of a sentence."
+    )
 }
 
 /// Typr switches, stored in the App Group so the keyboard reads them too.
@@ -55,7 +62,6 @@ struct TyprSettings {
     private enum Key {
         static let aiCleanup = "typr.aiCleanup"
         static let dictationLog = "typr.dictationLog"
-        static let formatLists = "typr.formatLists"
         static let autocorrectGerman = "typr.autocorrectGerman"
         static let autocorrectEnglish = "typr.autocorrectEnglish"
         static let autocorrectLanguageOrder = "typr.autocorrectLanguageOrder"
@@ -81,13 +87,6 @@ struct TyprSettings {
     var dictationLog: Bool {
         get { defaults?.object(forKey: Key.dictationLog) as? Bool ?? true }
         nonmutating set { defaults?.set(newValue, forKey: Key.dictationLog) }
-    }
-
-    /// Spoken lists and line breaks written as lines (`SpokenLists`) in every style but
-    /// Verbatim. On by default, as Hex's Format lists.
-    var formatLists: Bool {
-        get { defaults?.object(forKey: Key.formatLists) as? Bool ?? true }
-        nonmutating set { defaults?.set(newValue, forKey: Key.formatLists) }
     }
 
     /// Quick feedback for this keyboard instance's newly inserted dictation. Off keeps existing UI.
