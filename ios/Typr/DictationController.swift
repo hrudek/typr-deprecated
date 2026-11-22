@@ -61,7 +61,7 @@ final class DictationController {
         case swipeFallback
     }
 
-    private struct ActiveCaptureSession {
+    struct ActiveCaptureSession {
         let statisticsToken: UsageCaptureToken?
         let generation: UInt64
         let capture: any ActiveAudioCapture
@@ -91,40 +91,40 @@ final class DictationController {
         let translationTarget: DictationLanguage?
     }
 
-    private struct PendingKeyboardHandoff {
+    struct PendingKeyboardHandoff {
         let jobID: String?
         let style: DictationStyle
         let requestedAt: TimeInterval
         let attemptAutoReturn: Bool
     }
 
-    private var transcriber: any LocalTranscribing
+    var transcriber: any LocalTranscribing
     /// Test seam for the automatic (no engine chosen) path; nil uses the provider's automatic choice.
-    private let transcriberFactory: (() async -> any LocalTranscribing)?
-    private let engineProvider: any SpeechEngineProviding
-    private let modelBackground: (any ModelPreparationScheduling)?
+    let transcriberFactory: (() async -> any LocalTranscribing)?
+    let engineProvider: any SpeechEngineProviding
+    let modelBackground: (any ModelPreparationScheduling)?
     private var deferredLaunchPreparation: Bool
     private let customVocabularySettings: CustomVocabularySettings
     private let dictationLearning: DictationLearningStore
     private let audio: any AudioManaging
-    private let keyboardBridge: KeyboardBridge
+    let keyboardBridge: KeyboardBridge
     private let fileManager: FileManager
-    private let now: () -> TimeInterval
+    let now: () -> TimeInterval
     private let liveActivity: LiveActivityCoordinator?
-    private let hostReturner: HostReturner
+    let hostReturner: HostReturner
     /// The app the current cold-start handoff came from, by bundle ID; nil when the keyboard could not name it.
-    private var returnHost: String?
+    var returnHost: String?
 
-    private let cleanup: TranscriptCleanupDependencies?
+    let cleanup: TranscriptCleanupDependencies?
     private let transcriptionBackground: any BackgroundTaskStarting
     private let cleanupCoordinator = CleanupCoordinator()
-    private let statistics: UsageDictationRecorder?
-    private let languageSettings: TyprSettings
+    let statistics: UsageDictationRecorder?
+    let languageSettings: TyprSettings
     private let translator: DictationTranslator?
-    private var pendingCleanupJob: CleanupJob?
+    var pendingCleanupJob: CleanupJob?
     private var transcriptionHeartbeat: Task<Void, Never>?
     private let dictationLog: DictationLogStore?
-    private var transcribingLog: DictationLogRecording?
+    var transcribingLog: DictationLogRecording?
     @ObservationIgnored private var loudestAverageDBFS: Float?
 
     private func endCleanupJob() {
@@ -138,9 +138,9 @@ final class DictationController {
     }
 
     private var jobGeneration: UInt64 = 0
-    private var modelPrepGeneration: UInt64 = 0
-    @ObservationIgnored private var preparationTask: Task<Void, Never>?
-    private var activeCapture: ActiveCaptureSession?
+    var modelPrepGeneration: UInt64 = 0
+    @ObservationIgnored var preparationTask: Task<Void, Never>?
+    var activeCapture: ActiveCaptureSession?
     private struct ArmedCapture {
         let jobID: String
         let capture: any ArmedAudioCapture
@@ -150,14 +150,14 @@ final class DictationController {
     /// Latched before audio activation: once interrupted, other audio may report false.
     private var releaseAudioAfterCapture = false
     private var meterTask: Task<Void, Never>?
-    private var transcriptionTask: Task<Void, Never>?
+    var transcriptionTask: Task<Void, Never>?
     // Cancellation is cooperative: an old task can still own a model after the UI returns to
     // ready. Keep a fence until its actual completion, including tasks superseded by a capture.
-    private var inFlightTranscriptions: Set<UUID> = []
-    private var inFlightPermissionRequests = 0
-    private var pendingAppleLanguageChange = false
+    var inFlightTranscriptions: Set<UUID> = []
+    var inFlightPermissionRequests = 0
+    var pendingAppleLanguageChange = false
     private var keyboardSessionTask: Task<Void, Never>?
-    private var autoReturnFallbackTask: Task<Void, Never>?
+    var autoReturnFallbackTask: Task<Void, Never>?
 
     private var lastKeyboardCommandID: String?
     private var lastHandledLaunchJobID: String?
@@ -169,8 +169,8 @@ final class DictationController {
     private var keyboardResultNote: String?
     private var keyboardResultTranslated = false
     private var keyboardMessage: String?
-    private var pendingHandoff: PendingKeyboardHandoff?
-    private var keyboardSessionExpiresAt: TimeInterval = 0
+    var pendingHandoff: PendingKeyboardHandoff?
+    var keyboardSessionExpiresAt: TimeInterval = 0
     private var suspendedWarmSessionOnInterruption = false
     /// Each warm-loop restart of a keepalive that stopped by itself reopens the microphone under
     /// every app recording at the time, so one that stops again soon waits 1 s, 2 s, … 30 s
@@ -187,19 +187,19 @@ final class DictationController {
     private let audioRetryDelays: [Duration]
     /// Set when a transcription failed in a way that may come from the engine itself. Other
     /// failures (microphone, silence) keep the prepared model for the next dictation.
-    private var modelNeedsReload = false
+    var modelNeedsReload = false
 
-    private(set) var phase = Phase.modelRequired
-    private(set) var isModelReady = false
-    private(set) var transcript = ""
+    var phase = Phase.modelRequired
+    var isModelReady = false
+    var transcript = ""
     private(set) var lastLoggedTranscriptID: UUID?
     /// Why `transcript` went in as spoken although Translate what I say was on.
     private(set) var translationFailure: TranslationFailure?
-    @ObservationIgnored private(set) var audioLevel: Float = 0
-    @ObservationIgnored private(set) var loudnessDB: Float = -120
+    @ObservationIgnored var audioLevel: Float = 0
+    @ObservationIgnored var loudnessDB: Float = -120
     @ObservationIgnored private var rawRecordingDuration: TimeInterval = 0
     private(set) var recordingWholeSeconds: Int = 0
-    private(set) var recordingDuration: TimeInterval {
+    var recordingDuration: TimeInterval {
         get { rawRecordingDuration }
         set {
             rawRecordingDuration = newValue
@@ -209,13 +209,13 @@ final class DictationController {
             }
         }
     }
-    private(set) var copied = false
-    private(set) var keyboardSessionEnabled = false {
+    var copied = false
+    var keyboardSessionEnabled = false {
         didSet { if !keyboardSessionEnabled { warmSessionInterrupted = false } }
     }
     @ObservationIgnored private var rawKeyboardSessionRemaining: TimeInterval = 0
     private(set) var keyboardSessionDisplayRemaining = "0:00"
-    private(set) var keyboardSessionRemaining: TimeInterval {
+    var keyboardSessionRemaining: TimeInterval {
         get { rawKeyboardSessionRemaining }
         set {
             rawKeyboardSessionRemaining = newValue
@@ -227,49 +227,49 @@ final class DictationController {
     }
     @ObservationIgnored private var lastPublishedSnapshotSignature: String?
     @ObservationIgnored private var lastPublishedSnapshotAt: TimeInterval = -100
-    private(set) var warmDuration: WarmSessionDuration
+    var warmDuration: WarmSessionDuration
     private(set) var style: DictationStyle
-    private(set) var microphone: MicrophoneChoice
-    private(set) var autoReturnState: AutoReturnState = .idle
+    var microphone: MicrophoneChoice
+    var autoReturnState: AutoReturnState = .idle
     private(set) var handoffNotice: String?
-    private(set) var engineName = "Local speech"
-    private(set) var transcriptionLanguage = "English"
+    var engineName = "Local speech"
+    var transcriptionLanguage = "English"
     /// The chosen dictation language (Typr settings); Automatic keeps the previous behavior.
     private(set) var dictationLanguage: DictationLanguage
     /// The engine the user explicitly chose (persisted). nil: never chosen, the original
     /// automatic choice applies. An explicit engine is never replaced by another one.
-    private(set) var preferredEngine: SpeechEngineChoice?
+    var preferredEngine: SpeechEngineChoice?
     /// The engine of the ready transcriber; nil while none is ready or while switching.
-    private(set) var currentEngine: SpeechEngineChoice?
-    private(set) var isDeletingModel = false
+    var currentEngine: SpeechEngineChoice?
+    var isDeletingModel = false
     /// Every candidate still inside `prepare`, by its preparation generation, including one a
     /// timeout dropped: a Core ML load can't be interrupted, so deletion waits for each.
-    @ObservationIgnored private var loadingEngines: [UInt64: SpeechEngineChoice] = [:] {
+    @ObservationIgnored var loadingEngines: [UInt64: SpeechEngineChoice] = [:] {
         didSet {
             let waiters = loadFinishedWaiters
             loadFinishedWaiters = []
             waiters.forEach { $0.resume() }
         }
     }
-    @ObservationIgnored private var loadFinishedWaiters: [CheckedContinuation<Void, Never>] = []
-    @ObservationIgnored private(set) var deletionWaitsForTesting = 0
-    private(set) var modelPreparation = ModelPreparationProgress(
+    @ObservationIgnored var loadFinishedWaiters: [CheckedContinuation<Void, Never>] = []
+    @ObservationIgnored var deletionWaitsForTesting = 0
+    var modelPreparation = ModelPreparationProgress(
         fractionCompleted: 0,
         detail: "Checking model files"
     )
     /// Why the engine Typr picked by itself changed or stayed: Automatic moved on from a
     /// language this iPhone can't dictate yet, Parakeet had no room, or a new guess failed and
     /// the engine that worked keeps dictating.
-    private(set) var languageNotice: String?
-    @ObservationIgnored private var isInBackground = false
-    @ObservationIgnored private var preparationFailedInBackground = false
-    @ObservationIgnored private var preparationChangedAt = ContinuousClock.now
-    @ObservationIgnored private var preparationReported = false
+    var languageNotice: String?
+    @ObservationIgnored var isInBackground = false
+    @ObservationIgnored var preparationFailedInBackground = false
+    @ObservationIgnored var preparationChangedAt = ContinuousClock.now
+    @ObservationIgnored var preparationReported = false
     @ObservationIgnored var preparationLimits = (firstReport: Duration.seconds(30), stall: Duration.seconds(120))
     /// The engine Typr picked by itself that dictated before the automatic preparation now
     /// running; it comes back when that preparation fails (Hex #2371: a failed guess never
     /// takes away a working engine).
-    @ObservationIgnored private var workingEngine: WorkingEngine?
+    @ObservationIgnored var workingEngine: WorkingEngine?
 
     init(
         audio: (any AudioManaging)? = nil,
@@ -346,85 +346,6 @@ final class DictationController {
         }
     }
 
-    /// A background-only process launch must not start another engine (or download its assets)
-    /// before the scheduler validates the request. Production defers the usual launch behavior
-    /// until an active scene; tests can still exercise immediate initialization explicitly.
-    private func prepareLaunchModel() {
-        guard phase == .modelRequired, canChangeEngine else { return }
-        let parakeetLoads = ParakeetLoadGuard()
-        parakeetLoads.noteLaunch()
-        let parakeetInterrupted = parakeetLoads.lastLoadWasInterrupted
-        if let preferred = preferredEngine {
-            // An explicit engine prepares at launch only without downloading: Apple Speech (iOS
-            // manages its assets), Parakeet when cached, downloaded engines when verified on disk.
-            // Parakeet waits for a tap after loads that ended Typr (`ParakeetLoadGuard`).
-            switch preferred {
-            case .appleSpeech:
-                prepareModel()
-            case .parakeetV2:
-                if engineProvider.isInstalled(preferred), !parakeetInterrupted {
-                    prepareModel()
-                }
-            case .whisperLargeV3Turbo, .parakeetV3, .orukeet, .cohereTranscribe:
-                if engineProvider.isInstalled(preferred) {
-                    prepareModel()
-                }
-            }
-        } else {
-            prepareAutomaticAtLaunch(parakeetInterrupted: parakeetInterrupted)
-        }
-    }
-
-    /// Hex's launch with no engine chosen. A launch after Typr ended while loading Parakeet
-    /// doesn't load it again by itself, or it would end the same way at every launch: from
-    /// iOS 26 Apple Speech takes over where it has the language, before it the on-device
-    /// recognizer always does.
-    private func prepareAutomaticAtLaunch(parakeetInterrupted: Bool) {
-        let hasCachedModel = ParakeetTranscriber.hasCachedModel
-        let policy = HexSpeechEnginePolicy.current
-        let explicit = LanguageSettings().explicitDictationLanguage(typr: dictationLanguage)
-        guard #available(iOS 26.0, *) else {
-            switch policy.engine(for: Self.wantedLanguage(explicit: explicit), appleSpeechPicks: false) {
-            case .parakeet:
-                engineName = "Parakeet V2"
-                if hasCachedModel { prepareModel() }
-            case .onDeviceRecognizer, .appleSpeech:
-                engineName = "Apple Speech"
-                if SFSpeechRecognizer.authorizationStatus() == .authorized {
-                    keyboardBridge.setModelInstalled(true)
-                    prepareModel()
-                }
-            }
-            return
-        }
-        if hasCachedModel && !parakeetInterrupted {
-            engineName = "Parakeet V2"
-            prepareModel()
-            return
-        }
-        let launchGeneration = modelPrepGeneration
-        let strict = languageSettings[experiment: .typrStrictDictationLanguage]
-        Task { [weak self] in
-            let speech = await Self.appleSpeechLanguage(
-                picked: AppleSpeechTranscriber.preferredLanguage(explicit: explicit, strict: strict),
-                wanted: Self.wantedLanguage(explicit: explicit),
-                parakeetFits: policy.parakeetFitsBesideAppleSpeech
-            )
-            guard let self, self.modelPrepGeneration == launchGeneration,
-                  self.preferredEngine == nil, self.phase == .modelRequired,
-                  self.canChangeEngine else { return }
-            if speech != nil {
-                self.engineName = "Apple Speech"
-                self.prepareModel()
-            } else {
-                self.engineName = "Parakeet V2"
-                if hasCachedModel {
-                    self.phase = .failed(ParakeetLoadGuard.message)
-                }
-            }
-        }
-    }
-
     var isRecording: Bool {
         phase == .recording
     }
@@ -496,118 +417,9 @@ final class DictationController {
         }
     }
 
-    private func preparePendingAppleLanguageIfIdle() {
+    func preparePendingAppleLanguageIfIdle() {
         guard pendingAppleLanguageChange, canChangeEngine, phase != .preparingModel else { return }
         prepareModel()
-    }
-
-    // MARK: - Speech Engine
-
-    enum SpeechEngineSelection: Equatable {
-        case selected
-        case alreadySelected
-        /// A dictation is being set up, recorded, transcribed or cleaned up.
-        case busy
-        /// A downloaded engine is not downloaded and verified; nothing is downloaded by selecting it.
-        case notInstalled
-    }
-
-    enum ModelDeletion: Equatable {
-        case deleted
-        /// A dictation or another deletion is running.
-        case busy
-        /// Apple Speech: iOS manages its assets.
-        case notDeletable
-        case failed(String)
-    }
-
-    /// False from the microphone permission request until transcription and cleanup finish, and
-    /// while a model is being deleted.
-    var canChangeEngine: Bool {
-        switch phase {
-        case .requestingPermission, .recording, .transcribing:
-            return false
-        case .modelRequired, .preparingModel, .ready, .failed:
-            return activeCapture == nil && pendingCleanupJob == nil && transcribingLog == nil
-                && inFlightTranscriptions.isEmpty && inFlightPermissionRequests == 0 && !isDeletingModel
-        }
-    }
-
-    /// Deletes the engine's model files. A loaded or preparing model of that engine is released
-    /// first (ending a warm session); the chosen engine stays chosen and is never replaced.
-    @discardableResult
-    func deleteModel(_ engine: SpeechEngineChoice) async -> ModelDeletion {
-        guard engine.hasDeletableModel else { return .notDeletable }
-        guard canChangeEngine else { return .busy }
-        isDeletingModel = true
-        let preparingEngine = preferredEngine ?? SpeechEngineChoice(displayName: engineName)
-        if currentEngine == engine || (!isModelReady && preparingEngine == engine) {
-            if keyboardSessionEnabled { endWarmSession() }
-            modelPrepGeneration &+= 1
-            preparationTask?.cancel()
-            modelBackground?.finish(success: false)
-            transcriber = UnpreparedTranscriber(displayName: engineName)
-            currentEngine = nil
-            isModelReady = false
-            phase = .modelRequired
-        }
-        if workingEngine?.engine == engine {
-            workingEngine = nil
-        }
-        // A Core ML load cannot be interrupted, also one superseded by another engine's choice.
-        while loadingEngines.values.contains(engine) {
-            deletionWaitsForTesting += 1
-            await withCheckedContinuation { loadFinishedWaiters.append($0) }
-        }
-        let result: ModelDeletion
-        do {
-            try engineProvider.deleteModel(engine)
-            result = .deleted
-        } catch {
-            result = .failed(error.localizedDescription)
-        }
-        if !isModelReady {
-            keyboardBridge.setModelInstalled(
-                preferredEngine.map { engineProvider.isInstalled($0) } ?? ParakeetTranscriber.hasCachedModel)
-        }
-        publishKeyboardSnapshot()
-        scheduleModelMaintenance()
-        isDeletingModel = false
-        fulfillPendingHandoffOrPrepare()
-        return result
-    }
-
-    /// OS, device, language and install status for the settings section. Starts no model work.
-    func engineAvailability(_ engine: SpeechEngineChoice) async -> SpeechEngineAvailability {
-        await engineProvider.availability(of: engine, language: dictationLanguage)
-    }
-
-    /// The settings section's choice: persisted, then the previous engine is released and the
-    /// chosen one prepared while idle. Never falls back to another engine.
-    @discardableResult
-    func selectEngine(_ engine: SpeechEngineChoice) -> SpeechEngineSelection {
-        guard canChangeEngine else { return .busy }
-        guard engine != preferredEngine else { return .alreadySelected }
-        if engine.requiresExplicitDownload, !engineProvider.isInstalled(engine) {
-            return .notInstalled
-        }
-        preferredEngine = engine
-        languageSettings.preferredSpeechEngine = engine
-        engineName = engine.displayName
-        languageNotice = nil
-        // Pinning the automatically ready engine needs no model reload.
-        if currentEngine != engine || !isModelReady { prepareModel() }
-        return .selected
-    }
-
-    func setMicrophone(_ choice: MicrophoneChoice) {
-        guard microphone != choice else { return }
-        microphone = choice
-        keyboardBridge.microphone = choice
-        if keyboardSessionEnabled, phase == .ready {
-            do { try startWarmInput() }
-            catch { endWarmSession() }
-        }
     }
 
     // MARK: - Standalone & System Actions
@@ -721,22 +533,6 @@ final class DictationController {
         preparePendingAppleLanguageIfIdle()
     }
 
-    /// Reopening prepares only an installed, explicitly selected downloaded engine, never a
-    /// download or a replacement engine. Also used by maintenance: both paths join the same preparation.
-    var needsDownloadedModelPreparation: Bool {
-        preferredDownloadedEngineIsInstalled && !isModelReady && canChangeEngine
-    }
-
-    private var preferredDownloadedEngineIsInstalled: Bool {
-        guard let preferredEngine, preferredEngine.requiresExplicitDownload else { return false }
-        return engineProvider.isInstalled(preferredEngine)
-    }
-
-    func prepareInstalledModelIfNeeded() {
-        guard needsDownloadedModelPreparation, phase != .preparingModel else { return }
-        prepareModel()
-    }
-
     func noteSceneDidBecomeActive() {
         isInBackground = false
         if preparationFailedInBackground {
@@ -752,23 +548,6 @@ final class DictationController {
         prepareInstalledModelIfNeeded()
         // A preparation that lost or never got its continued task asks again while active.
         modelBackground?.sceneDidBecomeActive()
-        scheduleModelMaintenance()
-    }
-
-    private func scheduleModelMaintenance() {
-        modelBackground?.scheduleMaintenance(needed: preferredDownloadedEngineIsInstalled)
-    }
-
-    private func expireModelPreparation(_ engine: SpeechEngineChoice, generation: UInt64) {
-        guard modelPrepGeneration == generation, phase == .preparingModel else { return }
-        // Invalidate immediately, but retain the task so a retry waits for any non-interruptible
-        // Core ML call to return and release its candidate before allocating another one.
-        modelPrepGeneration &+= 1
-        preparationTask?.cancel()
-        pendingHandoff = nil
-        phase = .failed("\(engine.shortName) preparation paused. Open Typr or tap Try again to continue. iOS controls background time.")
-        modelPreparation = ModelPreparationProgress(fractionCompleted: nil, detail: "\(engine.shortName) preparation paused")
-        publishKeyboardSnapshot()
         scheduleModelMaintenance()
     }
 
@@ -835,7 +614,7 @@ final class DictationController {
         }
     }
 
-    private func fulfillPendingHandoffOrPrepare() {
+    func fulfillPendingHandoffOrPrepare() {
         guard let handoff = pendingHandoff else { return }
 
         if now() - handoff.requestedAt > KeyboardLaunchRequest.handoffWindow {
@@ -863,7 +642,7 @@ final class DictationController {
         }
     }
 
-    private func requestWarmSession(attemptAutoReturn: Bool) {
+    func requestWarmSession(attemptAutoReturn: Bool) {
         pendingHandoff = PendingKeyboardHandoff(
             jobID: nil,
             style: style,
@@ -873,7 +652,7 @@ final class DictationController {
         fulfillPendingHandoffOrPrepare()
     }
 
-    private func activateWarmSessionAndRunHandoff() {
+    func activateWarmSessionAndRunHandoff() {
         guard phase == .ready else { return }
         let handoff = pendingHandoff
         pendingHandoff = nil
@@ -985,7 +764,7 @@ final class DictationController {
 
     /// Recheck on every warm start, including route changes and interruption retries.
     /// Never seize the microphone just to keep it warm while media is playing.
-    private func startWarmInput() throws {
+    func startWarmInput() throws {
         guard !otherAudioBlocksMicrophone else { throw CancellationError() }
         discardArmedCapture()
         try audio.startKeepalive(microphone: idleMicrophone)
@@ -1019,248 +798,6 @@ final class DictationController {
         guard keyboardSessionEnabled, let seconds = warmDuration.seconds else { return }
         keyboardSessionExpiresAt = now() + seconds
         keyboardSessionRemaining = seconds
-    }
-
-    /// Back to the app the dictation came from, else the swipe-back cue.
-    /// A field inside Typr itself needs no return.
-    private func maybeAutoReturnAfterActivation(allowed: Bool) {
-        guard allowed else { return }
-        guard let host = returnHost else {
-            autoReturnState = .swipeFallback
-            return
-        }
-        guard host != HostReturnCatalog.typrBundleID else { return }
-        triggerAutoReturn(to: host)
-    }
-
-    private func triggerAutoReturn(to host: String) {
-        autoReturnFallbackTask?.cancel()
-        autoReturnState = .attempting
-        let returner = hostReturner
-
-        Task {
-            let opened = await returner.open(host)
-            guard case .attempting = self.autoReturnState else { return }
-            if !opened {
-                self.autoReturnState = .swipeFallback
-                return
-            }
-            self.autoReturnFallbackTask = Task { [weak self] in
-                try? await Task.sleep(for: .milliseconds(950))
-                guard !Task.isCancelled, let self else { return }
-                if case .attempting = self.autoReturnState {
-                    self.autoReturnState = .swipeFallback
-                }
-            }
-        }
-    }
-
-    // MARK: - Model Preparation
-
-    func prepareModel() {
-        prepareModel(fallbacksLeft: 2)
-    }
-
-    private struct WorkingEngine {
-        let transcriber: any LocalTranscribing
-        let engine: SpeechEngineChoice?
-        let languageName: String
-    }
-
-    private func prepareModel(fallbacksLeft: Int) {
-        // This is also called by handoff/intents and tests, not just the settings button.
-        guard canChangeEngine else { return }
-        pendingAppleLanguageChange = false
-        modelNeedsReload = false
-        modelPrepGeneration &+= 1
-        let prepGen = modelPrepGeneration
-        modelBackground?.finish(success: false)
-        phase = .preparingModel
-        copied = false
-        let downloaded = preferredEngine.flatMap { $0.requiresExplicitDownload ? $0 : nil }
-        modelPreparation = ModelPreparationProgress(
-            fractionCompleted: downloaded == nil ? 0 : nil,
-            detail: "Checking model files"
-        )
-        let preferred = preferredEngine
-        let language = dictationLanguage
-        let previous = preparationTask
-        previous?.cancel()
-        if preferred != nil {
-            workingEngine = nil
-        } else if isModelReady {
-            workingEngine = WorkingEngine(transcriber: transcriber, engine: currentEngine, languageName: transcriptionLanguage)
-        }
-        // Release the previous engine before the next one loads, so two large models are never
-        // held together. A running transcription keeps its own snapshot until it ends.
-        transcriber = UnpreparedTranscriber(displayName: engineName)
-        currentEngine = nil
-        isModelReady = false
-        keyboardBridge.setModelInstalled(preferred.map { engineProvider.isInstalled($0) } ?? ParakeetTranscriber.hasCachedModel)
-        publishKeyboardSnapshot()
-        if let downloaded {
-            modelBackground?.begin(downloaded) { [weak self] in
-                self?.expireModelPreparation(downloaded, generation: prepGen)
-            }
-        }
-        scheduleModelMaintenance()
-        preparationFailedInBackground = false
-        if downloaded == nil {
-            watchPreparation(prepGen)
-        }
-
-        preparationTask = Task {
-            defer {
-                if self.modelPrepGeneration == prepGen, downloaded != nil {
-                    self.modelBackground?.finish(success: self.isModelReady)
-                }
-            }
-            // A superseded preparation finishes (and is dropped) before this one creates a model.
-            await previous?.value
-            guard self.modelPrepGeneration == prepGen else { return }
-            do {
-                let candidate: any LocalTranscribing
-                if let preferred {
-                    candidate = try await engineProvider.transcriber(for: preferred, language: language)
-                } else if let transcriberFactory {
-                    candidate = await transcriberFactory()
-                } else {
-                    candidate = await engineProvider.automaticTranscriber(language: language)
-                }
-                guard self.modelPrepGeneration == prepGen else { return }
-                if candidate is ParakeetTranscriber, self.workingEngine?.transcriber is ParakeetTranscriber {
-                    self.workingEngine = nil
-                }
-                engineName = candidate.displayName
-                loadingEngines[prepGen] = SpeechEngineChoice(displayName: candidate.displayName)
-                defer { loadingEngines[prepGen] = nil }
-                try await candidate.prepare { [weak self] progress in
-                    Task { @MainActor [weak self] in
-                        guard let self, self.modelPrepGeneration == prepGen else { return }
-                        guard self.phase == .preparingModel else { return }
-                        if progress.fractionCompleted != self.modelPreparation.fractionCompleted
-                            || progress.detail != self.modelPreparation.detail {
-                            self.preparationChangedAt = .now
-                            self.preparationReported = true
-                        }
-                        self.modelPreparation = progress
-                        if downloaded != nil { self.modelBackground?.update(progress) }
-                    }
-                }
-                let candidateLanguageName = await candidate.languageName
-                guard self.modelPrepGeneration == prepGen else { return }
-                // A language change while preparation awaited must not publish the old Apple
-                // locale as ready. The replacement waits for this task to release its candidate.
-                if candidate.displayName == "Apple Speech", self.dictationLanguage != language {
-                    self.pendingAppleLanguageChange = true
-                    self.phase = .ready
-                    self.preparePendingAppleLanguageIfIdle()
-                    return
-                }
-                self.workingEngine = nil
-                self.transcriber = candidate
-                self.currentEngine = SpeechEngineChoice(displayName: candidate.displayName)
-                self.transcriptionLanguage = candidateLanguageName
-                self.keyboardBridge.setModelInstalled(true)
-                self.isModelReady = true
-                self.phase = .ready
-                self.publishKeyboardSnapshot()
-                if self.pendingHandoff != nil {
-                    self.activateWarmSessionAndRunHandoff()
-                }
-            } catch {
-                guard self.modelPrepGeneration == prepGen else { return }
-                if preferred == nil, fallbacksLeft > 0, let notice = Self.switchNotice(for: error) {
-                    self.languageNotice = notice
-                    self.preparationTask = nil
-                    self.prepareModel(fallbacksLeft: fallbacksLeft - 1)
-                    return
-                }
-                if let working = self.workingEngine {
-                    self.restore(working, because: error.localizedDescription)
-                    return
-                }
-                self.preparationFailedInBackground = downloaded == nil && self.isInBackground
-                    && Self.isDownloadInterruption(error)
-                self.keyboardBridge.setModelInstalled(
-                    preferred.map { self.engineProvider.isInstalled($0) } ?? ParakeetTranscriber.hasCachedModel)
-                self.pendingHandoff = nil
-                self.phase = .failed(error.localizedDescription)
-                self.publishKeyboardSnapshot()
-                self.preparePendingAppleLanguageIfIdle()
-            }
-        }
-    }
-
-    private func restore(_ working: WorkingEngine, because reason: String) {
-        workingEngine = nil
-        transcriber = working.transcriber
-        currentEngine = working.engine
-        engineName = working.transcriber.displayName
-        transcriptionLanguage = working.languageName
-        isModelReady = true
-        languageNotice = "\(reason) Typr keeps using \(working.transcriber.displayName)."
-        keyboardBridge.setModelInstalled(true)
-        phase = .ready
-        publishKeyboardSnapshot()
-        if pendingHandoff != nil {
-            activateWarmSessionAndRunHandoff()
-        }
-    }
-
-    /// Ends a preparation that has said nothing new for too long, in plain words with Try
-    /// again, instead of a bar that never moves: `firstReport` (30 s) before it has said
-    /// anything (Apple's speech service or asset store not answering leaves "Checking model
-    /// files" up for good, Hex TestFlight build 126), `stall` (120 s) after. Time while iOS had
-    /// Typr suspended doesn't count. The work it ends can't always be cancelled (an XPC call
-    /// that never returns); its result is dropped, and Try again starts a new one without
-    /// waiting for it. Downloaded engines keep Typr's background preparation instead.
-    private func watchPreparation(_ prepGen: UInt64) {
-        preparationChangedAt = .now
-        preparationReported = false
-        Task { [weak self] in
-            let clock = ContinuousClock()
-            var polled = clock.now
-            while true {
-                try? await Task.sleep(for: .milliseconds(500))
-                guard let self, self.modelPrepGeneration == prepGen, self.phase == .preparingModel else { return }
-                let now = clock.now
-                if now - polled > .seconds(5) {
-                    self.preparationChangedAt = now
-                }
-                polled = now
-                let limit = self.preparationReported ? self.preparationLimits.stall : self.preparationLimits.firstReport
-                guard now - self.preparationChangedAt >= limit else { continue }
-                self.modelPrepGeneration &+= 1
-                self.preparationTask?.cancel()
-                self.preparationTask = nil
-                let message = "The speech model isn't ready. Try again."
-                if let working = self.workingEngine {
-                    self.restore(working, because: message)
-                    return
-                }
-                self.pendingHandoff = nil
-                self.keyboardBridge.setModelInstalled(ParakeetTranscriber.hasCachedModel)
-                self.phase = .failed(message)
-                self.publishKeyboardSnapshot()
-                return
-            }
-        }
-    }
-
-    nonisolated static func switchNotice(for error: any Error) -> String? {
-        if let unavailable = error as? SpeechModelUnavailable, unavailable.switchedAutomatically {
-            return unavailable.errorDescription
-        }
-        if (error as? ParakeetTranscriber.TranscriberError) == .notEnoughMemory {
-            return "Not enough memory for the speech model. Typr is using Apple's on-device speech recognition."
-        }
-        return nil
-    }
-
-    nonisolated static func isDownloadInterruption(_ error: any Error) -> Bool {
-        if error is StallWatch.Stalled || error is URLError { return true }
-        return (error as? ParakeetTranscriber.TranscriberError) == .downloadFailed
     }
 
     // MARK: - Capture & Generation-Scoped Transcription
@@ -1906,7 +1443,7 @@ final class DictationController {
             .appendingPathExtension("wav")
     }
 
-    private func publishKeyboardSnapshot(minInterval: TimeInterval = 0) {
+    func publishKeyboardSnapshot(minInterval: TimeInterval = 0) {
         let currentTime = now()
 
         if let expires = keyboardResultExpiresAt, expires <= currentTime {
@@ -2176,319 +1713,5 @@ final class DictationController {
         case .modelNotReady, .other:
             (error as? WhisperTranscriber.TranscriberError) == .emptyTranscript
         }
-    }
-
-    private var canReusePreparedModel: Bool {
-        isModelReady && !modelNeedsReload && !pendingAppleLanguageChange
-    }
-
-    private func wireSystemIntentBus() {
-        Task {
-            await TyprSystemCommandBus.shared.register { [weak self] command in
-                guard let self else { return nil }
-                return await self.performSystemCommand(command)
-            }
-        }
-    }
-
-    private func performSystemCommand(_ command: TyprSystemCommand) async -> String? {
-        switch command {
-        case .toggleDictation:
-            if phase == .recording {
-                finishRecording()
-                if let task = transcriptionTask {
-                    await task.value
-                }
-                return transcript
-            }
-            if phase == .modelRequired || isFailedPhase {
-                prepareModel()
-                try? await waitUntilReady(timeoutSeconds: 10)
-            }
-            guard phase == .ready else { return nil }
-            startRecording(copyToPasteboard: true)
-            return ""
-
-        case .stopDictation:
-            guard phase == .recording else { return transcript }
-            finishRecording()
-            if let task = transcriptionTask {
-                await task.value
-            }
-            return transcript
-
-        case .cancelDictation:
-            cancelCurrentJob()
-            return nil
-
-        case .warmSession:
-            if !keyboardSessionEnabled {
-                if warmDuration == .off {
-                    setWarmDuration(.fifteenMinutes)
-                }
-                requestWarmSession(attemptAutoReturn: false)
-            }
-            return nil
-        }
-    }
-
-    private var isFailedPhase: Bool {
-        if case .failed = phase { return true }
-        return false
-    }
-
-    private func waitUntilReady(timeoutSeconds: TimeInterval) async throws {
-        let deadline = now() + timeoutSeconds
-        while phase == .preparingModel && now() < deadline {
-            try await Task.sleep(for: .milliseconds(100))
-        }
-    }
-
-    // MARK: - Launch Fixtures for Simulator Verification (`--snap-state <name>`)
-
-    private static func applyLaunchFixtureIfPresent(to controller: DictationController) -> Bool {
-        let args = ProcessInfo.processInfo.arguments
-        guard let flagIndex = args.firstIndex(of: "--snap-state"),
-              flagIndex + 1 < args.count else {
-            return false
-        }
-        let scene = args[flagIndex + 1]
-        controller.engineName = "Apple Speech"
-        controller.currentEngine = .appleSpeech
-        controller.transcriptionLanguage = "English"
-        controller.keyboardBridge.setModelInstalled(true)
-        controller.isModelReady = true
-
-        switch scene {
-        case "setup":
-            controller.phase = .ready
-            controller.warmDuration = .fifteenMinutes
-            controller.keyboardSessionEnabled = false
-
-        case "settings-overview", "settings-keyboard", "settings-writing", "settings-history", "settings-history-sample", "settings-history-sample-detail", "settings-speech-engine",
-             "settings-style", "settings-language", "settings-keyboard-learned-words",
-             "settings-keyboard-words-privacy", "settings-autocorrect-languages",
-             "settings-statistics", "settings-statistics-empty", "settings-statistics-sparse",
-             "settings-statistics-populated", "settings-statistics-unavailable":
-            controller.phase = .ready
-            controller.warmDuration = .off
-            controller.keyboardSessionEnabled = false
-
-        case "settings-keyboard-typing":
-            #if targetEnvironment(simulator)
-            TyprFullKeyboardSettings().autocorrect = true
-            TyprSettings().autocorrectGerman = true
-            TyprSettings().autocorrectEnglish = true
-            #endif
-            controller.phase = .ready
-            controller.warmDuration = .off
-            controller.keyboardSessionEnabled = false
-
-        case "ready":
-            controller.phase = .ready
-            controller.warmDuration = .off
-            controller.keyboardSessionEnabled = false
-            controller.transcript = "Meet at ten on Thursday and bring the updated design notes."
-
-        case "warm":
-            controller.phase = .ready
-            controller.warmDuration = .fifteenMinutes
-            controller.keyboardSessionEnabled = true
-            controller.keyboardSessionRemaining = 14 * 60 + 42
-            controller.keyboardSessionExpiresAt = Date().timeIntervalSince1970 + 14 * 60 + 42
-            controller.transcript = "Meet at ten on Thursday and bring the updated design notes."
-
-        case "recording":
-            controller.phase = .recording
-            controller.warmDuration = .fifteenMinutes
-            controller.audioLevel = 0.74
-            controller.loudnessDB = -31.0
-            controller.recordingDuration = 6.4
-            controller.keyboardSessionEnabled = true
-            controller.keyboardSessionRemaining = 14 * 60 + 54
-
-        case "transcribing":
-            controller.phase = .transcribing
-            controller.warmDuration = .fifteenMinutes
-            controller.keyboardSessionEnabled = true
-            controller.keyboardSessionRemaining = 14 * 60 + 52
-
-        case "handoff-listening", "handoff-no-home-bar":
-            controller.phase = .recording
-            controller.audioLevel = 0.68
-            controller.loudnessDB = -32.5
-            controller.recordingDuration = 3.2
-            controller.keyboardSessionEnabled = true
-            controller.keyboardSessionRemaining = 14 * 60 + 57
-            controller.autoReturnState = .swipeFallback
-            Task { @MainActor in
-                let start = Date().timeIntervalSince1970 - 3.0
-                var simTime: Float = 0.0
-                while !Task.isCancelled {
-                    controller.loudnessDB = DotScopeSimulation.demoLoudness(at: simTime) + 4.5
-                    controller.recordingDuration = Date().timeIntervalSince1970 - start
-                    simTime += 0.033
-                    try? await Task.sleep(for: .milliseconds(33))
-                }
-            }
-
-        case "handoff-tour":
-            controller.phase = .recording
-            controller.audioLevel = 0.68
-            controller.loudnessDB = -32.0
-            controller.recordingDuration = 0.0
-            controller.keyboardSessionEnabled = true
-            controller.keyboardSessionRemaining = 14 * 60 + 58
-            controller.autoReturnState = .swipeFallback
-            Task { @MainActor in
-                let boot = Date().timeIntervalSince1970
-                var simTime: Float = 0.0
-                while !Task.isCancelled {
-                    let elapsed = Date().timeIntervalSince1970 - boot
-                    if elapsed < 3.4 {
-                        if controller.phase != .recording {
-                            withAnimation(TyprMotion.stage) {
-                                controller.phase = .recording
-                            }
-                        }
-                        controller.loudnessDB = DotScopeSimulation.demoLoudness(at: simTime) + 4.5
-                        controller.recordingDuration = elapsed
-                        simTime += 0.033
-                    } else if elapsed < 4.7 {
-                        if controller.phase != .transcribing {
-                            withAnimation(TyprMotion.stage) {
-                                controller.phase = .transcribing
-                            }
-                        }
-                        controller.loudnessDB = -120.0
-                    } else {
-                        if controller.phase != .ready {
-                            withAnimation(TyprMotion.stage) {
-                                controller.phase = .ready
-                            }
-                        }
-                    }
-                    try? await Task.sleep(for: .milliseconds(33))
-                }
-            }
-
-        case "handoff-returning":
-            controller.phase = .recording
-            controller.audioLevel = 0.62
-            controller.recordingDuration = 1.1
-            controller.keyboardSessionEnabled = true
-            controller.keyboardSessionRemaining = 14 * 60 + 59
-            controller.autoReturnState = .attempting
-
-        case "hosted-keyboard-warm":
-            controller.phase = .ready
-            controller.warmDuration = .fifteenMinutes
-            controller.keyboardSessionEnabled = true
-            controller.keyboardSessionRemaining = 14 * 60 + 42
-            controller.keyboardSessionExpiresAt = Date().timeIntervalSince1970 + 14 * 60 + 42
-            Task { @MainActor in
-                while !Task.isCancelled {
-                    let t = Date().timeIntervalSince1970
-                    controller.keyboardBridge.publish(
-                        KeyboardSnapshot(
-                            state: .ready,
-                            heartbeat: t,
-                            expiresAt: t + 14 * 60 + 42
-                        )
-                    )
-                    try? await Task.sleep(for: .milliseconds(250))
-                }
-            }
-
-        case "hosted-keyboard-recording", "hosted-keyboard-light":
-            controller.phase = .ready
-            controller.warmDuration = .fifteenMinutes
-            controller.keyboardSessionEnabled = true
-            controller.keyboardSessionRemaining = 14 * 60 + 55
-            let startWall = Date().timeIntervalSince1970 - 4.0
-            Task { @MainActor in
-                var simTime: Float = 0.4
-                while !Task.isCancelled {
-                    let t = Date().timeIntervalSince1970
-                    let db = -28.5 + 5.2 * sin(simTime * 19.0) + 2.4 * cos(simTime * 7.3)
-                    controller.keyboardBridge.publish(
-                        KeyboardSnapshot(
-                            state: .recording,
-                            heartbeat: t,
-                            expiresAt: t + 15 * 60,
-                            recordingStartedAt: startWall,
-                            audioLevel: 0.78,
-                            loudnessDB: db,
-                            jobID: "hosted-demo-job"
-                        )
-                    )
-                    simTime += 0.033
-                    try? await Task.sleep(for: .milliseconds(33))
-                }
-            }
-
-        case "hosted-keyboard-tour":
-            controller.phase = .ready
-            controller.warmDuration = .fifteenMinutes
-            controller.keyboardSessionEnabled = true
-            controller.keyboardSessionRemaining = 14 * 60 + 58
-            Task { @MainActor in
-                let boot = Date().timeIntervalSince1970
-                let freshResultID = "hosted-tour-\(UUID().uuidString)"
-                var simTime: Float = 0.0
-                while !Task.isCancelled {
-                    let t = Date().timeIntervalSince1970
-                    let elapsed = t - boot
-                    if elapsed < 2.5 {
-                        controller.keyboardBridge.publish(
-                            KeyboardSnapshot(
-                                state: .ready,
-                                heartbeat: t,
-                                expiresAt: t + 15 * 60
-                            )
-                        )
-                    } else if elapsed < 5.2 {
-                        let db = DotScopeSimulation.demoLoudness(at: simTime) + 4.5
-                        controller.keyboardBridge.publish(
-                            KeyboardSnapshot(
-                                state: .recording,
-                                heartbeat: t,
-                                expiresAt: t + 15 * 60,
-                                recordingStartedAt: boot + 2.5,
-                                audioLevel: 0.78,
-                                loudnessDB: db,
-                                jobID: "hosted-tour-job"
-                            )
-                        )
-                        simTime += 0.033
-                    } else if elapsed < 6.4 {
-                        controller.keyboardBridge.publish(
-                            KeyboardSnapshot(
-                                state: .transcribing,
-                                heartbeat: t,
-                                expiresAt: t + 15 * 60,
-                                jobID: "hosted-tour-job"
-                            )
-                        )
-                    } else {
-                        controller.keyboardBridge.publish(
-                            KeyboardSnapshot(
-                                state: .ready,
-                                heartbeat: t,
-                                expiresAt: t + 14 * 60 + 54,
-                                resultID: freshResultID,
-                                resultExpiresAt: boot + 30,
-                                transcript: "See you at ten."
-                            )
-                        )
-                    }
-                    try? await Task.sleep(for: .milliseconds(33))
-                }
-            }
-
-        default:
-            return false
-        }
-        return true
     }
 }
