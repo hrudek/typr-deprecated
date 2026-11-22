@@ -26,18 +26,18 @@ nonisolated struct DictationVocabulary: Sendable {
     let userTerms: [String]
     private let userRules: [VocabularySpelling.Rule]
     /// Fixes Learn from my edits learned (empty while that experiment is off).
-    let learnedFixes: [DictationCorrection]
+    let learnedFixes: [TyprDictationCorrection]
     private let restoreRules: [VocabularySpelling.Rule]
 
-    init(userTerms: [String], soundsLike: [String: [String]] = [:], learnedFixes: [DictationCorrection] = []) {
+    init(userTerms: [String], soundsLike: [String: [String]] = [:], learnedFixes: [TyprDictationCorrection] = []) {
         self.userTerms = userTerms
         self.learnedFixes = learnedFixes
         userRules = CustomVocabularySettings.rules(terms: userTerms, soundsLike: soundsLike)
-        restoreRules = userRules + DictationCorrections.spellings(learnedFixes).map(VocabularySpelling.Rule.init(term:))
+        restoreRules = userRules + TyprDictationCorrections.spellings(learnedFixes).map(VocabularySpelling.Rule.init(term:))
     }
 
     /// Reads the Custom vocabulary switch, terms and sounds-like forms once.
-    init(settings: CustomVocabularySettings, learnedFixes: [DictationCorrection] = []) {
+    init(settings: CustomVocabularySettings, learnedFixes: [TyprDictationCorrection] = []) {
         if settings.isEnabled {
             self.init(userTerms: settings.terms, soundsLike: settings.soundsLike, learnedFixes: learnedFixes)
         } else {
@@ -80,7 +80,7 @@ nonisolated struct DictationVocabulary: Sendable {
             { before, after, term in report(before, after, term, .builtIn) }
         }
         let protected = protectedKeys
-        let learned = DictationCorrections.apply(learnedFixes, to: recognized)
+        let learned = TyprDictationCorrections.apply(learnedFixes, to: recognized)
         let custom = VocabularySpelling.apply(rules: userRules, to: learned, onReplacement: reportCustom)
         let glossary = TechGlossary.apply(to: custom, protectedKeys: protected, onReplacement: reportBuiltIn)
         let glossaryTerms = glossary.terms.filter { !protected.contains(VocabularySpelling.normalizedKey($0)) }

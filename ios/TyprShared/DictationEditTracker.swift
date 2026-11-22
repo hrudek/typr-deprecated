@@ -16,9 +16,9 @@ final class DictationEditTracker {
     }
 
     private struct Tracked {
-        let insertion: DictationInsertion
+        let insertion: TyprDictationInsertion
         let insertedAt: TimeInterval
-        var latest: DictationSpan
+        var latest: TyprDictationSpan
         var located = false
         var emptiedAt: TimeInterval?
         var undone = false
@@ -27,7 +27,7 @@ final class DictationEditTracker {
     private var tracked: Tracked?
     private var removed: (tracked: Tracked, at: TimeInterval)?
     private let now: () -> TimeInterval
-    var onResult: ((DictationEditResult) -> Void)?
+    var onResult: ((TyprDictationEditResult) -> Void)?
 
     init(now: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }) {
         self.now = now
@@ -46,7 +46,7 @@ final class DictationEditTracker {
         } else if let pending = removed {
             removed = nil
             if time - pending.at <= Self.redictationWindow {
-                emit(DictationEditClassifier.redictation(
+                emit(TyprDictationEditClassifier.redictation(
                     previousInserted: pending.tracked.insertion.inserted,
                     nextInserted: inserted
                 ))
@@ -55,9 +55,9 @@ final class DictationEditTracker {
             }
         }
         tracked = Tracked(
-            insertion: DictationInsertion(inserted: inserted, before: context.before, after: context.after),
+            insertion: TyprDictationInsertion(inserted: inserted, before: context.before, after: context.after),
             insertedAt: time,
-            latest: DictationSpan(text: inserted, startIsCertain: true, endIsCertain: true)
+            latest: TyprDictationSpan(text: inserted, startIsCertain: true, endIsCertain: true)
         )
     }
 
@@ -131,7 +131,7 @@ final class DictationEditTracker {
             current.emptiedAt = current.emptiedAt ?? now()
             return true
         }
-        guard let span = DictationSpanLocator.locate(current.insertion, before: context.before, after: context.after) else {
+        guard let span = TyprDictationSpanLocator.locate(current.insertion, before: context.before, after: context.after) else {
             return !current.located
         }
         if span.hasWords {
@@ -152,14 +152,14 @@ final class DictationEditTracker {
             return
         }
         guard !current.latest.hasWords else {
-            emit(DictationEditClassifier.classify(inserted: current.insertion.inserted, final: current.latest))
+            emit(TyprDictationEditClassifier.classify(inserted: current.insertion.inserted, final: current.latest))
             return
         }
         let emptiedAt = current.emptiedAt ?? time
         if time - emptiedAt > Self.redictationWindow {
             emitRemoval(current)
         } else if let inserted {
-            emit(DictationEditClassifier.redictation(
+            emit(TyprDictationEditClassifier.redictation(
                 previousInserted: current.insertion.inserted,
                 nextInserted: inserted
             ))
@@ -169,14 +169,14 @@ final class DictationEditTracker {
     }
 
     private func emitRemoval(_ current: Tracked) {
-        emit(DictationEditClassifier.classify(
+        emit(TyprDictationEditClassifier.classify(
             inserted: current.insertion.inserted,
-            final: DictationSpan(text: "", startIsCertain: true, endIsCertain: true),
+            final: TyprDictationSpan(text: "", startIsCertain: true, endIsCertain: true),
             undone: current.undone
         ))
     }
 
-    private func emit(_ result: DictationEditResult?) {
+    private func emit(_ result: TyprDictationEditResult?) {
         guard let result else { return }
         onResult?(result)
     }

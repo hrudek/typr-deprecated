@@ -1,5 +1,9 @@
 import Foundation
 
+// Learn how I type, dictation side: from what Hex inserted and what the field holds a
+// little later, infer whether a dictation was kept, edited, or taken back, and which
+// words were wrong. Everything here is pure so it can be tested without a keyboard.
+
 /// A word in dictated or typed text: letters and digits, with apostrophes inside it.
 nonisolated struct DictationWord: Equatable, Sendable {
     let text: String
@@ -63,23 +67,11 @@ nonisolated enum DictationText {
         }
         return previous[b.count]
     }
-
-    /// Whether a word begins a sentence: after a period, question or exclamation mark, a line
-    /// break, or nothing at all.
-    static func isSentenceStart(_ word: DictationWord, in text: String) -> Bool {
-        var index = word.range.lowerBound
-        while index > text.startIndex {
-            index = text.index(before: index)
-            let character = text[index]
-            if character.isNewline { return true }
-            if character.isWhitespace || "\"“”„'‘’‚([".contains(character) { continue }
-            return ".!?…".contains(character)
-        }
-        return true
-    }
 }
 
-/// A dictation Typr inserted, remembered by the text right around it rather than by
+// MARK: - Where the dictation is now
+
+/// A dictation Hex inserted, remembered by the text right around it rather than by
 /// position, because the host only shows the text near the cursor and it moves.
 nonisolated struct DictationInsertion: Equatable, Sendable {
     static let anchorLength = 32
@@ -123,12 +115,13 @@ nonisolated enum DictationSpanLocator {
             : text.ranges(of: insertion.anchorAfter).map(\.lowerBound)
         guard !starts.isEmpty, !ends.isEmpty else { return nil }
 
+        // With repeated anchors, take the pair whose gap is closest to the dictation's length.
         let expected = insertion.inserted.count
         var best: (range: Range<String.Index>, miss: Int)?
         for start in starts.prefix(16) {
             for end in ends.prefix(16) where start <= end {
                 let miss = abs(text.distance(from: start, to: end) - expected)
-                if best.map({ miss < $0.miss }) ?? true {
+                if best == nil || miss < best!.miss {
                     best = (start..<end, miss)
                 }
             }
@@ -143,6 +136,8 @@ nonisolated enum DictationSpanLocator {
         )
     }
 }
+
+// MARK: - Word diff
 
 nonisolated enum DictationWordDiff {
     /// A run of old words replaced by a run of new words; either side may be empty.
@@ -206,8 +201,10 @@ nonisolated enum DictationWordDiff {
     }
 }
 
-nonisolated enum DictationOutcome: Sendable {
-    /// Sent or left as Typr inserted it.
+// MARK: - What happened to a dictation
+
+nonisolated enum DictationOutcome: String, Codable, CaseIterable, Sendable {
+    /// Sent or left as Hex inserted it.
     case kept
     /// Some words fixed.
     case edited
@@ -215,43 +212,71 @@ nonisolated enum DictationOutcome: Sendable {
     case rewritten
     /// Taken back with Undo dictation.
     case undone
-    /// Deleted and not dictated again soon after.
+    /// Deleted soon after.
     case deleted
     /// Deleted and dictated again soon after.
     case redictated
 }
 
-/// Words you replaced in a dictation, at most three a side.
+/// One word-level change: never more than three words on a side, plus a word of context.
 nonisolated struct DictationEditPair: Equatable, Sendable {
-    /// The words as Typr inserted them.
+    enum Kind: String, Codable, Sendable {
+        /// You replaced words Hex inserted.
+        case substituted
+        /// You added words inside the dictation.
+        case inserted
+        /// You removed words from it.
+        case deleted
+        /// You added back words the speech model heard but cleanup or formatting dropped.
+        case restored
+        /// You removed a filler Hex left in.
+        case fillerRemoved
+        /// You dictated it again and these words came out differently.
+        case redictated
+    }
+
+    var kind: Kind
+    /// The words as the speech model heard them (raw transcript), or as inserted when unknown.
+    var heard: String
+    /// The words as Hex inserted them, after cleanup, formatting, and spelling.
     var inserted: String
     /// The words you ended up with.
     var meant: String
-    /// False when `meant` began a sentence, so whether its first letter is a capital is unknown
-    /// and `meant` is stored with a small one.
-    var caseIsKnown: Bool
+    var before: String?
+    var after: String?
 }
 
 nonisolated struct DictationEditResult: Equatable, Sendable {
     var outcome: DictationOutcome
     var pairs: [DictationEditPair] = []
-    /// Runs of word keys left exactly as inserted in a dictation you corrected elsewhere, so you
-    /// saw them and kept them. Never stored; used to contradict learned fixes.
-    var keptWords: [[String]] = []
+    var wordCount: Int
+    var changedWordCount: Int = 0
+    /// Runs of heard word keys left exactly as heard in a dictation you corrected
+    /// elsewhere, so you saw them and kept them. Never stored; used to contradict fixes.
+    var keptHeard: [[String]] = []
 }
 
 nonisolated enum DictationEditClassifier {
     static let maxPairWords = 3
     static let maxWords = 400
 
-    /// Classifies a dictation against the text now in its place. Nil when there is nothing to
-    /// judge (no words, or far too long).
-    static func classify(inserted: String, final span: DictationSpan, undone: Bool = false) -> DictationEditResult? {
+    static let fillers: Set<String> = [
+        "um", "umm", "uh", "uhh", "uhm", "er", "erm", "ah", "hmm", "mm", "like", "so",
+        "basically", "actually", "literally", "you know", "i mean", "kind of", "sort of",
+    ]
+
+    /// Classifies a dictation against the text now in its place. Nil when there is
+    /// nothing to judge (no words, or far too long).
+    static func classify(heard: String?, inserted: String, final span: DictationSpan, undone: Bool = false) -> DictationEditResult? {
         let insertedWords = DictationText.words(in: inserted)
         guard !insertedWords.isEmpty, insertedWords.count <= maxWords else { return nil }
         let finalWords = DictationText.words(in: span.text)
         if finalWords.isEmpty {
-            return DictationEditResult(outcome: undone ? .undone : .deleted)
+            return DictationEditResult(
+                outcome: undone ? .undone : .deleted,
+                wordCount: insertedWords.count,
+                changedWordCount: insertedWords.count
+            )
         }
         guard finalWords.count <= maxWords * 2 else { return nil }
 
@@ -260,79 +285,111 @@ nonisolated enum DictationEditClassifier {
         let allHunks = DictationWordDiff.hunks(ins, fin)
         let hunks = trimEdges(allHunks, old: ins, new: fin, span: span)
         guard !hunks.isEmpty else {
-            return DictationEditResult(outcome: .kept)
+            return DictationEditResult(outcome: .kept, wordCount: ins.count)
         }
 
         let changed = hunks.reduce(0) { $0 + max($1.old.count, $1.new.count) }
         guard Double(changed) <= max(1, Double(ins.count) / 2) else {
-            return DictationEditResult(outcome: .rewritten)
+            return DictationEditResult(outcome: .rewritten, wordCount: ins.count, changedWordCount: changed)
         }
 
+        let heardWords = heard.map { DictationText.words(in: $0).map(\.text) } ?? ins
+        let alignment = HeardAlignment(heard: heardWords.isEmpty ? ins : heardWords, inserted: ins)
         let startsSentence = ins.first?.first?.isUppercase ?? false
         var pairs: [DictationEditPair] = []
-        for hunk in hunks where isReplacement(hunk) {
-            let sentenceStart = hunk.new.lowerBound == 0
-                ? startsSentence
-                : DictationText.isSentenceStart(finalWords[hunk.new.lowerBound], in: span.text)
-            if let pair = pair(ins[hunk.old], fin[hunk.new], sentenceStart: sentenceStart) {
-                pairs.append(pair)
+        for hunk in hunks where hunk.old.count <= maxPairWords && hunk.new.count <= maxPairWords {
+            let insertedText = ins[hunk.old].joined(separator: " ")
+            var meantText = fin[hunk.new].joined(separator: " ")
+            let before = hunk.old.lowerBound > 0 ? ins[hunk.old.lowerBound - 1] : nil
+            let after = hunk.old.upperBound < ins.count ? ins[hunk.old.upperBound] : nil
+
+            if !hunk.old.isEmpty && !hunk.new.isEmpty {
+                let heardText = alignment.heard(for: hunk.old) ?? insertedText
+                guard isPlausibleFix(insertedText, meantText) || isPlausibleFix(heardText, meantText) else { continue }
+                let sentenceStart = hunk.new.lowerBound == 0
+                    ? startsSentence
+                    : isSentenceStart(finalWords[hunk.new.lowerBound], in: span.text)
+                meantText = normalizedMeant(meantText, sentenceStart: sentenceStart)
+                guard meantText != insertedText else { continue }
+                pairs.append(DictationEditPair(
+                    kind: .substituted, heard: heardText, inserted: insertedText, meant: meantText,
+                    before: before, after: after
+                ))
+            } else if hunk.old.isEmpty {
+                let removed = alignment.removed[hunk.old.lowerBound] ?? []
+                let added = fin[hunk.new].map(DictationText.key)
+                let wasHeard = removed.map(DictationText.key).containsRun(added)
+                pairs.append(DictationEditPair(
+                    kind: wasHeard ? .restored : .inserted,
+                    heard: wasHeard ? meantText : "", inserted: "", meant: meantText,
+                    before: before, after: after
+                ))
+            } else {
+                let heardText = alignment.heard(for: hunk.old) ?? insertedText
+                let isFiller = fillers.contains(DictationText.phraseKey(insertedText))
+                pairs.append(DictationEditPair(
+                    kind: isFiller ? .fillerRemoved : .deleted,
+                    heard: heardText, inserted: insertedText, meant: "",
+                    before: before, after: after
+                ))
             }
         }
 
         return DictationEditResult(
             outcome: .edited,
             pairs: pairs,
-            keptWords: keptRuns(ins, excluding: allHunks)
+            wordCount: ins.count,
+            changedWordCount: changed,
+            keptHeard: alignment.keptRuns(excluding: allHunks, insertedCount: ins.count)
         )
     }
 
-    /// A dictation you removed and dictated again within the redictation window: the words
-    /// that came out differently the second time, when most of it is the same.
-    static func redictation(previousInserted: String, nextInserted: String) -> DictationEditResult? {
+    /// A dictation you removed and dictated again within the redictation window: the
+    /// words that came out differently the second time, when most of it is the same.
+    static func redictation(previousHeard: String?, previousInserted: String, nextInserted: String) -> DictationEditResult? {
         let oldWords = DictationText.words(in: previousInserted)
         guard !oldWords.isEmpty, oldWords.count <= maxWords else { return nil }
         let newWords = DictationText.words(in: nextInserted)
         let old = oldWords.map(\.text)
         let new = newWords.map(\.text)
-        var result = DictationEditResult(outcome: .redictated)
+        var result = DictationEditResult(outcome: .redictated, wordCount: old.count, changedWordCount: old.count)
         guard !new.isEmpty, new.count <= maxWords * 2 else { return result }
 
         let hunks = DictationWordDiff.hunks(old.map(DictationText.key), new.map(DictationText.key))
         let changed = hunks.reduce(0) { $0 + max($1.old.count, $1.new.count) }
+        result.changedWordCount = changed
         guard Double(changed) <= max(1, Double(old.count) / 2) else { return result }
 
+        let heardWords = previousHeard.map { DictationText.words(in: $0).map(\.text) } ?? old
+        let alignment = HeardAlignment(heard: heardWords.isEmpty ? old : heardWords, inserted: old)
         let startsSentence = new.first?.first?.isUppercase ?? false
-        for hunk in hunks where isReplacement(hunk) {
+        for hunk in hunks where !hunk.old.isEmpty && !hunk.new.isEmpty
+            && hunk.old.count <= maxPairWords && hunk.new.count <= maxPairWords {
+            let insertedText = old[hunk.old].joined(separator: " ")
+            let heardText = alignment.heard(for: hunk.old) ?? insertedText
+            var meantText = new[hunk.new].joined(separator: " ")
+            guard isPlausibleFix(insertedText, meantText) || isPlausibleFix(heardText, meantText) else { continue }
             let sentenceStart = hunk.new.lowerBound == 0
                 ? startsSentence
-                : DictationText.isSentenceStart(newWords[hunk.new.lowerBound], in: nextInserted)
-            if let pair = pair(old[hunk.old], new[hunk.new], sentenceStart: sentenceStart) {
-                result.pairs.append(pair)
-            }
+                : isSentenceStart(newWords[hunk.new.lowerBound], in: nextInserted)
+            meantText = normalizedMeant(meantText, sentenceStart: sentenceStart)
+            guard meantText != insertedText else { continue }
+            result.pairs.append(DictationEditPair(
+                kind: .redictated, heard: heardText, inserted: insertedText, meant: meantText,
+                before: hunk.old.lowerBound > 0 ? old[hunk.old.lowerBound - 1] : nil,
+                after: hunk.old.upperBound < old.count ? old[hunk.old.upperBound] : nil
+            ))
         }
         return result
     }
 
-    /// Whether `meant` could be a fix of `inserted` rather than different words altogether.
-    static func isPlausibleFix(_ inserted: String, _ meant: String) -> Bool {
-        let a = DictationText.letters(inserted)
+    /// Whether `meant` could be a fix of `heard` rather than different words altogether.
+    static func isPlausibleFix(_ heard: String, _ meant: String) -> Bool {
+        let a = DictationText.letters(heard)
         let b = DictationText.letters(meant)
         guard !a.isEmpty, !b.isEmpty else { return false }
         if a == b { return true }
         return DictationText.distance(a, b) <= max(2, max(a.count, b.count) / 2)
-    }
-
-    private static func isReplacement(_ hunk: DictationWordDiff.Hunk) -> Bool {
-        !hunk.old.isEmpty && !hunk.new.isEmpty && hunk.old.count <= maxPairWords && hunk.new.count <= maxPairWords
-    }
-
-    private static func pair(_ old: ArraySlice<String>, _ new: ArraySlice<String>, sentenceStart: Bool) -> DictationEditPair? {
-        let inserted = old.joined(separator: " ")
-        let typed = new.joined(separator: " ")
-        guard isPlausibleFix(inserted, typed) else { return nil }
-        let meant = normalizedMeant(typed, sentenceStart: sentenceStart)
-        guard meant != inserted else { return nil }
-        return DictationEditPair(inserted: inserted, meant: meant, caseIsKnown: meant == typed)
     }
 
     /// Edits at the very edges of the span are the least certain: words typed before or
@@ -377,6 +434,7 @@ nonisolated enum DictationEditClassifier {
         }
     }
 
+    /// How many of the new words replace the old ones; the rest is new writing.
     private static func bestLength(old: ArraySlice<String>, new: ArraySlice<String>, fromEnd: Bool) -> Int {
         let target = DictationText.letters(old.joined())
         var best = 1
@@ -392,6 +450,20 @@ nonisolated enum DictationEditClassifier {
         return best
     }
 
+    /// Whether a word begins a sentence: after a period, question or exclamation mark, or a line break.
+    private static func isSentenceStart(_ word: DictationWord, in text: String) -> Bool {
+        var index = word.range.lowerBound
+        while index > text.startIndex {
+            index = text.index(before: index)
+            let character = text[index]
+            if character.isNewline { return true }
+            if character.isWhitespace || "\"“”'‘’([".contains(character) { continue }
+            return ".!?…".contains(character)
+        }
+        return true
+    }
+
+    /// A capital that only marks a sentence start isn't part of how you spell the word.
     private static func normalizedMeant(_ meant: String, sentenceStart: Bool) -> String {
         guard sentenceStart, let first = meant.first, first.isUppercase,
               !meant.dropFirst().contains(where: \.isUppercase) else { return meant }
@@ -399,17 +471,71 @@ nonisolated enum DictationEditClassifier {
         guard !["i", "i'm", "i'll", "i've", "i'd"].contains(firstWord) else { return meant }
         return first.lowercased() + meant.dropFirst()
     }
+}
 
-    private static func keptRuns(_ words: [String], excluding hunks: [DictationWordDiff.Hunk]) -> [[String]] {
-        var touched = Array(repeating: false, count: words.count)
+/// Which raw (heard) words each inserted word came from, by a case-insensitive diff.
+private nonisolated struct HeardAlignment {
+    let heard: [String]
+    /// The heard words behind each inserted word; nil where processing added the word.
+    private(set) var source: [Range<Int>?]
+    /// Whether each inserted word is exactly a heard word (ignoring case).
+    private(set) var same: [Bool]
+    /// Heard words processing dropped just before each inserted position.
+    private(set) var removed: [Int: [String]] = [:]
+
+    init(heard: [String], inserted: [String]) {
+        self.heard = heard
+        source = Array(repeating: nil, count: inserted.count)
+        same = Array(repeating: false, count: inserted.count)
+        let hunks = DictationWordDiff.hunks(heard.map(DictationText.key), inserted.map(DictationText.key))
+        var h = 0
+        var i = 0
+        for hunk in hunks {
+            while i < hunk.new.lowerBound, h < hunk.old.lowerBound {
+                source[i] = h..<(h + 1)
+                same[i] = true
+                h += 1
+                i += 1
+            }
+            if hunk.new.isEmpty {
+                removed[hunk.new.lowerBound] = Array(heard[hunk.old])
+            } else if !hunk.old.isEmpty {
+                for k in hunk.new { source[k] = hunk.old }
+            }
+            h = hunk.old.upperBound
+            i = hunk.new.upperBound
+        }
+        while i < inserted.count, h < heard.count {
+            source[i] = h..<(h + 1)
+            same[i] = true
+            h += 1
+            i += 1
+        }
+    }
+
+    func heard(for range: Range<Int>) -> String? {
+        guard !range.isEmpty else { return nil }
+        var lower = Int.max
+        var upper = Int.min
+        for index in range {
+            guard let heardRange = source[index] else { return nil }
+            lower = min(lower, heardRange.lowerBound)
+            upper = max(upper, heardRange.upperBound)
+        }
+        return heard[lower..<upper].joined(separator: " ")
+    }
+
+    /// Runs of heard keys for inserted words that are exactly as heard and untouched by the edit.
+    func keptRuns(excluding hunks: [DictationWordDiff.Hunk], insertedCount: Int) -> [[String]] {
+        var touched = Array(repeating: false, count: insertedCount)
         for hunk in hunks {
             for index in hunk.old { touched[index] = true }
         }
         var runs: [[String]] = []
         var run: [String] = []
-        for (index, word) in words.enumerated() {
-            if !touched[index] {
-                run.append(DictationText.key(word))
+        for index in 0..<insertedCount {
+            if !touched[index], same[index], let heardRange = source[index] {
+                run.append(DictationText.key(heard[heardRange.lowerBound]))
             } else if !run.isEmpty {
                 runs.append(run)
                 run = []

@@ -951,7 +951,7 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 
 ## Hex learning from dictation edits
 
-Learn from my edits (`ios/TyprShared/DictationEditInference.swift`,
+Learn from my edits (`ios/TyprShared/TyprDictationEditInference.swift`,
 `DictationEditTracker.swift`, `DictationLearning.swift`) is adapted from
 `DictationEditInference.swift`, `DictationEditTracker.swift`, `DictationCorrections.swift` and
 `FullKeyboard/TypingJournalLearning.swift` in `ios/HEXShared/` of

@@ -26,7 +26,7 @@ final class DictationEditTrackerTests: XCTestCase {
     }
 
     private var time: TimeInterval = 1_000
-    private var results: [DictationEditResult] = []
+    private var results: [TyprDictationEditResult] = []
     private var field = Field(text: "Hallo Jörg.", cursor: 11)
 
     private func makeTracker() -> DictationEditTracker {
@@ -63,7 +63,7 @@ final class DictationEditTrackerTests: XCTestCase {
         tracker.finish(field.context)
         let result = try XCTUnwrap(results.first)
         XCTAssertEqual(result.outcome, .edited)
-        XCTAssertEqual(result.pairs, [DictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)])
+        XCTAssertEqual(result.pairs, [TyprDictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)])
         XCTAssertTrue(result.keptWords.contains { $0.containsRun(["ich", "habe", "die"]) })
     }
 
@@ -132,7 +132,7 @@ final class DictationEditTrackerTests: XCTestCase {
         dictate(" Ich habe die Wahl getroffen.", with: tracker)
         let result = try XCTUnwrap(results.first)
         XCTAssertEqual(result.outcome, .redictated)
-        XCTAssertEqual(result.pairs, [DictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)])
+        XCTAssertEqual(result.pairs, [TyprDictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)])
     }
 
     func testDifferentWordsAreNoFix() throws {
@@ -151,14 +151,14 @@ final class DictationEditTrackerTests: XCTestCase {
         edit("Wal", to: "Wahl", with: tracker)
         tracker.finish(field.context)
         XCTAssertEqual(try XCTUnwrap(results.first).pairs,
-                       [DictationEditPair(inserted: "Wal", meant: "wahl", caseIsKnown: false)])
+                       [TyprDictationEditPair(inserted: "Wal", meant: "wahl", caseIsKnown: false)])
     }
 }
 
 final class DictationLearningTests: XCTestCase {
     private func edited(_ inserted: String, _ meant: String, caseIsKnown: Bool = true,
-                        kept: [[String]] = []) -> DictationEditResult {
-        DictationEditResult(outcome: .edited, pairs: [DictationEditPair(inserted: inserted, meant: meant, caseIsKnown: caseIsKnown)],
+                        kept: [[String]] = []) -> TyprDictationEditResult {
+        TyprDictationEditResult(outcome: .edited, pairs: [TyprDictationEditPair(inserted: inserted, meant: meant, caseIsKnown: caseIsKnown)],
                             keptWords: kept)
     }
 
@@ -174,7 +174,7 @@ final class DictationLearningTests: XCTestCase {
         store.record(edited("Wal", "Wahl"))
         XCTAssertTrue(store.corrections.isEmpty)
         store.record(edited("Wal", "Wahl"))
-        XCTAssertEqual(store.corrections, [DictationCorrection(heard: "wal", meant: "Wahl", caseIsKnown: true)])
+        XCTAssertEqual(store.corrections, [TyprDictationCorrection(heard: "wal", meant: "Wahl", caseIsKnown: true)])
     }
 
     func testNothingIsLearnedWhenTheSameWordsWereFixedTwoWays() {
@@ -219,8 +219,8 @@ final class DictationLearningTests: XCTestCase {
 
     func testUndoneAndKeptDictationsStoreNothing() {
         let store = store()
-        store.record(DictationEditResult(outcome: .undone))
-        store.record(DictationEditResult(outcome: .kept))
+        store.record(TyprDictationEditResult(outcome: .undone))
+        store.record(TyprDictationEditResult(outcome: .kept))
         XCTAssertTrue(store.records.isEmpty)
     }
 
@@ -238,14 +238,14 @@ final class DictationLearningTests: XCTestCase {
     }
 
     func testAppliedFixesFollowGermanCase() {
-        let weil = DictationCorrection(heard: "wal", meant: "weil", caseIsKnown: true)
-        XCTAssertEqual(DictationCorrections.apply([weil], to: "Ich komme nicht, Wal es regnet."),
+        let weil = TyprDictationCorrection(heard: "wal", meant: "weil", caseIsKnown: true)
+        XCTAssertEqual(TyprDictationCorrections.apply([weil], to: "Ich komme nicht, Wal es regnet."),
                        "Ich komme nicht, weil es regnet.")
-        XCTAssertEqual(DictationCorrections.apply([weil], to: "Wal es regnet, komme ich nicht."),
+        XCTAssertEqual(TyprDictationCorrections.apply([weil], to: "Wal es regnet, komme ich nicht."),
                        "Weil es regnet, komme ich nicht.")
-        let wahl = DictationCorrection(heard: "wal", meant: "wahl", caseIsKnown: false)
-        XCTAssertEqual(DictationCorrections.apply([wahl], to: "Die Wal ist frei."), "Die Wahl ist frei.")
-        XCTAssertEqual(DictationCorrections.apply([wahl], to: "Der Blauwal und der Wal-Fang."),
+        let wahl = TyprDictationCorrection(heard: "wal", meant: "wahl", caseIsKnown: false)
+        XCTAssertEqual(TyprDictationCorrections.apply([wahl], to: "Die Wal ist frei."), "Die Wahl ist frei.")
+        XCTAssertEqual(TyprDictationCorrections.apply([wahl], to: "Der Blauwal und der Wal-Fang."),
                        "Der Blauwal und der Wal-Fang.")
     }
 
@@ -261,8 +261,8 @@ final class DictationLearningTests: XCTestCase {
 
     func testLearnedInnerCapitalsSurviveAStyleThatLowercases() {
         let vocabulary = DictationVocabulary(userTerms: [], learnedFixes: [
-            DictationCorrection(heard: "gitub", meant: "GitHub", caseIsKnown: true),
-            DictationCorrection(heard: "wal", meant: "Wahl", caseIsKnown: true),
+            TyprDictationCorrection(heard: "gitub", meant: "GitHub", caseIsKnown: true),
+            TyprDictationCorrection(heard: "wal", meant: "Wahl", caseIsKnown: true),
         ])
         XCTAssertEqual(vocabulary.afterFormatting("auf github die wahl"), "auf GitHub die wahl")
     }

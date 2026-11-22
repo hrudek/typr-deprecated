@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class DictationLearningKeyboardTests: XCTestCase {
-    private var results: [DictationEditResult] = []
+    private var results: [TyprDictationEditResult] = []
 
     private func keyboard(_ field: FixtureTextTarget) -> TyprFullKeyboardView {
         let view = TyprFullKeyboardView(model: KeyboardViewModel(), target: field,
@@ -47,7 +47,7 @@ final class DictationLearningKeyboardTests: XCTestCase {
         view.finishDictationEdits()
         let result = try XCTUnwrap(results.first)
         XCTAssertEqual(result.outcome, .edited)
-        XCTAssertEqual(result.pairs, [DictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)])
+        XCTAssertEqual(result.pairs, [TyprDictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)])
     }
 
     func testNothingIsFollowedWhileLearningIsOff() {
@@ -121,8 +121,8 @@ final class DictationLearningPipelineTests: XCTestCase {
             settings[experiment: .learnFromEdits] = switchOn
             let store = DictationLearningStore(defaults: defaults)
             for _ in 0..<2 {
-                store.record(DictationEditResult(outcome: .edited,
-                    pairs: [DictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)]))
+                store.record(TyprDictationEditResult(outcome: .edited,
+                    pairs: [TyprDictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)]))
             }
             let asr = LearningASR()
             let controller = DictationController(audio: LearningAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),

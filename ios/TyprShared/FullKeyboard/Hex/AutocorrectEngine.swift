@@ -36,7 +36,9 @@ nonisolated struct KeyboardSuggestion: Equatable, Sendable {
 /// Delete what Hex learned removes them, and a keyboard that loaded them earlier drops its copy.
 @MainActor
 final class LearnedWordsStore {
-    nonisolated static let defaultsKey = "keyboard.learnedWords"
+    /// Typr: Hex keeps these under "keyboard.learnedWords", which Typr's learning session still
+    /// deletes as an obsolete Typr record, so Hex's list lives under its own key.
+    nonisolated static let defaultsKey = "hex.keyboard.learnedWords"
     nonisolated static let scopedPrefix = defaultsKey + "."
     static let maxWords = 2_000
     static let maxBytes = 64 * 1024
@@ -65,7 +67,7 @@ final class LearnedWordsStore {
         defaultsKey + "." + language
     }
 
-    /// Whether `key` is a language's own list (`keyboard.learnedWords.<code>`).
+    /// Whether `key` is a language's own list (`hex.keyboard.learnedWords.<code>`).
     nonisolated static func isScopedKey(_ key: String) -> Bool {
         key.hasPrefix(scopedPrefix)
     }
