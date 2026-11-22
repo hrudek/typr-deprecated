@@ -1084,25 +1084,32 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.cursorIndex, 4, "sliding after the hold moves the cursor")
     }
 
-    // MARK: - Haptics in every layout
+    func testTwoThumbSelectionDeletesExactlyTheRangeIncludingAnEmoji() {
+        target.insertText("ab👍🏽cd")
+        engine.textDidChange()
+        engine.trackpadSelectionState.enabled = true
 
-    // MARK: - Delete swipe
+        down(1, .space)
+        engine.holdSpace(forTouch: 1)
+        down(2, .character("a"))
 
-    private func swipeEngine(_ text: String) -> (HexFixtureTextTarget, FullKeyboardEngine) {
-        let field = HexFixtureTextTarget(text: text)
-        field.autocapitalizationType = UITextAutocapitalizationType.none
-        let keys = FullKeyboardEngine(
-            target: field,
-            autocorrect: AutocorrectEngine(learnedWords: LearnedWordsStore(defaults: defaults))
-        )
-        keys.width = 393
-        keys.configureForField()
-        return (field, keys)
-    }
+        let start = point(.character("a"))
+        let width = "👍🏽cd".reduce(CGFloat.zero) { $0 + FullKeyboardEngine.trackpadWidth($1) }
+        let end = CGPoint(x: start.x - width, y: start.y)
+        engine.touchMoved(id: 2, to: end)
+        XCTAssertEqual(engine.selectionPresentation?.phase, .selecting)
+        XCTAssertEqual(engine.selectionPresentation?.selected, "👍🏽cd")
 
-    private func deleteSample(_ keys: FullKeyboardEngine, dx: CGFloat = 0) -> TypingLogTouchSample {
-        let key = keys.layout.key(.delete)!
-        return TypingLogTouchSample(point: CGPoint(x: key.frame.midX + dx, y: key.frame.midY), timestamp: 0)
+        engine.touchEnded(id: 2, at: end)
+        up(1, .space)
+        XCTAssertEqual(engine.selectionPresentation?.phase, .actions)
+        XCTAssertEqual(target.text, "ab👍🏽cd")
+        XCTAssertEqual(target.cursorIndex, 5)
+
+        engine.performTrackpadSelectionAction(.delete) { _ in }
+        XCTAssertEqual(target.text, "ab")
+        XCTAssertEqual(target.cursorIndex, 2)
+        XCTAssertFalse(engine.isSelectionActive)
     }
 
     /// Types a mark from the 123 page; the next space goes back to the letters.
@@ -1357,12 +1364,6 @@ final class FullKeyboardEngineTests: XCTestCase {
         }
     }
 
-    // MARK: - Swipe typing
-
-    private func sample(_ point: CGPoint) -> TypingLogTouchSample {
-        TypingLogTouchSample(point: point, timestamp: 0)
-    }
-
     // MARK: - Number row (Settings › Keyboard › Number row)
 
     /// With the number row on, digits type straight from the letters page beside letters, and
@@ -1417,7 +1418,21 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertFalse(engine.layout.hasNumberRow)
     }
 
-    // MARK: - The host's update after Hex's own insert
+    func testSwipeInsertsAWordBoundaryAndCanBeUndoneAfterTheHostEcho() {
+        target.insertText("hello")
+        engine.textDidChange()
+
+        down(1, .character("w"))
+        engine.beginSwipe(touchID: 1)
+        engine.endSwipe(typing: ["world", "word"], points: 12, decodeTime: nil)
+        XCTAssertEqual(target.text, "hello world")
+
+        engine.textDidChange()
+        XCTAssertTrue(engine.suggestions.contains { $0.kind == .swiped && $0.replacement == "word" })
+        tap(.delete)
+        XCTAssertEqual(target.text, "hello")
+        XCTAssertEqual(target.cursorIndex, 5)
+    }
 
     func testASwipedWordFollowsSpacingAndPunctuationAsApplesDoes() {
         for (before, after) in [("Hi.", "Hi. "), ("(", "("), ("¿", "¿"), ("say \"", "say \""), ("3", "3 "), ("x\n", "x\n")] {
@@ -1427,38 +1442,9 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertFalse(SwipeTyping.needsSpace(before: nil))
         XCTAssertTrue(SwipeTyping.needsSpace(before: "\"hi\""), "a closing quote")
     }
-
 }
 
 // MARK: - Adaptive touch (Settings › Experiments)
-
-/// A text field with the traits Adaptive touch must not learn in.
-@MainActor
-private final class TraitField: KeyboardTextTarget {
-    private(set) var text = ""
-    var autocapitalizationType: UITextAutocapitalizationType? = UITextAutocapitalizationType.none
-    var autocorrectionType: UITextAutocorrectionType? = .default
-    var keyboardType: UIKeyboardType? = .default
-    var returnKeyType: UIReturnKeyType? = .default
-    var keyboardAppearance: UIKeyboardAppearance? { nil }
-    var textContentType: UITextContentType?
-    var isSecureTextEntry: Bool?
-    var documentContextBeforeInput: String? { text }
-    var hasText: Bool { !text.isEmpty }
-    func insertText(_ inserted: String) { text += inserted }
-    func deleteBackward() { if !text.isEmpty { text.removeLast() } }
-}
-
-/// A host whose proxy keeps reporting `stale` until it is cleared, as one that has not caught
-/// up to the keys' last insert yet.
-@MainActor
-private final class StaleField: HexFixtureTextTarget {
-    var stale: String?
-
-    override var documentContextBeforeInput: String? {
-        stale ?? super.documentContextBeforeInput
-    }
-}
 
 extension FullKeyboardEngineTests {
     private func adaptive(on keys: FullKeyboardEngine? = nil) -> AdaptiveTouch {
