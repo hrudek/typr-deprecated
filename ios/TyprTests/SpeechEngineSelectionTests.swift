@@ -521,7 +521,7 @@ final class SpeechEngineSelectionTests: XCTestCase {
     func testAppleRowsShowOSDeviceLanguageAndAssetAvailabilityWithoutStartingWork() async throws {
         let f = fixture(preferred: .parakeetV2)
         let statuses: [SpeechEngineAvailability] = [
-            .requiresNewerOS("Requires iOS 26"), .unsupportedDevice("Unsupported device"),
+            .requiresNewerOS("Requires iOS 26"),
             .languageUnsupported("German unsupported"), .downloadRequired("iOS downloads the speech model"), .installed
         ]
         for status in statuses {
@@ -623,11 +623,11 @@ final class SpeechEngineSelectionTests: XCTestCase {
 
     func testNoChoiceStaysNilThroughLaunchPrepareAndDictationAndUsesTheAutomaticPath() async throws {
         let f = fixture(autoPrepare: true)
-        // Launch without a choice either prepares (cached Parakeet), asks Apple Speech for a locale
-        // in a task, or does nothing. Wait for that decision instead of a fixed delay.
-        var appleSpeechAvailable = false
-        if #available(iOS 26.0, *) { appleSpeechAvailable = AppleSpeechTranscriber.isAvailable }
-        if ParakeetTranscriber.hasCachedModel || appleSpeechAvailable {
+        // Launch without a choice either prepares (cached Parakeet), asks Apple Speech for a
+        // language in a task (iOS 26), or does nothing. Wait for that decision instead of a fixed delay.
+        var launchDecides = ParakeetTranscriber.hasCachedModel
+        if #available(iOS 26.0, *) { launchDecides = true }
+        if launchDecides {
             try await waitForState("launch engine decision") {
                 f.controller.phase != .preparingModel
                     && (f.controller.phase != .modelRequired || f.controller.engineName == "Parakeet V2")
@@ -782,16 +782,10 @@ final class SpeechEngineSelectionTests: XCTestCase {
     func testEngineErrorsNameTheChosenEngineAndOfferNoSubstitute() {
         XCTAssertEqual(SpeechEngineError.requiresNewerOS(.appleSpeech).localizedDescription,
                        "Apple Speech requires iOS 26 or later. Choose another engine under Speech engine.")
-        XCTAssertEqual(SpeechEngineError.unsupportedDevice(.appleSpeech).localizedDescription,
-                       "Apple Speech is not supported on this iPhone. Choose another engine under Speech engine.")
         XCTAssertEqual(SpeechEngineError.languageUnsupported(.appleSpeech, .automatic).localizedDescription,
                        "Apple Speech does not support your preferred languages on this iPhone.")
         XCTAssertEqual(SpeechEngineError.languageUnsupported(.appleSpeech, .english).localizedDescription,
                        "Apple Speech does not support English on this iPhone. Choose another language or engine.")
-        if #available(iOS 26.0, *) {
-            XCTAssertEqual(AppleSpeechTranscriber.TranscriberError.languageUnsupported("German").localizedDescription,
-                           "Apple Speech does not support German on this iPhone. Choose another language or engine.")
-        }
     }
 
     // MARK: - Apple Speech availability (pure parts) and the production provider
@@ -809,17 +803,12 @@ final class SpeechEngineSelectionTests: XCTestCase {
                        ["fr-FR", "de_DE", "en-US"])
         XCTAssertEqual(DictationLanguage.english.availabilityLocaleCandidates(preferred: ["de-DE"], current: "de_DE"),
                        ["en-US", "de-DE", "de_DE"])
-        if #available(iOS 26.0, *) {
-            XCTAssertEqual(AppleSpeechTranscriber.requestedLocale(for: .german).identifier, "de-DE")
-            XCTAssertEqual(AppleSpeechTranscriber.requestedLocale(for: .english).identifier, "en-US")
-        }
     }
 
     func testAvailabilityValuesSayWhetherTheEngineCanWork() {
         XCTAssertTrue(SpeechEngineAvailability.installed.isSupported)
         XCTAssertTrue(SpeechEngineAvailability.downloadRequired("x").isSupported)
         XCTAssertFalse(SpeechEngineAvailability.requiresNewerOS("x").isSupported)
-        XCTAssertFalse(SpeechEngineAvailability.unsupportedDevice("x").isSupported)
         XCTAssertFalse(SpeechEngineAvailability.languageUnsupported("x").isSupported)
         XCTAssertEqual(SpeechEngineAvailability.installed.detail, "Installed on this iPhone")
         XCTAssertEqual(SpeechEngineAvailability.languageUnsupported("Not available for German on this iPhone").detail,
@@ -875,8 +864,6 @@ final class SpeechEngineSelectionTests: XCTestCase {
                 switch availability {
                 case .requiresNewerOS:
                     XCTAssertEqual(error, .requiresNewerOS(.appleSpeech))
-                case .unsupportedDevice:
-                    XCTAssertEqual(error, .unsupportedDevice(.appleSpeech))
                 case .languageUnsupported:
                     XCTAssertEqual(error, .languageUnsupported(.appleSpeech, language))
                 default:

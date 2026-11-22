@@ -38,6 +38,16 @@ nonisolated struct HexSpeechEnginePolicy: Equatable, Sendable {
     /// What loading Parakeet takes (Hex's `ParakeetTranscriber.loadMemory`).
     static let parakeetLoadMemory: UInt64 = 1_400 << 20
 
+    /// This iPhone now.
+    static var current: HexSpeechEnginePolicy {
+        HexSpeechEnginePolicy(
+            system: ProcessInfo.processInfo.operatingSystemVersion.majorVersion,
+            physicalMemory: ProcessInfo.processInfo.physicalMemory,
+            availableMemory: UInt64(max(0, os_proc_available_memory())),
+            parakeetSetAside: ParakeetLoadGuard().lastLoadWasInterrupted
+        )
+    }
+
     private var parakeetHasRoomToLoad: Bool {
         availableMemory == 0 || availableMemory >= Self.parakeetLoadMemory
     }
@@ -45,6 +55,13 @@ nonisolated struct HexSpeechEnginePolicy: Equatable, Sendable {
     /// Whether Parakeet can load here now, before iOS 26.
     var parakeetHasRoom: Bool {
         physicalMemory > Self.smallMemory && !parakeetSetAside && parakeetHasRoomToLoad
+    }
+
+    /// From iOS 26: whether English may stay on Parakeet where Apple Speech has it only on
+    /// `DictationTranscriber` (`AppleSpeechTranscriber.shouldUse`): 6 GB iPhones, Parakeet not
+    /// set aside, and room to load it now.
+    var parakeetFitsBesideAppleSpeech: Bool {
+        physicalMemory >= 5 << 30 && !parakeetSetAside && parakeetHasRoomToLoad
     }
 
     /// `language` is the dictation language (BCP 47), nil when unknown (English).

@@ -271,6 +271,16 @@ nonisolated struct LanguageSettings {
     }
 }
 
+extension LanguageSettings {
+    /// The dictation language picked by hand, for the engine choice: Typr's German or English
+    /// (Settings › Dictation language), else Hex's BCP 47 choice; nil is Automatic. Hex also
+    /// follows the keyboard's languages here (`keyboardDictationLanguage`); Typr does from the
+    /// language-follow cutover.
+    func explicitDictationLanguage(typr: DictationLanguage) -> String? {
+        typr.speechLocaleIdentifier ?? dictationLanguage
+    }
+}
+
 /// The Apple Speech module that transcribes a language. `SpeechTranscriber` is Apple's newer
 /// model and the default; `DictationTranscriber` (the model behind the iOS keyboard's
 /// dictation) covers languages it lacks, such as Norwegian, Danish, and Swedish.

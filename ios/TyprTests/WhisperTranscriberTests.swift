@@ -266,7 +266,6 @@ final class WhisperTranscriberTests: XCTestCase {
         XCTAssertEqual(DictationLogASRFailure.classify(SpeechEngineError.notReady), .modelNotReady)
         XCTAssertEqual(DictationLogASRFailure.classify(SpeechEngineError.notInstalled(.whisperLargeV3Turbo)), .modelNotReady)
         XCTAssertEqual(DictationLogASRFailure.classify(SpeechEngineError.requiresNewerOS(.appleSpeech)), .other)
-        XCTAssertEqual(DictationLogASRFailure.classify(SpeechEngineError.unsupportedDevice(.appleSpeech)), .other)
         XCTAssertEqual(DictationLogASRFailure.classify(SpeechEngineError.languageUnsupported(.appleSpeech, .german)), .other)
         XCTAssertEqual(DictationLogASRFailure.classify(CancellationError()), .cancelled)
     }

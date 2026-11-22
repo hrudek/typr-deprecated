@@ -70,7 +70,13 @@ enum DictationLogASRFailure: String, Codable, Sendable {
         if error is CancellationError { return .cancelled }
         if let error = error as? ParakeetTranscriber.TranscriberError {
             switch error {
-            case .notPrepared: return .modelNotReady
+            case .notPrepared, .downloadFailed, .notEnoughMemory: return .modelNotReady
+            case .emptyTranscript: return .noSpeech
+            }
+        }
+        if let error = error as? OnDeviceSpeechTranscriber.TranscriberError {
+            switch error {
+            case .notAllowed, .unavailable: return .modelNotReady
             case .emptyTranscript: return .noSpeech
             }
         }
@@ -97,14 +103,13 @@ enum DictationLogASRFailure: String, Codable, Sendable {
         if let error = error as? SpeechEngineError {
             switch error {
             case .notReady, .notInstalled: return .modelNotReady
-            case .requiresNewerOS, .unsupportedDevice, .languageUnsupported: return .other
+            case .requiresNewerOS, .languageUnsupported: return .other
             }
         }
         if #available(iOS 26.0, *), let error = error as? AppleSpeechTranscriber.TranscriberError {
             switch error {
-            case .unavailable, .languageUnsupported: return .modelNotReady
+            case .unavailable: return .modelNotReady
             case .emptyTranscript: return .noSpeech
-            case .authorizationDenied: return .other
             }
         }
         return .other
