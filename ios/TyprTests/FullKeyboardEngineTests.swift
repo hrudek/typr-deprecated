@@ -656,6 +656,152 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.text, "hallo ")
     }
 
+    private func slideDelete(_ id: Int, keyWidths: CGFloat) {
+        let start = point(.delete)
+        engine.touchMoved(id: id, to: CGPoint(x: start.x - keyWidths * engine.layout.letterWidth, y: start.y))
+    }
+
+    func testSlidingLeftFromDeleteRemovesAWordPerKeyWidthAndSlidingBackTypesThemBack() {
+        resetText("Wir sehen uns, Grüße. Straße")
+        engine.slidesDeleteByWord = true
+        var ticks = 0
+        engine.onSelectionStep = { ticks += 1 }
+
+        down(1, .delete)
+        XCTAssertEqual(target.text, "Wir sehen uns, Grüße. Straß", "going down deletes a letter, as a tap does")
+        slideDelete(1, keyWidths: 0.6)
+        XCTAssertEqual(target.text, "Wir sehen uns, Grüße. Straß")
+        XCTAssertFalse(engine.isDeleteSliding)
+
+        slideDelete(1, keyWidths: 1.2)
+        XCTAssertEqual(target.text, "Wir sehen uns, Grüße. ")
+        XCTAssertTrue(engine.isDeleteSliding)
+        slideDelete(1, keyWidths: 2.2)
+        XCTAssertEqual(target.text, "Wir sehen uns, ", "spaces and punctuation go with the word before them")
+        slideDelete(1, keyWidths: 3.2)
+        XCTAssertEqual(target.text, "Wir sehen ")
+        XCTAssertEqual(ticks, 3)
+
+        slideDelete(1, keyWidths: 1.5)
+        XCTAssertEqual(target.text, "Wir sehen uns, Grüße. ")
+        XCTAssertEqual(ticks, 5)
+
+        engine.touchEnded(id: 1, at: CGPoint(x: point(.delete).x - 1.5 * engine.layout.letterWidth, y: point(.delete).y))
+        XCTAssertEqual(target.text, "Wir sehen uns, Grüße. ", "lifting keeps what is deleted")
+        XCTAssertFalse(engine.isDeleteSliding)
+
+        tap(.delete)
+        XCTAssertEqual(target.text, "Wir sehen uns, Grüße.", "a tap after it deletes one character")
+    }
+
+    func testSlidingDeleteBackToWhereItWentDownRestoresEveryWord() {
+        resetText("Schöne Grüße")
+        engine.slidesDeleteByWord = true
+        down(1, .delete)
+        slideDelete(1, keyWidths: 6.5)
+        XCTAssertEqual(target.text, "", "the slide stops at the start of the text")
+        slideDelete(1, keyWidths: 0)
+        XCTAssertEqual(target.text, "Schöne Grüß", "the letter the press deleted stays deleted")
+        up(1, .delete)
+        XCTAssertEqual(target.text, "Schöne Grüß")
+    }
+
+    func testTheDeleteSlideWorksFromItsStartingTextWhenTheHostReportsContextLate() {
+        let host = LateContextTarget(text: "Hallo schöne Welt")
+        engine = FullKeyboardEngine(target: host, autocorrect: AutocorrectEngine(
+            learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil))
+        engine.width = 393
+        engine.clock = { [unowned self] in self.now }
+        engine.configureForField()
+        engine.slidesDeleteByWord = true
+
+        down(1, .delete)
+        host.freezesContext = true
+        slideDelete(1, keyWidths: 2.2)
+        XCTAssertEqual(host.text, "Hallo ")
+        slideDelete(1, keyWidths: 0)
+        XCTAssertEqual(host.text, "Hallo schöne Wel")
+        up(1, .delete)
+        XCTAssertEqual(host.text, "Hallo schöne Wel")
+    }
+
+    func testAnotherKeyDuringADeleteSlideKeepsWhatWasDeletedAndEndsTheSlide() {
+        for (key, typed) in [(KeyKind.character("x"), "Hallo schöne x"), (.space, "Hallo schöne  "),
+                             (.returnKey, "Hallo schöne \n")] {
+            resetText("Hallo schöne Welt")
+            engine.slidesDeleteByWord = true
+            down(1, .delete)
+            slideDelete(1, keyWidths: 1.2)
+            XCTAssertEqual(target.text, "Hallo schöne ", "\(key)")
+            down(2, key)
+            up(2, key)
+            XCTAssertEqual(target.text, typed, "\(key)")
+            slideDelete(1, keyWidths: 2.2)
+            slideDelete(1, keyWidths: 0)
+            up(1, .delete)
+            XCTAssertEqual(target.text, typed, "\(key): the slide ended at the other key")
+        }
+    }
+
+    func testASwipeOrSuggestionDuringADeleteSlideEndsTheSlide() {
+        resetText("Hallo schöne Welt")
+        engine.slidesDeleteByWord = true
+        down(1, .delete)
+        slideDelete(1, keyWidths: 1.2)
+        let letter = point(.character("a"))
+        engine.touchBegan(id: 2, at: letter)
+        engine.touchMoved(id: 2, to: CGPoint(x: letter.x + 3 * engine.layout.letterWidth, y: letter.y))
+        engine.touchCancelled(id: 2)
+        slideDelete(1, keyWidths: 2.2)
+        XCTAssertEqual(target.text, "Hallo schöne ", "a second finger starting a swipe ends the slide")
+        up(1, .delete)
+
+        down(3, .delete)
+        slideDelete(3, keyWidths: 1.2)
+        XCTAssertEqual(target.text, "Hallo ")
+        engine.insertEmoji("👋")
+        slideDelete(3, keyWidths: 0)
+        up(3, .delete)
+        XCTAssertEqual(target.text, "Hallo 👋")
+    }
+
+    func testWithTheDeleteSlideATapAndAStillHoldDeleteAsBefore() {
+        resetText("Hallo Welt")
+        engine.slidesDeleteByWord = true
+        tap(.delete)
+        XCTAssertEqual(target.text, "Hallo Wel")
+
+        down(1, .delete)
+        slideDelete(1, keyWidths: 0.4)
+        XCTAssertFalse(engine.isDeleteSliding, "a drifting hold keeps repeating")
+        engine.repeatDelete(heldFor: FullKeyboardEngine.repeatDelay)
+        XCTAssertEqual(target.text, "Hallo W")
+        engine.repeatDelete(heldFor: FullKeyboardEngine.wordDeleteAfter)
+        XCTAssertEqual(target.text, "Hallo ")
+        up(1, .delete)
+        XCTAssertEqual(target.text, "Hallo ")
+    }
+
+    func testWithoutTheExperimentSlidingLeftFromDeleteRemovesNoWords() {
+        resetText("Hallo Welt")
+        down(1, .delete)
+        slideDelete(1, keyWidths: 3.2)
+        XCTAssertFalse(engine.isDeleteSliding)
+        up(1, .delete)
+        XCTAssertEqual(target.text, "Hallo Wel")
+    }
+
+    func testDeleteSlideWordsMatchOptionDelete() {
+        XCTAssertNil(DeleteWordSlide.wordLength(before: ""))
+        XCTAssertEqual(DeleteWordSlide.wordLength(before: "Hallo, Welt. "), 6)
+        XCTAssertEqual(DeleteWordSlide.wordLength(before: "Schöne Grüße"), 5)
+        XCTAssertEqual(DeleteWordSlide.wordLength(before: "die Straße?!"), 8)
+        XCTAssertEqual(DeleteWordSlide.wordLength(before: "so geht's"), 6)
+        XCTAssertEqual(DeleteWordSlide.wordLength(before: "eine E-Mail"), 4)
+        XCTAssertEqual(DeleteWordSlide.wordLength(before: "?!"), 2)
+        XCTAssertEqual(DeleteWordSlide.wordLength(before: "Zeile\n"), 6)
+    }
+
     func testEnablesReturnKeyAutomaticallyBlocksEmptyField() {
         target.enablesReturnKeyAutomatically = true
         tap(.returnKey)
@@ -756,4 +902,30 @@ final class FullKeyboardEngineTests: XCTestCase {
         engine.configureForField()
         XCTAssertEqual(engine.layout.layer, .numbers)
     }
+}
+
+/// A host whose `documentContextBeforeInput` stops following edits, as some apps report it late.
+@MainActor
+private final class LateContextTarget: KeyboardTextTarget {
+    private let field: FixtureTextTarget
+    private var frozenBefore: String?
+    var freezesContext = false {
+        didSet { frozenBefore = freezesContext ? field.documentContextBeforeInput : nil }
+    }
+
+    init(text: String) {
+        field = FixtureTextTarget(text: text)
+        field.autocapitalizationType = UITextAutocapitalizationType.none
+    }
+
+    var text: String { field.text }
+    var documentContextBeforeInput: String? { frozenBefore ?? field.documentContextBeforeInput }
+    var documentContextAfterInput: String? { field.documentContextAfterInput }
+    var hasText: Bool { field.hasText }
+    var autocapitalizationType: UITextAutocapitalizationType? { field.autocapitalizationType }
+    var keyboardType: UIKeyboardType? { field.keyboardType }
+    var returnKeyType: UIReturnKeyType? { field.returnKeyType }
+    var keyboardAppearance: UIKeyboardAppearance? { field.keyboardAppearance }
+    func insertText(_ text: String) { field.insertText(text) }
+    func deleteBackward() { field.deleteBackward() }
 }

@@ -349,7 +349,7 @@ final class KeyboardKeyPlaneView: UIView {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 let held = CACurrentMediaTime() - self.deleteStartedAt
-                guard held >= FullKeyboardEngine.repeatDelay else { return }
+                guard held >= FullKeyboardEngine.repeatDelay, !self.engine.isDeleteSliding else { return }
                 self.engine.repeatDelete(heldFor: held)
                 self.onKeyDown?(.delete)
             }

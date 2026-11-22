@@ -872,3 +872,12 @@ Text replacements in `ios/TyprShared/FullKeyboard/AutocorrectEngine.swift` follo
 replacements with Autocorrect off (PR #2147), before chat shorthand (PR #2148) and again after the
 shortcut was kept (PR #2173).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Hex delete slide
+
+`DeleteWordSlide.wordLength(before:)` in `ios/TyprShared/FullKeyboard/DeleteWordSlide.swift` is
+`DeleteWordSwipe.wordLength(before:)` with its word-character test from
+[anomalyco/hex](https://github.com/anomalyco/hex) at `d65b02d36efbaf1ff771420e89c0632dea4706cb`
+(PR #2080). The slide in `FullKeyboardEngine.swift` (`slideDelete`) and the delete-slide tests in
+`ios/TyprTests/FullKeyboardEngineTests.swift` follow `DeleteWordSwipe` and its tests there.
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
