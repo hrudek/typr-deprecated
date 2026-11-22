@@ -610,6 +610,86 @@ final class DictationControllerTests: XCTestCase {
         try await transcribed(controller)
     }
 
+    /// Hex #2163: ✕ in the keyboard after a One shot handoff ends the recording without a result.
+    func testOneShotHandoffCancelledFromTheKeyboardStops() async throws {
+        let now = 14_500.0
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await readyController(audio: audio, bridge: bridge, now: { now },
+                                                   hostReturner: HostReturner(openByBundleID: { _ in true }, openURL: { _ in false }))
+        controller.setWarmDuration(.off)
+        controller.handleKeyboardLaunch(
+            .startRecording(jobID: "notizen", requestedAt: now - 0.3, style: .polished, host: "com.apple.mobilenotes")
+        )
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+
+        bridge.send(.cancel, jobID: "notizen", sentAt: now)
+        try await waitForState("keyboard cancel stopped the recording") { controller.phase == .ready }
+        XCTAssertEqual(bridge.snapshot().state, .offline)
+        XCTAssertNil(bridge.snapshot().jobID)
+        XCTAssertNil(bridge.snapshot().resultID)
+        XCTAssertFalse(audio.isKeepaliveRunning)
+    }
+
+    /// Hex #2163: in One shot the microphone closes when Done arrives, and with it the audio
+    /// background mode. Typr holds background time until the transcription ends, so iOS does not
+    /// suspend it in the host app before the text reaches the keyboard.
+    func testOneShotHandoffTranscriptionKeepsBackgroundTimeUntilItsResultIsPublished() async throws {
+        let now = 14_600.0
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let bridge = KeyboardBridge(defaults: defaults)
+        let background = CleanupTestBackground()
+        let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now },
+                                                   hostReturner: HostReturner(openByBundleID: { _ in true }, openURL: { _ in false }),
+                                                   background: background)
+        controller.setWarmDuration(.off)
+        controller.handleKeyboardLaunch(
+            .startRecording(jobID: "nachricht", requestedAt: now - 0.3, style: .polished, host: "net.whatsapp.WhatsApp")
+        )
+        try await activationSettled(controller)
+        XCTAssertEqual(background.begins, 0)
+
+        await transcriber.armSuspension()
+        bridge.send(.stop, jobID: "nachricht", sentAt: now)
+        try await waitForState("keyboard Done stopped the recording") { controller.phase == .transcribing }
+        try await asrSuspended(transcriber)
+        XCTAssertFalse(audio.isKeepaliveRunning)
+        XCTAssertEqual(background.begins, 1)
+        XCTAssertEqual(background.ends, [])
+
+        await transcriber.resumeSuspended(with: "Bin gleich da")
+        try await transcribed(controller)
+        XCTAssertEqual(background.ends, [1])
+        XCTAssertTrue(bridge.snapshot().hasDeliverableResult(at: now))
+    }
+
+    /// Hex #2163: the keyboard was dismissed (or the user switched apps) while Typr transcribed. The
+    /// result waits in the App Group for 30 s, for whichever keyboard process shows next.
+    func testAResultFinishedWhileNoKeyboardShowsReachesTheNextKeyboard() async throws {
+        let now = 14_700.0
+        let transcriber = ControlledTranscriber()
+        let controller = try await readyController(audio: FakeAudioManager(), bridge: KeyboardBridge(defaults: defaults),
+                                                   transcriber: transcriber, now: { now },
+                                                   hostReturner: HostReturner(openByBundleID: { _ in true }, openURL: { _ in false }))
+        controller.setWarmDuration(.off)
+        controller.handleKeyboardLaunch(
+            .startRecording(jobID: "mail", requestedAt: now - 0.3, style: .polished, host: "com.apple.mobilemail")
+        )
+        try await activationSettled(controller)
+        await transcriber.setCannedOutput("bis morgen")
+        KeyboardBridge(defaults: defaults).send(.stop, jobID: "mail", sentAt: now)
+        try await waitForState("keyboard Done stopped the recording") { controller.phase != .recording }
+        try await transcribed(controller)
+
+        let nextKeyboard = KeyboardBridge(defaults: defaults).snapshot()
+        XCTAssertNotNil(nextKeyboard.transcript)
+        XCTAssertEqual(nextKeyboard.transcript, controller.transcript)
+        XCTAssertTrue(nextKeyboard.hasDeliverableResult(at: now + 29))
+        XCTAssertFalse(nextKeyboard.hasDeliverableResult(at: now + 31))
+    }
+
     func testMeterRecoversAfterCaptureStartsTemporarilyNotRecording() async throws {
         try await checkMeterRecovery(initiallyRecording: false)
     }
@@ -1126,13 +1206,13 @@ final class DictationControllerTests: XCTestCase {
         now: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }, hostReturner: HostReturner? = nil,
         vocabulary: CustomVocabularySettings = CustomVocabularySettings(),
         retryDelays: [Duration] = DictationController.audioActivationRetryDelays, onPrepare: @escaping () -> Void = {},
-        settings: TyprSettings = TyprSettings()
+        settings: TyprSettings = TyprSettings(), background: (any BackgroundTaskStarting)? = nil
     ) async throws -> DictationController {
         let controller = DictationController(
             audio: audio, keyboardBridge: bridge ?? KeyboardBridge(defaults: defaults), transcriber: transcriber,
             transcriberFactory: { onPrepare(); return transcriber }, now: now, autoPrepareOnInit: false,
-            hostReturner: hostReturner, customVocabularySettings: vocabulary, languageSettings: settings,
-            audioActivationRetryDelays: retryDelays)
+            hostReturner: hostReturner, customVocabularySettings: vocabulary, transcriptionBackground: background,
+            languageSettings: settings, audioActivationRetryDelays: retryDelays)
         controllers.append(controller)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }

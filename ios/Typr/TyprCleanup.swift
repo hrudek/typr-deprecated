@@ -35,6 +35,31 @@ protocol BackgroundTaskStarting {
     func end(_ token: Int)
 }
 
+/// Background time held until `end()`; ended once, also when iOS expires it, even inside `begin`.
+@MainActor
+final class BackgroundLease {
+    private let background: any BackgroundTaskStarting
+    private var token: Int?
+    private var ended = false
+
+    init(_ background: any BackgroundTaskStarting) {
+        self.background = background
+        let acquired = background.begin { [weak self] in self?.end() }
+        if ended {
+            if let acquired { background.end(acquired) }
+        } else {
+            token = acquired
+        }
+    }
+
+    func end() {
+        guard !ended else { return }
+        ended = true
+        if let token { background.end(token) }
+        token = nil
+    }
+}
+
 @MainActor
 struct TranscriptCleanupDependencies {
     let cleaner: any TyprTranscriptCleaning

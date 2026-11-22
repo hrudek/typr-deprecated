@@ -39,6 +39,60 @@ final class KeyboardBridgeTests: XCTestCase {
         XCTAssertEqual(model.statusMessage, "Microphone unavailable")
     }
 
+    /// Hex #2163: Typr was killed mid-recording. A new keyboard process reads the orphaned App
+    /// Group snapshot as idle, and a result it still carries stays deliverable.
+    func testANewKeyboardProcessIgnoresAnOrphanedRecordingButKeepsItsResult() {
+        let suite = "typr.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let now = 2_000.0
+        KeyboardBridge(defaults: defaults).publish(KeyboardSnapshot(
+            state: .recording, heartbeat: now - 3.5, expiresAt: 0, recordingStartedAt: now - 20, jobID: "killed",
+            resultID: "vorher", resultExpiresAt: now + 10, transcript: "Hallo zusammen."))
+
+        let stored = KeyboardBridge(defaults: defaults).snapshot()
+        let model = KeyboardViewModel()
+        model.applyBridgeState(hasFullAccess: true, snapshot: stored, isModelInstalled: true,
+                               style: .polished, now: now, animated: false)
+        XCTAssertEqual(model.stagePhase, .idle)
+        XCTAssertFalse(model.isWarmAvailable)
+        XCTAssertTrue(stored.hasDeliverableResult(at: now))
+        XCTAssertEqual(stored.transcript, "Hallo zusammen.")
+    }
+
+    /// Hex #2163: Done or Dictate sent to a Typr that never answers (killed during the handoff)
+    /// shows only until the acknowledgement timeout; then the snapshot rules, until its heartbeat is stale.
+    func testAnUnansweredKeyboardCommandDoesNotHoldTheKeyboard() {
+        let now = 3_000.0
+        let model = KeyboardViewModel()
+        func show(_ snapshot: KeyboardSnapshot, at time: TimeInterval) {
+            model.applyBridgeState(hasFullAccess: true, snapshot: snapshot, isModelInstalled: true,
+                                   style: .polished, now: time, animated: false)
+        }
+        let recording = KeyboardSnapshot(state: .recording, heartbeat: now, expiresAt: 0, jobID: "job")
+        show(recording, at: now)
+        model.setPendingCommand(.init(kind: .stop, jobID: "job", sentAt: now), now: now, animated: false)
+        XCTAssertEqual(model.stagePhase, .transcribing)
+
+        show(recording, at: now + 0.1)
+        XCTAssertEqual(model.stagePhase, .transcribing)
+        let after = now + KeyboardViewModel.commandAckTimeout
+        show(recording, at: after)
+        XCTAssertNil(model.pendingCommand)
+        XCTAssertEqual(model.stagePhase, .recording)
+        show(recording, at: now + 3)
+        XCTAssertEqual(model.stagePhase, .idle)
+
+        let ready = KeyboardSnapshot(state: .ready, heartbeat: after, expiresAt: after + 600)
+        show(ready, at: after)
+        model.setPendingCommand(.init(kind: .start, jobID: "next", sentAt: after), now: after, animated: false)
+        XCTAssertEqual(model.stagePhase, .recording)
+        show(KeyboardSnapshot(state: .ready, heartbeat: after, expiresAt: after + 600),
+             at: after + KeyboardViewModel.commandAckTimeout)
+        XCTAssertNil(model.pendingCommand)
+        XCTAssertEqual(model.stagePhase, .idle)
+    }
+
     func testWarmDurationPersistsAndUnknownValueFallsBack() {
         let suite = "typr.tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
