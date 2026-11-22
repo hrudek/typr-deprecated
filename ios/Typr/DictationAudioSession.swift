@@ -51,10 +51,23 @@ final class DictationAudioSession {
     }
 
     /// Returns the input the route records from: iOS keeps its own when it refuses the preference.
+    ///
+    /// `mixWithOthers` uses `.playAndRecord`, which runs input and output at one hardware rate,
+    /// so it clears the preferred sample rate (an earlier `.record` activation's 16 kHz otherwise
+    /// stays for the process; 0 is undocumented as "none", so a refusal must not stop recording): 16 kHz would move every app's playback and
+    /// recording (a screen recording too) to 16 kHz while Typr holds the session. The tap
+    /// writer resamples to 16 kHz itself. Never `.duckOthers`: iOS lifts ducking only on
+    /// deactivation.
     @discardableResult
-    func activate(microphone: MicrophoneChoice) throws -> Microphone? {
-        try setCategory(.record, .measurement, MicrophoneRoute.categoryOptions(for: microphone))
-        try setPreferredSampleRate(16_000)
+    func activate(microphone: MicrophoneChoice, mixWithOthers: Bool = false) throws -> Microphone? {
+        let options = MicrophoneRoute.categoryOptions(for: microphone)
+        if mixWithOthers {
+            try setCategory(.playAndRecord, .measurement, options.union([.mixWithOthers, .allowBluetoothA2DP, .defaultToSpeaker]))
+            try? setPreferredSampleRate(0)
+        } else {
+            try setCategory(.record, .measurement, options)
+            try setPreferredSampleRate(16_000)
+        }
         try setActive(true, [])
         try? setPreferredInput(input(for: microphone))
         return currentInput()

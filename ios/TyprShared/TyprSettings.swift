@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -23,6 +23,14 @@ struct ExperimentalSwitch: Hashable {
         name: "warmMicOnIPhone",
         title: "Warm mic on iPhone",
         detail: "Between dictations the warm mic uses the iPhone's; each dictation switches to the chosen microphone. Switching can end the warm session while Typr is in the background."
+    )
+
+    /// Hex's recording session (anomalyco/hex #2005, #2151, #2160): mixes with other apps'
+    /// audio instead of interrupting it, and leaves the hardware at its own sample rate.
+    static let mixWithOtherAudio = ExperimentalSwitch(
+        name: "mixWithOtherAudio",
+        title: "Keep other audio playing",
+        detail: "Music and videos keep playing while you dictate, and the warm mic stays on while they play. Applies from the next dictation."
     )
 }
 

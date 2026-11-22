@@ -59,7 +59,7 @@ extension AudioManaging {
 
 /// Writes the running input tap into a 16 kHz mono 16-bit WAV (the format the recorder used to
 /// write). Called on the tap's thread; everything is guarded by `lock`.
-nonisolated private final class TapFileWriter: @unchecked Sendable {
+nonisolated final class TapFileWriter: @unchecked Sendable {
     static var fileSettings: [String: Any] {
         [
             AVFormatIDKey: kAudioFormatLinearPCM,
@@ -297,8 +297,10 @@ private final class TapCaptureAdapter: ActiveAudioCapture {
 final class SystemAudioManager: AudioManaging {
     private var inputGraph = TyprAudioInput()
     private let audioSession = DictationAudioSession()
+    private let mixWithOthers: () -> Bool
     private var keepaliveMicrophone: MicrophoneChoice?
     private var keepaliveInput: Microphone?
+    private var keepaliveMixes = false
     private let tapRouter = TapRouter()
     nonisolated(unsafe) private var observers: [NSObjectProtocol] = []
 
@@ -313,7 +315,8 @@ final class SystemAudioManager: AudioManaging {
         AVAudioSession.sharedInstance().isOtherAudioPlaying
     }
 
-    init() {
+    init(mixWithOthers: @escaping () -> Bool) {
+        self.mixWithOthers = mixWithOthers
         installNotifications()
     }
 
@@ -333,22 +336,25 @@ final class SystemAudioManager: AudioManaging {
 
     func startKeepalive(microphone: MicrophoneChoice) throws {
         stopKeepalive()
-        let input = try audioSession.activate(microphone: microphone)
+        let mixes = mixWithOthers()
+        let input = try audioSession.activate(microphone: microphone, mixWithOthers: mixes)
 
         try inputGraph.start(bufferHandler: Self.tapBlock(routingTo: tapRouter))
         keepaliveMicrophone = microphone
         keepaliveInput = input
+        keepaliveMixes = mixes
     }
 
     func ensureKeepalive(microphone: MicrophoneChoice) throws {
-        if inputGraph.isRunning, keepaliveMicrophone == microphone || keepaliveFollows(microphone) {
+        if inputGraph.isRunning, keepaliveMixes == mixWithOthers(),
+           keepaliveMicrophone == microphone || keepaliveFollows(microphone) {
             return
         }
         try startKeepalive(microphone: microphone)
     }
 
     func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool {
-        guard inputGraph.isRunning, let keepaliveMicrophone else { return false }
+        guard inputGraph.isRunning, let keepaliveMicrophone, keepaliveMixes == mixWithOthers() else { return false }
         return MicrophoneRoute.categoryOptions(for: keepaliveMicrophone) == MicrophoneRoute.categoryOptions(for: microphone)
             && audioSession.input(for: microphone) == keepaliveInput
     }

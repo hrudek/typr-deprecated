@@ -154,6 +154,14 @@ final class DictationController {
     private var pendingHandoff: PendingKeyboardHandoff?
     private var keyboardSessionExpiresAt: TimeInterval = 0
     private var suspendedWarmSessionOnInterruption = false
+    /// Each warm-loop restart of a keepalive that stopped by itself reopens the microphone under
+    /// every app recording at the time, so one that stops again soon waits 1 s, 2 s, … 30 s
+    /// instead of 100 ms; one that ran a while restarts at once (anomalyco/hex #2160).
+    @ObservationIgnored private var keepaliveRestartedAt = -TimeInterval.infinity
+    @ObservationIgnored private var keepaliveRestartDelay: TimeInterval = 0
+    @ObservationIgnored private(set) var keepaliveRestartDue: TimeInterval?
+    static let steadyKeepalive: TimeInterval = 10
+    private static let maxKeepaliveRestartDelay: TimeInterval = 30
     @ObservationIgnored private var interruptionResumeTask: Task<Void, Never>?
     /// Between `.interruptionBegan` and `.interruptionEnded`, independent of a pending resume.
     private var interruptionInProgress = false
@@ -250,7 +258,7 @@ final class DictationController {
     ) {
         self.audioRetryDelays = audioActivationRetryDelays
         let resolvedBridge = keyboardBridge ?? KeyboardBridge()
-        let resolvedAudio = audio ?? SystemAudioManager()
+        let resolvedAudio = audio ?? SystemAudioManager(mixWithOthers: { languageSettings[experiment: .mixWithOtherAudio] })
         let initialTranscriber = transcriber ?? ParakeetTranscriber()
         let resolvedProvider = engineProvider ?? ProductionSpeechEngineProvider()
         let preferred = languageSettings.preferredSpeechEngine
@@ -795,7 +803,7 @@ final class DictationController {
         // allowed to interrupt it, but must release the session when capture ends.
         let hasFreshCapture = handoff?.jobID != nil
             && handoff.map { now() - $0.requestedAt <= KeyboardLaunchRequest.handoffWindow } == true
-        if audio.isOtherAudioPlaying, !hasFreshCapture {
+        if otherAudioBlocksMicrophone, !hasFreshCapture {
             endWarmSession()
             handoffNotice = "Media is playing. Start dictation to use the microphone."
             maybeAutoReturnAfterActivation(allowed: handoff?.attemptAutoReturn ?? false)
@@ -871,7 +879,7 @@ final class DictationController {
             } catch {
                 guard self.jobGeneration == requestGen else { return }
                 audio.deactivateSession()
-                phase = audio.isOtherAudioPlaying ? .ready : .failed(Self.audioFailureMessage(for: error))
+                phase = otherAudioBlocksMicrophone ? .ready : .failed(Self.audioFailureMessage(for: error))
                 publishKeyboardSnapshot()
             }
         }
@@ -880,8 +888,12 @@ final class DictationController {
     /// Recheck on every warm start, including route changes and interruption retries.
     /// Never seize the microphone just to keep it warm while media is playing.
     private func startWarmInput() throws {
-        guard !audio.isOtherAudioPlaying else { throw CancellationError() }
+        guard !otherAudioBlocksMicrophone else { throw CancellationError() }
         try audio.startKeepalive(microphone: idleMicrophone)
+    }
+
+    private var otherAudioBlocksMicrophone: Bool {
+        !languageSettings[experiment: .mixWithOtherAudio] && audio.isOtherAudioPlaying
     }
 
     private var captureMicrophone: MicrophoneChoice {
@@ -1125,7 +1137,7 @@ final class DictationController {
                 let capture = try await activateAudio(isCurrent: { self.jobGeneration == captureGeneration }) {
                     // Read before activating: activation itself pauses other audio. OR
                     // across retries so a partial activation cannot erase that decision.
-                    self.releaseAudioAfterCapture = self.releaseAudioAfterCapture || self.audio.isOtherAudioPlaying
+                    self.releaseAudioAfterCapture = self.releaseAudioAfterCapture || self.otherAudioBlocksMicrophone
                     return try self.audio.beginCapture(
                         at: captureURL,
                         maxDuration: Self.maxCaptureDuration,
@@ -1392,7 +1404,7 @@ final class DictationController {
     }
 
     private func restoreAudioAfterCapture() {
-        if releaseAudioAfterCapture || audio.isOtherAudioPlaying {
+        if releaseAudioAfterCapture || otherAudioBlocksMicrophone {
             // The writer is already stopped. Release before ASR, including short,
             // cancelled and failed captures; do not let the warm loop restart input.
             endWarmSession()
@@ -1472,6 +1484,9 @@ final class DictationController {
 
     private func startKeyboardSessionLoop() {
         keyboardSessionTask?.cancel()
+        keepaliveRestartedAt = -.infinity
+        keepaliveRestartDelay = 0
+        keepaliveRestartDue = nil
         keyboardSessionTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self, self.keyboardSessionEnabled || self.activeKeyboardJobID != nil else { return }
@@ -1485,13 +1500,16 @@ final class DictationController {
                     }
                     self.keyboardSessionRemaining = remaining
 
-                    if self.phase == .ready && self.audio.isOtherAudioPlaying {
+                    if self.phase == .ready && self.otherAudioBlocksMicrophone {
                         self.endWarmSession()
                         return
                     }
 
                     // Verify the keepalive engine is genuinely alive so we never publish a stuck "Ready".
-                    if self.phase == .ready && !self.audio.isKeepaliveRunning && !self.suspendedWarmSessionOnInterruption {
+                    if self.audio.isKeepaliveRunning {
+                        self.keepaliveRestartDue = nil
+                    } else if self.phase == .ready && !self.suspendedWarmSessionOnInterruption,
+                              self.keepaliveRestartIsDue() {
                         do {
                             try self.startWarmInput()
                         } catch {
@@ -1508,6 +1526,21 @@ final class DictationController {
                 try? await Task.sleep(for: .milliseconds(100))
             }
         }
+    }
+
+    private func keepaliveRestartIsDue() -> Bool {
+        let time = now()
+        if keepaliveRestartDue == nil {
+            let stoppedSoon = time - keepaliveRestartedAt < Self.steadyKeepalive
+            keepaliveRestartDelay = stoppedSoon
+                ? min(max(1, keepaliveRestartDelay * 2), Self.maxKeepaliveRestartDelay)
+                : 0
+            keepaliveRestartDue = time + keepaliveRestartDelay
+        }
+        guard let due = keepaliveRestartDue, time >= due else { return false }
+        keepaliveRestartDue = nil
+        keepaliveRestartedAt = time
+        return true
     }
 
     func processPendingKeyboardCommandForTesting() {
@@ -1653,7 +1686,7 @@ final class DictationController {
             interruptionResumeTask = nil
             suspendedWarmSessionOnInterruption = keyboardSessionEnabled
             warmSessionInterrupted = warmSessionInterrupted || keyboardSessionEnabled
-            if audio.isOtherAudioPlaying {
+            if otherAudioBlocksMicrophone {
                 if activeCapture == nil {
                     endWarmSession()
                     return
@@ -1677,7 +1710,7 @@ final class DictationController {
         case .interruptionEnded(let shouldResume):
             interruptionInProgress = false
             guard suspendedWarmSessionOnInterruption else { return }
-            if audio.isOtherAudioPlaying {
+            if otherAudioBlocksMicrophone {
                 endWarmSession()
                 return
             }

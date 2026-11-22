@@ -44,6 +44,8 @@ private final class FakeAudioManager: AudioManaging {
     var keepaliveMicrophones: [MicrophoneChoice] = []
     var captureMicrophones: [MicrophoneChoice] = []
     var keepaliveInputIsStale = false
+    var mixesWithOtherAudio = false
+    var keepaliveStopsRightAway = false
 
     var onSystemEvent: ((AudioSystemEvent) -> Void)?
     var onUnexpectedCaptureEnd: ((URL, Bool) -> Void)?
@@ -64,10 +66,10 @@ private final class FakeAudioManager: AudioManaging {
             isKeepaliveRunning = false
             throw CocoaError(.coderInvalidValue)
         }
-        isKeepaliveRunning = true
+        isKeepaliveRunning = !keepaliveStopsRightAway
         keepaliveInputIsStale = false
         // Activating input interrupts media, so subsequent queries no longer see it.
-        isOtherAudioPlaying = false
+        isOtherAudioPlaying = isOtherAudioPlaying && mixesWithOtherAudio
     }
 
     func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool {
@@ -1040,6 +1042,70 @@ final class DictationControllerTests: XCTestCase {
         try await transcribed(controller)
         XCTAssertEqual(audio.keepaliveMicrophones.last, .iPhone, "back on the iPhone after the dictation")
         XCTAssertTrue(controller.keyboardSessionEnabled)
+    }
+
+    func testExperimentalKeepOtherAudioPlayingWarmsAndDictatesOverMedia() async throws {
+        let settings = TyprSettings(defaults: defaults)
+        settings[experiment: .mixWithOtherAudio] = true
+        let audio = FakeAudioManager()
+        audio.mixesWithOtherAudio = true
+        audio.isOtherAudioPlaying = true
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await readyController(audio: audio, bridge: bridge, now: { 32_000 }, settings: settings)
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        XCTAssertTrue(controller.keyboardSessionEnabled, "media no longer keeps the mic cold")
+        XCTAssertTrue(audio.isKeepaliveRunning)
+        XCTAssertEqual(bridge.snapshot().state, .ready)
+
+        audio.canStartInput = false
+        for job in ["erste", "zweite"] {
+            bridge.send(.start, jobID: job, style: .polished, sentAt: 32_000)
+            controller.processPendingKeyboardCommandForTesting()
+            try await activationSettled(controller)
+            XCTAssertEqual(controller.phase, .recording, job)
+            controller.finishRecording()
+            try await transcribed(controller)
+            XCTAssertTrue(controller.keyboardSessionEnabled, "\(job): the warm session outlasts the dictation")
+            XCTAssertTrue(audio.isKeepaliveRunning, job)
+        }
+        XCTAssertTrue(audio.isOtherAudioPlaying)
+        XCTAssertEqual(audio.deactivateCount, 0)
+        XCTAssertEqual(audio.startKeepaliveCount, 1)
+    }
+
+    func testAKeepaliveThatKeepsStoppingIsRestartedLessAndLessOften() async throws {
+        var now = 52_000.0
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await readyController(audio: audio, bridge: bridge, now: { now })
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        XCTAssertTrue(audio.isKeepaliveRunning)
+        let started = audio.startKeepaliveCount
+
+        audio.keepaliveStopsRightAway = true
+        audio.isKeepaliveRunning = false
+        try await waitForState("restarted at once") { audio.startKeepaliveCount == started + 1 }
+        for (offset, delay) in [1.0, 2, 4, 8, 16, 30, 30].enumerated() {
+            try await waitForState("next restart scheduled in \(delay) s") { controller.keepaliveRestartDue == now + delay }
+            XCTAssertEqual(audio.startKeepaliveCount, started + 1 + offset, "waits \(delay) s")
+            now += delay
+            try await waitForState("restarted after \(delay) s") { audio.startKeepaliveCount == started + 2 + offset }
+        }
+        XCTAssertTrue(controller.keyboardSessionEnabled, "the warm session stays on meanwhile")
+        try await waitForState("the keyboard sees the mic offline") { bridge.snapshot().state == .offline }
+
+        audio.keepaliveStopsRightAway = false
+        try await waitForState("next restart scheduled in 30 s") { controller.keepaliveRestartDue == now + 30 }
+        now += 30
+        try await waitForState("running again") { audio.isKeepaliveRunning }
+        now += DictationController.steadyKeepalive
+        let steady = audio.startKeepaliveCount
+        audio.isKeepaliveRunning = false
+        try await waitForState("a keepalive that ran a while restarts at once") {
+            audio.startKeepaliveCount == steady + 1
+        }
     }
 
     func testOnlyEngineFailuresRequireReloadingTheModel() {

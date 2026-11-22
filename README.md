@@ -26,6 +26,11 @@ An explicit engine or language choice never silently falls back to another.
   options on a running input. Later playback/interruption events are also checked
   before restarting idle input. Detection is a momentary iOS audio signal, not a
   per-app media inventory; actual resumption is controlled by the media app and iOS.
+  Experimental › **Keep other audio playing** follows Hex: recording mixes with other
+  audio (`.playAndRecord`, never ducking), so media keeps playing, the warm session
+  stays on while it plays, and the iPhone keeps its own sample rate (Typr resamples
+  to 16 kHz). A warm input that keeps stopping by itself is restarted after 1 s, 2 s,
+  4 s … up to 30 s instead of every 100 ms.
 - **Microphone** picks the input. Automatic (default) records from a wired or USB
   headset, from the car in CarPlay, else from the iPhone; iPhone always uses the
   iPhone's. Neither turns on Bluetooth hands-free (HFP), so headphones and car kits
