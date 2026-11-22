@@ -3,28 +3,24 @@ import Foundation
 /// "Clean up what I say": deterministic German and English word rules, adapted from Hex's
 /// `SpokenCleanupRules` and `CleanupReconstruction` (anomalyco/hex d65b02d3, MIT). Hex's
 /// English cleanup tagger is not used: it is English only and dropped negations in other
-/// languages. The rules only remove words:
+/// languages. Each line is cleaned on its own, and the rules only remove words. When in
+/// doubt a rule leaves the text as said:
 /// - hesitation sounds ("äh", "ähm", "öh", "hm"; English also "um", "uh"), never "eh"
-///   ("das ist eh egal") or a sound that asks or exclaims ("Hm?");
-/// - a stuttered function word ("ich ich habe"), never an emphatic repeat ("sehr sehr");
-/// - an explicit self-repair ("am Dienstag, ich meine, Mittwoch") with its marker and the words
-///   it replaces, counted back from the nearest earlier word that matches the repair's first
-///   word or is of its kind (number, weekday, month, relative day), within the sentence and
-///   `maxReach` words. A bare "nein", "no" or "sorry" counts only when the repair names a
-///   word of the same kind, and never right after a question. A repair that starts with a
-///   pronoun is a new clause and stays. Anything else stays as said.
+///   ("das ist eh egal"), a sound that asks or exclaims ("Hm?") or one inside quotes;
+/// - a function word said twice in a row ("und und dann"), never a pronoun, three or more
+///   repeats, a repeat with punctuation between or one touching quotes or brackets;
+/// - an explicit self-repair inside one sentence, set off by commas, that swaps a number,
+///   weekday, month or relative day right before the marker for a different one of the same
+///   kind and ends the clause: "am Dienstag, ich meine, Mittwoch." becomes "am Mittwoch.",
+///   "um 3, nein, um 4." becomes "um 4.".
 nonisolated enum SpokenCleanup {
-    static let maxReach = 8
-
     struct Rules {
         let hesitation: NSRegularExpression
         let markers: [[String]]
-        let plainMarkers: [[String]]
-        let weakMarkers: [[String]]
         let kinds: [Set<String>]
+        let units: Set<String>
         let noComma: Set<String>
         let stutters: Set<String>
-        let pronouns: Set<String>
 
         func kind(of word: String) -> Int? {
             if word.contains(where: \.isNumber) { return kinds.count }
@@ -41,18 +37,22 @@ nonisolated enum SpokenCleanup {
         case .automatic: TranscriptFormatter.readsAsEnglish(text)
         }
         let rules = english ? Self.english : german
-        let original = words(in: text)
+        let lines = text.components(separatedBy: "\n")
+        let cleaned = lines.map { cleanLine($0, rules: rules) }
+        return cleaned == lines ? text : cleaned.joined(separator: "\n")
+    }
+
+    private static func cleanLine(_ line: String, rules: Rules) -> String {
+        let original = words(in: line)
         var cleaned = removingHesitations(original, rules: rules)
         cleaned = removingStutters(cleaned, rules: rules)
         cleaned = resolvingCorrections(cleaned, rules: rules)
-        return cleaned == original ? text : cleaned.joined(separator: " ")
+        return cleaned == original ? line : cleaned.joined(separator: " ")
     }
 
     private static func words(in text: String) -> [String] {
         text.split(whereSeparator: \.isWhitespace).map(String.init)
     }
-
-    // MARK: Hesitations and stutters
 
     private static func removingHesitations(_ words: [String], rules: Rules) -> [String] {
         let deletes = words.map { isHesitation($0, rules) }
@@ -61,29 +61,36 @@ nonisolated enum SpokenCleanup {
     }
 
     private static func isHesitation(_ word: String, _ rules: Rules) -> Bool {
-        guard !hasOpeningMark(word), let last = word.last, last != "?", last != "!" else { return false }
+        guard !word.contains(where: quotesAndBrackets.contains), let last = word.last, last != "?", last != "!" else {
+            return false
+        }
         let bare = bare(word)
         return rules.hesitation.firstMatch(in: bare, range: NSRange(bare.startIndex..., in: bare)) != nil
     }
 
-    private static func removingStutters(_ words: [String], rules: Rules) -> [String] {
-        var deletes = Array(repeating: false, count: words.count)
-        var kept = 0
-        for index in words.indices.dropFirst() {
-            let previous = words[kept]
-            let word = bare(words[index])
-            let joined = previous.last.map { !closingMarks.contains($0) || ($0 == "," && rules.pronouns.contains(word)) } ?? false
-            if joined, !hasOpeningMark(words[index]), rules.stutters.contains(word), bare(previous) == word {
-                deletes[index] = true
-            } else {
-                kept = index
+    private static func removingStutters(_ input: [String], rules: Rules) -> [String] {
+        var words = input
+        var index = 0
+        while index + 1 < words.count {
+            let first = words[index], second = words[index + 1]
+            let isPair = first.allSatisfy { $0.isLetter }
+                && !second.contains(where: quotesAndBrackets.contains)
+                && rules.stutters.contains(first.lowercased())
+                && bare(second) == first.lowercased()
+                && (index == 0 || bare(words[index - 1]) != first.lowercased())
+                && (index + 2 >= words.count || bare(words[index + 2]) != first.lowercased())
+            guard isPair else {
+                index += 1
+                continue
             }
+            if first.first?.isUppercase == true {
+                words[index + 1] = capitalized(second)
+            }
+            words.remove(at: index)
+            index += 1
         }
-        guard deletes.contains(true) else { return words }
-        return self.words(in: reconstruct(words, deletes: deletes, rules: rules))
+        return words
     }
-
-    // MARK: Corrections
 
     private struct Correction {
         let start: Int
@@ -93,76 +100,64 @@ nonisolated enum SpokenCleanup {
 
     private static func resolvingCorrections(_ input: [String], rules: Rules) -> [String] {
         var words = input
-        var from = 0
-        while let found = nextCorrection(in: words, from: from, rules: rules) {
+        while let found = nextCorrection(in: words, rules: rules) {
             words[found.repair] = taking(words[found.start], into: words[found.repair])
             var deletes = Array(repeating: false, count: words.count)
             for position in found.start...found.markerEnd {
                 deletes[position] = true
             }
             words = self.words(in: reconstruct(words, deletes: deletes, rules: rules))
-            from = found.start + 1
         }
         return words
     }
 
-    private static func nextCorrection(in words: [String], from: Int, rules: Rules) -> Correction? {
-        guard max(1, from) < words.count else { return nil }
-        for markerStart in max(1, from)..<words.count {
+    private static func nextCorrection(in words: [String], rules: Rules) -> Correction? {
+        guard words.count > 2 else { return nil }
+        for markerStart in 1..<words.count {
+            let replaced = words[markerStart - 1]
+            guard replaced.hasSuffix(","), !replaced.contains(where: quotesAndBrackets.contains),
+                  let kind = rules.kind(of: bare(replaced)) else { continue }
             for marker in rules.markers where matches(marker, words, at: markerStart) {
                 let markerEnd = markerStart + marker.count - 1
-                let repair = markerEnd + 1
-                guard repair < words.count, !hasOpeningMark(words[markerStart]) else { continue }
-                let before = words[markerStart - 1]
-                if before.hasSuffix("?") { continue }
-                let setOff = (isPause(before) || endsSentence(before)) && words[markerEnd].hasSuffix(",")
-                let plain = rules.plainMarkers.contains(marker)
-                    && !endsSentence(before)
-                    && !isPause(words[markerEnd])
-                    && !endsSentence(words[markerEnd])
-                guard setOff || plain else { continue }
-                let first = bare(words[repair])
-                guard !first.isEmpty else { continue }
-
-                var low = markerStart - 1
-                while low > 0, !endsSentence(words[low - 1]), markerStart - low < maxReach {
-                    low -= 1
+                guard words[markerEnd].hasSuffix(","), markerEnd + 1 < words.count else { continue }
+                var start = markerStart - 1
+                var value = markerEnd + 1
+                if markerStart >= 2, rules.kind(of: bare(words[markerStart - 2])) == nil,
+                   !endsSentence(words[markerStart - 2]), !isPause(words[markerStart - 2]),
+                   bare(words[value]) == bare(words[markerStart - 2]), value + 1 < words.count {
+                    start = markerStart - 2
+                    value += 1
                 }
-                let candidates = (low..<markerStart).reversed()
-                if rules.pronouns.contains(first) { continue }
-                var start = candidates.first { bare(words[$0]) == first }
-                if start == nil, let kind = rules.kind(of: first) {
-                    start = candidates.first { rules.kind(of: bare(words[$0])) == kind }
-                }
-                guard let start else { continue }
-                if rules.weakMarkers.contains(marker) {
-                    let repairKinds = Set(words[repair..<min(repair + 2, words.count)].compactMap { rules.kind(of: bare($0)) })
-                    let replacedKinds = Set(words[start..<markerStart].compactMap { rules.kind(of: bare($0)) })
-                    guard !repairKinds.isDisjoint(with: replacedKinds) else { continue }
-                }
-                return Correction(start: start, markerEnd: markerEnd, repair: repair)
+                let repaired = words[value]
+                guard !repaired.contains(where: quotesAndBrackets.contains),
+                      rules.kind(of: bare(repaired)) == kind, bare(repaired) != bare(replaced),
+                      endsClause(at: value, in: words, rules: rules) else { continue }
+                return Correction(start: start, markerEnd: markerEnd, repair: markerEnd + 1)
             }
         }
         return nil
     }
 
+    private static func endsClause(at index: Int, in words: [String], rules: Rules) -> Bool {
+        var last = index
+        if last + 1 < words.count, !isPause(words[last]), !endsSentence(words[last]),
+           rules.units.contains(bare(words[last + 1])) {
+            last += 1
+        }
+        return last == words.count - 1 || isPause(words[last]) || endsSentence(words[last])
+    }
+
     private static func taking(_ replaced: String, into repair: String) -> String {
-        let marks = String(replaced.prefix { openingMarks.contains($0) })
+        guard let source = replaced.first, source.isLetter,
+              let index = repair.firstIndex(where: \.isLetter),
+              !repair[repair.index(after: index)...].contains(where: \.isUppercase) else {
+            return repair
+        }
         var result = repair
-        if !marks.isEmpty, !hasOpeningMark(result) {
-            result = marks + result
-        }
-        guard let source = replaced.dropFirst(marks.count).first, source.isLetter,
-              let index = result.firstIndex(where: \.isLetter),
-              !result[result.index(after: index)...].contains(where: \.isUppercase) else {
-            return result
-        }
         let letter = String(result[index])
         result.replaceSubrange(index...index, with: source.isUppercase ? letter.uppercased() : letter.lowercased())
         return result
     }
-
-    // MARK: Reconstruction
 
     private static func reconstruct(_ words: [String], deletes: [Bool], rules: Rules) -> String {
         var out: [String] = []
@@ -216,20 +211,13 @@ nonisolated enum SpokenCleanup {
         return first.uppercased() + word.dropFirst()
     }
 
-    // MARK: Words
-
-    private static let openingMarks: Set<Character> = ["\"", "“", "„", "«", "(", "¿", "¡"]
-    private static let closingMarks: Set<Character> = [",", ".", ";", ":", "!", "?", "…", "\"", "”", "“", "»", ")"]
+    private static let quotesAndBrackets: Set<Character> = [
+        "\"", "'", "“", "”", "„", "‚", "‘", "’", "«", "»", "‹", "›", "(", ")", "[", "]", "{", "}",
+    ]
+    private static let closingMarks: Set<Character> = [",", ".", ";", ":", "!", "?", "…"]
 
     private static func bare(_ word: String) -> String {
-        var scalars = Substring(word)
-        while let first = scalars.first, openingMarks.contains(first) {
-            scalars = scalars.dropFirst()
-        }
-        while let last = scalars.last, closingMarks.contains(last) {
-            scalars = scalars.dropLast()
-        }
-        return scalars.lowercased()
+        String(word.reversed().drop { closingMarks.contains($0) }.reversed()).lowercased()
     }
 
     private static func matches(_ phrase: [String], _ words: [String], at index: Int) -> Bool {
@@ -239,7 +227,7 @@ nonisolated enum SpokenCleanup {
             if offset < phrase.count - 1, let last = word.last, last != ",", closingMarks.contains(last) {
                 return false
             }
-            if bare(word) != part { return false }
+            if word.contains(where: quotesAndBrackets.contains) || bare(word) != part { return false }
         }
         return true
     }
@@ -250,16 +238,9 @@ nonisolated enum SpokenCleanup {
     }
 
     private static func endsSentence(_ word: String) -> Bool {
-        let trimmed = word.reversed().drop { "\"”»)".contains($0) }
-        guard let last = trimmed.first else { return false }
+        guard let last = word.last else { return false }
         return ".!?…".contains(last)
     }
-
-    private static func hasOpeningMark(_ word: String) -> Bool {
-        word.first.map(openingMarks.contains) ?? false
-    }
-
-    // MARK: Languages
 
     private static func hesitations(_ pattern: String) -> NSRegularExpression {
         try! NSRegularExpression(pattern: "^(?:\(pattern))$", options: .caseInsensitive)
@@ -271,8 +252,6 @@ nonisolated enum SpokenCleanup {
         hesitation: hesitations(germanHesitations),
         markers: [["nein"], ["nein", "warte"], ["ich", "meine"], ["besser", "gesagt"], ["sorry"],
                   ["entschuldigung"]],
-        plainMarkers: [["besser", "gesagt"]],
-        weakMarkers: [["nein"], ["sorry"], ["entschuldigung"]],
         kinds: [
             ["zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf"],
             ["montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag"],
@@ -280,18 +259,15 @@ nonisolated enum SpokenCleanup {
              "oktober", "november", "dezember"],
             ["heute", "morgen", "gestern", "übermorgen"],
         ],
+        units: ["uhr"],
         noComma: ["und", "oder", "aber", "dass", "der", "die", "das", "ein", "eine", "mit", "zu", "in",
                   "an", "auf", "für", "von", "ich", "du", "er", "sie", "wir"],
-        stutters: ["ich", "wir", "du", "ein", "eine", "einen", "und", "oder", "aber", "dass", "weil", "wenn",
-                   "dann", "mit", "auf", "für"],
-        pronouns: ["ich", "du", "er", "sie", "es", "wir", "ihr", "man", "das", "dies", "dieser", "diese", "dieses"]
+        stutters: ["eine", "einen", "und", "weil", "für"]
     )
 
     private static let english = Rules(
         hesitation: hesitations(germanHesitations + "|u+m+|u+h+m*|e+r+m+"),
         markers: [["no"], ["no", "wait"], ["i", "mean"], ["or", "rather"], ["sorry"]],
-        plainMarkers: [["or", "rather"]],
-        weakMarkers: [["no"], ["sorry"]],
         kinds: [
             ["two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"],
             ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
@@ -299,9 +275,8 @@ nonisolated enum SpokenCleanup {
              "november", "december"],
             ["today", "tomorrow", "yesterday", "tonight"],
         ],
+        units: ["pm", "am", "o'clock"],
         noComma: ["a", "an", "the", "to", "of", "for", "with", "and", "or", "but", "i", "we", "you", "my"],
-        stutters: ["i", "we", "the", "a", "an", "and", "but", "of", "for", "with", "my", "to"],
-        pronouns: ["i", "we", "you", "he", "she", "it", "they", "this", "that", "there", "i'm", "it's", "we're",
-                   "you're", "they're", "there's", "that's"]
+        stutters: ["the", "a", "an", "and", "but", "of", "for", "with", "to"]
     )
 }

@@ -694,7 +694,7 @@ this repository ([LICENSE](LICENSE)).
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PRs #2023, #2132): the German hesitation
 pattern in `TranscriptFormatter.fillerPattern`, the German word rules and correction search
 in `SpokenCleanupRules.swift`, and the comma and capital repair of `CleanupReconstruction.swift`.
-Typr adds English rules, stutter removal and the same-kind check for a bare "nein"/"no".
+Typr adds English rules, stutter removal and stricter repair conditions.
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
 ## Hex iOS return key style

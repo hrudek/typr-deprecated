@@ -43,9 +43,10 @@ An explicit engine or language choice never silently falls back to another.
 - Text processing combines vocabulary corrections, **Clean up what I say**, optional AI
   cleanup and formatting styles. Clean up what I say (Dictation style page, on by default,
   skipped in Verbatim) runs Hex's German word rules, with English rules added, before AI
-  cleanup: it removes hesitations (äh, ähm, öh, hm; English um, uh), stuttered words
-  (ich ich) and explicit self-repairs (Dienstag, ich meine, Mittwoch), and keeps eh,
-  emphatic repeats (sehr sehr) and repairs it cannot place. Cleanup runs on-device with Apple Intelligence (iOS 26+,
+  cleanup, line by line: it removes hesitations (äh, ähm, öh, hm; English um, uh), a
+  function word said twice (und und) and self-repairs of a day, month or number set off
+  by a marker (am Dienstag, ich meine, Mittwoch). Anything less certain stays as said:
+  eh, pronoun and emphatic repeats (ich ich, sehr sehr), explanations and answers. Cleanup runs on-device with Apple Intelligence (iOS 26+,
   default) or, with your own Anthropic API key (stored in the Keychain), with
   Claude in the cloud; the plain transcript is used whenever cleanup is
   unavailable. Apple Intelligence cleanup is Hex's iOS cleaner at `d65b02d3` word for word

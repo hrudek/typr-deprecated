@@ -55,7 +55,7 @@ struct DictationStyleSettingsCard: View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsSection {
                 SettingsToggle(title: "Clean up what I say",
-                               detail: "Removes “äh” and “um”, stutters like “ich ich” and corrections like “Dienstag, ich meine, Mittwoch”. Skipped in Verbatim.",
+                               detail: "Removes “äh” and “um”, doubled words like “und und” and corrections like “Dienstag, ich meine, Mittwoch”. Skipped in Verbatim.",
                                isOn: $cleanUpWhatISay)
                     .onChange(of: cleanUpWhatISay) { _, enabled in TyprSettings().cleanUpWhatISay = enabled }
             }
