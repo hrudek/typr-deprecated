@@ -268,6 +268,7 @@ final class AutocorrectEngine {
     var boundaryRejectionCount: Int { boundaryRejections.count }
     private var lastCorrection: PendingUndo?
     private var revertOffer: RevertOffer?
+    private var keptShortcut: String?
     private(set) var pendingFeedback: PendingFeedback?
     /// Manual choices also wait until the next unambiguous letter before pair training.
     private var pendingPairChoice: (word: String, epoch: Int)?
@@ -563,6 +564,20 @@ final class AutocorrectEngine {
         lexiconTermKeys = Set(terms.map { $0.lowercased() })
     }
 
+    // Casing adapted from anomalyco/hex AutocorrectEngine.shortcut(for:) (MIT, #2153).
+    private func shortcut(for token: String) -> String? {
+        guard let stored = lexiconShortcuts[token.lowercased()] else { return nil }
+        let letters = token.filter(\.isLetter)
+        let leadingCapital = token.first?.isUppercase == true && (letters.count < 2 || letters != letters.uppercased())
+        guard leadingCapital, let first = stored.first, first.isLowercase else { return stored }
+        return first.uppercased() + stored.dropFirst()
+    }
+
+    private func textReplacement(_ token: String) -> Decision? {
+        guard token.lowercased() != keptShortcut, let replacement = shortcut(for: token) else { return nil }
+        return Decision(text: replacement, kind: .autoRule, counter: .autoRule)
+    }
+
     func clearPendingUndo() {
         lastCorrection = nil
     }
@@ -654,6 +669,7 @@ final class AutocorrectEngine {
         }
         touchInput.clear()
         forgetSpaceTaps()
+        keptShortcut = nil
         decodeCache = nil
         completionCache = nil
         boundaryCache = nil
@@ -786,6 +802,10 @@ final class AutocorrectEngine {
         case .autoRule, .unchanged: learning.increment(.undoRule)
         }
         let replacement = String(undo.insertedText.dropLast(undo.separator.count))
+        if undo.kind == .autoRule, shortcut(for: undo.original) == replacement {
+            keptShortcut = undo.original.lowercased()
+            return
+        }
         let matchesPending = undo.separator.isEmpty
             ? pending?.finalText == replacement : pending?.suffix == undo.insertedText
         if let pending, pending.literal == undo.original, matchesPending,
@@ -978,7 +998,8 @@ final class AutocorrectEngine {
         rejectionContext = RejectedCorrection.context(before: beforeInput, token: token)
         let lower = token.lowercased()
         let scoring = wordContext(sentence)
-        let decision = isEnabled ? decide(token, evidence: evidence, forSuggestions: true, context: scoring) : nil
+        let decision = isEnabled ? decide(token, evidence: evidence, forSuggestions: true, context: scoring)
+            : textReplacement(token)
         let autoFix = decision?.text
         let spatial = spatialResult(for: token, evidence: evidence, forSuggestions: true, context: scoring)
         var pool: [String] = []
@@ -1210,8 +1231,10 @@ final class AutocorrectEngine {
     ) -> (original: String, replacement: String)? {
         let evidence = touchInput.evidence(beforeInput: beforeInput)
         pendingFeedback = nil
-        guard isEnabled, field == .text, autocorrectionType != .no else { return nil }
+        guard field == .text, autocorrectionType != .no else { return nil }
+        defer { keptShortcut = nil }
         guard let token = Self.currentToken(in: beforeInput) else { return nil }
+        guard isEnabled else { return textReplacement(token)?.text.map { (token, $0) } }
         rejectionContext = RejectedCorrection.context(before: beforeInput, token: token)
         let started = DispatchTime.now().uptimeNanoseconds
         let context = wordContext(before: beforeInput, token: token)
@@ -1461,13 +1484,11 @@ final class AutocorrectEngine {
 
     private func decide(_ token: String, evidence: KeyboardTouchWord?, forSuggestions: Bool,
                         context: KeyboardContextModel.WordContext?) -> Decision {
+        if let replacement = textReplacement(token) { return replacement }
         let lower = token.lowercased()
-        guard !protectedLexicon.contains(token),
+        guard !protectedLexicon.contains(token), lower != keptShortcut,
               !suppressedInSession.contains(lower), !learning.protections.isKept(token),
               !Self.shorthandAllowlist.contains(lower) else { return Decision(refusal: .refusedProtected) }
-        if let shortcut = lexiconShortcuts[lower] {
-            return automatic(shortcut, token: token, kind: .autoRule, counter: .autoRule)
-        }
         if token == "i", englishEnabled {
             return automatic("I", token: token, kind: .autoRule, counter: .autoRule)
         }

@@ -863,3 +863,12 @@ next word, a strip pick or delete takes the held space; the closing-mark set) is
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2214: `FullKeyboardEngine+SmartSpace.swift`).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Hex text replacements
+
+Text replacements in `ios/TyprShared/FullKeyboard/AutocorrectEngine.swift` follow
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb`: the replacement's casing (`shortcut(for:)`, PR #2153),
+replacements with Autocorrect off (PR #2147), before chat shorthand (PR #2148) and again after the
+shortcut was kept (PR #2173).
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
