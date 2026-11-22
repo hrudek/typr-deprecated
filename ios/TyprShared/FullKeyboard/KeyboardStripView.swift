@@ -160,10 +160,12 @@ final class KeyboardStripView: UIView {
         let undoW = min(bounds.width, undoChip.sizeThatFits(CGSize(width: bounds.width, height: undoH)).width)
         undoChip.frame = CGRect(x: (bounds.width - undoW) / 2, y: max(0, midY - undoH / 2), width: undoW, height: undoH)
         let slots = slotsRect
-        let slotW = slots.width / 3
+        let widths = slotWidths
+        var x = slots.minX
         for (idx, button) in slotButtons.enumerated() {
             button.inSystemPlatter = inSystemPlatter
-            button.frame = CGRect(x: slots.minX + CGFloat(idx) * slotW, y: 0, width: slotW, height: bounds.height)
+            button.frame = CGRect(x: x, y: 0, width: widths[idx], height: bounds.height)
+            x += widths[idx]
         }
         let chipH = min(30, max(22, bounds.height - 6))
         let chipW = min(bounds.width, codeChip.sizeThatFits(CGSize(width: bounds.width, height: chipH)).width)
@@ -173,6 +175,36 @@ final class KeyboardStripView: UIView {
             width: chipW,
             height: chipH
         )
+    }
+
+    private var slotWidths: [CGFloat] {
+        let wanted = (0..<3).map { idx in
+            idx < currentSuggestions.count ? Self.wantedWidth(for: currentSuggestions[idx]) : 0
+        }
+        return Self.slotWidths(total: slotsRect.width, wanted: wanted)
+    }
+
+    static func wantedWidth(for suggestion: KeyboardSuggestion) -> CGFloat { SlotButton.wantedWidth(for: suggestion) }
+
+    static func slotWidths(total: CGFloat, wanted: [CGFloat]) -> [CGFloat] {
+        let floorW = total / 4
+        var widths = wanted.map { max(floorW, $0) }
+        let spare = total - widths.reduce(0, +)
+        if spare >= 0 { return widths.map { $0 + spare / CGFloat(widths.count) } }
+        var order = widths.indices.sorted { widths[$0] < widths[$1] }
+        var share = total / CGFloat(widths.count)
+        var remaining = total
+        while let idx = order.first {
+            if widths[idx] <= share {
+                remaining -= widths[idx]
+                order.removeFirst()
+                share = order.isEmpty ? 0 : remaining / CGFloat(order.count)
+            } else {
+                for rest in order { widths[rest] = share }
+                break
+            }
+        }
+        return widths
     }
 
     private var slotsRect: CGRect {
@@ -187,11 +219,11 @@ final class KeyboardStripView: UIView {
         // 18.5 pt dividers, as in the owner's 2026-11-11 reference.
         let lineH: CGFloat = min(18.5, bounds.height * 0.56)
         let y = max(1, contentCenterY - lineH / 2)
-        let slotW = slots.width / 3
+        let widths = slotWidths
 
         palette.separator.setFill()
-        UIRectFill(CGRect(x: (slots.minX + slotW).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
-        UIRectFill(CGRect(x: (slots.minX + slotW * 2).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
+        UIRectFill(CGRect(x: (slots.minX + widths[0]).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
+        UIRectFill(CGRect(x: (slots.minX + widths[0] + widths[1]).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
     }
 
     /// Empty space passes through, so `FullKeyboardView` (never hidden) owns a hold there even
@@ -263,6 +295,17 @@ final class KeyboardStripView: UIView {
 
         @objc private func redraw() { setNeedsDisplay() }
 
+        static func font(for suggestion: KeyboardSuggestion) -> UIFont {
+            .systemFont(ofSize: 15.5, weight: suggestion.willAutoReplace || suggestion.kind == .revert ? .medium : .regular)
+        }
+
+        static func wantedWidth(for suggestion: KeyboardSuggestion) -> CGFloat {
+            let text = (suggestion.displayText as NSString).size(withAttributes: [.font: font(for: suggestion)]).width
+            return ceil(text) + (suggestion.kind == .revert ? 15 : 0) + textMargin
+        }
+
+        private static let textMargin: CGFloat = 22
+
         override func draw(_ rect: CGRect) {
             guard let suggestion else { return }
             let midY = inSystemPlatter ? bounds.height * 0.42 : bounds.height * 0.50
@@ -275,10 +318,7 @@ final class KeyboardStripView: UIView {
             )
             let isLiteral = suggestion.kind == .keepLiteral
             let isRevert = suggestion.kind == .revert
-            let font = UIFont.systemFont(
-                ofSize: 15.5,
-                weight: suggestion.willAutoReplace || isRevert ? .medium : .regular
-            )
+            let font = Self.font(for: suggestion)
             let ink = isLiteral && !suggestion.willAutoReplace ? palette.textBase.withAlphaComponent(0.88) : palette.textBase
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: font,

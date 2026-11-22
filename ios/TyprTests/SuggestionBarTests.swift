@@ -136,4 +136,27 @@ final class SuggestionBarTests: XCTestCase {
         view.suggestionBarOverride = true
         XCTAssertEqual(view.preferredHeight, 253)
     }
+
+    func testSlotWidthsGiveALongWordRoomAndAlwaysFillTheStrip() {
+        let equal = KeyboardStripView.slotWidths(total: 393, wanted: [0, 0, 0])
+        XCTAssertEqual(equal, [131, 131, 131])
+        let long = KeyboardStripView.slotWidths(total: 393, wanted: [60, 150, 60])
+        XCTAssertEqual(long.reduce(0, +), 393, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(long[1], 150)
+        let crowded = KeyboardStripView.slotWidths(total: 393, wanted: [150, 170, 150])
+        XCTAssertEqual(crowded.reduce(0, +), 393, accuracy: 0.001)
+        XCTAssertEqual(crowded[0], 131, accuracy: 0.001)
+    }
+
+    func testLongGermanWordsFitTheirSlotAtFullSizeOn393Points() {
+        for word in ["Entschuldigung", "selbstverständlich", "Möglichkeiten"] {
+            let suggestion = KeyboardSuggestion(displayText: word, replacement: word, kind: .primary(autoReplace: true))
+            for slot in 0..<3 {
+                var wanted: [CGFloat] = [70, 70, 70]
+                wanted[slot] = KeyboardStripView.wantedWidth(for: suggestion)
+                let widths = KeyboardStripView.slotWidths(total: 393, wanted: wanted)
+                XCTAssertGreaterThanOrEqual(widths[slot], wanted[slot], "\(word) in slot \(slot) is cut")
+            }
+        }
+    }
 }
