@@ -2,9 +2,6 @@ import Foundation
 import XCTest
 @testable import Typr
 
-/// Hex's model preparation (`DictationController+ModelPreparation`): a preparation that says
-/// nothing new ends, Automatic moves on after a language or memory set-aside, and a failed
-/// automatic guess keeps the engine that worked. A chosen engine never falls back.
 @MainActor
 final class ModelPreparationTests: XCTestCase {
     private var suiteName = ""
@@ -32,7 +29,6 @@ final class ModelPreparationTests: XCTestCase {
         return controller
     }
 
-    /// Hands out transcribers in order, the last one again once the list runs out.
     private final class Queue: @unchecked Sendable {
         private var items: [any LocalTranscribing]
         private(set) var made = 0
@@ -43,10 +39,8 @@ final class ModelPreparationTests: XCTestCase {
         }
     }
 
-    // MARK: - Ending a preparation that says nothing new
 
     func testAPreparationThatNeverReportsEndsAndTryAgainDoesNotWaitForIt() async throws {
-        // Like an XPC call that never returns: cancelling it doesn't end it.
         let hung = PrepTranscriber(.ignoresCancellation(.seconds(5)))
         let ready = PrepTranscriber(.ready)
         let queue = Queue([hung, ready])
@@ -74,6 +68,45 @@ final class ModelPreparationTests: XCTestCase {
         try await waitForState("ready") { controller.phase == .ready }
     }
 
+    func testDeletionWaitsForALoadTheTimeoutDropped() async throws {
+        let dropped = PrepTranscriber(.ignoresCancellation(.seconds(2)), name: "Parakeet V2")
+        let provider = PrepProvider(PrepTranscriber(.ready))
+        let controller = controller(factory: { dropped }, provider: provider)
+        controller.prepareModel()
+        try await waitForState("ended") { controller.phase.isFailure }
+        let deletion = Task { await controller.deleteModel(.parakeetV2) }
+        try await Task.sleep(for: .milliseconds(200))
+        XCTAssertTrue(provider.deleted.isEmpty, "the dropped load still reads its files")
+        let finished = await dropped.finished
+        XCTAssertFalse(finished)
+        _ = await deletion.value
+        let finishedNow = await dropped.finished
+        XCTAssertTrue(finishedNow)
+        XCTAssertEqual(provider.deleted, [.parakeetV2])
+    }
+
+    func testALateDroppedLoadDoesNotEndTheTrackingOfTheNewerOne() async throws {
+        let dropped = PrepTranscriber(.ignoresCancellation(.milliseconds(800)), name: "Parakeet V2")
+        let newer = PrepTranscriber(.gated, name: "Parakeet V2")
+        let queue = Queue([dropped, newer])
+        let provider = PrepProvider(PrepTranscriber(.ready))
+        let controller = controller(factory: { queue.next() }, provider: provider)
+        controller.prepareModel()
+        try await waitForState("ended") { controller.phase.isFailure }
+
+        controller.preparationLimits = (firstReport: .seconds(60), stall: .seconds(60))
+        controller.prepareModel()
+        try await waitForState("newer load running") { await newer.entered }
+        try await waitForState("dropped load returned") { await dropped.finished }
+
+        let deletion = Task { await controller.deleteModel(.parakeetV2) }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertTrue(provider.deleted.isEmpty, "the newer load still reads its files")
+        await newer.release()
+        _ = await deletion.value
+        XCTAssertEqual(provider.deleted, [.parakeetV2])
+    }
+
     func testAChosenDownloadedEngineKeepsTyprsBackgroundPreparationInstead() async throws {
         let provider = PrepProvider(PrepTranscriber(.silentFor(.milliseconds(900)), name: "Orukeet"))
         let controller = controller(provider: provider)
@@ -82,7 +115,6 @@ final class ModelPreparationTests: XCTestCase {
         XCTAssertEqual(controller.currentEngine, .orukeet)
     }
 
-    // MARK: - Automatic moves on, a chosen engine never does
 
     func testAutomaticMovesOnFromALanguageThisIPhoneCantDictate() async throws {
         let russian = SpeechModelUnavailable(language: "ru-RU", reason: .notOnThisIPhone, fallback: "en-US")
@@ -122,7 +154,6 @@ final class ModelPreparationTests: XCTestCase {
         XCTAssertNil(controller.languageNotice)
     }
 
-    // MARK: - A failed guess keeps the engine that worked (Hex #2371)
 
     func testAFailedAutomaticGuessKeepsTheEngineThatWorked() async throws {
         let working = PrepTranscriber(.ready, name: "Apple Speech")
@@ -150,7 +181,6 @@ final class ModelPreparationTests: XCTestCase {
         XCTAssertEqual(controller.languageNotice, "The speech model isn't ready. Try again. Typr keeps using Apple Speech.")
     }
 
-    // MARK: - A download cut off in the background
 
     func testADownloadCutOffInTheBackgroundIsTriedAgainOnReturn() async throws {
         let queue = Queue([PrepTranscriber(.fails(URLError(.networkConnectionLost))), PrepTranscriber(.ready)])
@@ -188,9 +218,18 @@ private actor PrepTranscriber: LocalTranscribing {
         case ignoresCancellation(Duration)
         case silentFor(Duration)
         case reportsThenHangs
-        /// Reports something new every 100 ms for that long, then is ready.
         case reportsFor(Duration)
+        case gated
         case fails(any Error & Sendable)
+    }
+
+    private var gate: CheckedContinuation<Void, Never>?
+    private(set) var entered = false
+    private(set) var finished = false
+
+    func release() {
+        gate?.resume()
+        gate = nil
     }
 
     nonisolated let displayName: String
@@ -203,6 +242,8 @@ private actor PrepTranscriber: LocalTranscribing {
     }
 
     func prepare(progressHandler: @escaping @Sendable (ModelPreparationProgress) -> Void) async throws {
+        entered = true
+        defer { finished = true }
         switch behavior {
         case .ready:
             progressHandler(ModelPreparationProgress(fractionCompleted: 1, detail: "Ready"))
@@ -228,6 +269,8 @@ private actor PrepTranscriber: LocalTranscribing {
                 progressHandler(ModelPreparationProgress(fractionCompleted: step, detail: "Downloading"))
                 try await Task.sleep(for: .milliseconds(100))
             }
+        case .gated:
+            await withCheckedContinuation { gate = $0 }
         case .fails(let error):
             throw error
         }
@@ -255,13 +298,17 @@ private final class PrepProvider: SpeechEngineProviding {
         return transcriber
     }
 
+    private(set) var deleted: [SpeechEngineChoice] = []
+
     func isInstalled(_ engine: SpeechEngineChoice) -> Bool { true }
 
     func availability(of engine: SpeechEngineChoice, language: DictationLanguage) async -> SpeechEngineAvailability {
         .installed
     }
 
-    func deleteModel(_ engine: SpeechEngineChoice) throws {}
+    func deleteModel(_ engine: SpeechEngineChoice) throws {
+        deleted.append(engine)
+    }
 }
 
 private final class PrepAudio: AudioManaging {

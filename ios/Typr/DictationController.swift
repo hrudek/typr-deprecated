@@ -242,9 +242,10 @@ final class DictationController {
     /// The engine of the ready transcriber; nil while none is ready or while switching.
     private(set) var currentEngine: SpeechEngineChoice?
     private(set) var isDeletingModel = false
-    @ObservationIgnored private var loadingEngine: SpeechEngineChoice? {
+    /// Every candidate still inside `prepare`, by its preparation generation, including one a
+    /// timeout dropped: a Core ML load can't be interrupted, so deletion waits for each.
+    @ObservationIgnored private var loadingEngines: [UInt64: SpeechEngineChoice] = [:] {
         didSet {
-            guard loadingEngine == nil else { return }
             let waiters = loadFinishedWaiters
             loadFinishedWaiters = []
             waiters.forEach { $0.resume() }
@@ -259,13 +260,8 @@ final class DictationController {
     /// language this iPhone can't dictate yet, Parakeet had no room, or a new guess failed and
     /// the engine that worked keeps dictating.
     private(set) var languageNotice: String?
-    /// Whether Typr is in the background, where iOS suspends it and a download's connection
-    /// drops.
     @ObservationIgnored private var isInBackground = false
-    /// A model download that failed while Typr was in the background, tried again on return.
     @ObservationIgnored private var preparationFailedInBackground = false
-    /// `watchPreparation`: when the preparation last said something new, whether it has said
-    /// anything yet, and how long each may last.
     @ObservationIgnored private var preparationChangedAt = ContinuousClock.now
     @ObservationIgnored private var preparationReported = false
     @ObservationIgnored var preparationLimits = (firstReport: Duration.seconds(30), stall: Duration.seconds(120))
@@ -550,13 +546,15 @@ final class DictationController {
             preparationTask?.cancel()
             modelBackground?.finish(success: false)
             transcriber = UnpreparedTranscriber(displayName: engineName)
-            workingEngine = nil
             currentEngine = nil
             isModelReady = false
             phase = .modelRequired
         }
+        if workingEngine?.engine == engine {
+            workingEngine = nil
+        }
         // A Core ML load cannot be interrupted, also one superseded by another engine's choice.
-        while loadingEngine == engine {
+        while loadingEngines.values.contains(engine) {
             await withCheckedContinuation { loadFinishedWaiters.append($0) }
         }
         let result: ModelDeletion
@@ -1136,8 +1134,8 @@ final class DictationController {
                     self.workingEngine = nil
                 }
                 engineName = candidate.displayName
-                loadingEngine = SpeechEngineChoice(displayName: candidate.displayName)
-                defer { loadingEngine = nil }
+                loadingEngines[prepGen] = SpeechEngineChoice(displayName: candidate.displayName)
+                defer { loadingEngines[prepGen] = nil }
                 try await candidate.prepare { [weak self] progress in
                     Task { @MainActor [weak self] in
                         guard let self, self.modelPrepGeneration == prepGen else { return }
@@ -1198,8 +1196,6 @@ final class DictationController {
         }
     }
 
-    /// The engine that dictated before an automatic preparation that failed or stalled keeps
-    /// dictating, and home says why.
     private func restore(_ working: WorkingEngine, because reason: String) {
         workingEngine = nil
         transcriber = working.transcriber
@@ -1242,7 +1238,6 @@ final class DictationController {
                 self.modelPrepGeneration &+= 1
                 self.preparationTask?.cancel()
                 self.preparationTask = nil
-                self.loadingEngine = nil
                 let message = "The speech model isn't ready. Try again."
                 if let working = self.workingEngine {
                     self.restore(working, because: message)
@@ -1257,9 +1252,6 @@ final class DictationController {
         }
     }
 
-    /// What home says when an automatic preparation failed in a way the next pick gets past:
-    /// Automatic set a language aside, or Parakeet found too little memory to load (it set
-    /// itself aside, so the next pick is Apple's).
     nonisolated static func switchNotice(for error: any Error) -> String? {
         if let unavailable = error as? SpeechModelUnavailable, unavailable.switchedAutomatically {
             return unavailable.errorDescription
