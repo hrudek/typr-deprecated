@@ -9,7 +9,7 @@ func touchPosteriorReport() throws -> String {
     ]
     let probes: [(Double, Double)] = [(0, 0), (0.3, -0.2), (-0.9, 0.6), (0.95, -0.95)]
 
-    func point(_ offset: (Double, Double), on key: KeyboardKey, in layout: KeyboardLayout) -> CGPoint {
+    func point(_ offset: (Double, Double), on key: TyprKeyboardKey, in layout: TyprKeyboardLayout) -> CGPoint {
         CGPoint(x: key.frame.midX + CGFloat(offset.0) * (key.frame.width + layout.metrics.gap),
                 y: key.frame.midY + CGFloat(offset.1) * (key.frame.height + layout.metrics.rowGap))
     }
@@ -18,13 +18,13 @@ func touchPosteriorReport() throws -> String {
          "covarianceXY": key.covarianceXY, "degrees": key.degrees]
     }
     func layoutCase(labels n: Int) -> [String: Any] {
-        let layout = KeyboardLayout(width: 393)
+        let layout = TyprKeyboardLayout(width: 393)
         let f = layout.key(.character("f"))!, q = layout.key(.character("q"))!
         let model = PersonalTypingModel()
         let labels = taps.prefix(n).map { TouchLabel(point: point($0, on: f, in: layout), letter: "f") }
         model.learn(labels, layout: layout, source: .keep)
         let calibration = PersonalTypingModel(state: model.state).calibration(for: layout)
-        func densities(_ key: KeyboardKey) -> [Double?] {
+        func densities(_ key: TyprKeyboardKey) -> [Double?] {
             probes.map { KeyboardBoundaryTouch.letterDensity(point($0, on: key, in: layout), key: key, layout: layout,
                                                              calibration: calibration) }
         }

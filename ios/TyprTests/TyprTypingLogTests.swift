@@ -3,8 +3,8 @@ import XCTest
 @testable import Typr
 
 @MainActor
-final class TypingLogTests: XCTestCase {
-    private final class Checker: TextChecking {
+final class TyprTypingLogTests: XCTestCase {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { ["the", "hello", "world", "cat", "cats"].contains(word) }
         func guesses(for word: String) -> [String] { word == "teh" ? ["the"] : [] }
         func completions(for prefix: String) -> [String] { [] }
@@ -14,14 +14,14 @@ final class TypingLogTests: XCTestCase {
     private var suite: String!
     private var directory: URL!
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var written: [TypingLogWord] = []
     private var clock: TimeInterval = 100
     /// Whole seconds: the export's ISO 8601 dates keep no fractions.
     private let wall = Date(timeIntervalSince1970: 1_800_000_000)
 
     override func setUp() async throws {
-        suite = "TypingLogTests-\(UUID().uuidString)"
+        suite = "TyprTypingLogTests-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)!
         directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         written = []
@@ -39,15 +39,15 @@ final class TypingLogTests: XCTestCase {
         target.autocapitalizationType = UITextAutocapitalizationType.none
         configure(target)
         let learning = KeyboardLearningSession(defaults: defaults)
-        let autocorrect = AutocorrectEngine(checker: Checker(), learning: learning, spatialDecoder: nil)
+        let autocorrect = TyprAutocorrectEngine(checker: Checker(), learning: learning, spatialDecoder: nil)
         let log = TypingLogRecorder(write: { [unowned self] in self.written.append($0) }, now: { [unowned self] in self.wall })
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect, typingLog: log)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect, typingLog: log)
         engine.width = 393
         engine.clock = { [unowned self] in self.clock }
         engine.configureForField()
     }
 
-    private func tap(_ kind: KeyKind) {
+    private func tap(_ kind: TyprKeyKind) {
         let frame = engine.layout.key(kind)!.frame
         let point = CGPoint(x: frame.midX, y: frame.midY)
         engine.touchBegan(id: 1, at: point)
@@ -130,7 +130,7 @@ final class TypingLogTests: XCTestCase {
     }
 
     private func record(_ text: String, into log: TypingLogRecorder, field: inout String) {
-        let layout = KeyboardLayout(width: 393)
+        let layout = TyprKeyboardLayout(width: 393)
         for character in text.map(String.init) {
             field += character
             if character == " " { log.boundary(" "); continue }
@@ -208,12 +208,12 @@ final class TypingLogTests: XCTestCase {
     }
 
     func testStoreKeepsOnlyTheMostRecentSegments() throws {
-        let store = TypingLogStore(directory: directory, segmentWords: 3)
+        let store = TyprTypingLogStore(directory: directory, segmentWords: 3)
         for index in 1...8 { store.append(word("w\(index)")) }
         store.waitForWrites()
         XCTAssertEqual(try store.words().map(\.meant), ["w4", "w5", "w6", "w7", "w8"])
         XCTAssertEqual(try store.wordCount(), 5)
-        let reopened = TypingLogStore(directory: directory, segmentWords: 3)
+        let reopened = TyprTypingLogStore(directory: directory, segmentWords: 3)
         reopened.append(word("w9"))
         reopened.append(word("w10"))
         reopened.waitForWrites()
@@ -221,8 +221,8 @@ final class TypingLogTests: XCTestCase {
     }
 
     func testTwoKeyboardProcessesShareTheRotation() throws {
-        let first = TypingLogStore(directory: directory, segmentWords: 3)
-        let second = TypingLogStore(directory: directory, segmentWords: 3)
+        let first = TyprTypingLogStore(directory: directory, segmentWords: 3)
+        let second = TyprTypingLogStore(directory: directory, segmentWords: 3)
         for index in 1...10 {
             let store = index.isMultiple(of: 2) ? second : first
             store.append(word("w\(index)"))
@@ -232,10 +232,10 @@ final class TypingLogTests: XCTestCase {
     }
 
     func testAppendAfterACutShortLineKeepsTheNewWord() throws {
-        let store = TypingLogStore(directory: directory)
+        let store = TyprTypingLogStore(directory: directory)
         store.append(word("hello"))
         store.waitForWrites()
-        let file = directory.appendingPathComponent(TypingLogStore.currentName)
+        let file = directory.appendingPathComponent(TyprTypingLogStore.currentName)
         let handle = try FileHandle(forWritingTo: file)
         try handle.seekToEnd()
         try handle.write(contentsOf: Data("{\"at\":".utf8))
@@ -246,7 +246,7 @@ final class TypingLogTests: XCTestCase {
     }
 
     func testRotationByAnotherProcessIsNotMistakenForTheSameFile() throws {
-        let layout = TypingLogLayout(KeyboardLayout(width: 393))
+        let layout = TypingLogLayout(TyprKeyboardLayout(width: 393))
         // Line sizes need a, b, c with size(a) + size(b) == size(c); tap count and meant length vary
         // independently so a solution exists whatever the fixed per-record overhead is.
         let candidates: [TypingLogWord] = (1...3).flatMap { count in (1...1500).map { length -> TypingLogWord in
@@ -265,8 +265,8 @@ final class TypingLogTests: XCTestCase {
             }
         }
         let (small, other, big) = try XCTUnwrap(match)
-        let first = TypingLogStore(directory: directory, segmentWords: 3)
-        let second = TypingLogStore(directory: directory, segmentWords: 3)
+        let first = TyprTypingLogStore(directory: directory, segmentWords: 3)
+        let second = TyprTypingLogStore(directory: directory, segmentWords: 3)
         first.append(big)
         first.waitForWrites()
         for entry in [small, small, small, other] { second.append(entry) }
@@ -278,7 +278,7 @@ final class TypingLogTests: XCTestCase {
     }
 
     func testOversizedRecordIsNotWritten() throws {
-        let store = TypingLogStore(directory: directory)
+        let store = TyprTypingLogStore(directory: directory)
         var huge = word("hello")
         huge.corrections = Array(repeating: .init(kind: .pick, from: String(repeating: "a", count: 1_000), to: "a"),
                                  count: 20)
@@ -289,7 +289,7 @@ final class TypingLogTests: XCTestCase {
     }
 
     func testDeleteRemovesTheLog() throws {
-        let store = TypingLogStore(directory: directory)
+        let store = TyprTypingLogStore(directory: directory)
         store.append(word("hello"))
         store.waitForWrites()
         try store.delete()
@@ -301,7 +301,7 @@ final class TypingLogTests: XCTestCase {
 
     func testExportIsVersionedAndCarriesLearningAndPersonalWords() throws {
         type("hello w")
-        let store = TypingLogStore(directory: directory)
+        let store = TyprTypingLogStore(directory: directory)
         written.forEach(store.append)
         let model = PersonalTypingModel(now: { [unowned self] in self.wall })
         model.keep("typr")

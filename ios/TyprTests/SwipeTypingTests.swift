@@ -8,7 +8,7 @@ import XCTest
 @MainActor
 final class SwipeTypingTests: XCTestCase {
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var now: TimeInterval = 100
     private var suiteName: String!
     private var defaults: UserDefaults!
@@ -43,7 +43,7 @@ final class SwipeTypingTests: XCTestCase {
         target = FixtureTextTarget(text: text)
         target.autocapitalizationType = UITextAutocapitalizationType.none
         target.keyboardType = keyboardType
-        let ac = AutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults),
+        let ac = TyprAutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults),
                                    spatialDecoder: SpatialWordDecoder(lexicons: Self.lexicons))
         let script = script
         let scripted: SwipeDecoding = { _ in
@@ -52,7 +52,7 @@ final class SwipeTypingTests: XCTestCase {
                 return script.results
             }
         }
-        engine = FullKeyboardEngine(target: target, autocorrect: ac, swipeDecoder: decoder ?? scripted)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: ac, swipeDecoder: decoder ?? scripted)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.configureForField()
@@ -101,7 +101,7 @@ final class SwipeTypingTests: XCTestCase {
         now += 0.3
     }
 
-    private func tap(_ kind: KeyKind) {
+    private func tap(_ kind: TyprKeyKind) {
         let key = engine.layout.key(kind)!
         let at = CGPoint(x: key.frame.midX, y: key.frame.midY)
         engine.touchBegan(id: 9, at: at)
@@ -325,16 +325,16 @@ final class SwipeTypingTests: XCTestCase {
     // MARK: - Spelling
 
     func testGermanNounsTakeDictionaryCasing() {
-        let ac = AutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
+        let ac = TyprAutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
         ac.german = GermanAutocorrect(checker: SwipeChecker(valid: ["Haus", "laufen", "Laufen"]))
         XCTAssertEqual(ac.swipeSpelling("haus", language: .german), "Haus")
         XCTAssertEqual(ac.swipeSpelling("laufen", language: .german), "laufen")
         XCTAssertEqual(ac.swipeSpelling("house", language: .english), "house")
-        XCTAssertEqual(FullKeyboardEngine.swipeCased("straße", shift: .locked), "STRASSE")
-        XCTAssertEqual(FullKeyboardEngine.swipeCased("über", shift: .on), "Über")
-        XCTAssertFalse(FullKeyboardEngine.swipeNeedsSpace(before: "("))
-        XCTAssertFalse(FullKeyboardEngine.swipeNeedsSpace(before: "a "))
-        XCTAssertTrue(FullKeyboardEngine.swipeNeedsSpace(before: "Hi,"))
+        XCTAssertEqual(TyprFullKeyboardEngine.swipeCased("straße", shift: .locked), "STRASSE")
+        XCTAssertEqual(TyprFullKeyboardEngine.swipeCased("über", shift: .on), "Über")
+        XCTAssertFalse(TyprFullKeyboardEngine.swipeNeedsSpace(before: "("))
+        XCTAssertFalse(TyprFullKeyboardEngine.swipeNeedsSpace(before: "a "))
+        XCTAssertTrue(TyprFullKeyboardEngine.swipeNeedsSpace(before: "Hi,"))
     }
 
     // MARK: - Recognition (bundled model and word lists)
@@ -392,7 +392,7 @@ private actor SwipeGate {
 }
 
 @MainActor
-private final class SwipeChecker: TextChecking {
+private final class SwipeChecker: TyprTextChecking {
     let valid: Set<String>
     init(valid: Set<String>) { self.valid = valid }
     func isWordValid(_ word: String) -> Bool { valid.contains(word) }

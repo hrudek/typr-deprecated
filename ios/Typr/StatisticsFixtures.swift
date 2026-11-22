@@ -46,7 +46,7 @@ enum StatisticsFixture: String {
         }
         var state = PersonalTypingModel.State()
         if self != .empty {
-            let layout = KeyboardLayout(width: 392)
+            let layout = TyprKeyboardLayout(width: 392)
             let signature = KeyboardLayoutSignature(layout)
             var keys: [String: PersonalTypingModel.TouchStats] = [:]
             for (index, letter) in "qwertyuiopasdfghjklzxcvbnm".enumerated() {

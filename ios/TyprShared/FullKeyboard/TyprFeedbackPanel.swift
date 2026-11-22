@@ -1,7 +1,7 @@
 import UIKit
 
 /// After a dictation, Good / Problem as large tiles over the whole full keyboard, where the
-/// recording panel was. `FullKeyboardView` closes it on any tap except Problem, which leaves
+/// recording panel was. `TyprFullKeyboardView` closes it on any tap except Problem, which leaves
 /// *Fix in Typr* (opens the app on exactly this entry) and ✕. A rating that could not be queued
 /// and, without the suggestion bar, Typr's messages use the same panel. No document proxy here.
 ///
@@ -25,9 +25,9 @@ final class TyprFeedbackPanel: UIView {
     static let dismissFeedbackLabel = "Dismiss dictation feedback"
     static let dismissMessageLabel = "Dismiss message"
 
-    var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { rebuild() } } }
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { rebuild() } } }
     var content: Content = .ask { didSet { if content != oldValue { rebuild() } } }
-    var metrics = KeyboardMetrics.portrait { didSet { setNeedsLayout() } }
+    var metrics = TyprKeyboardMetrics.portrait { didSet { setNeedsLayout() } }
     var horizontalInset: CGFloat = 0 { didSet { setNeedsLayout() } }
 
     var onGood: (() -> Void)?
@@ -162,7 +162,7 @@ final class TyprFeedbackPanel: UIView {
         let innerRight = bounds.width - horizontalInset - metrics.side
         let innerW = max(120, innerRight - innerLeft)
         let headerTop = metrics.stripTop
-        let headerH = KeyboardMetrics.headerHeight
+        let headerH = TyprKeyboardMetrics.headerHeight
 
         closeButton.frame = CGRect(x: innerRight - 44, y: headerTop + (headerH - 30) / 2, width: 44, height: 30)
         titleLabel.frame = CGRect(

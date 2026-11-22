@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class OnDeviceModelPredictionTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { true }
         func guesses(for word: String) -> [String] { [] }
         func completions(for prefix: String) -> [String] { [] }
@@ -39,9 +39,9 @@ final class OnDeviceModelPredictionTests: XCTestCase {
 
     private let sentence = "I would like to "
 
-    private func keyboard(_ model: FakeSystemModel?) throws -> (FullKeyboardEngine, FixtureTextTarget) {
+    private func keyboard(_ model: FakeSystemModel?) throws -> (TyprFullKeyboardEngine, FixtureTextTarget) {
         let target = FixtureTextTarget()
-        let engine = FullKeyboardEngine(target: target, autocorrect: AutocorrectEngine(
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: TyprAutocorrectEngine(
             checker: Checker(), spatialDecoder: nil,
             contextResources: .init(model: try XCTUnwrap(BundledKeyboardData.contextModel))))
         engine.width = 393
@@ -52,13 +52,13 @@ final class OnDeviceModelPredictionTests: XCTestCase {
         return (engine, target)
     }
 
-    private func type(_ text: String, _ engine: FullKeyboardEngine, _ target: FixtureTextTarget) async {
+    private func type(_ text: String, _ engine: TyprFullKeyboardEngine, _ target: FixtureTextTarget) async {
         target.insertText(text)
         engine.textDidChange()
         await engine.waitForSuggestions()
     }
 
-    private func settle(_ engine: FullKeyboardEngine) async {
+    private func settle(_ engine: TyprFullKeyboardEngine) async {
         await engine.waitForSuggestions()
         let limit = ContinuousClock.now.advanced(by: .seconds(10))
         while engine.modelPredictions?.isActive == true, ContinuousClock.now < limit {
@@ -66,7 +66,7 @@ final class OnDeviceModelPredictionTests: XCTestCase {
         }
     }
 
-    private func bar(_ engine: FullKeyboardEngine) -> [String] { engine.suggestions.map(\.replacement) }
+    private func bar(_ engine: TyprFullKeyboardEngine) -> [String] { engine.suggestions.map(\.replacement) }
 
     private func countedBar() async throws -> [String] {
         let (engine, target) = try keyboard(nil)
@@ -74,9 +74,9 @@ final class OnDeviceModelPredictionTests: XCTestCase {
         return bar(engine)
     }
 
-    private func view() -> FullKeyboardView {
-        FullKeyboardView(model: KeyboardViewModel(), target: FixtureTextTarget(),
-                         autocorrect: AutocorrectEngine(spatialDecoder: nil))
+    private func view() -> TyprFullKeyboardView {
+        TyprFullKeyboardView(model: KeyboardViewModel(), target: FixtureTextTarget(),
+                         autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
     }
 
     // MARK: - Choosing the source

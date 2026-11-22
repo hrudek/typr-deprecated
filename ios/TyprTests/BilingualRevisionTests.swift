@@ -7,7 +7,7 @@ import XCTest
 @MainActor
 final class BilingualRevisionTests: XCTestCase {
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var now: TimeInterval = 200
 
     private static let english: Set<String> = [
@@ -22,7 +22,7 @@ final class BilingualRevisionTests: XCTestCase {
     private func makeEngine(german: Bool = true, english: Bool = true, contextWords: Bool = false) {
         target = FixtureTextTarget()
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let autocorrect = AutocorrectEngine(
+        let autocorrect = TyprAutocorrectEngine(
             checker: Checker(valid: Self.english, guesses: ["teh": ["the"]]),
             learning: KeyboardLearningSession(state: PersonalTypingModel.State()), spatialDecoder: nil,
             contextResources: .init(model: BundledKeyboardData.contextModel))
@@ -32,13 +32,13 @@ final class BilingualRevisionTests: XCTestCase {
                 valid: Self.german, guesses: ["fur": ["für"], "uber": ["über"], "shcon": ["schon"]]))
         }
         autocorrect.choosesWordsFromContext = contextWords
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.configureForField()
     }
 
-    private func tap(_ kind: KeyKind) {
+    private func tap(_ kind: TyprKeyKind) {
         let key = engine.layout.key(kind)!
         let center = CGPoint(x: key.frame.midX, y: key.frame.midY)
         engine.touchBegan(id: 1, at: center)
@@ -137,7 +137,7 @@ final class BilingualRevisionTests: XCTestCase {
     }
 }
 
-private final class Checker: TextChecking {
+private final class Checker: TyprTextChecking {
     let valid: Set<String>
     let table: [String: [String]]
     init(valid: Set<String>, guesses: [String: [String]]) { self.valid = valid; table = guesses }

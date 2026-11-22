@@ -4,7 +4,7 @@ import Foundation
 // EmojiSuggester.swift at d65b02d36efbaf1ff771420e89c0632dea4706cb (MIT).
 
 /// The emoji panel's categories, in the order its bar shows them.
-nonisolated enum EmojiCategory: Int, CaseIterable, Sendable {
+nonisolated enum TyprEmojiCategory: Int, CaseIterable, Sendable {
     case smileysPeople
     case animalsNature
     case foodDrink
@@ -46,13 +46,13 @@ nonisolated enum EmojiCategory: Int, CaseIterable, Sendable {
 /// so only the catalog's strings and one offset per word sit on the keyboard's heap.
 nonisolated final class EmojiIndex: @unchecked Sendable {
     let emoji: [String]
-    let categories: [EmojiCategory]
+    let categories: [TyprEmojiCategory]
     private let entryByEmoji: [String: Int]
     private let data: Data
     /// Where each word line's key starts, in file (UTF-8) order.
     private let wordLines: [Int32]
 
-    private init(data: Data, emoji: [String], categories: [EmojiCategory], wordLines: [Int32]) {
+    private init(data: Data, emoji: [String], categories: [TyprEmojiCategory], wordLines: [Int32]) {
         self.data = data
         self.emoji = emoji
         self.categories = categories
@@ -68,7 +68,7 @@ nonisolated final class EmojiIndex: @unchecked Sendable {
 
     static func load(data: Data) -> EmojiIndex? {
         var emoji: [String] = []
-        var categories: [EmojiCategory] = []
+        var categories: [TyprEmojiCategory] = []
         var wordLines: [Int32] = []
         data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
             let bytes = raw.bindMemory(to: UInt8.self)
@@ -86,7 +86,7 @@ nonisolated final class EmojiIndex: @unchecked Sendable {
                     var tab = body
                     while tab < lineEnd, bytes[tab] != 9 { tab += 1 }
                     guard tab + 1 < lineEnd,
-                          let category = EmojiCategory(rawValue: Int(bytes[tab + 1]) - Int(UInt8(ascii: "0"))) else { continue }
+                          let category = TyprEmojiCategory(rawValue: Int(bytes[tab + 1]) - Int(UInt8(ascii: "0"))) else { continue }
                     emoji.append(String(decoding: UnsafeBufferPointer(rebasing: bytes[body..<tab]), as: UTF8.self))
                     categories.append(category)
                 default:

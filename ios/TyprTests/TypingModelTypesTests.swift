@@ -5,32 +5,32 @@ import XCTest
 @MainActor
 final class TypingModelTypesTests: XCTestCase {
     func testSignatureBucketsAndID() throws {
-        let signature = KeyboardLayoutSignature(KeyboardLayout(width: 393, showsGlobe: true))
+        let signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: 393, showsGlobe: true))
         XCTAssertEqual(signature.orientation, "portrait")
         XCTAssertEqual(signature.widthBucket, 392)
         XCTAssertEqual(signature.id, "portrait-392-strip-globe")
-        XCTAssertEqual(signature, KeyboardLayoutSignature(KeyboardLayout(width: 395.9, showsGlobe: true)))
-        XCTAssertEqual(KeyboardLayoutSignature(KeyboardLayout(width: 388)).widthBucket, 392)
-        XCTAssertEqual(KeyboardLayoutSignature(KeyboardLayout(width: 396)).widthBucket, 400)
-        XCTAssertEqual(KeyboardLayoutSignature(KeyboardLayout(width: 387.9)).widthBucket, 384)
+        XCTAssertEqual(signature, KeyboardLayoutSignature(TyprKeyboardLayout(width: 395.9, showsGlobe: true)))
+        XCTAssertEqual(KeyboardLayoutSignature(TyprKeyboardLayout(width: 388)).widthBucket, 392)
+        XCTAssertEqual(KeyboardLayoutSignature(TyprKeyboardLayout(width: 396)).widthBucket, 400)
+        XCTAssertEqual(KeyboardLayoutSignature(TyprKeyboardLayout(width: 387.9)).widthBucket, 384)
 
-        let landscape = KeyboardLayoutSignature(KeyboardLayout(
+        let landscape = KeyboardLayoutSignature(TyprKeyboardLayout(
             width: 393, orientation: .landscape, showsGlobe: false, showsStrip: false
         ))
         XCTAssertEqual(landscape.id, "landscape-392-no-strip-no-globe")
         XCTAssertNotEqual(signature, landscape)
-        XCTAssertNotEqual(signature, KeyboardLayoutSignature(KeyboardLayout(width: 393)))
-        XCTAssertNotEqual(signature, KeyboardLayoutSignature(KeyboardLayout(width: 393, showsGlobe: true, showsStrip: false)))
+        XCTAssertNotEqual(signature, KeyboardLayoutSignature(TyprKeyboardLayout(width: 393)))
+        XCTAssertNotEqual(signature, KeyboardLayoutSignature(TyprKeyboardLayout(width: 393, showsGlobe: true, showsStrip: false)))
         XCTAssertEqual(try JSONDecoder().decode(KeyboardLayoutSignature.self, from: JSONEncoder().encode(signature)), signature)
     }
 
     func testAlignedColumnsAreASeparateSignatureAndOlderDataStaysStaggered() throws {
-        let staggered = KeyboardLayoutSignature(KeyboardLayout(width: 951, orientation: .splitLandscape))
-        let aligned = KeyboardLayoutSignature(KeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: true))
+        let staggered = KeyboardLayoutSignature(TyprKeyboardLayout(width: 951, orientation: .splitLandscape))
+        let aligned = KeyboardLayoutSignature(TyprKeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: true))
         XCTAssertEqual(staggered.id, "splitLandscape-952-strip-no-globe")
         XCTAssertEqual(aligned.id, "splitLandscape-952-strip-no-globe-aligned")
         XCTAssertNotEqual(staggered, aligned)
-        XCTAssertEqual(KeyboardLayoutSignature(KeyboardLayout(width: 951, orientation: .wideLandscape, splitColumns: true)).id,
+        XCTAssertEqual(KeyboardLayoutSignature(TyprKeyboardLayout(width: 951, orientation: .wideLandscape, splitColumns: true)).id,
                        "wideLandscape-952-strip-no-globe")
 
         let old = Data(#"{"orientation":"splitLandscape","widthBucket":952,"showsStrip":true,"showsGlobe":false}"#.utf8)

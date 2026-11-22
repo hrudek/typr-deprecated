@@ -4,13 +4,13 @@ import UIKit
 struct KeyboardAppearancePage: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var design = FullKeyboardSettings().design
+    @State private var design = TyprFullKeyboardSettings().design
     @State private var hideSuggestionBar = TyprSettings().hideSuggestionBar
-    @State private var globeKey = FullKeyboardSettings().globeKey
-    @State private var bottomRow = FullKeyboardSettings().bottomRow
-    @State private var numberRow = FullKeyboardSettings().numberRow
-    @State private var splitKeyboard = FullKeyboardSettings().splitKeyboard
-    @State private var splitColumns = FullKeyboardSettings().splitColumns
+    @State private var globeKey = TyprFullKeyboardSettings().globeKey
+    @State private var bottomRow = TyprFullKeyboardSettings().bottomRow
+    @State private var numberRow = TyprFullKeyboardSettings().numberRow
+    @State private var splitKeyboard = TyprFullKeyboardSettings().splitKeyboard
+    @State private var splitColumns = TyprFullKeyboardSettings().splitColumns
     @State private var letterLayouts = Self.storedLetterLayouts()
     @State private var languageOrder = TyprSettings().autocorrectLanguageOrder
     @State private var draggedOrder: [BottomKey]?
@@ -23,8 +23,8 @@ struct KeyboardAppearancePage: View {
     static let splitKeyboardFooter = "Only when iPhone Duo is open and sideways."
     static let letterLayoutFooter = "The keyboard uses the layout of the first selected autocorrect language."
 
-    private static func storedLetterLayouts() -> [SpatialWordDecoder.Language: KeyboardLetterLayout] {
-        Dictionary(uniqueKeysWithValues: SpatialWordDecoder.Language.allCases.map { ($0, FullKeyboardSettings().letters(for: $0)) })
+    private static func storedLetterLayouts() -> [SpatialWordDecoder.Language: TyprKeyboardLetterLayout] {
+        Dictionary(uniqueKeysWithValues: SpatialWordDecoder.Language.allCases.map { ($0, TyprFullKeyboardSettings().letters(for: $0)) })
     }
 
     /// `settings-keyboard-appearance-light` and `-dark` fix the preview's appearance for screenshots.
@@ -50,7 +50,7 @@ struct KeyboardAppearancePage: View {
             container: container,
             splitKeyboard: splitKeyboard,
             splitColumns: splitColumns,
-            letters: FullKeyboardSettings().letters
+            letters: TyprFullKeyboardSettings().letters
         )
     }
 
@@ -89,7 +89,7 @@ struct KeyboardAppearancePage: View {
     }
 
     static func dockBackdrop(isDark: Bool) -> Color {
-        Color(uiColor: FullKeyboardPalette(isDark: isDark).backdrop)
+        Color(uiColor: TyprFullKeyboardPalette(isDark: isDark).backdrop)
     }
 
     /// The docked preview's scale: full size where the page has room, else leaving the controls 260 pt but taking at
@@ -123,7 +123,7 @@ struct KeyboardAppearancePage: View {
 
     private func dockedPreview(in page: CGSize, foldBottom: CGFloat?, container: CGSize) -> some View {
         let settings = preview(container: container)
-        let height = KeyboardLayout.height(
+        let height = TyprKeyboardLayout.height(
             for: settings.orientation, showsStrip: settings.showsSuggestionBar, numberRow: settings.numberRow
         )
         let scale = Self.previewScale(keyboardHeight: height, page: page, foldBottom: foldBottom)
@@ -154,7 +154,7 @@ struct KeyboardAppearancePage: View {
                     .padding(16)
                 }
             }
-            .onChange(of: design) { _, choice in FullKeyboardSettings().design = choice }
+            .onChange(of: design) { _, choice in TyprFullKeyboardSettings().design = choice }
 
             SettingsSection(title: "Suggestions") {
                 SettingsToggle(title: "Hide suggestion bar", detail: "Autocorrect still works on space.", isOn: $hideSuggestionBar)
@@ -173,17 +173,17 @@ struct KeyboardAppearancePage: View {
 
             SettingsSection(title: "Top row") {
                 SettingsToggle(title: "Number row", detail: "1 to 0 above the letters. The keyboard grows taller.", isOn: $numberRow)
-                    .onChange(of: numberRow) { _, shown in FullKeyboardSettings().numberRow = shown }
+                    .onChange(of: numberRow) { _, shown in TyprFullKeyboardSettings().numberRow = shown }
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 SettingsSection(title: "Split") {
                     SettingsToggle(title: "Split keyboard", detail: "Half the keys under each thumb.", isOn: $splitKeyboard)
-                        .onChange(of: splitKeyboard) { _, split in FullKeyboardSettings().splitKeyboard = split }
+                        .onChange(of: splitKeyboard) { _, split in TyprFullKeyboardSettings().splitKeyboard = split }
                     if splitKeyboard {
                         SettingsDivider()
                         SettingsToggle(title: "Aligned columns", detail: "Letters straight above each other.", isOn: $splitColumns)
-                            .onChange(of: splitColumns) { _, aligned in FullKeyboardSettings().splitColumns = aligned }
+                            .onChange(of: splitColumns) { _, aligned in TyprFullKeyboardSettings().splitColumns = aligned }
                     }
                 }
                 SettingsFooter(Self.splitKeyboardFooter)
@@ -195,7 +195,7 @@ struct KeyboardAppearancePage: View {
                         if index > 0 { SettingsDivider() }
                         SettingsChoiceRow(title: choice.title, isSelected: globeKey == choice) {
                             globeKey = choice
-                            FullKeyboardSettings().globeKey = choice
+                            TyprFullKeyboardSettings().globeKey = choice
                         }
                     }
                     SettingsDivider()
@@ -227,7 +227,7 @@ struct KeyboardAppearancePage: View {
                         .accessibilityElement(children: .combine)
                     }
                 }
-                .onChange(of: bottomRow) { _, row in FullKeyboardSettings().bottomRow = row }
+                .onChange(of: bottomRow) { _, row in TyprFullKeyboardSettings().bottomRow = row }
                 SettingsFooter(Self.bottomRowFooter)
             }
         }
@@ -235,14 +235,14 @@ struct KeyboardAppearancePage: View {
 
     private func letterLayoutRow(_ language: SpatialWordDecoder.Language) -> some View {
         let selection = Binding(get: { letterLayouts[language] ?? .qwerty }, set: { letters in
-            FullKeyboardSettings().setLetters(letters, for: language)
+            TyprFullKeyboardSettings().setLetters(letters, for: language)
             letterLayouts[language] = letters
         })
         return HStack {
             Text(language.title).font(.body).foregroundStyle(TyprTheme.textBase)
             Spacer(minLength: 8)
             Picker(language.title, selection: selection) {
-                ForEach(KeyboardLetterLayout.allCases, id: \.self) { Text($0.title).tag($0) }
+                ForEach(TyprKeyboardLetterLayout.allCases, id: \.self) { Text($0.title).tag($0) }
             }
             .pickerStyle(.menu)
             .labelsHidden()
@@ -256,13 +256,13 @@ struct KeyboardAppearancePage: View {
     private func refresh() {
         letterLayouts = Self.storedLetterLayouts()
         languageOrder = TyprSettings().autocorrectLanguageOrder
-        design = FullKeyboardSettings().design
+        design = TyprFullKeyboardSettings().design
         hideSuggestionBar = TyprSettings().hideSuggestionBar
-        globeKey = FullKeyboardSettings().globeKey
-        bottomRow = FullKeyboardSettings().bottomRow
-        numberRow = FullKeyboardSettings().numberRow
-        splitKeyboard = FullKeyboardSettings().splitKeyboard
-        splitColumns = FullKeyboardSettings().splitColumns
+        globeKey = TyprFullKeyboardSettings().globeKey
+        bottomRow = TyprFullKeyboardSettings().bottomRow
+        numberRow = TyprFullKeyboardSettings().numberRow
+        splitKeyboard = TyprFullKeyboardSettings().splitKeyboard
+        splitColumns = TyprFullKeyboardSettings().splitColumns
     }
 }
 
@@ -338,9 +338,9 @@ struct KeyboardAppearancePreview: UIViewRepresentable {
         var container: CGSize
         var splitKeyboard = false
         var splitColumns = false
-        var letters = KeyboardLetterLayout.qwerty
+        var letters = TyprKeyboardLetterLayout.qwerty
 
-        var orientation: KeyboardOrientation { KeyboardOrientation(container: container, split: splitKeyboard) }
+        var orientation: TyprKeyboardOrientation { TyprKeyboardOrientation(container: container, split: splitKeyboard) }
 
         var accessibilityLabel: String {
             let globe = switch globeKey {
@@ -361,15 +361,15 @@ struct KeyboardAppearancePreview: UIViewRepresentable {
 
     let settings: Settings
 
-    func makeUIView(context: Context) -> FullKeyboardView {
+    func makeUIView(context: Context) -> TyprFullKeyboardView {
         Self.makeKeyboard(settings)
     }
 
-    func updateUIView(_ view: FullKeyboardView, context: Context) {
+    func updateUIView(_ view: TyprFullKeyboardView, context: Context) {
         Self.apply(settings, to: view)
     }
 
-    static func makeKeyboard(_ settings: Settings) -> FullKeyboardView {
+    static func makeKeyboard(_ settings: Settings) -> TyprFullKeyboardView {
         let model = KeyboardViewModel()
         // Shows the globe choice; the app cannot know whether the current iPhone needs one.
         model.needsGlobeKey = true
@@ -380,11 +380,11 @@ struct KeyboardAppearancePreview: UIViewRepresentable {
         model.splitColumns = settings.splitColumns
         model.letters = settings.letters
         let learning = KeyboardLearningSession(store: nil, defaults: nil, allowsPersistence: { false })
-        let view = FullKeyboardView(
+        let view = TyprFullKeyboardView(
             model: model,
             target: KeyboardPreviewTextTarget(),
-            autocorrect: AutocorrectEngine(learning: learning, spatialDecoder: nil),
-            preview: FullKeyboardView.Preview(design: settings.design, showsSuggestionBar: settings.showsSuggestionBar)
+            autocorrect: TyprAutocorrectEngine(learning: learning, spatialDecoder: nil),
+            preview: TyprFullKeyboardView.Preview(design: settings.design, showsSuggestionBar: settings.showsSuggestionBar)
         )
         view.drawsBackdrop = true
         view.isUserInteractionEnabled = false
@@ -393,21 +393,21 @@ struct KeyboardAppearancePreview: UIViewRepresentable {
         return view
     }
 
-    static func apply(_ settings: Settings, to view: FullKeyboardView) {
+    static func apply(_ settings: Settings, to view: TyprFullKeyboardView) {
         view.model.globeKey = settings.globeKey
         view.model.bottomRow = settings.bottomRow
         view.model.numberRow = settings.numberRow
         view.model.splitKeyboard = settings.splitKeyboard
         view.model.splitColumns = settings.splitColumns
         view.model.letters = settings.letters
-        view.applyPreview(FullKeyboardView.Preview(design: settings.design, showsSuggestionBar: settings.showsSuggestionBar))
+        view.applyPreview(TyprFullKeyboardView.Preview(design: settings.design, showsSuggestionBar: settings.showsSuggestionBar))
         view.appearanceOverride = settings.isDark
         view.containerSize = settings.container
     }
 }
 
 @MainActor
-final class KeyboardPreviewTextTarget: KeyboardTextTarget {
+final class KeyboardPreviewTextTarget: TyprKeyboardTextTarget {
     var documentContextBeforeInput: String? { nil }
     var hasText: Bool { false }
     var autocapitalizationType: UITextAutocapitalizationType? { .sentences }

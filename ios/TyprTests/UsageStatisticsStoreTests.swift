@@ -114,7 +114,7 @@ final class UsageStatisticsStoreTests: XCTestCase {
         }
     }
     func testSequentialKeyboardSessionsKeepCollectingBeyondWriterCapacity() throws {
-        let layout = KeyboardLayout(width: 393)
+        let layout = TyprKeyboardLayout(width: 393)
         for index in 0..<40 {
             let session = UsageStatisticsSession(store: store,
                 now: { [unowned self] in self.clock }, automaticallyFlush: false)

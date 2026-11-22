@@ -39,18 +39,18 @@ else
 fi
 
 sources=(
-  FullKeyboard/AutocorrectEngine FullKeyboard/AutocorrectEngine+Revision FullKeyboard/DeleteWordSlide FullKeyboard/DictationUndo FullKeyboard/FullKeyboardEngine FullKeyboard/GermanAutocorrect
+  FullKeyboard/TyprAutocorrectEngine FullKeyboard/TyprAutocorrectEngine+Revision FullKeyboard/DeleteWordSlide FullKeyboard/TyprDictationUndo FullKeyboard/TyprFullKeyboardEngine FullKeyboard/GermanAutocorrect
   FullKeyboard/KeyboardBoundaryDecoder FullKeyboard/KeyboardBoundaryTouch FullKeyboard/KeyboardContextModel
-  FullKeyboard/EmojiIndex FullKeyboard/KeyboardDiagnostics FullKeyboard/KeyboardKeyMap FullKeyboard/KeyboardLayout
+  FullKeyboard/EmojiIndex FullKeyboard/KeyboardDiagnostics FullKeyboard/KeyboardKeyMap FullKeyboard/TyprKeyboardLayout
   FullKeyboard/KeyboardLearningSession FullKeyboard/KeyboardLearningStore FullKeyboard/KeyboardLetterMap FullKeyboard/KeyboardModelPredictions FullKeyboard/AnthropicPredictionProvider
   FullKeyboard/KeyboardMultipartSegmenter FullKeyboard/OnDeviceModelPredictions FullKeyboard/KeyboardSuggestionWorker FullKeyboard/KeyboardTouchInput
   FullKeyboard/KeyboardUndoWindow FullKeyboard/LexiconDelivery FullKeyboard/NeverSuggestWords FullKeyboard/PersonalBigramModel
   FullKeyboard/PersonalCompletionIndex FullKeyboard/PersonalTypingModel FullKeyboard/ProtectedPersonalLexicon
-  FullKeyboard/ShiftStateMachine FullKeyboard/SpatialPrefixSearch FullKeyboard/SpatialWordDecoder
-  FullKeyboard/SpatialWordRanking FullKeyboard/SwipeDecoder FullKeyboard/SwipeEncoder
-  FullKeyboard/TrackpadCursor FullKeyboard/TypingLog FullKeyboard/TypingModelTypes Statistics/UsageStatistics
+  FullKeyboard/TyprShiftStateMachine FullKeyboard/SpatialPrefixSearch FullKeyboard/SpatialWordDecoder
+  FullKeyboard/SpatialWordRanking FullKeyboard/TyprSwipeDecoder FullKeyboard/SwipeEncoder
+  FullKeyboard/TyprTrackpadCursor FullKeyboard/TypingLog FullKeyboard/TypingModelTypes Statistics/UsageStatistics
   Statistics/UsageStatisticsSession Statistics/UsageStatisticsStore DictationFeedback DictationFeedbackBridge
-  DictationLanguage SpeechEngineChoice TyprSettings FullKeyboard/FullKeyboardSettings FullKeyboard/ReturnKeyStyle
+  DictationLanguage SpeechEngineChoice TyprSettings FullKeyboard/TyprFullKeyboardSettings FullKeyboard/TyprReturnKeyStyle
 )
 files=()
 for name in "${sources[@]}"; do files+=("$shared/$name.swift"); done

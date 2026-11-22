@@ -105,7 +105,7 @@ final class PersonalTypingTrigramTests: XCTestCase {
     }
 
     func testTrigramContextsNeverAuthorizeAutomaticChanges() throws {
-        final class Checker: TextChecking {
+        final class Checker: TyprTextChecking {
             func isWordValid(_ word: String) -> Bool { true }
             func guesses(for word: String) -> [String] { [] }
             func completions(for prefix: String) -> [String] { [] }
@@ -120,8 +120,8 @@ final class PersonalTypingTrigramTests: XCTestCase {
             for phrase in phrases {
                 for _ in 0..<8 { session.model.recordPair(phrase[2], after: phrase[1], earlier: phrase[0]) }
             }
-            let baseline = AutocorrectEngine(checker: Checker(), spatialDecoder: nil, contextResources: .init(model: model))
-            let personal = AutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
+            let baseline = TyprAutocorrectEngine(checker: Checker(), spatialDecoder: nil, contextResources: .init(model: model))
+            let personal = TyprAutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
                                              contextResources: .init(model: model))
             for ac in [baseline, personal] {
                 ac.englishEnabled = language != "de"
@@ -202,7 +202,7 @@ final class PersonalTypingTrigramTests: XCTestCase {
     }
 
     func testPredictionChainsDeferEndpointsAndUndoDropsPendingTrigram() {
-        final class Checker: TextChecking {
+        final class Checker: TyprTextChecking {
             func isWordValid(_ word: String) -> Bool { true }
             func guesses(for word: String) -> [String] { [] }
             func completions(for prefix: String) -> [String] { [] }
@@ -210,18 +210,18 @@ final class PersonalTypingTrigramTests: XCTestCase {
         for undo in [false, true] {
             let target = FixtureTextTarget(text: "host ")
             target.autocapitalizationType = .some(.none)
-            let ac = AutocorrectEngine(checker: Checker(), spatialDecoder: nil, contextResources: .init(model: nil))
-            let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+            let ac = TyprAutocorrectEngine(checker: Checker(), spatialDecoder: nil, contextResources: .init(model: nil))
+            let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
             engine.width = 393; engine.clock = { 100 }; engine.configureForField()
             for word in ["our", "project", "keyboard"] {
-                var chip = KeyboardSuggestion(displayText: word, replacement: word,
+                var chip = TyprKeyboardSuggestion(displayText: word, replacement: word,
                                               kind: .primary(autoReplace: false), isCompletion: true)
                 chip.ownership = engine.suggestionOwnership
                 engine.acceptSuggestion(chip)
             }
             XCTAssertNil(ac.learning.personalBigrams.following["host"], "Host text never supplies a trusted endpoint")
             XCTAssertNil(ac.learning.personalBigrams.following["our project"], "Last pick waits for settlement")
-            func tap(_ kind: KeyKind) {
+            func tap(_ kind: TyprKeyKind) {
                 guard let key = engine.layout.key(kind) else { XCTFail("Missing key"); return }
                 let p = CGPoint(x: key.frame.midX, y: key.frame.midY)
                 engine.touchBegan(id: 1, at: p); engine.touchEnded(id: 1, at: p)

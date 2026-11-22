@@ -18,7 +18,7 @@ nonisolated struct TapStatistics {
         var id: String { letter }
     }
     let signature: KeyboardLayoutSignature
-    let layout: KeyboardLayout
+    let layout: TyprKeyboardLayout
     let keys: [Key]
     let heat: UsageHeat?
 
@@ -31,7 +31,7 @@ nonisolated struct TapStatistics {
         keys = summaries.compactMap { Self.statistics(for: $0, on: board) }
     }
 
-    private static func statistics(for summary: PersonalTypingModel.KeySummary, on board: KeyboardLayout) -> Key? {
+    private static func statistics(for summary: PersonalTypingModel.KeySummary, on board: TyprKeyboardLayout) -> Key? {
         guard let key = board.key(.character(summary.letter)), summary.n > 0 else { return nil }
         let px = Double(key.frame.width + board.metrics.gap)
         let py = Double(key.frame.height + board.metrics.rowGap)
@@ -58,9 +58,9 @@ nonisolated struct TapStatistics {
                    drift: hypot(dx, dy), onTarget: onTarget, neighbors: neighbors, rightCopyShare: summary.rightCopyShare)
     }
 
-    static func board(_ signature: KeyboardLayoutSignature) -> KeyboardLayout {
-        KeyboardLayout(width: CGFloat(signature.widthBucket),
-                       orientation: KeyboardOrientation(rawValue: signature.orientation) ?? .portrait,
+    static func board(_ signature: KeyboardLayoutSignature) -> TyprKeyboardLayout {
+        TyprKeyboardLayout(width: CGFloat(signature.widthBucket),
+                       orientation: TyprKeyboardOrientation(rawValue: signature.orientation) ?? .portrait,
                        showsGlobe: signature.showsGlobe, splitColumns: signature.splitColumns, letters: signature.letters,
                        horizontalInset: 0, showsStrip: signature.showsStrip)
     }
@@ -118,7 +118,7 @@ nonisolated struct TapStatistics {
     // modifiers: hitting delete/space or leaving the board is NOT an on-target letter.
     /// Landing shares of a Student-t with covariance (xx, xy, yy) and `degrees` > 2.
     static func landing(center: CGPoint, xx: Double, xy: Double, yy: Double, degrees: Double,
-                        layout: KeyboardLayout) -> [String: Double] {
+                        layout: TyprKeyboardLayout) -> [String: Double] {
         guard center.x.isFinite, center.y.isFinite, xx.isFinite, xy.isFinite, yy.isFinite,
               xx > 0, yy > 0, xx * yy > xy * xy, degrees.isFinite, degrees > 2 else { return [:] }
         let scale = (degrees - 2) / degrees
@@ -141,7 +141,7 @@ nonisolated struct TapStatistics {
 
 extension KeyboardLayoutSignature {
     var statisticsTitle: String {
-        let pose = switch KeyboardOrientation(rawValue: orientation) {
+        let pose = switch TyprKeyboardOrientation(rawValue: orientation) {
         case .widePortrait: "Wide portrait"
         case .wideLandscape: "Wide landscape"
         case .splitLandscape: splitColumns ? "Split landscape, aligned columns" : "Split landscape"

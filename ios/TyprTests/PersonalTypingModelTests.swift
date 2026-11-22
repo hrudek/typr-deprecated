@@ -4,17 +4,17 @@ import XCTest
 
 @MainActor
 final class PersonalTypingModelTests: XCTestCase {
-    private let layout = KeyboardLayout(width: 393)
+    private let layout = TyprKeyboardLayout(width: 393)
 
     private func label(_ x: Double = 0, _ y: Double = 0, letter: Character = "a",
-                       layout: KeyboardLayout? = nil) throws -> TouchLabel {
+                       layout: TyprKeyboardLayout? = nil) throws -> TouchLabel {
         let layout = layout ?? self.layout
         let key = try XCTUnwrap(layout.key(.character(String(letter))))
         return TouchLabel(point: CGPoint(x: key.frame.midX + x * (key.frame.width + layout.metrics.gap),
                                          y: key.frame.midY + y * (key.frame.height + layout.metrics.rowGap)), letter: letter)
     }
 
-    private func stats(_ model: PersonalTypingModel, layout: KeyboardLayout? = nil) throws -> PersonalTypingModel.TouchStats {
+    private func stats(_ model: PersonalTypingModel, layout: TyprKeyboardLayout? = nil) throws -> PersonalTypingModel.TouchStats {
         try XCTUnwrap(model.state.layouts[KeyboardLayoutSignature(layout ?? self.layout).id]?.keys["a"])
     }
 
@@ -88,7 +88,7 @@ final class PersonalTypingModelTests: XCTestCase {
         ], layout: layout, source: .literalValid)
         XCTAssertEqual(outcome.accepted, 1)
         XCTAssertEqual(outcome.rejected, [.outlier: 2, .nonFinite: 2, .unknownKey: 2])
-        for invalid in [KeyboardLayout(width: 393, layer: .numbers), KeyboardLayout(width: 393, field: .email)] {
+        for invalid in [TyprKeyboardLayout(width: 393, layer: .numbers), TyprKeyboardLayout(width: 393, field: .email)] {
             XCTAssertEqual(model.learn([try label()], layout: invalid, source: .keep).rejected, [.layoutMismatch: 1])
             XCTAssertNil(model.calibration(for: invalid))
         }
@@ -96,7 +96,7 @@ final class PersonalTypingModelTests: XCTestCase {
 
     func testOnePitchLearningBoundaryIsInclusiveAcrossWidths() throws {
         for width: CGFloat in [320, 375, 393, 402, 430, 440] {
-            let grid = KeyboardLayout(width: width)
+            let grid = TyprKeyboardLayout(width: width)
             let model = PersonalTypingModel()
             let accepted = model.learn([try label(1, letter: "g", layout: grid)], layout: grid, source: .undo)
             XCTAssertEqual(accepted.accepted, 1)
@@ -109,7 +109,7 @@ final class PersonalTypingModelTests: XCTestCase {
 
     func testAlternatingOnePitchSamplesKeepVarianceValid() throws {
         for width: CGFloat in [320, 375, 393, 402, 430, 440] {
-            let grid = KeyboardLayout(width: width)
+            let grid = TyprKeyboardLayout(width: width)
             let model = PersonalTypingModel()
             for index in 0..<300 {
                 let outcome = model.learn([try label(index.isMultiple(of: 2) ? 1 : -1,
@@ -126,7 +126,7 @@ final class PersonalTypingModelTests: XCTestCase {
     func testLayoutsAreSeparatedAndEvictedByLastUpdate() throws {
         var tick = 0.0
         let model = PersonalTypingModel(now: { tick += 1; return Date(timeIntervalSince1970: tick) })
-        let layouts = [393, 410, 430, 450, 470].map { KeyboardLayout(width: CGFloat($0)) }
+        let layouts = [393, 410, 430, 450, 470].map { TyprKeyboardLayout(width: CGFloat($0)) }
         for layout in layouts.prefix(4) { model.learn([try label(layout: layout)], layout: layout, source: .keep) }
         model.learn([try label(0.3, layout: layouts[0])], layout: layouts[0], source: .keep)
         model.learn([try label(layout: layouts[4])], layout: layouts[4], source: .keep)
@@ -135,13 +135,13 @@ final class PersonalTypingModelTests: XCTestCase {
         XCTAssertNil(model.state.layouts[KeyboardLayoutSignature(layouts[1]).id])
         XCTAssertEqual(try stats(model, layout: layouts[0]).n, 2)
         XCTAssertEqual(try stats(model, layout: layouts[4]).meanX, 0, accuracy: 1e-12)
-        XCTAssertNil(model.calibration(for: KeyboardLayout(width: 393, showsStrip: false)))
-        XCTAssertNil(model.calibration(for: KeyboardLayout(width: 393, orientation: .landscape)))
+        XCTAssertNil(model.calibration(for: TyprKeyboardLayout(width: 393, showsStrip: false)))
+        XCTAssertNil(model.calibration(for: TyprKeyboardLayout(width: 393, orientation: .landscape)))
     }
 
     func testStaggeredAndAlignedSplitLearnSeparately() throws {
-        let staggered = KeyboardLayout(width: 951, orientation: .splitLandscape)
-        let aligned = KeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: true)
+        let staggered = TyprKeyboardLayout(width: 951, orientation: .splitLandscape)
+        let aligned = TyprKeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: true)
         let model = PersonalTypingModel()
         model.learn(Array(repeating: try label(0.3, layout: staggered), count: 20), layout: staggered, source: .keep)
         let staggeredState = model.state.layouts[KeyboardLayoutSignature(staggered).id]
@@ -313,7 +313,7 @@ final class PersonalTypingModelTests: XCTestCase {
         XCTAssertNil(bad.validated())
         bad = original
         for width in [410, 430, 450, 470] {
-            let signature = KeyboardLayoutSignature(KeyboardLayout(width: CGFloat(width)))
+            let signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: CGFloat(width)))
             bad.layouts[signature.id] = .init(signature: signature, lastUpdated: Date(), keys: ["a": .init(n: 1)])
         }
         XCTAssertNil(bad.validated())

@@ -134,14 +134,14 @@ final class UsageStatisticsSession {
         }
         scheduleFlush()
     }
-    func recordHeat(point tap: CGPoint, layout: KeyboardLayout) {
+    func recordHeat(point tap: CGPoint, layout: TyprKeyboardLayout) {
         guard let point = Self.boardPoint(tap, layout: layout),
               prepare(), let signature = Self.heatSignature(layout),
               point.x.isFinite, point.y.isFinite,
               point.x >= 0, point.x < layout.width, point.y >= 0,
-              point.y < KeyboardLayout.height(for: layout.orientation, showsStrip: layout.showsStrip) else { return }
+              point.y < TyprKeyboardLayout.height(for: layout.orientation, showsStrip: layout.showsStrip) else { return }
         let x = Int(point.x / layout.width * CGFloat(UsageHeat.columns))
-        let height = KeyboardLayout.height(for: layout.orientation, showsStrip: layout.showsStrip)
+        let height = TyprKeyboardLayout.height(for: layout.orientation, showsStrip: layout.showsStrip)
         let y = Int(point.y / height * CGFloat(UsageHeat.rows))
         let id = "g1-\(signature.id)"
         if !heat.contains(where: { $0.id == id }) {
@@ -159,19 +159,19 @@ final class UsageStatisticsSession {
         scheduleFlush()
     }
     /// Where a tap falls on the signature's board, which has no number row; nil on the number row.
-    static func boardPoint(_ point: CGPoint, layout: KeyboardLayout) -> CGPoint? {
+    static func boardPoint(_ point: CGPoint, layout: TyprKeyboardLayout) -> CGPoint? {
         guard layout.showsNumberRow else { return point }
         guard layout.hitTest(point)?.row != 0 else { return nil }
         return CGPoint(x: point.x, y: point.y - layout.metrics.numberRowArea)
     }
 
-    static func heatSignature(_ layout: KeyboardLayout) -> KeyboardLayoutSignature? {
+    static func heatSignature(_ layout: TyprKeyboardLayout) -> KeyboardLayoutSignature? {
         guard layout.layer == .letters, layout.field == .text, layout.horizontalInset == 0,
               layout.width.isFinite, (8...4096).contains(layout.width),
-              KeyboardLayout.height(for: layout.orientation, showsStrip: layout.showsStrip) > 0 else { return nil }
+              TyprKeyboardLayout.height(for: layout.orientation, showsStrip: layout.showsStrip) > 0 else { return nil }
         return KeyboardLayoutSignature(layout)
     }
-    func validatedLabel(_ label: TouchLabel, layout: KeyboardLayout) {
+    func validatedLabel(_ label: TouchLabel, layout: TyprKeyboardLayout) {
         guard let signature = Self.heatSignature(layout),
               let point = Self.boardPoint(label.point, layout: layout) else { return }
         if recentLabels.last?.layout != signature { recentLabels.removeAll() }

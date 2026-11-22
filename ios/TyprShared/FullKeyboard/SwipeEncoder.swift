@@ -29,7 +29,7 @@ nonisolated struct SwipeLayout: Sendable, Equatable {
     }
 
     /// The letter keys of a letters page; nil on other pages.
-    init?(layout: KeyboardLayout) {
+    init?(layout: TyprKeyboardLayout) {
         var centers: [Character: CGPoint] = [:]
         var box: CGRect?
         for key in layout.keys {

@@ -149,7 +149,7 @@ final class KeyboardContextEvaluationTests: XCTestCase {
         let sentences = try Self.heldout()
         let lexicons = try XCTUnwrap(BundledKeyboardData.lexicons)
         let decoder = SpatialWordDecoder(lexicons: lexicons)
-        let grid = KeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text, showsGlobe: false, showsStrip: true)
+        let grid = TyprKeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text, showsGlobe: false, showsStrip: true)
         let de = try XCTUnwrap(sentences["de"]), en = try XCTUnwrap(sentences["en"])
         // Validity proxy: every held-out spelling is "valid" (not Apple's dictionary).
         let vocabulary = Set((de + en).flatMap { $0 }.flatMap { [$0, $0.lowercased()] })
@@ -183,7 +183,7 @@ final class KeyboardContextEvaluationTests: XCTestCase {
                         var autos: [String?] = [], firsts: [Bool] = [], strips: [[String]] = []
                         for variant in 0...1 {
                             let checker = Checker(valid: vocabulary, guesses: [])
-                            let ac = AutocorrectEngine(checker: checker, learning: KeyboardLearningSession(), spatialDecoder: decoder,
+                            let ac = TyprAutocorrectEngine(checker: checker, learning: KeyboardLearningSession(), spatialDecoder: decoder,
                                                        contextResources: .init(model: variant == 1 ? model : nil))
                             ac.german = GermanAutocorrect(checker: checker)
                             var before = prefix
@@ -243,7 +243,7 @@ final class KeyboardContextEvaluationTests: XCTestCase {
         let cases = [("de", "ich bin ", "heute"), ("de", "wir haben ", "arbeit"), ("de", "das ist ", "gut"),
                      ("en", "this is ", "good"), ("en", "i am ", "going"), ("en", "good ", "morning"),
                      ("mixed", "ich habe ein ", "meeting"), ("mixed", "i have a ", "hund"), ("mixed", "das ist ", "good")]
-        let grid = KeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text, showsGlobe: false, showsStrip: true)
+        let grid = TyprKeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text, showsGlobe: false, showsStrip: true)
         for name in ["de", "en", "mixed"] {
             var counts = [[0, 0], [0, 0]], autos = [String?](), calls = 0
             for (_, context, intended) in cases.filter({ $0.0 == name }) {
@@ -254,7 +254,7 @@ final class KeyboardContextEvaluationTests: XCTestCase {
                 let typo = neighbor.character! + String(intended.dropFirst())
                 for variant in 0...1 {
                     let checker = Checker(valid: [intended], guesses: [intended])
-                    let ac = AutocorrectEngine(checker: checker, spatialDecoder: SpatialWordDecoder(lexicons: lexicons),
+                    let ac = TyprAutocorrectEngine(checker: checker, spatialDecoder: SpatialWordDecoder(lexicons: lexicons),
                                                contextResources: KeyboardContextResources(model: variant == 1 ? model : nil))
                     ac.englishEnabled = name != "de"
                     if name != "en" { ac.german = GermanAutocorrect(checker: checker) }
@@ -280,7 +280,7 @@ final class KeyboardContextEvaluationTests: XCTestCase {
         }
         let controls = ["im", "in", "am", "die", "war", "will", "also", "Gift", "Chef", "schon", "schön", "Straße", "Masse", "Maße", "Velqora", "OpenTelemetry", "WASM", "hausfenster", "meeting", "camelCase"]
         let checker = Checker(valid: Set(controls), guesses: [])
-        let ac = AutocorrectEngine(checker: checker, spatialDecoder: SpatialWordDecoder(lexicons: lexicons), contextResources: .init(model: model))
+        let ac = TyprAutocorrectEngine(checker: checker, spatialDecoder: SpatialWordDecoder(lexicons: lexicons), contextResources: .init(model: model))
         ac.german = GermanAutocorrect(checker: checker)
         for word in controls { XCTAssertNil(ac.replacementOnSpace(beforeInput: "ich habe \(word)", field: .text, autocorrectionType: .default)) }
         print("EVAL context_controls words=\(controls.count) unwanted_auto=0 added_auto=0 validity=injected_dictionary")
@@ -290,9 +290,9 @@ final class KeyboardContextEvaluationTests: XCTestCase {
     func testEngineAfterSpaceAcceptAndSettings() async throws {
         let model = try XCTUnwrap(BundledKeyboardData.contextModel)
         let guessChecker = Checker(valid: [], guesses: ["hallo", "habe"])
-        let ranked = AutocorrectEngine(checker: guessChecker, spatialDecoder: nil, contextResources: .init(model: model))
+        let ranked = TyprAutocorrectEngine(checker: guessChecker, spatialDecoder: nil, contextResources: .init(model: model))
         ranked.englishEnabled = false; ranked.german = GermanAutocorrect(checker: guessChecker)
-        let baseline = AutocorrectEngine(checker: guessChecker, spatialDecoder: nil, contextResources: .init(model: nil))
+        let baseline = TyprAutocorrectEngine(checker: guessChecker, spatialDecoder: nil, contextResources: .init(model: nil))
         baseline.englishEnabled = false; baseline.german = GermanAutocorrect(checker: guessChecker)
         XCTAssertEqual(baseline.suggestions(beforeInput: "ich ha", field: .text, autocorrectionType: .default)[1].replacement, "hallo")
         let promoted = ranked.suggestions(beforeInput: "ich ha", field: .text, autocorrectionType: .default)[1]
@@ -300,9 +300,9 @@ final class KeyboardContextEvaluationTests: XCTestCase {
         XCTAssertTrue(promoted.isCompletion)
         XCTAssertFalse(promoted.willAutoReplace)
         XCTAssertNil(ranked.replacementOnSpace(beforeInput: "ich ha", field: .text, autocorrectionType: .default))
-        let ac = AutocorrectEngine(checker: Checker(valid: [], guesses: []), spatialDecoder: nil, contextResources: .init(model: model))
+        let ac = TyprAutocorrectEngine(checker: Checker(valid: [], guesses: []), spatialDecoder: nil, contextResources: .init(model: model))
         let target = FixtureTextTarget(text: "i am ")
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.width = 393
         engine.configureForField()
         // Predictions go through the deferred suggestion worker; the old chips never stay pickable.
@@ -339,10 +339,10 @@ final class KeyboardContextEvaluationTests: XCTestCase {
         XCTAssertEqual(engine.suggestions.count, 3)
         // A missing selected pack abstains in the engine instead of using the other language.
         let english = try XCTUnwrap(KeyboardContextModel(de: nil, en: model.en))
-        let partial = AutocorrectEngine(checker: Checker(valid: [], guesses: []), spatialDecoder: nil,
+        let partial = TyprAutocorrectEngine(checker: Checker(valid: [], guesses: []), spatialDecoder: nil,
                                         contextResources: .init(model: english))
         partial.german = GermanAutocorrect(checker: Checker(valid: [], guesses: []))
-        let other = FullKeyboardEngine(target: FixtureTextTarget(text: "ich bin "), autocorrect: partial)
+        let other = TyprFullKeyboardEngine(target: FixtureTextTarget(text: "ich bin "), autocorrect: partial)
         other.width = 393
         other.configureForField()
         await other.waitForSuggestions()
@@ -364,10 +364,10 @@ final class KeyboardContextEvaluationTests: XCTestCase {
     @MainActor
     func testPredictionOwnershipRejectsChangedContextLanguageAndField() async throws {
         let model = try XCTUnwrap(BundledKeyboardData.contextModel)
-        let ac = AutocorrectEngine(checker: Checker(valid: [], guesses: []), spatialDecoder: nil,
+        let ac = TyprAutocorrectEngine(checker: Checker(valid: [], guesses: []), spatialDecoder: nil,
                                    contextResources: .init(model: model))
         let target = FixtureTextTarget(text: "i am ")
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.configureForField()
         await engine.waitForSuggestions()
         let old = try XCTUnwrap(engine.suggestions.first)
@@ -401,7 +401,7 @@ final class KeyboardContextEvaluationTests: XCTestCase {
     func testNoContextKeepsOriginalCheckerWork() throws {
         let model = try XCTUnwrap(BundledKeyboardData.contextModel)
         let checker = Checker(valid: [], guesses: ["glaube", "bin", "habe"])
-        let ac = AutocorrectEngine(checker: checker, spatialDecoder: nil, contextResources: .init(model: model))
+        let ac = TyprAutocorrectEngine(checker: checker, spatialDecoder: nil, contextResources: .init(model: model))
         for text in ["ha", "123 ha"] {
             _ = ac.suggestions(beforeInput: text, field: .text, autocorrectionType: .default)
         }
@@ -427,7 +427,7 @@ final class KeyboardContextEvaluationTests: XCTestCase {
         print(String(format: "EVAL context_prepare elapsed_ms=%.3f payload_bytes=802630 mapping=if_safe timing=%@", milliseconds, Self.timingPlatform))
     }
 
-    @MainActor private final class Checker: TextChecking {
+    @MainActor private final class Checker: TyprTextChecking {
         let valid: Set<String>
         let answers: [String]
         private(set) var completionCalls = 0

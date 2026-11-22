@@ -33,7 +33,7 @@ final class SpatialTypoEvaluationTests: XCTestCase {
             return "n=\(count) r@3=\(recalled)/\(count) autoOK=\(correctAuto) wrongAuto=\(wrongAuto) incomplete=\(incomplete) unavailable=\(unavailable) meanMs=\(String(format: "%.2f", mean)) p95Ms=\(String(format: "%.2f", p95)) visits(mean/p95/max)=\(work(visits)) generated(mean/p95/max)=\(work(generated))"
         }
     }
-    private let grid = KeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text,
+    private let grid = TyprKeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text,
                                       showsGlobe: false, showsStrip: true)
 
     private func evidence(_ word: String, error: ErrorClass? = nil, ordinal: Int,

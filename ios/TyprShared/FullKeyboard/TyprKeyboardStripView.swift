@@ -5,8 +5,8 @@ import UIKit
 /// centred `Undo dictation` chip or a status message when needed. Dictation feedback has its
 /// own panel (`TyprFeedbackPanel`).
 @MainActor
-final class KeyboardStripView: UIView {
-    var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { applyPalette() } } }
+final class TyprKeyboardStripView: UIView {
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { applyPalette() } } }
     /// Hosted extensions sit inside iOS 26's +17 pt Liquid Glass crown above `bounds.minY`,
     /// so nudge the strip's visual centre slightly upward within `bounds` to align with Apple's bar.
     var inSystemPlatter = true {
@@ -17,7 +17,7 @@ final class KeyboardStripView: UIView {
             setNeedsDisplay()
         }
     }
-    var onSelectSuggestion: ((KeyboardSuggestion) -> Void)?
+    var onSelectSuggestion: ((TyprKeyboardSuggestion) -> Void)?
     var onCodeFromMessages: (() -> Void)?
     var onUndoDictation: (() -> Void)?
     /// Where the three slots sit; nil spreads them over the whole strip.
@@ -33,7 +33,7 @@ final class KeyboardStripView: UIView {
     private let undoChip = UIButton(type: .custom)
     private let slotButtons: [SlotButton] = [SlotButton(), SlotButton(), SlotButton()]
     private let codeChip = UIButton(type: .custom)
-    private(set) var currentSuggestions: [KeyboardSuggestion] = []
+    private(set) var currentSuggestions: [TyprKeyboardSuggestion] = []
     private var statusText: String?
     private(set) var showsCodeChip = false
     private var showsUndo = false
@@ -98,7 +98,7 @@ final class KeyboardStripView: UIView {
 
     /// `showsUndo` puts the `Undo dictation` chip in place of the slots and any status. Otherwise
     /// the Code from Messages chip replaces the suggestions; a status message wins over it.
-    func update(suggestions: [KeyboardSuggestion], statusText: String?, showsCodeChip: Bool = false, showsUndo: Bool = false) {
+    func update(suggestions: [TyprKeyboardSuggestion], statusText: String?, showsCodeChip: Bool = false, showsUndo: Bool = false) {
         let showsCodeChip = showsCodeChip && statusText == nil && !showsUndo
         guard suggestions != currentSuggestions || statusText != self.statusText || showsCodeChip != self.showsCodeChip
             || showsUndo != self.showsUndo else { return }
@@ -184,7 +184,7 @@ final class KeyboardStripView: UIView {
         return Self.slotWidths(total: slotsRect.width, wanted: wanted)
     }
 
-    static func wantedWidth(for suggestion: KeyboardSuggestion) -> CGFloat { SlotButton.wantedWidth(for: suggestion) }
+    static func wantedWidth(for suggestion: TyprKeyboardSuggestion) -> CGFloat { SlotButton.wantedWidth(for: suggestion) }
 
     static func slotWidths(total: CGFloat, wanted: [CGFloat]) -> [CGFloat] {
         let floorW = total / 4
@@ -226,7 +226,7 @@ final class KeyboardStripView: UIView {
         UIRectFill(CGRect(x: (slots.minX + widths[0] + widths[1]).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
     }
 
-    /// Empty space passes through, so `FullKeyboardView` (never hidden) owns a hold there even
+    /// Empty space passes through, so `TyprFullKeyboardView` (never hidden) owns a hold there even
     /// after the recording panel hides this strip; words and chips keep their touches.
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let hit = super.hitTest(point, with: event)
@@ -264,8 +264,8 @@ final class KeyboardStripView: UIView {
     private final class SlotButton: UIControl {
         var onAccessibilityActivate: (() -> Bool)?
         var inSystemPlatter = true { didSet { if inSystemPlatter != oldValue { setNeedsDisplay() } } }
-        private var suggestion: KeyboardSuggestion?
-        private var palette = FullKeyboardPalette(isDark: false)
+        private var suggestion: TyprKeyboardSuggestion?
+        private var palette = TyprFullKeyboardPalette(isDark: false)
 
         override init(frame: CGRect) {
             super.init(frame: frame)
@@ -282,7 +282,7 @@ final class KeyboardStripView: UIView {
 
         override var isHighlighted: Bool { didSet { if isHighlighted != oldValue { setNeedsDisplay() } } }
 
-        func configure(with suggestion: KeyboardSuggestion, palette: FullKeyboardPalette) {
+        func configure(with suggestion: TyprKeyboardSuggestion, palette: TyprFullKeyboardPalette) {
             self.suggestion = suggestion
             self.palette = palette
             accessibilityLabel = suggestion.kind == .revert ? "Revert to \(suggestion.displayText)" : suggestion.displayText
@@ -295,11 +295,11 @@ final class KeyboardStripView: UIView {
 
         @objc private func redraw() { setNeedsDisplay() }
 
-        static func font(for suggestion: KeyboardSuggestion) -> UIFont {
+        static func font(for suggestion: TyprKeyboardSuggestion) -> UIFont {
             .systemFont(ofSize: 15.5, weight: suggestion.willAutoReplace || suggestion.kind == .revert ? .medium : .regular)
         }
 
-        static func wantedWidth(for suggestion: KeyboardSuggestion) -> CGFloat {
+        static func wantedWidth(for suggestion: TyprKeyboardSuggestion) -> CGFloat {
             let text = (suggestion.displayText as NSString).size(withAttributes: [.font: font(for: suggestion)]).width
             return ceil(text) + (suggestion.kind == .revert ? 15 : 0) + textMargin
         }

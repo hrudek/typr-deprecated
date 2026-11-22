@@ -17,7 +17,7 @@ struct TyprFeedbackTray: UIViewRepresentable {
     }
 
     func updateUIView(_ panel: TyprFeedbackPanel, context: Context) {
-        panel.palette = FullKeyboardPalette(isDark: colorScheme == .dark)
+        panel.palette = TyprFullKeyboardPalette(isDark: colorScheme == .dark)
         panel.content = model.feedback?.panelContent ?? .ask
         panel.onGood = { model.rateFeedback("good") }
         panel.onProblem = { model.rateFeedback("bad") }

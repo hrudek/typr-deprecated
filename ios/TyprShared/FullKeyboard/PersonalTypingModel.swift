@@ -388,7 +388,7 @@ final class PersonalTypingModel {
     }
 
     @discardableResult
-    func learn(_ labels: [TouchLabel], layout: KeyboardLayout, source: TouchLabelSource,
+    func learn(_ labels: [TouchLabel], layout: TyprKeyboardLayout, source: TouchLabelSource,
                accepted: ((TouchLabel) -> Void)? = nil) -> LearnOutcome {
         guard isLearningEnabled else {
             return LearnOutcome(rejected: labels.isEmpty ? [:] : [.learningOff: labels.count])
@@ -447,7 +447,7 @@ final class PersonalTypingModel {
     }
 
     @discardableResult
-    func learnSpace(_ point: CGPoint, layout: KeyboardLayout) -> LearnOutcome {
+    func learnSpace(_ point: CGPoint, layout: TyprKeyboardLayout) -> LearnOutcome {
         guard isLearningEnabled else { return LearnOutcome(rejected: [.learningOff: 1]) }
         guard layout.layer == .letters, layout.field == .text,
               layout.width.isFinite, (8...4096).contains(layout.width),
@@ -469,7 +469,7 @@ final class PersonalTypingModel {
         return LearnOutcome(accepted: 1)
     }
 
-    func calibration(for layout: KeyboardLayout) -> SpatialTouchCalibration? {
+    func calibration(for layout: TyprKeyboardLayout) -> SpatialTouchCalibration? {
         guard isLearningEnabled, layout.layer == .letters, layout.field == .text,
               layout.width.isFinite, (8...4096).contains(layout.width),
               let stats = state.layouts[KeyboardLayoutSignature(layout).id] else { return nil }

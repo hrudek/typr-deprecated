@@ -8,7 +8,7 @@ import XCTest
 @MainActor
 final class KeyboardSuggestionEvaluationTests: XCTestCase {
     private typealias Decoder = SpatialWordDecoder
-    private final class CorpusChecker: TextChecking {
+    private final class CorpusChecker: TyprTextChecking {
         let lexicons: [SpatialWordLexicon]
         let trusted: Set<String>
         var answer: String?
@@ -24,7 +24,7 @@ final class KeyboardSuggestionEvaluationTests: XCTestCase {
         func guesses(for word: String) -> [String] { calls += 1; return answer.map { [$0] } ?? [] }
         func completions(for prefix: String) -> [String] { calls += 1; return [] }
     }
-    private let grid = KeyboardLayout(width: 393)
+    private let grid = TyprKeyboardLayout(width: 393)
     private let engineID = UUID()
 
     private func resources() throws -> [Decoder.Language: SpatialWordLexicon] {
@@ -32,10 +32,10 @@ final class KeyboardSuggestionEvaluationTests: XCTestCase {
     }
 
     private func engine(_ sources: [Decoder.Language: SpatialWordLexicon], languages: Set<Decoder.Language>,
-                        answer: String? = nil, trusted: Set<String> = []) -> AutocorrectEngine {
+                        answer: String? = nil, trusted: Set<String> = []) -> TyprAutocorrectEngine {
         let english = CorpusChecker(sources[.english].map { [$0] } ?? [], trusted: trusted)
         english.answer = answer
-        let ac = AutocorrectEngine(checker: english, spatialDecoder: Decoder(lexicons: sources))
+        let ac = TyprAutocorrectEngine(checker: english, spatialDecoder: Decoder(lexicons: sources))
         ac.englishEnabled = languages.contains(.english)
         if languages.contains(.german) {
             let german = CorpusChecker(sources[.german].map { [$0] } ?? [], trusted: trusted)
@@ -45,7 +45,7 @@ final class KeyboardSuggestionEvaluationTests: XCTestCase {
         return ac
     }
 
-    private func install(_ word: KeyboardTouchWord, in ac: AutocorrectEngine) {
+    private func install(_ word: KeyboardTouchWord, in ac: TyprAutocorrectEngine) {
         var before = ""
         for sample in word.samples {
             let after = before + sample.text
@@ -55,7 +55,7 @@ final class KeyboardSuggestionEvaluationTests: XCTestCase {
         }
     }
 
-    private func ownership(_ word: KeyboardTouchWord, ac: AutocorrectEngine) -> KeyboardSuggestionOwnership {
+    private func ownership(_ word: KeyboardTouchWord, ac: TyprAutocorrectEngine) -> KeyboardSuggestionOwnership {
         .init(engine: engineID, revision: 1, context: word.text, token: word.text, field: .text,
               permitsCorrection: true, configuration: ac.suggestionConfiguration,
               learning: ac.learning.generation, feedbackEpoch: ac.learning.feedbackEpoch,
@@ -206,7 +206,7 @@ final class KeyboardSuggestionEvaluationTests: XCTestCase {
                 let target = FixtureTextTarget()
                 target.autocapitalizationType = .some(.none)
                 let ac = engine(sources, languages: [.german, .english])
-                let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+                let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
                 engine.width = 393
                 engine.configureForField()
                 let checker = try XCTUnwrap(ac.checker as? CorpusChecker)

@@ -17,7 +17,7 @@ final class KeyboardViewController: UIInputViewController {
     private var lastRemountBucket: Int = 0
     private var lastFullAccessNote: TimeInterval = 0
     private var surface: UIView?
-    private var fullKeyboard: FullKeyboardView?
+    private var fullKeyboard: TyprFullKeyboardView?
     private var heightConstraint: NSLayoutConstraint?
     private var pollInterval: TimeInterval = 0
     private var didHandOffCurrentField = false
@@ -41,12 +41,12 @@ final class KeyboardViewController: UIInputViewController {
         didHandOffCurrentField = false
         KeyboardHost.appeared()
         viewModel.hostNotice = nil
-        viewModel.globeKey = FullKeyboardSettings().globeKey
-        viewModel.bottomRow = FullKeyboardSettings().bottomRow
-        viewModel.numberRow = FullKeyboardSettings().numberRow
-        viewModel.splitKeyboard = FullKeyboardSettings().splitKeyboard
-        viewModel.splitColumns = FullKeyboardSettings().splitColumns
-        viewModel.letters = FullKeyboardSettings().letters
+        viewModel.globeKey = TyprFullKeyboardSettings().globeKey
+        viewModel.bottomRow = TyprFullKeyboardSettings().bottomRow
+        viewModel.numberRow = TyprFullKeyboardSettings().numberRow
+        viewModel.splitKeyboard = TyprFullKeyboardSettings().splitKeyboard
+        viewModel.splitColumns = TyprFullKeyboardSettings().splitColumns
+        viewModel.letters = TyprFullKeyboardSettings().letters
         mountSurface()
         refreshProtectedLexicon()
         fullKeyboard?.prepareForField()
@@ -115,7 +115,7 @@ final class KeyboardViewController: UIInputViewController {
     override func textWillChange(_ textInput: UITextInput?) {
         super.textWillChange(textInput)
         KeyboardHost.harvest()
-        if KeyboardFieldRouting.route(for: textDocumentProxy.keyboardType) != .handOff {
+        if TyprKeyboardFieldRouting.route(for: textDocumentProxy.keyboardType) != .handOff {
             didHandOffCurrentField = false
         }
     }
@@ -137,7 +137,7 @@ final class KeyboardViewController: UIInputViewController {
     /// Like learning: files only with real Full Access on a device, never in the simulator.
     private func typingLog(persistent: Bool) -> TypingLogRecorder? {
         guard persistent, let directory = KeyboardLearningStore.sharedDirectory else { return nil }
-        let store = TypingLogStore(directory: directory)
+        let store = TyprTypingLogStore(directory: directory)
         return TypingLogRecorder { [weak self] word in
             if self?.hasFullAccess == true { store.append(word) }
         }
@@ -145,7 +145,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func handOffNumericPadIfNeeded() {
         guard fullKeyboard != nil else { return }
-        if KeyboardFieldRouting.route(for: textDocumentProxy.keyboardType) == .handOff {
+        if TyprKeyboardFieldRouting.route(for: textDocumentProxy.keyboardType) == .handOff {
             guard !didHandOffCurrentField else { return }
             didHandOffCurrentField = true
             if needsInputModeSwitchKey {
@@ -242,10 +242,10 @@ final class KeyboardViewController: UIInputViewController {
                 defaults: UserDefaults(suiteName: KeyboardBridge.appGroup),
                 allowsPersistence: { [weak self] in self?.hasFullAccess == true }
             )
-            let keyboard = FullKeyboardView(
+            let keyboard = TyprFullKeyboardView(
                 model: viewModel,
-                target: DocumentProxyTextTarget { [unowned self] in self.textDocumentProxy },
-                autocorrect: AutocorrectEngine(learning: learning),
+                target: TyprDocumentProxyTextTarget { [unowned self] in self.textDocumentProxy },
+                autocorrect: TyprAutocorrectEngine(learning: learning),
                 statistics: UsageStatisticsSession(
                     store: UsageStatisticsStore(directory: store == nil ? nil : KeyboardLearningStore.sharedDirectory),
                     allowsPersistence: { [weak self] in self?.hasFullAccess == true }
@@ -366,7 +366,7 @@ final class KeyboardViewController: UIInputViewController {
         let now = Date().timeIntervalSince1970
         updateKeyboardTraits()
         fullKeyboard?.syncSettings()
-        let keyDesign = FullKeyboardSettings().design
+        let keyDesign = TyprFullKeyboardSettings().design
         if viewModel.keyDesign != keyDesign { viewModel.keyDesign = keyDesign }
 
         #if targetEnvironment(simulator)
@@ -494,11 +494,11 @@ final class KeyboardViewController: UIInputViewController {
         }
         // Fields that ask for a dark keyboard get one even in light mode, like the system keyboard.
         overrideUserInterfaceStyle = textDocumentProxy.keyboardAppearance == .dark ? .dark : .unspecified
-        let nextReturn = ReturnKeyStyle(textDocumentProxy.returnKeyType)
+        let nextReturn = TyprReturnKeyStyle(textDocumentProxy.returnKeyType)
         if viewModel.returnKey != nextReturn {
             viewModel.returnKey = nextReturn
         }
-        let returnOn = ReturnKeyStyle.isEnabled(
+        let returnOn = TyprReturnKeyStyle.isEnabled(
             automatically: textDocumentProxy.enablesReturnKeyAutomatically,
             hasText: textDocumentProxy.hasText
         )

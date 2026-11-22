@@ -6,9 +6,9 @@ import UIKit
 /// sliding down shows the compact dictation bar (`TyprKeyGesture`).
 @MainActor
 final class TyprKeyControl: UIControl {
-    var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { setNeedsDisplay() } } }
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { setNeedsDisplay() } } }
     var isWarm = false { didSet { if isWarm != oldValue { setNeedsDisplay(); updateAccessibility() } } }
-    var cornerRadius: CGFloat = FullKeyboardPalette.cornerRadius { didSet { if cornerRadius != oldValue { setNeedsDisplay() } } }
+    var cornerRadius: CGFloat = TyprFullKeyboardPalette.cornerRadius { didSet { if cornerRadius != oldValue { setNeedsDisplay() } } }
     /// The drawn keycap inside the control's (larger) touch target.
     var keycapFrame: CGRect = .zero { didSet { if keycapFrame != oldValue { setNeedsDisplay() } } }
 
@@ -182,21 +182,21 @@ final class TyprKeyControl: UIControl {
 
 @MainActor
 final class TyprKeyRecordingPanel: UIView {
-    var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { applyPalette() } } }
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { applyPalette() } } }
     var onDone: (() -> Void)?
     var onCancel: (() -> Void)?
 
     let scope: DotScopeHostView
     private let well = UIView()
-    private let cancelButton = PanelKeyButton()
-    private let doneButton = PanelKeyButton()
+    private let cancelButton = TyprPanelKeyButton()
+    private let doneButton = TyprPanelKeyButton()
     private let doneSpinner = UIActivityIndicatorView(style: .medium)
     var horizontalInset: CGFloat = 0 { didSet { setNeedsLayout() } }
-    var metrics = KeyboardMetrics.portrait { didSet { setNeedsLayout() } }
+    var metrics = TyprKeyboardMetrics.portrait { didSet { setNeedsLayout() } }
 
     init(loudness: @escaping () -> Float) {
         var tuning = DotScopeTuning.bar(leadingInset: 0, trailingInset: 0, fade: 24, spacing: 5)
-        tuning.height = Float(KeyboardMetrics.stripPillHeight)
+        tuning.height = Float(TyprKeyboardMetrics.stripPillHeight)
         // Cap drawables at 2 inside the keyboard extension to save ~2.2 MB of IOSurface RAM.
         scope = DotScopeHostView(tuning: tuning, maximumDrawableCount: 2)
         super.init(frame: .zero)
@@ -253,8 +253,8 @@ final class TyprKeyRecordingPanel: UIView {
         super.layoutSubviews()
         let innerLeft = horizontalInset + metrics.side
         let innerRight = bounds.width - horizontalInset - metrics.side
-        let rowH = KeyboardMetrics.stripPillHeight
-        let rowY = KeyboardMetrics.stripInset
+        let rowH = TyprKeyboardMetrics.stripPillHeight
+        let rowY = TyprKeyboardMetrics.stripInset
 
         doneButton.cornerRadius = rowH / 2
         cancelButton.cornerRadius = rowH / 2
@@ -272,11 +272,11 @@ final class TyprKeyRecordingPanel: UIView {
 
 /// A keycap-styled button for the recording panel.
 @MainActor
-final class PanelKeyButton: UIControl {
-    var palette = FullKeyboardPalette(isDark: false) { didSet { setNeedsDisplay() } }
+final class TyprPanelKeyButton: UIControl {
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet { setNeedsDisplay() } }
     var title: String? { didSet { setNeedsDisplay() } }
     var symbol: String? { didSet { setNeedsDisplay() } }
-    var cornerRadius: CGFloat = FullKeyboardPalette.cornerRadius { didSet { setNeedsDisplay() } }
+    var cornerRadius: CGFloat = TyprFullKeyboardPalette.cornerRadius { didSet { setNeedsDisplay() } }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -323,7 +323,7 @@ final class PanelKeyButton: UIControl {
 /// Holding the Typr key: dictation styles.
 @MainActor
 final class TyprStyleMenuView: UIView {
-    var palette = FullKeyboardPalette(isDark: false) { didSet { rebuild() } }
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet { rebuild() } }
     var style: DictationStyle = .polished { didSet { rebuild() } }
     var onStyle: ((DictationStyle) -> Void)?
     var onDismiss: (() -> Void)?
@@ -421,14 +421,14 @@ final class TyprStyleMenuView: UIView {
     }
 
     private final class MenuRow: UIControl {
-        private let palette: FullKeyboardPalette
+        private let palette: TyprFullKeyboardPalette
         private let title: String
         private let isChosen: Bool
         private let onTrigger: () -> Void
         var isSlideHovered = false { didSet { if isSlideHovered != oldValue { setNeedsDisplay() } } }
 
         init(
-            palette: FullKeyboardPalette,
+            palette: TyprFullKeyboardPalette,
             title: String,
             selected: Bool,
             onTrigger: @escaping () -> Void

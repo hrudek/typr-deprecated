@@ -1,12 +1,12 @@
 import Foundation
 
-// Adapted from anomalyco/hex ios/HEXShared/FullKeyboard/Emoji/EmojiUsageStore.swift at
+// Adapted from anomalyco/hex ios/HEXShared/FullKeyboard/Emoji/TyprEmojiUsageStore.swift at
 // d65b02d36efbaf1ff771420e89c0632dea4706cb (MIT).
 
 /// The emoji you pick, for the panel's Frequently used: a count per emoji that halves every ten
 /// days, so both how often and how lately count. Only emoji, never words; kept in the App Group.
 @MainActor
-final class EmojiUsageStore {
+final class TyprEmojiUsageStore {
     static let halfLife: TimeInterval = 10 * 86_400
     /// The most emoji remembered; the faintest go first.
     static let capacity = 120

@@ -115,17 +115,17 @@ final class ModelPredictionSession {
 
     /// Model and count-based words alternate, model first, without repeats, in strip order
     /// (likeliest in the centre). `counted` is in strip order already.
-    nonisolated static func merge(_ words: [String], into counted: [KeyboardSuggestion]) -> [KeyboardSuggestion] {
-        let model = words.map { KeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary, isCompletion: true) }
+    nonisolated static func merge(_ words: [String], into counted: [TyprKeyboardSuggestion]) -> [TyprKeyboardSuggestion] {
+        let model = words.map { TyprKeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary, isCompletion: true) }
         let ranked = counted.filter { $0.kind != .secondary } + counted.filter { $0.kind == .secondary }
-        var alternating: [KeyboardSuggestion] = []
+        var alternating: [TyprKeyboardSuggestion] = []
         for index in 0..<max(model.count, ranked.count) {
             alternating += [model, ranked].compactMap { $0.indices.contains(index) ? $0[index] : nil }
         }
         var seen: Set<String> = []
         let merged = alternating.filter { seen.insert($0.replacement.lowercased()).inserted }
         return KeyboardContextModel.stripOrder(Array(merged.prefix(wordLimit)).enumerated().map { index, suggestion in
-            var placed = KeyboardSuggestion(displayText: suggestion.displayText, replacement: suggestion.replacement,
+            var placed = TyprKeyboardSuggestion(displayText: suggestion.displayText, replacement: suggestion.replacement,
                                             kind: index == 0 ? .primary(autoReplace: false) : .secondary,
                                             isCompletion: true)
             placed.isPersonal = suggestion.isPersonal

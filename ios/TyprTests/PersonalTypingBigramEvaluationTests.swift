@@ -8,7 +8,7 @@ import XCTest
 /// checker, not Apple's dictionary. Work counts are asserted; timings are EVAL output only.
 @MainActor
 final class PersonalTypingBigramEvaluationTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         var valid: Set<String>
         init(_ valid: Set<String>) { self.valid = valid }
         func isWordValid(_ word: String) -> Bool { valid.contains(word) || valid.contains(word.lowercased()) }
@@ -48,14 +48,14 @@ final class PersonalTypingBigramEvaluationTests: XCTestCase {
         #endif
     }
 
-    /// Types one phrase with key-centre taps through `FullKeyboardEngine`, then one letter that
+    /// Types one phrase with key-centre taps through `TyprFullKeyboardEngine`, then one letter that
     /// settles the follower. Only the existing trusted-literal protocol can teach the pair.
     private func typePhrase(_ previous: String, _ follower: String, session: KeyboardLearningSession) {
         let target = FixtureTextTarget()
         target.autocapitalizationType = .some(.none)
-        let ac = AutocorrectEngine(checker: Checker(Self.allWords), learning: session, spatialDecoder: nil,
+        let ac = TyprAutocorrectEngine(checker: Checker(Self.allWords), learning: session, spatialDecoder: nil,
                                    contextResources: .init(model: nil))
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.width = 393
         engine.clock = { 100 }
         engine.configureForField()
@@ -154,16 +154,16 @@ final class PersonalTypingBigramEvaluationTests: XCTestCase {
         let model = try XCTUnwrap(BundledKeyboardData.contextModel)
         let lexicons = try XCTUnwrap(BundledKeyboardData.lexicons)
         let decoder = SpatialWordDecoder(lexicons: lexicons)
-        let grid = KeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text, showsGlobe: false, showsStrip: true)
+        let grid = TyprKeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text, showsGlobe: false, showsStrip: true)
         let controls = ["Lena", "Donaudampfschiff", "WeChat", "camelCase", "meeting", "tasche", "mittwoch", "updated",
                         "reviewer", "standard", "tastaturen", "kollegen"]
         let checker = Checker(Self.allWords.union(controls))
-        func engine(_ variant: Int, name: String, pairs: [(String, String)]) -> AutocorrectEngine {
+        func engine(_ variant: Int, name: String, pairs: [(String, String)]) -> TyprAutocorrectEngine {
             let defaults = UserDefaults(suiteName: "p4.eval.\(UUID().uuidString)")!
             let session = KeyboardLearningSession(defaults: defaults)
             if variant > 0 { for _ in 0..<6 { for (h, w) in pairs { session.model.recordPair(w, after: h) } } }
             if variant == 2 { defaults.set(false, forKey: "keyboard.personalLearning"); session.refresh() }
-            let ac = AutocorrectEngine(checker: checker, learning: session, spatialDecoder: decoder, contextResources: .init(model: model))
+            let ac = TyprAutocorrectEngine(checker: checker, learning: session, spatialDecoder: decoder, contextResources: .init(model: model))
             ac.englishEnabled = name != "de"
             if name != "en" { ac.german = GermanAutocorrect(checker: checker) }
             return ac

@@ -7,7 +7,7 @@ final class NeverSuggestTests: XCTestCase {
     private var suiteName: String!
     private var defaults: UserDefaults!
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var now: TimeInterval = 200
 
     private static let german = [
@@ -31,17 +31,17 @@ final class NeverSuggestTests: XCTestCase {
         target.autocapitalizationType = UITextAutocapitalizationType.none
         var state = PersonalTypingModel.State()
         for word in learned { state.kept[word] = Date() }
-        let autocorrect = AutocorrectEngine(checker: Checker(valid: ["the"], guesses: Self.english),
+        let autocorrect = TyprAutocorrectEngine(checker: Checker(valid: ["the"], guesses: Self.english),
                                             learning: KeyboardLearningSession(state: state), spatialDecoder: nil)
         autocorrect.german = GermanAutocorrect(checker: Checker(valid: ["Haus", "Dicke"], guesses: Self.german))
         autocorrect.allowsSwearing = swearing
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.configureForField()
     }
 
-    private func tap(_ kind: KeyKind) {
+    private func tap(_ kind: TyprKeyKind) {
         let key = engine.layout.key(kind)!
         let center = CGPoint(x: key.frame.midX, y: key.frame.midY)
         engine.touchBegan(id: 1, at: center)
@@ -154,7 +154,7 @@ final class NeverSuggestTests: XCTestCase {
     }
 }
 
-private final class Checker: TextChecking {
+private final class Checker: TyprTextChecking {
     let valid: Set<String>
     let table: [String: [String]]
     init(valid: Set<String>, guesses: [String: [String]]) { self.valid = valid; table = guesses }

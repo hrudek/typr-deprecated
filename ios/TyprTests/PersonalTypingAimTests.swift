@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class PersonalTypingAimTests: XCTestCase {
-    private let grid = KeyboardLayout(width: 393)
+    private let grid = TyprKeyboardLayout(width: 393)
 
     private func label(_ letter: Character, _ x: Double, _ y: Double) -> TouchLabel {
         let key = grid.key(.character(String(letter)))!
@@ -90,7 +90,7 @@ final class PersonalTypingAimTests: XCTestCase {
     }
 
     private func key(_ model: PersonalTypingModel, _ letter: Character,
-                     on layout: KeyboardLayout? = nil) throws -> SpatialTouchCalibration.Key {
+                     on layout: TyprKeyboardLayout? = nil) throws -> SpatialTouchCalibration.Key {
         try XCTUnwrap(model.calibration(for: layout ?? grid)?.keys[letter])
     }
 
@@ -160,7 +160,7 @@ final class PersonalTypingAimTests: XCTestCase {
 
     func testReloadGivesTheSameNextScoreAndLayoutsStayIsolated() throws {
         let model = warm()
-        let other = KeyboardLayout(width: 430)
+        let other = TyprKeyboardLayout(width: 430)
         let otherE = try XCTUnwrap(other.key(.character("e"))).frame
         model.learn([.init(point: CGPoint(x: otherE.midX, y: otherE.midY), letter: "e")], layout: other, source: .keep)
         let otherBefore = model.calibration(for: other)
@@ -244,7 +244,7 @@ final class PersonalTypingAimTests: XCTestCase {
         let template = try XCTUnwrap(model.state.layouts.values.first)
         for width: CGFloat in [410, 430, 450] {
             var layout = template
-            layout.signature = KeyboardLayoutSignature(KeyboardLayout(width: width))
+            layout.signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: width))
             maximumLayouts.layouts[layout.signature.id] = layout
         }
         XCTAssertNotNil(maximumLayouts.validated())

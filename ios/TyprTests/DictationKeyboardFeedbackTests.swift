@@ -286,7 +286,7 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
     }
 
     private func pumpMainRunLoop() {
-        // FullKeyboardView observes the model with `receive(on: RunLoop.main)`.
+        // TyprFullKeyboardView observes the model with `receive(on: RunLoop.main)`.
         for _ in 0..<5 { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
     }
 
@@ -298,9 +298,9 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
         model: KeyboardViewModel,
         target: FixtureTextTarget = FixtureTextTarget(text: "Host text"),
         showsBar: Bool = false
-    ) -> FullKeyboardView {
-        let view = FullKeyboardView(model: model, target: target,
-            autocorrect: AutocorrectEngine(spatialDecoder: nil))
+    ) -> TyprFullKeyboardView {
+        let view = TyprFullKeyboardView(model: model, target: target,
+            autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
         view.suggestionBarOverride = showsBar
         view.frame = CGRect(x: 0, y: 0, width: 393, height: view.preferredHeight)
         view.layoutIfNeeded()
@@ -349,11 +349,11 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
 
     func testFeedbackPanelTilesAreLargeAndInsideInBothAppearances() {
         for (dark, height) in [(false, CGFloat(140)), (true, CGFloat(140)),
-                               (false, KeyboardLayout.height(for: .portrait, showsStrip: false)),
-                               (true, KeyboardLayout.height(for: .portrait, showsStrip: false))] {
+                               (false, TyprKeyboardLayout.height(for: .portrait, showsStrip: false)),
+                               (true, TyprKeyboardLayout.height(for: .portrait, showsStrip: false))] {
             let panel = TyprFeedbackPanel(frame: CGRect(x: 0, y: 0, width: 393, height: height))
-            panel.palette = FullKeyboardPalette(isDark: dark)
-            panel.metrics = KeyboardMetrics.for(.portrait, innerWidth: 393, showsStrip: false)
+            panel.palette = TyprFullKeyboardPalette(isDark: dark)
+            panel.metrics = TyprKeyboardMetrics.for(.portrait, innerWidth: 393, showsStrip: false)
             let cases: [(TyprFeedbackPanel.Content, [String])] = [
                 (.ask, ["Good", "Problem", TyprFeedbackPanel.dismissFeedbackLabel]),
                 (.problem, [TyprFeedbackPanel.openAccessibilityLabel, TyprFeedbackPanel.dismissFeedbackLabel]),
@@ -410,7 +410,7 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
         view.suggestionBarOverride = true
         apply(.ready, at: t + 1)
 
-        let plane = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardKeyPlaneView }.first)
+        let plane = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyboardKeyPlaneView }.first)
         let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
         XCTAssertFalse(plane.isHidden)
         XCTAssertEqual(plane.alpha, 1)
@@ -440,16 +440,16 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
         )
         pumpMainRunLoop()
         view.layoutIfNeeded()
-        let plane = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardKeyPlaneView }.first)
+        let plane = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyboardKeyPlaneView }.first)
         let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
         XCTAssertFalse(plane.isHidden)
         XCTAssertEqual(plane.alpha, 1, "the keys show under the recording panel")
         XCTAssertFalse(key.isHidden)
         XCTAssertEqual(key.alpha, 1)
-        let callout = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyCalloutView }.first)
+        let callout = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyCalloutView }.first)
         XCTAssertFalse(callout.isHidden)
         XCTAssertEqual(callout.alpha, 1)
-        let accentCallout = try XCTUnwrap(view.subviews.compactMap { $0 as? AccentCalloutView }.first)
+        let accentCallout = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprAccentCalloutView }.first)
         XCTAssertEqual(accentCallout.alpha, 1, "an accent hold opens a visible picker")
     }
 

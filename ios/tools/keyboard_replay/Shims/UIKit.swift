@@ -28,7 +28,7 @@ public final class UILexicon {
     public let entries: [UILexiconEntry] = []
 }
 
-/// System spelling is unavailable here; the replay injects its own `TextChecking`.
+/// System spelling is unavailable here; the replay injects its own `TyprTextChecking`.
 public final class UITextChecker {
     public static let availableLanguages: [String] = []
     public init() {}

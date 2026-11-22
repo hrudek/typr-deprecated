@@ -25,20 +25,20 @@ final class ReturnKeyStyleTests: XCTestCase {
 
     func testEveryReturnKeyTypeMapsToApplesSymbolStyleAndLabel() {
         for (type, symbol, isAction, label) in Self.expected {
-            let style = ReturnKeyStyle(type)
+            let style = TyprReturnKeyStyle(type)
             XCTAssertEqual(style.symbol, symbol, "\(type.rawValue)")
             XCTAssertEqual(style.isAction, isAction, "\(type.rawValue)")
             XCTAssertEqual(style.accessibilityLabel, label, "\(type.rawValue)")
             XCTAssertNotNil(UIImage(systemName: symbol), symbol)
         }
-        XCTAssertEqual(ReturnKeyStyle(nil), ReturnKeyStyle(.default))
+        XCTAssertEqual(TyprReturnKeyStyle(nil), TyprReturnKeyStyle(.default))
     }
 
     func testReturnIsOffOnlyForAnEmptyFieldThatAsksForIt() {
-        XCTAssertFalse(ReturnKeyStyle.isEnabled(automatically: true, hasText: false))
-        XCTAssertTrue(ReturnKeyStyle.isEnabled(automatically: true, hasText: true))
-        XCTAssertTrue(ReturnKeyStyle.isEnabled(automatically: false, hasText: false))
-        XCTAssertTrue(ReturnKeyStyle.isEnabled(automatically: nil, hasText: false))
+        XCTAssertFalse(TyprReturnKeyStyle.isEnabled(automatically: true, hasText: false))
+        XCTAssertTrue(TyprReturnKeyStyle.isEnabled(automatically: true, hasText: true))
+        XCTAssertTrue(TyprReturnKeyStyle.isEnabled(automatically: false, hasText: false))
+        XCTAssertTrue(TyprReturnKeyStyle.isEnabled(automatically: nil, hasText: false))
     }
 
     func testFullKeyboardReturnInsertsNewlineForEveryType() {
@@ -47,7 +47,7 @@ final class ReturnKeyStyleTests: XCTestCase {
             target.autocapitalizationType = UITextAutocapitalizationType.none
             target.returnKeyType = type
             let learning = KeyboardLearningSession(defaults: UserDefaults(suiteName: "ReturnKeyStyleTests")!)
-            let engine = FullKeyboardEngine(target: target, autocorrect: AutocorrectEngine(learning: learning, spatialDecoder: nil))
+            let engine = TyprFullKeyboardEngine(target: target, autocorrect: TyprAutocorrectEngine(learning: learning, spatialDecoder: nil))
             engine.width = 393
             engine.configureForField()
             let key = engine.layout.key(.returnKey)!
@@ -62,10 +62,10 @@ final class ReturnKeyStyleTests: XCTestCase {
         let target = FixtureTextTarget()
         target.returnKeyType = .send
         target.enablesReturnKeyAutomatically = true
-        let view = FullKeyboardView(model: KeyboardViewModel(), target: target)
+        let view = TyprFullKeyboardView(model: KeyboardViewModel(), target: target)
         view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
         view.prepareForField()
-        XCTAssertEqual(view.shownReturnKey.style, ReturnKeyStyle(.send))
+        XCTAssertEqual(view.shownReturnKey.style, TyprReturnKeyStyle(.send))
         XCTAssertFalse(view.shownReturnKey.isEnabled)
 
         target.insertText("Hallo")

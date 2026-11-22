@@ -15,7 +15,7 @@ import Foundation
 ///   `field`, `external` (host text or cursor change), `cursor` (space-bar trackpad), `dismiss`,
 ///   `swipe` or `prediction` when the user moved on otherwise.
 /// - `languages`: enabled word languages ("de", "en").
-/// - `layout`: the `KeyboardLayout` its tap points belong to.
+/// - `layout`: the `TyprKeyboardLayout` its tap points belong to.
 /// - `taps`: the taps standing in the word, in order; `literal`: their inserted text.
 /// - `commit`: what the keyboard did at the word's first boundary.
 /// - `corrections`: in order; `meant`: the word as it stood when the user moved on.
@@ -68,7 +68,7 @@ nonisolated struct TypingLogTap: Codable, Equatable, Sendable {
     var text: String
 }
 
-/// The `KeyboardLayout` initializer's arguments, plus its metrics to detect geometry drift on replay.
+/// The `TyprKeyboardLayout` initializer's arguments, plus its metrics to detect geometry drift on replay.
 nonisolated struct TypingLogLayout: Codable, Equatable, Sendable {
     var width: Double
     var orientation: String
@@ -94,7 +94,7 @@ nonisolated struct TypingLogLayout: Codable, Equatable, Sendable {
         var stripTop, stripHeight, stripBottom, keysTop, keysBottom: Double
     }
 
-    init(_ layout: KeyboardLayout) {
+    init(_ layout: TyprKeyboardLayout) {
         width = layout.width
         orientation = layout.orientation.rawValue
         layer = switch layout.layer { case .letters: "letters"; case .numbers: "numbers"; case .symbols: "symbols" }
@@ -116,15 +116,15 @@ nonisolated struct TypingLogLayout: Codable, Equatable, Sendable {
     }
 
     /// The layout these taps were made on; nil for values this build does not know.
-    var keyboardLayout: KeyboardLayout? {
-        let orientation = KeyboardOrientation(rawValue: orientation)
-        let layer: KeyboardLayer? = switch layer {
+    var keyboardLayout: TyprKeyboardLayout? {
+        let orientation = TyprKeyboardOrientation(rawValue: orientation)
+        let layer: TyprKeyboardLayer? = switch layer {
         case "letters": .letters
         case "numbers": .numbers
         case "symbols": .symbols
         default: nil
         }
-        let field: KeyboardFieldKind? = switch field {
+        let field: TyprKeyboardFieldKind? = switch field {
         case "text": .text
         case "url": .url
         case "email": .email
@@ -133,8 +133,8 @@ nonisolated struct TypingLogLayout: Codable, Equatable, Sendable {
         let order = bottomRow.compactMap(BottomKey.init(rawValue:))
         guard let orientation, let layer, let field, let globeKey = GlobeKey(rawValue: globeKey),
               order.count == bottomRow.count,
-              let letters = letters.map(KeyboardLetterLayout.init(rawValue:)) ?? .qwerty else { return nil }
-        return KeyboardLayout(width: width, orientation: orientation, layer: layer, field: field,
+              let letters = letters.map(TyprKeyboardLetterLayout.init(rawValue:)) ?? .qwerty else { return nil }
+        return TyprKeyboardLayout(width: width, orientation: orientation, layer: layer, field: field,
                               showsGlobe: showsGlobe, globeKey: globeKey,
                               bottomRow: BottomRow(order: order, periodKey: periodKey, emojiKey: emojiKey ?? false),
                               numberRow: numberRow, splitColumns: splitColumns ?? false,
@@ -194,7 +194,7 @@ final class TypingLogRecorder {
                 && word.corrections.reduce(0) { $0 + ($1.erased?.count ?? 0) } <= TypingLogRecorder.maxTaps
         }
 
-        mutating func append(_ text: String, point: CGPoint?, key: String?, layout: KeyboardLayout, time: TimeInterval) {
+        mutating func append(_ text: String, point: CGPoint?, key: String?, layout: TyprKeyboardLayout, time: TimeInterval) {
             if point != nil, word.layout == nil { word.layout = TypingLogLayout(layout) }
             let onLayout = point != nil && word.layout == TypingLogLayout(layout)
             word.taps.append(TypingLogTap(t: Int(((time - started) * 1000).rounded()),
@@ -216,7 +216,7 @@ final class TypingLogRecorder {
     }
 
     /// A character went in. `field`: the text before the cursor afterwards.
-    func typed(_ text: String, point: CGPoint?, key: String?, layout: KeyboardLayout,
+    func typed(_ text: String, point: CGPoint?, key: String?, layout: TyprKeyboardLayout,
                time: TimeInterval, field: String?) {
         let token = Self.word(in: field)
         if var draft = open, token == draft.text + text {
@@ -353,7 +353,7 @@ final class TypingLogRecorder {
         write(word)
     }
 
-    /// The word before the cursor: `AutocorrectEngine.currentToken`, but keeping a trailing apostrophe
+    /// The word before the cursor: `TyprAutocorrectEngine.currentToken`, but keeping a trailing apostrophe
     /// (`can'` while typing `can't`, the possessive `dogs'`). Leading apostrophes open a quote.
     static func word(in field: String?) -> String? {
         guard let field else { return nil }

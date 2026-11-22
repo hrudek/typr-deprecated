@@ -17,7 +17,7 @@ final class EmojiPanelTests: XCTestCase {
     }
 
     private var index: EmojiIndex {
-        get throws { try XCTUnwrap(EmojiIndex.load(bundle: Bundle(for: FullKeyboardView.self))) }
+        get throws { try XCTUnwrap(EmojiIndex.load(bundle: Bundle(for: TyprFullKeyboardView.self))) }
     }
 
     func testGermanWordsSuggestTheirEmojiFirst() throws {
@@ -43,18 +43,18 @@ final class EmojiPanelTests: XCTestCase {
     func testCatalogCoversEveryCategoryWithoutSkinToneVariants() throws {
         let index = try index
         XCTAssertGreaterThan(index.emoji.count, 1_800)
-        XCTAssertEqual(Set(index.categories), Set(EmojiCategory.allCases))
+        XCTAssertEqual(Set(index.categories), Set(TyprEmojiCategory.allCases))
         XCTAssertFalse(index.emoji.contains { $0.unicodeScalars.contains { (0x1F3FB...0x1F3FF).contains($0.value) } })
     }
 
     func testFrequentlyUsedOrdersByUseAndPersists() {
         var now = Date(timeIntervalSince1970: 1_000_000)
-        let store = EmojiUsageStore(defaults: defaults, now: { now })
+        let store = TyprEmojiUsageStore(defaults: defaults, now: { now })
         store.record("❤️")
         store.record("😂")
         store.record("😂")
         XCTAssertEqual(store.ranked(limit: 10), ["😂", "❤️"])
-        XCTAssertEqual(EmojiUsageStore(defaults: defaults, now: { now }).ranked(limit: 10), ["😂", "❤️"])
+        XCTAssertEqual(TyprEmojiUsageStore(defaults: defaults, now: { now }).ranked(limit: 10), ["😂", "❤️"])
 
         now = now.addingTimeInterval(30 * 86_400)
         store.record("👍")
@@ -63,32 +63,32 @@ final class EmojiPanelTests: XCTestCase {
 
     func testFrequentlyUsedForgetsTheFaintestBeyondItsCapacity() {
         var now = Date(timeIntervalSince1970: 0)
-        let store = EmojiUsageStore(defaults: defaults, now: { now })
+        let store = TyprEmojiUsageStore(defaults: defaults, now: { now })
         let index = try? index
-        let emoji = Array((index?.emoji ?? []).prefix(EmojiUsageStore.capacity + 1))
-        XCTAssertEqual(emoji.count, EmojiUsageStore.capacity + 1)
+        let emoji = Array((index?.emoji ?? []).prefix(TyprEmojiUsageStore.capacity + 1))
+        XCTAssertEqual(emoji.count, TyprEmojiUsageStore.capacity + 1)
         for item in emoji {
             store.record(item)
             now = now.addingTimeInterval(60)
         }
         let ranked = store.ranked(limit: 1_000)
-        XCTAssertEqual(ranked.count, EmojiUsageStore.capacity)
+        XCTAssertEqual(ranked.count, TyprEmojiUsageStore.capacity)
         XCTAssertFalse(ranked.contains(emoji[0]))
         XCTAssertEqual(ranked.first, emoji.last)
     }
 
     func testFrequentSectionPutsYourEmojiFirstThenEverydayOnes() throws {
-        let frequent = EmojiPanelView.frequent(used: ["🍕", "🍕", "🚀"], index: try index, capacity: 5)
+        let frequent = TyprEmojiPanelView.frequent(used: ["🍕", "🍕", "🚀"], index: try index, capacity: 5)
         XCTAssertEqual(frequent, ["🍕", "🚀", "😂", "❤️", "👍"])
     }
 
-    private func keyboard(emojiKey: Bool, text: String = "") -> (FullKeyboardView, FixtureTextTarget) {
+    private func keyboard(emojiKey: Bool, text: String = "") -> (TyprFullKeyboardView, FixtureTextTarget) {
         let target = FixtureTextTarget(text: text)
         let model = KeyboardViewModel()
         model.bottomRow = BottomRow(emojiKey: emojiKey)
-        let view = FullKeyboardView(model: model, target: target, autocorrect: AutocorrectEngine(spatialDecoder: nil))
+        let view = TyprFullKeyboardView(model: model, target: target, autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
         let defaults = defaults
-        view.makeEmojiUsage = { EmojiUsageStore(defaults: defaults) }
+        view.makeEmojiUsage = { TyprEmojiUsageStore(defaults: defaults) }
         view.suggestionBarOverride = true
         view.orientationOverride = .portrait
         view.frame = CGRect(x: 0, y: 0, width: 393, height: view.preferredHeight)
@@ -96,7 +96,7 @@ final class EmojiPanelTests: XCTestCase {
         return (view, target)
     }
 
-    private func tapEmojiKey(_ view: FullKeyboardView) throws {
+    private func tapEmojiKey(_ view: TyprFullKeyboardView) throws {
         let key = try XCTUnwrap(view.engine.layout.key(.emoji))
         let point = CGPoint(x: key.frame.midX, y: key.frame.midY)
         view.engine.touchBegan(id: 1, at: point)
@@ -106,25 +106,25 @@ final class EmojiPanelTests: XCTestCase {
     func testEmojiKeyOnlyWhenTurnedOn() {
         XCTAssertNil(keyboard(emojiKey: false).0.engine.layout.key(.emoji))
         XCTAssertNotNil(keyboard(emojiKey: true).0.engine.layout.key(.emoji))
-        XCTAssertFalse(FullKeyboardSettings(defaults: defaults).bottomRow.emojiKey)
-        FullKeyboardSettings(defaults: defaults).bottomRow = BottomRow(emojiKey: true)
-        XCTAssertTrue(FullKeyboardSettings(defaults: defaults).bottomRow.emojiKey)
+        XCTAssertFalse(TyprFullKeyboardSettings(defaults: defaults).bottomRow.emojiKey)
+        TyprFullKeyboardSettings(defaults: defaults).bottomRow = BottomRow(emojiKey: true)
+        XCTAssertTrue(TyprFullKeyboardSettings(defaults: defaults).bottomRow.emojiKey)
     }
 
     func testPanelOpensInsertsDeletesAndClosesWithABC() throws {
-        EmojiUsageStore(defaults: defaults).record("🚀")
+        TyprEmojiUsageStore(defaults: defaults).record("🚀")
         let (view, target) = keyboard(emojiKey: true, text: "Los ")
         try tapEmojiKey(view)
         let panel = try XCTUnwrap(view.emojiPanel)
         XCTAssertEqual(panel.sections.first?.title, "Frequently used")
         XCTAssertEqual(panel.sections.first?.entries.first, "🚀")
-        XCTAssertEqual(panel.sections.count, 1 + EmojiCategory.allCases.count)
+        XCTAssertEqual(panel.sections.count, 1 + TyprEmojiCategory.allCases.count)
 
         panel.debugTap(section: 0, item: 0)
         XCTAssertEqual(target.text, "Los 🚀")
         panel.debugTap(section: 1, item: 0)
         XCTAssertEqual(target.text, "Los 🚀😀")
-        XCTAssertEqual(EmojiUsageStore(defaults: defaults).ranked(limit: 1), ["🚀"])
+        XCTAssertEqual(TyprEmojiUsageStore(defaults: defaults).ranked(limit: 1), ["🚀"])
 
         panel.debugTapDelete()
         XCTAssertEqual(target.text, "Los 🚀")
@@ -143,12 +143,12 @@ final class EmojiPanelTests: XCTestCase {
         XCTAssertEqual(panel.visibleSection, 0)
         bar.touchBegan(atX: 2)
         bar.touchMoved(toX: bar.bounds.width - 2)
-        XCTAssertEqual(bar.selected, EmojiCategory.allCases.count)
-        XCTAssertEqual(panel.visibleSection, EmojiCategory.allCases.count)
+        XCTAssertEqual(bar.selected, TyprEmojiCategory.allCases.count)
+        XCTAssertEqual(panel.visibleSection, TyprEmojiCategory.allCases.count)
         bar.touchEnded(atX: bar.bounds.width - 2)
 
-        let food = EmojiCategory.foodDrink.rawValue + 1
-        let x = (CGFloat(food) + 0.5) * bar.bounds.width / CGFloat(EmojiCategory.allCases.count + 1)
+        let food = TyprEmojiCategory.foodDrink.rawValue + 1
+        let x = (CGFloat(food) + 0.5) * bar.bounds.width / CGFloat(TyprEmojiCategory.allCases.count + 1)
         bar.touchBegan(atX: x)
         bar.touchEnded(atX: x)
         XCTAssertEqual(panel.visibleSection, food)
@@ -162,22 +162,22 @@ final class EmojiPanelTests: XCTestCase {
 
         view.debugPick(chip)
         XCTAssertEqual(target.text, "Ich schicke dir ein Herz ❤️ ")
-        XCTAssertEqual(EmojiUsageStore(defaults: defaults).ranked(limit: 1), ["❤️"])
+        XCTAssertEqual(TyprEmojiUsageStore(defaults: defaults).ranked(limit: 1), ["❤️"])
     }
 
     func testEmojiNeverPushOutTheRevertOffer() {
-        let revert = KeyboardSuggestion(displayText: "Lieve", replacement: "Lieve", kind: .revert)
-        let words = ["ist", "und", "war"].map { KeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary) }
+        let revert = TyprKeyboardSuggestion(displayText: "Lieve", replacement: "Lieve", kind: .revert)
+        let words = ["ist", "und", "war"].map { TyprKeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary) }
 
-        let afterCorrection = FullKeyboardView.merging(emoji: ["❤️", "😍", "🥰"], into: [revert] + words)
+        let afterCorrection = TyprFullKeyboardView.merging(emoji: ["❤️", "😍", "🥰"], into: [revert] + words)
         XCTAssertEqual(afterCorrection.map(\.replacement), ["Lieve", "❤️", "😍"])
         XCTAssertEqual(afterCorrection.first?.kind, .revert)
-        XCTAssertEqual(FullKeyboardView.merging(emoji: ["❤️"], into: [revert, words[0]]).map(\.replacement),
+        XCTAssertEqual(TyprFullKeyboardView.merging(emoji: ["❤️"], into: [revert, words[0]]).map(\.replacement),
                        ["Lieve", "❤️", "ist"])
 
-        XCTAssertEqual(FullKeyboardView.merging(emoji: ["❤️"], into: words).map(\.replacement), ["ist", "❤️", "und"])
-        XCTAssertEqual(FullKeyboardView.merging(emoji: ["❤️", "😍"], into: words).map(\.replacement), ["❤️", "😍", "ist"])
-        XCTAssertEqual(FullKeyboardView.merging(emoji: [], into: [revert] + words), [revert] + words)
+        XCTAssertEqual(TyprFullKeyboardView.merging(emoji: ["❤️"], into: words).map(\.replacement), ["ist", "❤️", "und"])
+        XCTAssertEqual(TyprFullKeyboardView.merging(emoji: ["❤️", "😍"], into: words).map(\.replacement), ["❤️", "😍", "ist"])
+        XCTAssertEqual(TyprFullKeyboardView.merging(emoji: [], into: [revert] + words), [revert] + words)
     }
 
     func testStripShowsNoEmojiWithTheKeyOff() {

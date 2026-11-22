@@ -7,7 +7,7 @@ import XCTest
 /// the simulated touch, so a grip change produces realistic neighbour typos.
 @MainActor
 final class PersonalTypingAimEvaluationTests: XCTestCase {
-    private let grid = KeyboardLayout(width: 393)
+    private let grid = TyprKeyboardLayout(width: 393)
     private static let matureLabels = 3_000
 
     private struct SplitMix64 {
@@ -27,7 +27,7 @@ final class PersonalTypingAimEvaluationTests: XCTestCase {
 
     // MARK: - Synthetic aim
 
-    private var letterKeys: [KeyboardKey] {
+    private var letterKeys: [TyprKeyboardKey] {
         grid.keys.filter { $0.character?.count == 1 && $0.character?.first.map { ("a"..."z").contains($0) } == true }
     }
     private var pitch: (x: Double, y: Double) {
@@ -132,7 +132,7 @@ final class PersonalTypingAimEvaluationTests: XCTestCase {
     private let checkpoints = [0, 5, 10, 20, 30, 60, 120]
 
     /// Static attribution: the hit-tested letter, else the nearest letter centre.
-    private func hit(_ point: CGPoint) -> KeyboardKey {
+    private func hit(_ point: CGPoint) -> TyprKeyboardKey {
         if let key = grid.hitTest(point), key.character.map({ letterKeys.map(\.character).contains($0) }) == true {
             return key
         }
@@ -420,7 +420,7 @@ final class PersonalTypingAimEvaluationTests: XCTestCase {
         return CGPoint(x: frame.midX + x * pitch.x, y: frame.midY + y * pitch.y)
     }
 
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         let valid: Set<String>
         init(_ words: [String]) { valid = Set(words.map { $0.lowercased() }) }
         func isWordValid(_ word: String) -> Bool { valid.contains(word.lowercased()) }
@@ -439,7 +439,7 @@ final class PersonalTypingAimEvaluationTests: XCTestCase {
         for _ in 0..<100 { session.learn(Array("abcdefghijklmnopqrstuvwxyz").map {
             TouchLabel(point: point($0, x: 0.7, y: 0.7), letter: $0)
         }, layout: grid, source: .manualPick) }
-        let ac = AutocorrectEngine(checker: Checker(words), learning: session, spatialDecoder: decoder)
+        let ac = TyprAutocorrectEngine(checker: Checker(words), learning: session, spatialDecoder: decoder)
         ac.german = GermanAutocorrect(checker: Checker(words))
         let before = session.model.state
         var changes = 0

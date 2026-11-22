@@ -110,7 +110,7 @@ final class KeyboardContextPosteriorTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite); try? FileManager.default.removeItem(at: directory) }
         let store = KeyboardLearningStore(directory: directory, defaults: defaults)
         let session = KeyboardLearningSession(store: store, defaults: defaults, allowsPersistence: { false })
-        let engine = AutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
+        let engine = TyprAutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
                                       contextResources: .init(model: model))
         engine.german = GermanAutocorrect(checker: Checker())
         let input = "also "
@@ -136,7 +136,7 @@ final class KeyboardContextPosteriorTests: XCTestCase {
     }
 
     @MainActor
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { false }
         func guesses(for word: String) -> [String] { [] }
         func completions(for prefix: String) -> [String] { [] }

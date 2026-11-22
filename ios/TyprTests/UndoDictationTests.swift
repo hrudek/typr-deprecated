@@ -5,16 +5,16 @@ import XCTest
 final class UndoDictationTests: XCTestCase {
     private let dictation = " Wir sehen uns um zwölf."
 
-    private func keyboard(_ field: FixtureTextTarget) -> FullKeyboardView {
-        let view = FullKeyboardView(model: KeyboardViewModel(), target: field,
-            autocorrect: AutocorrectEngine(spatialDecoder: nil))
+    private func keyboard(_ field: FixtureTextTarget) -> TyprFullKeyboardView {
+        let view = TyprFullKeyboardView(model: KeyboardViewModel(), target: field,
+            autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
         view.suggestionBarOverride = true
         view.orientationOverride = .portrait
         view.frame = CGRect(x: 0, y: 0, width: 393, height: view.preferredHeight)
         view.layoutIfNeeded()
         return view
     }
-    private func dictate(_ text: String, into field: FixtureTextTarget, at cursor: Int, moveBy offset: Int = 0) -> FullKeyboardView {
+    private func dictate(_ text: String, into field: FixtureTextTarget, at cursor: Int, moveBy offset: Int = 0) -> TyprFullKeyboardView {
         let view = keyboard(field)
         field.adjustTextPosition(byCharacterOffset: cursor - field.cursorIndex)
         let before = field.documentContextBeforeInput ?? "", after = field.documentContextAfterInput ?? ""
@@ -92,7 +92,7 @@ final class UndoDictationTests: XCTestCase {
         XCTAssertNil(undoChip(view))
         XCTAssertEqual(field.text, "Hallo Ja. Tschüss. Ja.")
     }
-    @MainActor private final class SentenceTarget: KeyboardTextTarget {
+    @MainActor private final class SentenceTarget: TyprKeyboardTextTarget {
         let field: FixtureTextTarget
         var selected: String?
         init(_ field: FixtureTextTarget) { self.field = field }
@@ -114,10 +114,10 @@ final class UndoDictationTests: XCTestCase {
         func deleteBackward() { field.deleteBackward() }
         func adjustTextPosition(byCharacterOffset offset: Int) { field.adjustTextPosition(byCharacterOffset: offset) }
     }
-    private func dictateInSentenceHost(_ text: String, into field: FixtureTextTarget) -> (FullKeyboardView, SentenceTarget) {
+    private func dictateInSentenceHost(_ text: String, into field: FixtureTextTarget) -> (TyprFullKeyboardView, SentenceTarget) {
         let target = SentenceTarget(field)
-        let view = FullKeyboardView(model: KeyboardViewModel(), target: target,
-            autocorrect: AutocorrectEngine(spatialDecoder: nil))
+        let view = TyprFullKeyboardView(model: KeyboardViewModel(), target: target,
+            autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
         view.suggestionBarOverride = true
         view.orientationOverride = .portrait
         view.frame = CGRect(x: 0, y: 0, width: 393, height: view.preferredHeight)
@@ -129,7 +129,7 @@ final class UndoDictationTests: XCTestCase {
     }
 
     func testSentenceOnlyHostUndoesWholeAndHidesWhenTheStartWasRemoved() throws {
-        func dictate(into field: FixtureTextTarget) -> FullKeyboardView {
+        func dictate(into field: FixtureTextTarget) -> TyprFullKeyboardView {
             dictateInSentenceHost(dictation, into: field).0
         }
 
@@ -197,7 +197,7 @@ final class UndoDictationTests: XCTestCase {
         let space = view.engine.layout.key(.space)!.frame
         let start = CGPoint(x: space.midX, y: space.midY)
         view.engine.touchBegan(id: 1, at: start)
-        now += FullKeyboardEngine.trackpadDelay + 0.1
+        now += TyprFullKeyboardEngine.trackpadDelay + 0.1
         let enter = CGPoint(x: start.x - 12, y: start.y)
         view.engine.touchMoved(id: 1, to: enter)
         view.engine.touchMoved(id: 1, to: CGPoint(x: enter.x - 40, y: start.y))
@@ -227,18 +227,18 @@ final class UndoDictationTests: XCTestCase {
     }
 
     func testPlanCountsUTF16AndRefusesSelectionsAndOtherText() {
-        let undo = DictationUndo(text: " Grüße 👍🏽", before: "Hallo", after: "")
+        let undo = TyprDictationUndo(text: " Grüße 👍🏽", before: "Hallo", after: "")
         XCTAssertEqual(undo.plan(before: "Hal", after: "lo Grüße 👍🏽", selected: nil),
-                       DictationUndo.Plan(toEnd: 13, delete: 8, back: -2))
+                       TyprDictationUndo.Plan(toEnd: 13, delete: 8, back: -2))
         XCTAssertEqual(undo.plan(before: "Hallo Grüße 👍🏽 und", after: "", selected: nil),
-                       DictationUndo.Plan(toEnd: -4, delete: 8, back: 4))
+                       TyprDictationUndo.Plan(toEnd: -4, delete: 8, back: 4))
         XCTAssertNil(undo.plan(before: "Hal", after: "lo Grüße 👍🏽", selected: "lo"))
         XCTAssertNil(undo.plan(before: "Tschüss Grüße", after: " 👍🏽", selected: nil))
     }
     func testPlanFindsASentenceShownWithoutItsLeadingSpace() {
-        let undo = DictationUndo(text: " Bis später.", before: "Hallo Jörg.", after: "")
+        let undo = TyprDictationUndo(text: " Bis später.", before: "Hallo Jörg.", after: "")
         XCTAssertEqual(undo.plan(before: "Bis ", after: "später.", selected: nil),
-                       DictationUndo.Plan(toEnd: 7, delete: 12, back: 0))
+                       TyprDictationUndo.Plan(toEnd: 7, delete: 12, back: 0))
         XCTAssertNil(undo.plan(before: "Ok. Bis ", after: "später.", selected: nil))
     }
 }

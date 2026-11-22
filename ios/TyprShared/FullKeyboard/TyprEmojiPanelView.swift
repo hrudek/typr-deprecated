@@ -1,13 +1,13 @@
 import UIKit
 
-// Adapted from anomalyco/hex ios/HEXShared/FullKeyboard/Emoji/EmojiPanelView.swift and
+// Adapted from anomalyco/hex ios/HEXShared/FullKeyboard/Emoji/TyprEmojiPanelView.swift and
 // EmojiViews.swift at d65b02d36efbaf1ff771420e89c0632dea4706cb (MIT).
 
 /// The emoji panel in place of the strip and the keys: a grid that scrolls sideways through
 /// Frequently used and every category, and a bar with ABC, the categories and delete. Sliding
 /// along the categories scrubs the grid.
 @MainActor
-final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionViewDelegate {
+final class TyprEmojiPanelView: UIView, UICollectionViewDataSource, UICollectionViewDelegate {
     struct Section {
         let title: String
         let entries: [String]
@@ -16,8 +16,8 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
     /// Before you have used any: the emoji people send most, roughly.
     static let everyday = ["😂", "❤️", "👍", "😊", "🙏", "😍", "🎉", "🔥", "😭", "🥰", "😘", "😅"]
 
-    var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { applyPalette() } } }
-    var metrics = KeyboardMetrics.portrait { didSet { if metrics != oldValue { setNeedsLayout() } } }
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { applyPalette() } } }
+    var metrics = TyprKeyboardMetrics.portrait { didSet { if metrics != oldValue { setNeedsLayout() } } }
     var horizontalInset: CGFloat = 0 { didSet { if horizontalInset != oldValue { setNeedsLayout() } } }
     var onInsert: ((String) -> Void)?
     var onDelete: (() -> Void)?
@@ -29,9 +29,9 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
 
     private(set) var sections: [Section] = []
     private let grid: UICollectionView
-    let categoryBar: EmojiCategoryBar
-    private let lettersKey = PanelKeyButton()
-    private let deleteKey = PanelKeyButton()
+    let categoryBar: TyprEmojiCategoryBar
+    private let lettersKey = TyprPanelKeyButton()
+    private let deleteKey = TyprPanelKeyButton()
     private var geometry: GridGeometry?
     private var sectionStarts: [CGFloat] = []
     private var deleteTimer: Timer?
@@ -48,16 +48,16 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
 
     init(index: EmojiIndex, frequent: [String]) {
         grid = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewFlowLayout())
-        categoryBar = EmojiCategoryBar(items: [("clock", "Frequently used")] + EmojiCategory.allCases.map { ($0.symbol, $0.title) })
+        categoryBar = TyprEmojiCategoryBar(items: [("clock", "Frequently used")] + TyprEmojiCategory.allCases.map { ($0.symbol, $0.title) })
         super.init(frame: .zero)
         backgroundColor = .clear
 
-        var byCategory = Array(repeating: [String](), count: EmojiCategory.allCases.count)
+        var byCategory = Array(repeating: [String](), count: TyprEmojiCategory.allCases.count)
         for (emoji, category) in zip(index.emoji, index.categories) {
             byCategory[category.rawValue].append(emoji)
         }
         sections = [Section(title: "Frequently used", entries: frequent)]
-            + EmojiCategory.allCases.map { Section(title: $0.title, entries: byCategory[$0.rawValue]) }
+            + TyprEmojiCategory.allCases.map { Section(title: $0.title, entries: byCategory[$0.rawValue]) }
 
         grid.backgroundColor = .clear
         grid.showsHorizontalScrollIndicator = false
@@ -71,9 +71,9 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
         }
         grid.dataSource = self
         grid.delegate = self
-        grid.register(EmojiCell.self, forCellWithReuseIdentifier: EmojiCell.reuseID)
-        grid.register(EmojiSectionHeader.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
-                      withReuseIdentifier: EmojiSectionHeader.reuseID)
+        grid.register(TyprEmojiCell.self, forCellWithReuseIdentifier: TyprEmojiCell.reuseID)
+        grid.register(TyprEmojiSectionHeader.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+                      withReuseIdentifier: TyprEmojiSectionHeader.reuseID)
         addSubview(grid)
 
         categoryBar.onSelect = { [weak self] section in self?.jump(toSection: section) }
@@ -107,15 +107,15 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
     }
 
     /// Four rows on roomy keyboards, three on compact ones; Frequently used fills eight columns.
-    static func gridRows(for metrics: KeyboardMetrics) -> Int { metrics.keyHeight >= 40 ? 4 : 3 }
+    static func gridRows(for metrics: TyprKeyboardMetrics) -> Int { metrics.keyHeight >= 40 ? 4 : 3 }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         let side = metrics.side
         let barHeight = min(metrics.keyHeight, 38)
         let barY = bounds.height - metrics.keysBottom - barHeight
-        let keyWidth = KeyboardLayout.letterWidth(innerWidth: bounds.width - 2 * horizontalInset, metrics: metrics)
-            * KeyboardLayout.modifierWidthRatio
+        let keyWidth = TyprKeyboardLayout.letterWidth(innerWidth: bounds.width - 2 * horizontalInset, metrics: metrics)
+            * TyprKeyboardLayout.modifierWidthRatio
         lettersKey.frame = CGRect(x: horizontalInset + side, y: barY, width: keyWidth, height: barHeight)
         deleteKey.frame = CGRect(x: bounds.width - horizontalInset - side - keyWidth, y: barY, width: keyWidth, height: barHeight)
         lettersKey.cornerRadius = metrics.cornerRadius
@@ -198,17 +198,17 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: EmojiCell.reuseID, for: indexPath)
-        (cell as? EmojiCell)?.configure(emoji: sections[indexPath.section].entries[indexPath.item],
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: TyprEmojiCell.reuseID, for: indexPath)
+        (cell as? TyprEmojiCell)?.configure(emoji: sections[indexPath.section].entries[indexPath.item],
                                         fontSize: geometry?.fontSize ?? 32, palette: palette)
         return cell
     }
 
     func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String,
                         at indexPath: IndexPath) -> UICollectionReusableView {
-        let view = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: EmojiSectionHeader.reuseID,
+        let view = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: TyprEmojiSectionHeader.reuseID,
                                                                    for: indexPath)
-        if let header = view as? EmojiSectionHeader {
+        if let header = view as? TyprEmojiSectionHeader {
             header.label.text = sections[indexPath.section].title
             header.label.textColor = palette.textMuted
         }
@@ -278,11 +278,11 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
         onDelete?()
         deleteTimer?.invalidate()
         deleteStartedAt = CACurrentMediaTime()
-        let timer = Timer(timeInterval: FullKeyboardEngine.repeatInterval, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: TyprFullKeyboardEngine.repeatInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 let held = CACurrentMediaTime() - self.deleteStartedAt
-                guard held >= FullKeyboardEngine.repeatDelay else { return }
+                guard held >= TyprFullKeyboardEngine.repeatDelay else { return }
                 self.onDeleteRepeat?(held)
                 self.onKeyDown?()
             }
@@ -315,7 +315,7 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
 
 /// One emoji in the grid, with a pressed fill.
 @MainActor
-final class EmojiCell: UICollectionViewCell {
+final class TyprEmojiCell: UICollectionViewCell {
     static let reuseID = "emoji"
     private let label = UILabel()
     private var pressedFill: UIColor = .clear
@@ -333,7 +333,7 @@ final class EmojiCell: UICollectionViewCell {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(emoji: String, fontSize: CGFloat, palette: FullKeyboardPalette) {
+    func configure(emoji: String, fontSize: CGFloat, palette: TyprFullKeyboardPalette) {
         label.text = emoji
         label.font = .systemFont(ofSize: fontSize)
         accessibilityLabel = emoji
@@ -353,7 +353,7 @@ final class EmojiCell: UICollectionViewCell {
 
 /// A section's name over the grid ("Frequently used", "Food and drink").
 @MainActor
-final class EmojiSectionHeader: UICollectionReusableView {
+final class TyprEmojiSectionHeader: UICollectionReusableView {
     static let reuseID = "header"
     let label = UILabel()
 
@@ -377,8 +377,8 @@ final class EmojiSectionHeader: UICollectionReusableView {
 /// section when the finger lifts; a finger sliding along the bar scrubs the grid, each icon's
 /// slot running through its own section from start to end.
 @MainActor
-final class EmojiCategoryBar: UIView {
-    var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { refresh() } } }
+final class TyprEmojiCategoryBar: UIView {
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { refresh() } } }
     var onSelect: ((Int) -> Void)?
     /// A slide is over the section, this far (0 to 1) across its slot.
     var onScrub: ((Int, CGFloat) -> Void)?

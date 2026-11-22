@@ -62,9 +62,9 @@ final class DictationKeyStyleTests: XCTestCase {
         XCTAssertFalse(caps.isEmpty)
         for cap in caps {
             let face = cap.bounds.insetBy(dx: Keycap.shadowOverhang, dy: Keycap.shadowOverhang)
-            let point = cap.convert(CGPoint(x: face.minX + FullKeyboardPalette.cornerRadius, y: face.midY), to: host.view)
+            let point = cap.convert(CGPoint(x: face.minX + TyprFullKeyboardPalette.cornerRadius, y: face.midY), to: host.view)
             XCTAssertTrue(CGRect(origin: .zero, size: image.size).contains(point))
-            assertClose(try color(at: point, in: image), FullKeyboardPalette(isDark: true).keyFill)
+            assertClose(try color(at: point, in: image), TyprFullKeyboardPalette(isDark: true).keyFill)
         }
     }
 

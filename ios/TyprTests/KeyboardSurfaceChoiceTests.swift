@@ -22,8 +22,8 @@ final class KeyboardSurfaceChoiceTests: XCTestCase {
 
     func testBottomRowHasNoSeparateSwitchKey() {
         for globe in [false, true] {
-            for field in [KeyboardFieldKind.text, .url, .email] {
-                let layout = KeyboardLayout(width: 393, field: field, showsGlobe: globe)
+            for field in [TyprKeyboardFieldKind.text, .url, .email] {
+                let layout = TyprKeyboardLayout(width: 393, field: field, showsGlobe: globe)
                 let bottom = layout.keys.filter { $0.row == 3 }.sorted { $0.frame.minX < $1.frame.minX }
                 XCTAssertEqual(bottom.first?.kind, .layerSwitch(.numbers), "123 leads the row again")
                 XCTAssertNotNil(layout.key(.typr))
@@ -32,8 +32,8 @@ final class KeyboardSurfaceChoiceTests: XCTestCase {
     }
 
     func testFullKeyboardViewAllowsCompactBarOnTheTyprKey() {
-        let view = FullKeyboardView(model: KeyboardViewModel(), target: FixtureTextTarget(),
-            autocorrect: AutocorrectEngine(spatialDecoder: nil))
+        let view = TyprFullKeyboardView(model: KeyboardViewModel(), target: FixtureTextTarget(),
+            autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
         XCTAssertFalse(view.allowsCompactBar, "off unless the controller turns it on")
         view.allowsCompactBar = true
         XCTAssertTrue(view.allowsCompactBar)

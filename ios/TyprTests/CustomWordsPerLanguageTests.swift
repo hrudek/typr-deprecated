@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class CustomWordsPerLanguageTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         let valid: Set<String>
         init(_ valid: Set<String>) { self.valid = valid }
         func isWordValid(_ word: String) -> Bool { valid.contains(word) }
@@ -15,8 +15,8 @@ final class CustomWordsPerLanguageTests: XCTestCase {
     private static let english: Set<String> = ["we", "have", "a", "use", "run", "meeting", "it", "also"]
     private static let german: Set<String> = ["ich", "habe", "heute", "nutze", "wir"]
 
-    private func engine(_ session: KeyboardLearningSession, predicts: Bool = false) -> AutocorrectEngine {
-        let ac = AutocorrectEngine(checker: Checker(Self.english), learning: session, spatialDecoder: nil,
+    private func engine(_ session: KeyboardLearningSession, predicts: Bool = false) -> TyprAutocorrectEngine {
+        let ac = TyprAutocorrectEngine(checker: Checker(Self.english), learning: session, spatialDecoder: nil,
                                    contextResources: predicts ? .init(model: BundledKeyboardData.contextModel) : nil)
         ac.german = GermanAutocorrect(checker: Checker(Self.german))
         return ac
@@ -28,14 +28,14 @@ final class CustomWordsPerLanguageTests: XCTestCase {
         return KeyboardLearningSession(defaults: defaults)
     }
 
-    private func alternatives(_ ac: AutocorrectEngine, _ text: String) -> [String] {
+    private func alternatives(_ ac: TyprAutocorrectEngine, _ text: String) -> [String] {
         ac.suggestions(beforeInput: text, field: .text, autocorrectionType: .default)
             .filter { $0.kind != .keepLiteral }.map(\.replacement)
     }
 
-    private func pick(_ word: String, typed literal: String, after text: String, in ac: AutocorrectEngine) {
+    private func pick(_ word: String, typed literal: String, after text: String, in ac: TyprAutocorrectEngine) {
         _ = ac.suggestions(beforeInput: text + literal, field: .text, autocorrectionType: .default)
-        ac.recordSuggestionFeedback(KeyboardSuggestion(displayText: word, replacement: word, kind: .secondary,
+        ac.recordSuggestionFeedback(TyprKeyboardSuggestion(displayText: word, replacement: word, kind: .secondary,
                                                        isCompletion: true), literal: literal, evidence: nil)
     }
 

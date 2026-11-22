@@ -17,13 +17,13 @@ enum PersonalTrigramPhraseFixtures {
     ]
     static let trainingModes = ["settled", "completion", "prediction"]
 
-    final class Checker: TextChecking {
+    final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { true }
         func guesses(for word: String) -> [String] { [] }
         func completions(for prefix: String) -> [String] { [] }
     }
 
-    private static func tap(_ text: String, engine: FullKeyboardEngine) {
+    private static func tap(_ text: String, engine: TyprFullKeyboardEngine) {
         for ch in text {
             guard let key = engine.layout.key(ch == " " ? .space : .character(String(ch))) else {
                 XCTFail("Missing key"); return
@@ -49,13 +49,13 @@ enum PersonalTrigramPhraseFixtures {
         }
         let target = FixtureTextTarget()
         target.autocapitalizationType = .some(.none)
-        let ac = AutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
+        let ac = TyprAutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
                                    contextResources: .init(model: nil))
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.width = 393; engine.clock = { 100 }; engine.configureForField()
         let prefix = mode == "completion" ? String(phrase[2].prefix(3)) : ""
         tap(phrase[0] + " " + phrase[1] + " " + prefix, engine: engine)
-        var chip = KeyboardSuggestion(displayText: phrase[2], replacement: phrase[2],
+        var chip = TyprKeyboardSuggestion(displayText: phrase[2], replacement: phrase[2],
                                       kind: .primary(autoReplace: false), isCompletion: true)
         chip.ownership = engine.suggestionOwnership
         engine.acceptSuggestion(chip)

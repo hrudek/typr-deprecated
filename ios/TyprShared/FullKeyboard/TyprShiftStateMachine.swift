@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-nonisolated enum ShiftState: Equatable, Sendable {
+nonisolated enum TyprShiftState: Equatable, Sendable {
     case off
     /// One-shot: the next character is uppercase, then shift turns off.
     case on
@@ -11,15 +11,15 @@ nonisolated enum ShiftState: Equatable, Sendable {
 
 /// Shift as a pure state machine. Shift changes on touch-down so a left-thumb chord
 /// (shift down, letter down) types a capital; a quick double tap locks.
-nonisolated struct ShiftStateMachine: Equatable, Sendable {
+nonisolated struct TyprShiftStateMachine: Equatable, Sendable {
     static let doubleTapWindow: TimeInterval = 0.3
 
-    private(set) var state: ShiftState = .off
+    private(set) var state: TyprShiftState = .off
     private(set) var isHeld = false
     private var typedWhileHeld = false
     private var lastTapDown: TimeInterval?
 
-    init(state: ShiftState = .off) {
+    init(state: TyprShiftState = .off) {
         self.state = state
     }
 
@@ -69,11 +69,11 @@ nonisolated struct ShiftStateMachine: Equatable, Sendable {
     }
 
     mutating func reset() {
-        self = ShiftStateMachine()
+        self = TyprShiftStateMachine()
     }
 }
 
-nonisolated enum AutoCapitalization {
+nonisolated enum TyprAutoCapitalization {
     enum Mode: Equatable, Sendable {
         case none
         case words
@@ -126,7 +126,7 @@ nonisolated enum AutoCapitalization {
 }
 
 /// Two spaces in a row after a word become ". ".
-nonisolated enum DoubleSpacePeriod {
+nonisolated enum TyprDoubleSpacePeriod {
     static let window: TimeInterval = 0.35
 
     static func trailingSpacesToReplace(before: String?, lastSpaceAt: TimeInterval?, now: TimeInterval) -> Int? {
@@ -140,14 +140,14 @@ nonisolated enum DoubleSpacePeriod {
 }
 
 /// Which key page shows. 123 and #+= are transient: space or return goes back to letters.
-nonisolated struct KeyboardLayerState: Equatable, Sendable {
-    private(set) var layer: KeyboardLayer
+nonisolated struct TyprKeyboardLayerState: Equatable, Sendable {
+    private(set) var layer: TyprKeyboardLayer
 
-    init(layer: KeyboardLayer = .letters) {
+    init(layer: TyprKeyboardLayer = .letters) {
         self.layer = layer
     }
 
-    mutating func switchTo(_ next: KeyboardLayer) {
+    mutating func switchTo(_ next: TyprKeyboardLayer) {
         layer = next
     }
 
@@ -158,20 +158,20 @@ nonisolated struct KeyboardLayerState: Equatable, Sendable {
         }
     }
 
-    mutating func reset(to initial: KeyboardLayer = .letters) {
+    mutating func reset(to initial: TyprKeyboardLayer = .letters) {
         layer = initial
     }
 }
 
-nonisolated enum KeyboardFieldRoute: Equatable, Sendable {
+nonisolated enum TyprKeyboardFieldRoute: Equatable, Sendable {
     /// Typr's keys, with this field kind and first page.
-    case keys(KeyboardFieldKind, initialLayer: KeyboardLayer)
+    case keys(TyprKeyboardFieldKind, initialLayer: TyprKeyboardLayer)
     /// Number pads go to the next keyboard; Typr shows 123 in case there is none.
     case handOff
 }
 
-nonisolated enum KeyboardFieldRouting {
-    static func route(for keyboardType: UIKeyboardType?) -> KeyboardFieldRoute {
+nonisolated enum TyprKeyboardFieldRouting {
+    static func route(for keyboardType: UIKeyboardType?) -> TyprKeyboardFieldRoute {
         switch keyboardType {
         case .URL?:
             return .keys(.url, initialLayer: .letters)

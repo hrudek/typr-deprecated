@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class KeyboardTouchInputTests: XCTestCase {
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
 
     override func setUp() async throws {
         target = FixtureTextTarget()
@@ -13,11 +13,11 @@ final class KeyboardTouchInputTests: XCTestCase {
         engine = makeEngine(target)
     }
 
-    private func makeEngine(_ target: FixtureTextTarget) -> FullKeyboardEngine {
+    private func makeEngine(_ target: FixtureTextTarget) -> TyprFullKeyboardEngine {
         let checker = TouchEvidenceChecker()
         // Isolate the evidence contract; spatial ranking is covered in SpatialWordDecoderTests.
-        let ac = AutocorrectEngine(checker: checker, learning: KeyboardLearningSession(), spatialDecoder: nil)
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let ac = TyprAutocorrectEngine(checker: checker, learning: KeyboardLearningSession(), spatialDecoder: nil)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.width = 393
         engine.configureForField()
         return engine
@@ -27,12 +27,12 @@ final class KeyboardTouchInputTests: XCTestCase {
         engine.autocorrect.touchInput.evidence(beforeInput: target.documentContextBeforeInput)
     }
 
-    private func point(_ kind: KeyKind) -> CGPoint {
+    private func point(_ kind: TyprKeyKind) -> CGPoint {
         let frame = engine.layout.key(kind)!.frame
         return CGPoint(x: frame.midX, y: frame.midY)
     }
 
-    private func tap(_ kind: KeyKind) {
+    private func tap(_ kind: TyprKeyKind) {
         let p = point(kind)
         engine.touchBegan(id: 1, at: p)
         engine.touchEnded(id: 1, at: p)
@@ -71,7 +71,7 @@ final class KeyboardTouchInputTests: XCTestCase {
         type("r")
         XCTAssertEqual(evidence?.text, "car")
         XCTAssertEqual(evidence?.samples.map(\.key.kind), [.character("c"), .character("a"), .character("r")])
-        engine.repeatDelete(heldFor: FullKeyboardEngine.fastRepeatAfter)
+        engine.repeatDelete(heldFor: TyprFullKeyboardEngine.fastRepeatAfter)
         XCTAssertEqual(evidence?.text, "c")
         tap(.delete)
         XCTAssertNil(evidence)
@@ -176,7 +176,7 @@ final class KeyboardTouchInputTests: XCTestCase {
         type("cat")
         let p = point(.space)
         engine.touchBegan(id: 1, at: p)
-        let held = engine.clock() + FullKeyboardEngine.trackpadDelay + 0.1
+        let held = engine.clock() + TyprFullKeyboardEngine.trackpadDelay + 0.1
         engine.clock = { held }
         engine.touchMoved(id: 1, to: CGPoint(x: p.x + 15, y: p.y))
         XCTAssertTrue(engine.isTrackpadActive)
@@ -276,7 +276,7 @@ final class KeyboardTouchInputTests: XCTestCase {
 }
 
 @MainActor
-private final class TouchEvidenceChecker: TextChecking {
+private final class TouchEvidenceChecker: TyprTextChecking {
     func isWordValid(_ word: String) -> Bool { ["cat", "well"].contains(word.lowercased()) }
     func guesses(for word: String) -> [String] { word == "teh" ? ["the"] : [] }
     func completions(for prefix: String) -> [String] { [] }

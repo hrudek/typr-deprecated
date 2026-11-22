@@ -3,22 +3,22 @@ import XCTest
 @testable import Typr
 
 @MainActor
-final class AutocorrectEngineTests: XCTestCase {
+final class TyprAutocorrectEngineTests: XCTestCase {
     private var suiteName: String!
     private var defaults: UserDefaults!
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var now: TimeInterval = 200
 
     override func setUp() async throws {
-        suiteName = "AutocorrectEngineTests-\(UUID().uuidString)"
+        suiteName = "TyprAutocorrectEngineTests-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)!
         target = FixtureTextTarget()
         target.autocapitalizationType = UITextAutocapitalizationType.none
         let session = KeyboardLearningSession(defaults: defaults)
-        let autocorrect = AutocorrectEngine(checker: StubChecker(valid: ["the", "well"], guesses: ["teh": ["the"]]),
+        let autocorrect = TyprAutocorrectEngine(checker: StubChecker(valid: ["the", "well"], guesses: ["teh": ["the"]]),
                                             learning: session, spatialDecoder: nil)
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.configureForField()
@@ -28,7 +28,7 @@ final class AutocorrectEngineTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    private func tap(_ kind: KeyKind) {
+    private func tap(_ kind: TyprKeyKind) {
         let key = engine.layout.key(kind)!
         let center = CGPoint(x: key.frame.midX, y: key.frame.midY)
         engine.touchBegan(id: 1, at: center)
@@ -67,9 +67,9 @@ final class AutocorrectEngineTests: XCTestCase {
                                   "running", "late", "tonight", "that", "and", "with", "receive", "keyboard", "iPhone"]
         let guesses = ["teh": ["the", "ten"], "taht": ["that"], "adn": ["and"], "wiht": ["with"],
                        "recieve": ["receive"], "keybaord": ["keyboard"], "iphnoe": ["iPhone"]]
-        let autocorrect = AutocorrectEngine(checker: StubChecker(valid: valid, guesses: guesses),
+        let autocorrect = TyprAutocorrectEngine(checker: StubChecker(valid: valid, guesses: guesses),
                                             learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect)
         engine.autocorrect.loadLexiconEntries([
             ("omw", "On my way!"),
             ("addr", "123 Market St"),
@@ -109,7 +109,7 @@ final class AutocorrectEngineTests: XCTestCase {
             XCTAssertEqual(actual?.replacement, expected, "expected \(typed) -> \(expected)")
         }
 
-        let untouched: [(String, KeyboardFieldKind, UITextAutocorrectionType)] = [
+        let untouched: [(String, TyprKeyboardFieldKind, UITextAutocorrectionType)] = [
             ("the", .text, .default),
             ("from", .text, .default),
             ("form", .text, .default),
@@ -187,10 +187,10 @@ final class AutocorrectEngineTests: XCTestCase {
     }
 
     func testQwertyAdjacencyPrefersPhysicalNeighbor() {
-        let near = AutocorrectEngine.singleEditKeyboardCost(from: "tge", to: "the", on: .qwerty)!
-        let far = AutocorrectEngine.singleEditKeyboardCost(from: "tpe", to: "the", on: .qwerty)!
+        let near = TyprAutocorrectEngine.singleEditKeyboardCost(from: "tge", to: "the", on: .qwerty)!
+        let far = TyprAutocorrectEngine.singleEditKeyboardCost(from: "tpe", to: "the", on: .qwerty)!
         XCTAssertLessThan(near, far, "g is adjacent to h; p is across the keyboard")
-        XCTAssertNil(AutocorrectEngine.singleEditKeyboardCost(from: "abcdef", to: "abxyef", on: .qwerty), "two substitutions are rejected")
+        XCTAssertNil(TyprAutocorrectEngine.singleEditKeyboardCost(from: "abcdef", to: "abxyef", on: .qwerty), "two substitutions are rejected")
     }
 
     func testTurningAutocorrectSettingOffKeepsSuggestionsWithoutAutoReplacing() async {
@@ -211,7 +211,7 @@ final class AutocorrectEngineTests: XCTestCase {
     }
 }
 
-private final class StubChecker: TextChecking {
+private final class StubChecker: TyprTextChecking {
     let valid: Set<String>
     let table: [String: [String]]
     init(valid: Set<String>, guesses: [String: [String]]) { self.valid = valid; table = guesses }

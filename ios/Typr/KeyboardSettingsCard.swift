@@ -16,7 +16,7 @@ struct KeyboardSettingsCard: View {
 
     init(defaults: UserDefaults? = UserDefaults(suiteName: KeyboardBridge.appGroup)) {
         self.defaults = defaults
-        let keyboard = FullKeyboardSettings(defaults: defaults)
+        let keyboard = TyprFullKeyboardSettings(defaults: defaults)
         let typr = TyprSettings(defaults: defaults)
         _autocorrect = State(initialValue: keyboard.autocorrect)
         _swipeTyping = State(initialValue: keyboard.swipeTyping)
@@ -26,7 +26,7 @@ struct KeyboardSettingsCard: View {
         _autocorrectLanguageOrder = State(initialValue: typr.autocorrectLanguageOrder)
     }
 
-    private var keyboardSettings: FullKeyboardSettings { FullKeyboardSettings(defaults: defaults) }
+    private var keyboardSettings: TyprFullKeyboardSettings { TyprFullKeyboardSettings(defaults: defaults) }
     private var typrSettings: TyprSettings { TyprSettings(defaults: defaults) }
 
     var body: some View {

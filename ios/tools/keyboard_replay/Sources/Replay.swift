@@ -31,7 +31,7 @@ struct WordData {
 
 /// System spelling stand-in: a word is valid when the bundled list has it, with no guesses.
 @MainActor
-final class LexiconChecker: TextChecking {
+final class LexiconChecker: TyprTextChecking {
     private let lexicon: SpatialWordLexicon?
 
     init(_ lexicon: SpatialWordLexicon?) { self.lexicon = lexicon }
@@ -42,7 +42,7 @@ final class LexiconChecker: TextChecking {
 }
 
 @MainActor
-final class ReplayTarget: KeyboardTextTarget {
+final class ReplayTarget: TyprKeyboardTextTarget {
     var text: String
 
     init(text: String) { self.text = text }
@@ -233,13 +233,13 @@ final class Replayer {
     func replay(_ word: TypingLogWord, _ prepared: PreparedWord, context: String) async throws -> Result<ReplayedWord, SkipReason> {
         guard let logged = word.layout, let layout = logged.keyboardLayout else { return .failure(.unknownLayout) }
         let languages = Set(word.languages.compactMap(Language.init(rawValue:)))
-        let autocorrect = AutocorrectEngine(checker: english, learning: session(prepared.adjustment),
+        let autocorrect = TyprAutocorrectEngine(checker: english, learning: session(prepared.adjustment),
                                             spatialDecoder: decoder, contextResources: contextResources)
         autocorrect.loadProtectedLexicon(protected(unless: prepared.adjustment.unkept))
         autocorrect.englishEnabled = languages.contains(.english)
         autocorrect.german = languages.contains(.german) ? german : nil
         let target = ReplayTarget(text: context)
-        let engine = FullKeyboardEngine(target: target, autocorrect: autocorrect, swipeDecoder: { _ in [] })
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect, swipeDecoder: { _ in [] })
         var now: TimeInterval = 1_000
         engine.clock = { now }
         engine.scheduleAfter = { _, _ in }
@@ -261,7 +261,7 @@ final class Replayer {
             engine.touchBegan(id: touch, at: point, time: now)
             engine.touchEnded(id: touch, at: point)
         }
-        func press(_ kind: KeyKind) {
+        func press(_ kind: TyprKeyKind) {
             guard let key = engine.layout.key(kind) else { return }
             press(CGPoint(x: key.frame.midX, y: key.frame.midY))
         }
@@ -309,7 +309,7 @@ final class Replayer {
         return .success(ReplayedWord(literal: literal, committed: committed))
     }
 
-    private static func chipName(_ kind: KeyboardSuggestion.Kind) -> String {
+    private static func chipName(_ kind: TyprKeyboardSuggestion.Kind) -> String {
         switch kind {
         case .keepLiteral: "keep"
         case .primary: "primary"

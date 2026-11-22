@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class AnthropicPredictionProviderTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { true }
         func guesses(for word: String) -> [String] { [] }
         func completions(for prefix: String) -> [String] { [] }
@@ -17,9 +17,9 @@ final class AnthropicPredictionProviderTests: XCTestCase {
         AnthropicPredictionProvider(key: { key }, transport: probe.transport)
     }
 
-    private func keyboard(_ probe: AnthropicTransportProbe, key: String?) throws -> (FullKeyboardEngine, FixtureTextTarget) {
+    private func keyboard(_ probe: AnthropicTransportProbe, key: String?) throws -> (TyprFullKeyboardEngine, FixtureTextTarget) {
         let target = FixtureTextTarget()
-        let engine = FullKeyboardEngine(target: target, autocorrect: AutocorrectEngine(
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: TyprAutocorrectEngine(
             checker: Checker(), spatialDecoder: nil,
             contextResources: .init(model: try XCTUnwrap(BundledKeyboardData.contextModel))))
         engine.width = 393
@@ -28,7 +28,7 @@ final class AnthropicPredictionProviderTests: XCTestCase {
         return (engine, target)
     }
 
-    private func type(_ text: String, _ engine: FullKeyboardEngine, _ target: FixtureTextTarget) async {
+    private func type(_ text: String, _ engine: TyprFullKeyboardEngine, _ target: FixtureTextTarget) async {
         target.insertText(text)
         engine.textDidChange()
         await engine.waitForSuggestions()
@@ -38,7 +38,7 @@ final class AnthropicPredictionProviderTests: XCTestCase {
         }
     }
 
-    private func bar(_ engine: FullKeyboardEngine) -> [String] { engine.suggestions.map(\.replacement) }
+    private func bar(_ engine: TyprFullKeyboardEngine) -> [String] { engine.suggestions.map(\.replacement) }
 
     func testNoKeyMakesNoRequest() async throws {
         for missing in [nil, "", "  \n"] as [String?] {

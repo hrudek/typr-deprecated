@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class TextReplacementTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool {
             ["ich", "nicht", "heute", "komme", "bis", "dann", "see", "you", "the", "and"].contains(word.lowercased())
         }
@@ -15,7 +15,7 @@ final class TextReplacementTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suite: String!
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var now: TimeInterval = 100
 
     override func setUp() async throws {
@@ -23,7 +23,7 @@ final class TextReplacementTests: XCTestCase {
         defaults = UserDefaults(suiteName: suite)!
         target = FixtureTextTarget()
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let autocorrect = AutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults),
+        let autocorrect = TyprAutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults),
                                             spatialDecoder: nil)
         autocorrect.loadLexiconEntries([
             (userInput: "mfg", documentText: "Mit freundlichen Grüßen"),
@@ -35,7 +35,7 @@ final class TextReplacementTests: XCTestCase {
             (userInput: "grü", documentText: "grüß dich"),
             (userInput: "ua", documentText: "unter anderem"),
         ])
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.scheduleAfter = { _, _ in }
@@ -49,7 +49,7 @@ final class TextReplacementTests: XCTestCase {
 
     private func type(_ text: String) {
         for character in text {
-            let kind: KeyKind = character == " " ? .space : .character(String(character))
+            let kind: TyprKeyKind = character == " " ? .space : .character(String(character))
             let frame = engine.layout.key(kind)!.frame
             let point = CGPoint(x: frame.midX, y: frame.midY)
             engine.touchBegan(id: 1, at: point)
@@ -58,7 +58,7 @@ final class TextReplacementTests: XCTestCase {
         }
     }
 
-    private func strip() async -> [KeyboardSuggestion] {
+    private func strip() async -> [TyprKeyboardSuggestion] {
         await engine.waitForSuggestions()
         return engine.suggestions
     }

@@ -10,11 +10,11 @@ final class TypingLogSettingsModel {
     private(set) var exportURL: URL?
     private(set) var problem: String?
     @ObservationIgnored private let directory: URL?
-    @ObservationIgnored private let store: TypingLogStore?
+    @ObservationIgnored private let store: TyprTypingLogStore?
 
     init(directory: URL? = KeyboardLearningStore.sharedDirectory) {
         self.directory = directory
-        store = directory.map { TypingLogStore(directory: $0) }
+        store = directory.map { TyprTypingLogStore(directory: $0) }
     }
 
     func refresh() {

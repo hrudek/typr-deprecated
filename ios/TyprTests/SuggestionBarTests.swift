@@ -29,10 +29,10 @@ final class SuggestionBarTests: XCTestCase {
         XCTAssertTrue(TyprSettings(defaults: defaults).hideSuggestionBar)
     }
 
-    private func keyboard(showsBar: Bool, text: String = "") -> (FullKeyboardView, FixtureTextTarget) {
+    private func keyboard(showsBar: Bool, text: String = "") -> (TyprFullKeyboardView, FixtureTextTarget) {
         let target = FixtureTextTarget(text: text)
-        let view = FullKeyboardView(model: KeyboardViewModel(), target: target,
-            autocorrect: AutocorrectEngine(spatialDecoder: nil))
+        let view = TyprFullKeyboardView(model: KeyboardViewModel(), target: target,
+            autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
         view.suggestionBarOverride = showsBar
         view.orientationOverride = .portrait
         view.engine.autocorrect.isEnabled = true
@@ -47,7 +47,7 @@ final class SuggestionBarTests: XCTestCase {
         strip.subviews.compactMap { $0 as? UIControl }.filter { !($0 is UIButton) }.sorted { $0.tag < $1.tag }
     }
 
-    private func press(_ kinds: [KeyKind], on view: FullKeyboardView) {
+    private func press(_ kinds: [TyprKeyKind], on view: TyprFullKeyboardView) {
         for (index, kind) in kinds.enumerated() {
             guard let key = view.engine.layout.key(kind) else { return XCTFail("no key \(kind)") }
             let point = CGPoint(x: key.frame.midX, y: key.frame.midY)
@@ -81,10 +81,10 @@ final class SuggestionBarTests: XCTestCase {
     }
 
     func testHeldStripChipAndAccessibilityUseTheirOwnActivationChoice() throws {
-        let strip = KeyboardStripView()
-        let old = KeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary)
-        let new = KeyboardSuggestion(displayText: "world", replacement: "world", kind: .secondary)
-        var selected: KeyboardSuggestion?
+        let strip = TyprKeyboardStripView()
+        let old = TyprKeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary)
+        let new = TyprKeyboardSuggestion(displayText: "world", replacement: "world", kind: .secondary)
+        var selected: TyprKeyboardSuggestion?
         var activationCount = 0
         strip.onSelectSuggestion = { selected = $0; activationCount += 1 }
         strip.update(suggestions: [old], statusText: nil)
@@ -112,7 +112,7 @@ final class SuggestionBarTests: XCTestCase {
         view.frame = CGRect(x: 0, y: 0, width: 951, height: view.preferredHeight)
         view.layoutIfNeeded()
         let layout = view.engine.layout
-        let strip = try XCTUnwrap(view.subviews.first { $0 is KeyboardStripView })
+        let strip = try XCTUnwrap(view.subviews.first { $0 is TyprKeyboardStripView })
         let slots = Self.slots(of: strip)
         XCTAssertEqual(slots.count, 3)
         let frames = slots.map { strip.convert($0.frame, to: view) }
@@ -138,23 +138,23 @@ final class SuggestionBarTests: XCTestCase {
     }
 
     func testSlotWidthsGiveALongWordRoomAndAlwaysFillTheStrip() {
-        let equal = KeyboardStripView.slotWidths(total: 393, wanted: [0, 0, 0])
+        let equal = TyprKeyboardStripView.slotWidths(total: 393, wanted: [0, 0, 0])
         XCTAssertEqual(equal, [131, 131, 131])
-        let long = KeyboardStripView.slotWidths(total: 393, wanted: [60, 150, 60])
+        let long = TyprKeyboardStripView.slotWidths(total: 393, wanted: [60, 150, 60])
         XCTAssertEqual(long.reduce(0, +), 393, accuracy: 0.001)
         XCTAssertGreaterThanOrEqual(long[1], 150)
-        let crowded = KeyboardStripView.slotWidths(total: 393, wanted: [150, 170, 150])
+        let crowded = TyprKeyboardStripView.slotWidths(total: 393, wanted: [150, 170, 150])
         XCTAssertEqual(crowded.reduce(0, +), 393, accuracy: 0.001)
         XCTAssertEqual(crowded[0], 131, accuracy: 0.001)
     }
 
     func testLongGermanWordsFitTheirSlotAtFullSizeOn393Points() {
         for word in ["Entschuldigung", "selbstverständlich", "Möglichkeiten"] {
-            let suggestion = KeyboardSuggestion(displayText: word, replacement: word, kind: .primary(autoReplace: true))
+            let suggestion = TyprKeyboardSuggestion(displayText: word, replacement: word, kind: .primary(autoReplace: true))
             for slot in 0..<3 {
                 var wanted: [CGFloat] = [70, 70, 70]
-                wanted[slot] = KeyboardStripView.wantedWidth(for: suggestion)
-                let widths = KeyboardStripView.slotWidths(total: 393, wanted: wanted)
+                wanted[slot] = TyprKeyboardStripView.wantedWidth(for: suggestion)
+                let widths = TyprKeyboardStripView.slotWidths(total: 393, wanted: wanted)
                 XCTAssertGreaterThanOrEqual(widths[slot], wanted[slot], "\(word) in slot \(slot) is cut")
             }
         }

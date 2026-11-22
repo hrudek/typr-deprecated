@@ -6,7 +6,7 @@ import UIKit
 /// Typr records, and the feedback panel that replaces them after a dictation.
 /// Dictation state comes from the same `KeyboardViewModel` the dictation bar uses.
 @MainActor
-final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
+final class TyprFullKeyboardView: UIView, UIInputViewAudioFeedback {
     /// The app's settings preview: these values instead of the stored ones, no typing settings and no suggestions.
     struct Preview: Equatable {
         var design: KeyboardDesign
@@ -14,14 +14,14 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     let model: KeyboardViewModel
-    let engine: FullKeyboardEngine
+    let engine: TyprFullKeyboardEngine
     weak var hostController: UIInputViewController? {
         didSet { configureGlobe() }
     }
 
     /// Fixtures force light or dark and portrait or landscape; the keyboard follows its field.
     var appearanceOverride: Bool? { didSet { applyAppearance() } }
-    var orientationOverride: KeyboardOrientation? { didSet { setNeedsLayout() } }
+    var orientationOverride: TyprKeyboardOrientation? { didSet { setNeedsLayout() } }
     /// The size of the display the keyboard is on (the settings preview: its page), which picks the geometry.
     var containerSize: CGSize? { didSet { if containerSize != oldValue { setNeedsLayout() } } }
     /// Haptics need Full Access.
@@ -51,27 +51,27 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         set { model.problemPanelDuration = newValue }
     }
 
-    private let stripView = KeyboardStripView()
-    private let plane: KeyboardKeyPlaneView
-    private let callout = KeyCalloutView()
-    private let accentCallout = AccentCalloutView()
+    private let stripView = TyprKeyboardStripView()
+    private let plane: TyprKeyboardKeyPlaneView
+    private let callout = TyprKeyCalloutView()
+    private let accentCallout = TyprAccentCalloutView()
     private let typrKey = TyprKeyControl()
     private let globeButton = UIButton(type: .custom)
     private var recordingPanel: TyprKeyRecordingPanel?
     /// Loaded on the first emoji key press or finished word; dropped on a memory warning while the panel is closed.
     private var emojiIndex: EmojiIndex?
-    private(set) var emojiPanel: EmojiPanelView?
+    private(set) var emojiPanel: TyprEmojiPanelView?
     /// Whether Apple's keyboard is among the user's keyboards; tests give their own.
-    var hasAppleKeyboard: () -> Bool = { KeyboardInputModes.hasAppleKeyboard() }
+    var hasAppleKeyboard: () -> Bool = { TyprKeyboardInputModes.hasAppleKeyboard() }
     /// Where emoji use is kept; tests give their own.
-    var makeEmojiUsage: () -> EmojiUsageStore = { EmojiUsageStore() }
+    var makeEmojiUsage: () -> TyprEmojiUsageStore = { TyprEmojiUsageStore() }
     private var feedbackPanel: TyprFeedbackPanel?
     /// What the feedback panel shows; `nil` while the keys are up.
     private var panelContent: TyprFeedbackPanel.Content?
     /// A failure message closed with ✕ stays closed until it changes.
     private var dismissedNotice: String?
     private var styleMenu: TyprStyleMenuView?
-    private var palette = FullKeyboardPalette(isDark: false)
+    private var palette = TyprFullKeyboardPalette(isDark: false)
     private var didApplyPalette = false
     private(set) var design = KeyboardDesign.standard
     private var subscriptions: Set<AnyCancellable> = []
@@ -80,7 +80,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     private var stripPressStart: CGPoint?
     private var stripHoldWork: DispatchWorkItem?
     private var stripHoldDictates = false
-    private var lastDictation: DictationUndo?
+    private var lastDictation: TyprDictationUndo?
     /// Follows inserted dictations for Learn from my edits; the controller stores its results.
     var dictationEdits = DictationEditTracker()
     private var undoHideWork: DispatchWorkItem?
@@ -91,21 +91,21 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     var hasAllocatedRecordingPanel: Bool { recordingPanel != nil }
     /// What the feedback panel shows, for tests; `nil` while the keys are up.
     var shownPanelContent: TyprFeedbackPanel.Content? { panelContent }
-    var shownSuggestions: [KeyboardSuggestion] { stripView.currentSuggestions }
+    var shownSuggestions: [TyprKeyboardSuggestion] { stripView.currentSuggestions }
     var showsCodeFromMessages: Bool { stripView.showsCodeChip }
-    var shownReturnKey: (style: ReturnKeyStyle, isEnabled: Bool) { (plane.returnStyle, plane.returnIsEnabled) }
+    var shownReturnKey: (style: TyprReturnKeyStyle, isEnabled: Bool) { (plane.returnStyle, plane.returnIsEnabled) }
 
-    init(model: KeyboardViewModel, target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil,
+    init(model: KeyboardViewModel, target: TyprKeyboardTextTarget, autocorrect: TyprAutocorrectEngine? = nil,
          statistics: UsageStatisticsSession? = nil, typingLog: TypingLogRecorder? = nil, preview: Preview? = nil) {
         self.model = model
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect, statistics: statistics, typingLog: typingLog)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect, statistics: statistics, typingLog: typingLog)
         engine.autocorrect.learning.onValidatedLabel = { [weak statistics] label, layout in
             statistics?.validatedLabel(label, layout: layout)
         }
         engine.autocorrect.learning.onLabelsInvalidated = { [weak statistics] in
             statistics?.clearRecentLabels()
         }
-        plane = KeyboardKeyPlaneView(engine: engine)
+        plane = TyprKeyboardKeyPlaneView(engine: engine)
         super.init(frame: .zero)
         backgroundColor = .clear
 
@@ -176,7 +176,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             .sink { [weak self] _ in self?.refreshFromModel() }
             .store(in: &subscriptions)
 
-        registerForTraitChanges([UITraitUserInterfaceStyle.self, UITraitVerticalSizeClass.self]) { (view: FullKeyboardView, _) in
+        registerForTraitChanges([UITraitUserInterfaceStyle.self, UITraitVerticalSizeClass.self]) { (view: TyprFullKeyboardView, _) in
             view.applyAppearance()
             view.setNeedsLayout()
         }
@@ -186,10 +186,10 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             engine.refreshAutoCapitalization()
             applyPreview(preview)
         } else {
-            engine.autocorrect.isEnabled = FullKeyboardSettings().autocorrect
-            engine.autocorrect.allowsSwearing = FullKeyboardSettings().suggestSwearWords
+            engine.autocorrect.isEnabled = TyprFullKeyboardSettings().autocorrect
+            engine.autocorrect.allowsSwearing = TyprFullKeyboardSettings().suggestSwearWords
             engine.autocorrect.choosesWordsFromContext = TyprSettings()[experiment: .wordsFromContext]
-            engine.swipeTypingEnabled = FullKeyboardSettings().swipeTyping
+            engine.swipeTypingEnabled = TyprFullKeyboardSettings().swipeTyping
             engine.autocorrect.englishEnabled = TyprSettings().autocorrectEnglish
             engine.autocorrect.preferredLanguage = TyprSettings().autocorrectLanguageOrder[0]
             if TyprSettings().autocorrectGerman {
@@ -209,18 +209,18 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
 
     // MARK: - Size
 
-    static func orientation(for traits: UITraitCollection) -> KeyboardOrientation {
+    static func orientation(for traits: UITraitCollection) -> TyprKeyboardOrientation {
         traits.verticalSizeClass == .compact ? .landscape : .portrait
     }
 
-    var orientation: KeyboardOrientation {
+    var orientation: TyprKeyboardOrientation {
         if let orientationOverride { return orientationOverride }
         guard let containerSize else { return Self.orientation(for: traitCollection) }
-        return KeyboardOrientation(container: containerSize, split: model.splitKeyboard)
+        return TyprKeyboardOrientation(container: containerSize, split: model.splitKeyboard)
     }
 
     var preferredHeight: CGFloat {
-        KeyboardLayout.height(for: orientation, showsStrip: engine.showsStrip, numberRow: engine.numberRow)
+        TyprKeyboardLayout.height(for: orientation, showsStrip: engine.showsStrip, numberRow: engine.numberRow)
     }
 
     // MARK: - Host events
@@ -250,7 +250,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.engine.suggestionsAreActive else { return }
             self.engine.autocorrect.german?.warmUp() // Typr
-            guard let checker = self.engine.autocorrect.checker as? SystemTextChecker else { return }
+            guard let checker = self.engine.autocorrect.checker as? TyprSystemTextChecker else { return }
             checker.warmUp()
             self.engine.refreshSuggestions()
         }
@@ -271,17 +271,17 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         engine.autocorrect.syncLearning()
         engine.refreshDeleteUndo()
         applySuggestionBarSetting()
-        let wantsDesign = designOverride ?? FullKeyboardSettings().design
+        let wantsDesign = designOverride ?? TyprFullKeyboardSettings().design
         if wantsDesign != design {
             design = wantsDesign
             applyAppearance()
         }
-        let wantsAutocorrect = FullKeyboardSettings().autocorrect
+        let wantsAutocorrect = TyprFullKeyboardSettings().autocorrect
         if engine.autocorrect.isEnabled != wantsAutocorrect {
             engine.autocorrect.isEnabled = wantsAutocorrect
             engine.refreshSuggestions()
         }
-        let wantsSwearing = FullKeyboardSettings().suggestSwearWords
+        let wantsSwearing = TyprFullKeyboardSettings().suggestSwearWords
         if engine.autocorrect.allowsSwearing != wantsSwearing {
             engine.autocorrect.allowsSwearing = wantsSwearing
             engine.refreshSuggestions()
@@ -298,7 +298,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             engine.refreshSuggestions()
         }
         if engine.autocorrect.loadCustomWords(CustomVocabularySettings().terms) { engine.refreshSuggestions() }
-        engine.swipeTypingEnabled = FullKeyboardSettings().swipeTyping
+        engine.swipeTypingEnabled = TyprFullKeyboardSettings().swipeTyping
         engine.followsTextOnTrackpad = TyprSettings()[experiment: .spaceTrackpad]
         engine.slidesDeleteByWord = TyprSettings()[experiment: .deleteSlide]
         applyTrackpadFont()
@@ -334,8 +334,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     func textDidChange() {
         applyAppearance()
         let field = engine.field
-        let route = KeyboardFieldRouting.route(for: engine.target.keyboardType)
-        let routeField: KeyboardFieldKind = if case .keys(let kind, _) = route { kind } else { .text }
+        let route = TyprKeyboardFieldRouting.route(for: engine.target.keyboardType)
+        let routeField: TyprKeyboardFieldKind = if case .keys(let kind, _) = route { kind } else { .text }
         if routeField != field {
             plane.cancelAllTouches()
             engine.configureForField()
@@ -425,7 +425,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         } else {
             dictationEdits.finish(context)
         }
-        lastDictation = DictationUndo(text: text, before: before, after: after)
+        lastDictation = TyprDictationUndo(text: text, before: before, after: after)
         undoHideWork?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.hideUndo() }
         undoHideWork = work
@@ -553,8 +553,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
 
     private func applyAppearance() {
         let isDark = appearanceOverride
-            ?? FullKeyboardPalette.isDark(appearance: engine.target.keyboardAppearance, traits: traitCollection)
-        let next = FullKeyboardPalette(isDark: isDark, design: design)
+            ?? TyprFullKeyboardPalette.isDark(appearance: engine.target.keyboardAppearance, traits: traitCollection)
+        let next = TyprFullKeyboardPalette(isDark: isDark, design: design)
         backgroundColor = drawsBackdrop ? next.backdrop : .clear
         stripView.inSystemPlatter = !drawsBackdrop
         guard next != palette || !didApplyPalette else { return }
@@ -572,8 +572,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     private func refreshReturnKey() {
-        plane.returnStyle = ReturnKeyStyle(engine.target.returnKeyType)
-        plane.returnIsEnabled = ReturnKeyStyle.isEnabled(
+        plane.returnStyle = TyprReturnKeyStyle(engine.target.returnKeyType)
+        plane.returnIsEnabled = TyprReturnKeyStyle.isEnabled(
             automatically: engine.target.enablesReturnKeyAutomatically,
             hasText: engine.target.hasText
         )
@@ -619,7 +619,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         } else {
             nil
         }
-        let code = KeyboardInputModes.offersCodeFromMessages(
+        let code = TyprKeyboardInputModes.offersCodeFromMessages(
             textContentType: engine.target.textContentType,
             hasAppleKeyboard: hasAppleKeyboard
         )
@@ -632,20 +632,20 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     /// The finished word's emoji beside the next-word predictions, so every slot fills; a lone emoji takes the centre.
-    private func withEmoji(_ suggestions: [KeyboardSuggestion]) -> [KeyboardSuggestion] {
+    private func withEmoji(_ suggestions: [TyprKeyboardSuggestion]) -> [TyprKeyboardSuggestion] {
         guard engine.bottomRow.emojiKey, engine.showsStrip, engine.field == .text, emojiPanel == nil,
               engine.target.autocorrectionType != .no,
               let before = engine.target.documentContextBeforeInput,
-              AutocorrectEngine.currentToken(in: before) == nil else { return suggestions }
-        if emojiIndex == nil { emojiIndex = EmojiIndex.load(bundle: Bundle(for: FullKeyboardView.self)) }
+              TyprAutocorrectEngine.currentToken(in: before) == nil else { return suggestions }
+        if emojiIndex == nil { emojiIndex = EmojiIndex.load(bundle: Bundle(for: TyprFullKeyboardView.self)) }
         return Self.merging(emoji: emojiIndex?.suggestions(before: before) ?? [], into: suggestions)
     }
 
     /// Up to three chips: a revert offer keeps the left slot, then the emoji, then the words.
-    static func merging(emoji: [String], into suggestions: [KeyboardSuggestion]) -> [KeyboardSuggestion] {
+    static func merging(emoji: [String], into suggestions: [TyprKeyboardSuggestion]) -> [TyprKeyboardSuggestion] {
         let revert = suggestions.prefix(1).filter { $0.kind == .revert }
         let emoji = emoji.prefix(3 - revert.count).map {
-            var chip = KeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary)
+            var chip = TyprKeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary)
             chip.isEmoji = true
             return chip
         }
@@ -657,14 +657,14 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
 
     func openEmojiPanel() {
         guard emojiPanel == nil, !showsRecording, panelContent == nil else { return }
-        if emojiIndex == nil { emojiIndex = EmojiIndex.load(bundle: Bundle(for: FullKeyboardView.self)) }
+        if emojiIndex == nil { emojiIndex = EmojiIndex.load(bundle: Bundle(for: TyprFullKeyboardView.self)) }
         guard let index = emojiIndex else { return }
         dismissStyleMenu()
         plane.cancelAllTouches()
         let layout = engine.layout
-        let capacity = EmojiPanelView.gridRows(for: layout.metrics) * 8
-        let frequent = EmojiPanelView.frequent(used: makeEmojiUsage().ranked(limit: capacity), index: index, capacity: capacity)
-        let panel = EmojiPanelView(index: index, frequent: frequent)
+        let capacity = TyprEmojiPanelView.gridRows(for: layout.metrics) * 8
+        let frequent = TyprEmojiPanelView.frequent(used: makeEmojiUsage().ranked(limit: capacity), index: index, capacity: capacity)
+        let panel = TyprEmojiPanelView(index: index, frequent: frequent)
         panel.palette = palette
         panel.onKeyDown = { [weak self] in self?.keyFeedback() }
         panel.onSelectionStep = { [weak self] in self?.selectionFeedback() }
@@ -700,7 +700,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         makeEmojiUsage().record(emoji)
     }
 
-    private func undoPlan(_ undo: DictationUndo) -> DictationUndo.Plan? {
+    private func undoPlan(_ undo: TyprDictationUndo) -> TyprDictationUndo.Plan? {
         let target = engine.target
         return undo.plan(before: target.documentContextBeforeInput ?? "",
                          after: target.documentContextAfterInput ?? "",
@@ -895,7 +895,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     private var recordingPanelFrame: CGRect {
-        CGRect(x: 0, y: engine.layout.metrics.stripTop, width: bounds.width, height: KeyboardMetrics.headerHeight)
+        CGRect(x: 0, y: engine.layout.metrics.stripTop, width: bounds.width, height: TyprKeyboardMetrics.headerHeight)
     }
 
     private func fade(in shown: [UIView], out hidden: [UIView], after: (() -> Void)? = nil) {
@@ -1025,7 +1025,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         endStripPress()
     }
 
-    /// A finger on the strip where no word or chip is (`KeyboardStripView.hitTest`): touch-down
+    /// A finger on the strip where no word or chip is (`TyprKeyboardStripView.hitTest`): touch-down
     /// arms like the Typr key, a still hold dictates like holding it, and the end stops that
     /// dictation (push to talk). A tap, or a slide past 10 pt before the hold, does nothing.
     @discardableResult
@@ -1119,7 +1119,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     /// Tests: tap a suggestion in the strip.
-    func debugPick(_ suggestion: KeyboardSuggestion) {
+    func debugPick(_ suggestion: TyprKeyboardSuggestion) {
         stripView.onSelectSuggestion?(suggestion)
     }
 

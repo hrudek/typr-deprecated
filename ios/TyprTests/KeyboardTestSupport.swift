@@ -35,8 +35,8 @@ nonisolated enum EvaluationSample {
 }
 
 @MainActor
-extension FullKeyboardEngine {
-    func acceptOwnedFixtureSuggestion(_ suggestion: KeyboardSuggestion) {
+extension TyprFullKeyboardEngine {
+    func acceptOwnedFixtureSuggestion(_ suggestion: TyprKeyboardSuggestion) {
         var owned = suggestion
         owned.ownership = suggestionOwnership
         acceptSuggestion(owned)

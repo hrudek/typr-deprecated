@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class BackspaceUndoWindowTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { ["the", "x"].contains(word) }
         func guesses(for word: String) -> [String] { word == "teh" ? ["the"] : [] }
         func completions(for prefix: String) -> [String] { [] }
@@ -13,7 +13,7 @@ final class BackspaceUndoWindowTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suite: String!
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var written: [TypingLogWord] = []
     private var now: TimeInterval = 100
     private var scheduled: [(delay: TimeInterval, action: @MainActor () -> Void)] = []
@@ -24,10 +24,10 @@ final class BackspaceUndoWindowTests: XCTestCase {
         defaults = UserDefaults(suiteName: suite)!
         target = FixtureTextTarget()
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let autocorrect = AutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults),
+        let autocorrect = TyprAutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults),
                                             spatialDecoder: nil)
         let log = TypingLogRecorder(write: { [unowned self] in self.written.append($0) }, now: { Date() })
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect, typingLog: log)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect, typingLog: log)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.scheduleAfter = { [unowned self] delay, action in self.scheduled.append((delay, action)) }
@@ -40,7 +40,7 @@ final class BackspaceUndoWindowTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
     }
 
-    private func tap(_ kind: KeyKind) {
+    private func tap(_ kind: TyprKeyKind) {
         let frame = engine.layout.key(kind)!.frame
         let point = CGPoint(x: frame.midX, y: frame.midY)
         engine.touchBegan(id: 1, at: point)
@@ -58,7 +58,7 @@ final class BackspaceUndoWindowTests: XCTestCase {
     private func keep() -> TimeInterval {
         type("teh")
         let keptAt = now
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
+        engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
         XCTAssertTrue(target.text.hasSuffix("teh "))
         return keptAt
     }
@@ -149,7 +149,7 @@ final class BackspaceUndoWindowTests: XCTestCase {
         keep()
         let space = engine.layout.key(.space)!.frame
         engine.touchBegan(id: 1, at: CGPoint(x: space.midX, y: space.midY))
-        now += FullKeyboardEngine.trackpadDelay + 0.1
+        now += TyprFullKeyboardEngine.trackpadDelay + 0.1
         engine.touchMoved(id: 1, to: CGPoint(x: space.midX - 40, y: space.midY))
         XCTAssertFalse(engine.deleteUndoes)
     }

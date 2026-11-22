@@ -1,7 +1,7 @@
 import UIKit
 
 /// One slot in the 3-column suggestion strip above the keys.
-nonisolated struct KeyboardSuggestion: Equatable, Sendable {
+nonisolated struct TyprKeyboardSuggestion: Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         /// Left slot (`"typed"`): keeps the exact characters and teaches Typr not to rewrite them.
         case keepLiteral
@@ -35,14 +35,14 @@ nonisolated struct KeyboardSuggestion: Equatable, Sendable {
 
 /// Narrow seam over `UITextChecker` so unit tests can run deterministically or against UIKit's dictionary.
 @MainActor
-protocol TextChecking: AnyObject {
+protocol TyprTextChecking: AnyObject {
     func isWordValid(_ word: String) -> Bool
     func guesses(for word: String) -> [String]
     func completions(for prefix: String) -> [String]
 }
 
 @MainActor
-final class SystemTextChecker: TextChecking {
+final class TyprSystemTextChecker: TyprTextChecking {
     private var checker: UITextChecker?
     private let language: String
 
@@ -103,7 +103,7 @@ final class SystemTextChecker: TextChecking {
 /// On-device suggestions and replace-on-space engine combining `UILexicon`, deterministic
 /// rules, bounded spatial decoding, system spelling and the session's personal protections.
 @MainActor
-final class AutocorrectEngine {
+final class TyprAutocorrectEngine {
     /// The path that produced a word boundary's final text.
     enum CorrectionKind: Equatable { case unchanged, autoSpatial, autoSpelling, autoRule }
 
@@ -163,7 +163,7 @@ final class AutocorrectEngine {
 
     private struct SpaceTap {
         let point: CGPoint
-        let layout: KeyboardLayout
+        let layout: TyprKeyboardLayout
         let after: String
         let epoch: Int
         var typedThrough: String
@@ -202,7 +202,7 @@ final class AutocorrectEngine {
     let spatialDecoder: SpatialWordDecoder?
     let contextResources: KeyboardContextResources
     private var languagePriorCache: (generation: Int, value: Double)?
-    let checker: TextChecking
+    let checker: TyprTextChecking
     let learning: KeyboardLearningSession
     var isEnabled = true { didSet { invalidateDecode() } }
     /// Keyboard › Suggest swear words: every swear word may be offered; slurs never are.
@@ -219,7 +219,7 @@ final class AutocorrectEngine {
     /// The language that wins ties while both are on: first in displayed spelling guesses, and
     /// ranked ahead of the other language's spatial candidates.
     var preferredLanguage = SpatialWordDecoder.Language.german
-    var letters = KeyboardLetterLayout.qwerty
+    var letters = TyprKeyboardLetterLayout.qwerty
     /// Settings > Experimental > Words from context (`ExperimentalSwitch.wordsFromContext`).
     var choosesWordsFromContext = false { didSet { invalidateDecode() } }
     /// Settings > Experimental > Learn each language separately (`ExperimentalSwitch.learnEachLanguage`):
@@ -309,7 +309,7 @@ final class AutocorrectEngine {
     /// Needs autocorrect and every selected pack; without learning or labels the touch model is
     /// the prior. A word starts at the field start, after whitespace or after prose punctuation;
     /// a letter right after '.', '@' or '/' continues a domain, address or abbreviation.
-    func keyMap(layout: KeyboardLayout, context: String?, permitsCorrection: Bool) -> KeyboardKeyMap? {
+    func keyMap(layout: TyprKeyboardLayout, context: String?, permitsCorrection: Bool) -> KeyboardKeyMap? {
         let startsWord = context == "" || context?.last.map {
             $0.isWhitespace || ($0.isPunctuation && !".@/#_-:'’".contains($0))
         } == true
@@ -510,7 +510,7 @@ final class AutocorrectEngine {
 
     /// A compatible immutable result is adopted into the same cache the authoritative boundary
     /// reads. Checker calls remain here on MainActor, in a separate step after key handling.
-    func finishSuggestions(_ result: KeyboardSuggestionWorker.Result) -> [KeyboardSuggestion] {
+    func finishSuggestions(_ result: KeyboardSuggestionWorker.Result) -> [TyprKeyboardSuggestion] {
         if let evidence = result.request.evidence, let outcome = result.outcome {
             decodeCache = DecodeCache(evidence: evidence, languages: result.request.languages,
                                       context: result.request.context, generation: learning.generation,
@@ -534,14 +534,14 @@ final class AutocorrectEngine {
     }
 
     init(
-        checker: TextChecking? = nil,
+        checker: TyprTextChecking? = nil,
         learning: KeyboardLearningSession? = nil,
         spatialDecoder: SpatialWordDecoder? = .bundled,
         contextResources: KeyboardContextResources? = nil
     ) {
         self.contextResources = contextResources ?? .bundled
         self.spatialDecoder = spatialDecoder
-        self.checker = checker ?? SystemTextChecker()
+        self.checker = checker ?? TyprSystemTextChecker()
         let learning = learning ?? KeyboardLearningSession()
         self.learning = learning
         observedResets = learning.resets
@@ -596,7 +596,7 @@ final class AutocorrectEngine {
         lexiconTermKeys = Set(lexiconTerms.map { $0.lowercased() })
     }
 
-    // Casing adapted from anomalyco/hex AutocorrectEngine.shortcut(for:) (MIT, #2153).
+    // Casing adapted from anomalyco/hex TyprAutocorrectEngine.shortcut(for:) (MIT, #2153).
     private func shortcut(for token: String) -> String? {
         guard let stored = lexiconShortcuts[token.lowercased()] else { return nil }
         let letters = token.filter(\.isLetter)
@@ -793,7 +793,7 @@ final class AutocorrectEngine {
 
     /// iikb TypingEngine+Words.swift `PendingWord.ending`
     /// (73c2ed9016b802e5bf017a2d595d037d1e748ccf, MIT © 2026 Bassim Shahidy).
-    func spaceTyped(at point: CGPoint, layout: KeyboardLayout, afterInput: String?) {
+    func spaceTyped(at point: CGPoint, layout: TyprKeyboardLayout, afterInput: String?) {
         let earlier = spaceBeforeWord
         spaceBeforeWord = nil
         typedSpace = nil
@@ -866,7 +866,7 @@ final class AutocorrectEngine {
     }
 
     /// An explicit strip choice. `evidence` must be captured before the word is invalidated.
-    func recordSuggestionFeedback(_ suggestion: KeyboardSuggestion, literal: String,
+    func recordSuggestionFeedback(_ suggestion: TyprKeyboardSuggestion, literal: String,
                                   evidence: KeyboardTouchWord?) {
         pendingFeedback = nil
         if let boundary = suggestion.boundary {
@@ -1009,10 +1009,10 @@ final class AutocorrectEngine {
 
     func suggestions(
         beforeInput: String?,
-        field: KeyboardFieldKind,
+        field: TyprKeyboardFieldKind,
         autocorrectionType: UITextAutocorrectionType?,
         boundaryRetrieval: KeyboardBoundaryDecoder.Retrieval? = nil
-    ) -> [KeyboardSuggestion] {
+    ) -> [TyprKeyboardSuggestion] {
         let evidence = touchInput.evidence(beforeInput: beforeInput)
         stripInput = beforeInput
         guard field == .text, autocorrectionType != .no else { return [] }
@@ -1037,7 +1037,7 @@ final class AutocorrectEngine {
                 let selected = learning.personalBigrams.select(after: context.previous, earlier: context.earlier).context
                 let display = learning.personalBigrams.followers(after: selected)[word.key] != nil
                     ? personalSpelling(word.display, token: word.display) : word.display
-                return KeyboardSuggestion(displayText: display, replacement: display,
+                return TyprKeyboardSuggestion(displayText: display, replacement: display,
                                           kind: word == words.first ? .primary(autoReplace: false) : .secondary,
                                           isCompletion: true)
             }
@@ -1247,9 +1247,9 @@ final class AutocorrectEngine {
             for (slot, word) in zip(slots, ranked) { pool[slot] = word }
         }
 
-        let literal = KeyboardSuggestion(displayText: "“\(token)”", replacement: token, kind: .keepLiteral)
-        let primary: KeyboardSuggestion = if let first = pool.first {
-            KeyboardSuggestion(
+        let literal = TyprKeyboardSuggestion(displayText: "“\(token)”", replacement: token, kind: .keepLiteral)
+        let primary: TyprKeyboardSuggestion = if let first = pool.first {
+            TyprKeyboardSuggestion(
                 displayText: first,
                 replacement: first,
                 // Explicit rules retain #117's highlight exception.
@@ -1261,10 +1261,10 @@ final class AutocorrectEngine {
                 boundary: boundaries[first]
             )
         } else {
-            KeyboardSuggestion(displayText: token, replacement: token, kind: .primary(autoReplace: false))
+            TyprKeyboardSuggestion(displayText: token, replacement: token, kind: .primary(autoReplace: false))
         }
-        let secondary: KeyboardSuggestion? = if pool.count >= 2 {
-            KeyboardSuggestion(displayText: pool[1], replacement: pool[1], kind: .secondary,
+        let secondary: TyprKeyboardSuggestion? = if pool.count >= 2 {
+            TyprKeyboardSuggestion(displayText: pool[1], replacement: pool[1], kind: .secondary,
                                isCompletion: boundaries[pool[1]] == nil && (completions.contains(pool[1]) || Self.isPrefixExtension(pool[1], of: token)),
                                isPersonal: personalPicks.contains(pool[1]), boundary: boundaries[pool[1]])
         } else {
@@ -1277,7 +1277,7 @@ final class AutocorrectEngine {
     /// opens the pending feedback. Returns `(tokenToDelete, replacement)` only for a cautious fix.
     func replacementOnSpace(
         beforeInput: String?,
-        field: KeyboardFieldKind,
+        field: TyprKeyboardFieldKind,
         autocorrectionType: UITextAutocorrectionType?
     ) -> (original: String, replacement: String)? {
         let evidence = touchInput.evidence(beforeInput: beforeInput)
@@ -1688,7 +1688,7 @@ final class AutocorrectEngine {
     }
 
     /// Returns a weighted cost if `source` and `target` are within 1 Damerau-Levenshtein edit; `nil` otherwise.
-    static func singleEditKeyboardCost(from source: String, to target: String, on letters: KeyboardLetterLayout) -> Double? {
+    static func singleEditKeyboardCost(from source: String, to target: String, on letters: TyprKeyboardLetterLayout) -> Double? {
         if source == target { return 0 }
         let s = Array(source)
         let t = Array(target)
@@ -1735,9 +1735,9 @@ final class AutocorrectEngine {
         return (leftAdj || rightAdj) ? 0.70 : 0.90
     }
 
-    private static let keyCoordinates: [KeyboardLetterLayout: [Character: (row: Double, column: Double)]] = {
-        Dictionary(uniqueKeysWithValues: KeyboardLetterLayout.allCases.map { letters in
-            let layout = KeyboardLayout(width: 375, letters: letters)
+    private static let keyCoordinates: [TyprKeyboardLetterLayout: [Character: (row: Double, column: Double)]] = {
+        Dictionary(uniqueKeysWithValues: TyprKeyboardLetterLayout.allCases.map { letters in
+            let layout = TyprKeyboardLayout(width: 375, letters: letters)
             let pitch = layout.key(.character("a"))!.frame.width + layout.metrics.gap
             var map: [Character: (row: Double, column: Double)] = [:]
             for key in layout.keys where key.row < layout.bottomRowIndex {
@@ -1748,7 +1748,7 @@ final class AutocorrectEngine {
         })
     }()
 
-    static func areAdjacentKeys(_ a: Character, _ b: Character, on letters: KeyboardLetterLayout) -> Bool {
+    static func areAdjacentKeys(_ a: Character, _ b: Character, on letters: TyprKeyboardLetterLayout) -> Bool {
         guard let pa = keyCoordinates[letters]?[a], let pb = keyCoordinates[letters]?[b] else { return false }
         let dx = pa.1 - pb.1
         let dy = pa.0 - pb.0

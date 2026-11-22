@@ -2,7 +2,7 @@ import Foundation
 
 /// The dictation Undo dictation can take back, with the field's text either side of it when it
 /// went in, so it can still be found after the cursor moves: within it, before it or after it.
-struct DictationUndo: Equatable {
+struct TyprDictationUndo: Equatable {
     let text: String
     /// As much of the field before and after the dictation as the host showed when it went in.
     let before: String

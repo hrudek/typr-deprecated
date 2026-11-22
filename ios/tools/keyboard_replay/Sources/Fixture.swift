@@ -10,7 +10,7 @@ func makeFixture(words data: WordData, to url: URL) async throws {
     var clockDate = Date(timeIntervalSince1970: 1_790_000_000)
     let recorder = TypingLogRecorder(write: { logged.append($0) }, now: { clockDate })
     let learning = KeyboardLearningSession(store: nil, defaults: nil)
-    let autocorrect = AutocorrectEngine(checker: LexiconChecker(data.lexicons[.english]), learning: learning,
+    let autocorrect = TyprAutocorrectEngine(checker: LexiconChecker(data.lexicons[.english]), learning: learning,
                                         spatialDecoder: SpatialWordDecoder(lexicons: data.lexicons),
                                         contextResources: KeyboardContextResources(model: data.context))
     autocorrect.german = GermanAutocorrect(checker: LexiconChecker(data.lexicons[.german]))
@@ -18,7 +18,7 @@ func makeFixture(words data: WordData, to url: URL) async throws {
     protectedWords.forEach { builder.add($0) }
     autocorrect.loadProtectedLexicon(builder.build())
     let target = ReplayTarget(text: "")
-    let engine = FullKeyboardEngine(target: target, autocorrect: autocorrect, typingLog: recorder,
+    let engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect, typingLog: recorder,
                                     swipeDecoder: { _ in [] })
     var now: TimeInterval = 500
     engine.clock = { now }
@@ -54,7 +54,7 @@ func makeFixture(words data: WordData, to url: URL) async throws {
         engine.touchBegan(id: touch, at: point, time: now)
         engine.touchEnded(id: touch, at: point)
     }
-    func press(_ kind: KeyKind) {
+    func press(_ kind: TyprKeyKind) {
         let key = engine.layout.key(kind)!
         press(CGPoint(x: key.frame.midX, y: key.frame.midY))
     }

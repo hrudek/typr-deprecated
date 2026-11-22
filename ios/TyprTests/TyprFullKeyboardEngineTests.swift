@@ -3,20 +3,20 @@ import XCTest
 @testable import Typr
 
 @MainActor
-final class FullKeyboardEngineTests: XCTestCase {
+final class TyprFullKeyboardEngineTests: XCTestCase {
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var now: TimeInterval = 100
     private var suiteName: String!
     private var defaults: UserDefaults!
 
     override func setUp() async throws {
-        suiteName = "FullKeyboardEngineTests-\(UUID().uuidString)"
+        suiteName = "TyprFullKeyboardEngineTests-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)!
         target = FixtureTextTarget()
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let ac = AutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
-        engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let ac = TyprAutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.configureForField()
@@ -26,15 +26,15 @@ final class FullKeyboardEngineTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    private func point(_ kind: KeyKind) -> CGPoint {
+    private func point(_ kind: TyprKeyKind) -> CGPoint {
         let key = engine.layout.key(kind)!
         return CGPoint(x: key.frame.midX, y: key.frame.midY)
     }
 
-    private func down(_ id: Int, _ kind: KeyKind) { engine.touchBegan(id: id, at: point(kind)) }
-    private func up(_ id: Int, _ kind: KeyKind) { engine.touchEnded(id: id, at: point(kind)) }
+    private func down(_ id: Int, _ kind: TyprKeyKind) { engine.touchBegan(id: id, at: point(kind)) }
+    private func up(_ id: Int, _ kind: TyprKeyKind) { engine.touchEnded(id: id, at: point(kind)) }
 
-    private func tap(_ kind: KeyKind) {
+    private func tap(_ kind: TyprKeyKind) {
         let at = point(kind)
         engine.touchBegan(id: 1, at: at)
         engine.touchEnded(id: 1, at: at)
@@ -89,7 +89,7 @@ final class FullKeyboardEngineTests: XCTestCase {
         let start = point(.space)
         down(4, .space)
         down(5, .character("c"))
-        now += FullKeyboardEngine.trackpadDelay + 0.1
+        now += TyprFullKeyboardEngine.trackpadDelay + 0.1
         engine.touchMoved(id: 4, to: CGPoint(x: start.x - 30, y: start.y))
         XCTAssertFalse(engine.isTrackpadActive, "a space already typed doesn't become the trackpad")
         engine.touchEnded(id: 4, at: CGPoint(x: start.x - 30, y: start.y))
@@ -172,7 +172,7 @@ final class FullKeyboardEngineTests: XCTestCase {
         down(1, .character("."))
         XCTAssertTrue(engine.openAccentMenuIfEligible(forTouch: 1))
         let menu = try XCTUnwrap(engine.activeAccentMenu)
-        XCTAssertEqual(Set(menu.options), Set(AccentCatalog.periodKey))
+        XCTAssertEqual(Set(menu.options), Set(TyprAccentCatalog.periodKey))
         let cell = menu.cellFrames[try XCTUnwrap(menu.options.firstIndex(of: ","))]
         engine.touchMoved(id: 1, to: CGPoint(x: cell.midX, y: cell.midY))
         engine.touchEnded(id: 1, at: CGPoint(x: cell.midX, y: cell.midY))
@@ -181,7 +181,7 @@ final class FullKeyboardEngineTests: XCTestCase {
         tap(.layerSwitch(.numbers))
         down(1, .character("."))
         XCTAssertTrue(engine.openAccentMenuIfEligible(forTouch: 1))
-        XCTAssertEqual(Set(try XCTUnwrap(engine.activeAccentMenu).options), Set(AccentCatalog.options(for: ".", uppercase: false) ?? []))
+        XCTAssertEqual(Set(try XCTUnwrap(engine.activeAccentMenu).options), Set(TyprAccentCatalog.options(for: ".", uppercase: false) ?? []))
         engine.cancelAllTouches()
     }
 
@@ -227,8 +227,8 @@ final class FullKeyboardEngineTests: XCTestCase {
         target = FixtureTextTarget(text: text)
         target.autocapitalizationType = UITextAutocapitalizationType.none
         target.keyboardType = keyboardType
-        let ac = AutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
-        engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let ac = TyprAutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.configureForField()
@@ -265,7 +265,7 @@ final class FullKeyboardEngineTests: XCTestCase {
                 resetText()
                 type("teh")
                 if explicit {
-                    engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
+                    engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
                 } else {
                     tap(.space)
                 }
@@ -305,7 +305,7 @@ final class FullKeyboardEngineTests: XCTestCase {
 
     func testPunctuationDoesNotReconsiderExplicitKeep() {
         type("teh")
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
+        engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
         punctuation("?")
         XCTAssertEqual(target.text, "teh?")
     }
@@ -316,7 +316,7 @@ final class FullKeyboardEngineTests: XCTestCase {
                 resetText()
                 type("teh")
                 if explicit {
-                    engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
+                    engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
                 } else {
                     tap(.space)
                 }
@@ -335,7 +335,7 @@ final class FullKeyboardEngineTests: XCTestCase {
             resetText()
             type("teh")
             if explicit {
-                engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
+                engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
             } else {
                 tap(.space)
             }
@@ -368,7 +368,7 @@ final class FullKeyboardEngineTests: XCTestCase {
 
     func testSlowSpaceAfterSuggestionDoesNotInsertPeriod() {
         type("teh")
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
+        engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
         now += 0.5
         tap(.space)
         XCTAssertEqual(target.text, "the  ")
@@ -412,7 +412,7 @@ final class FullKeyboardEngineTests: XCTestCase {
 
     func testExternalCursorChangeInvalidatesSuggestionDoubleSpace() {
         type("teh")
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
+        engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "the", replacement: "the", kind: .secondary))
         engine.textDidChange()
         now += 0.1
         tap(.space)
@@ -462,15 +462,15 @@ final class FullKeyboardEngineTests: XCTestCase {
         down(1, .delete)
         XCTAssertEqual(target.text, "hello worl")
         // Initial repeat deletes 1 char.
-        engine.repeatDelete(heldFor: FullKeyboardEngine.repeatDelay)
+        engine.repeatDelete(heldFor: TyprFullKeyboardEngine.repeatDelay)
         XCTAssertEqual(target.text, "hello wor")
         // Accelerated repeat deletes 2 chars per tick.
-        engine.repeatDelete(heldFor: FullKeyboardEngine.fastRepeatAfter)
+        engine.repeatDelete(heldFor: TyprFullKeyboardEngine.fastRepeatAfter)
         XCTAssertEqual(target.text, "hello w")
         // After 1.4 s, removes whole words backward.
-        engine.repeatDelete(heldFor: FullKeyboardEngine.wordDeleteAfter)
+        engine.repeatDelete(heldFor: TyprFullKeyboardEngine.wordDeleteAfter)
         XCTAssertEqual(target.text, "hello ")
-        engine.repeatDelete(heldFor: FullKeyboardEngine.wordDeleteAfter)
+        engine.repeatDelete(heldFor: TyprFullKeyboardEngine.wordDeleteAfter)
         XCTAssertEqual(target.text, "")
         up(1, .delete)
     }
@@ -495,7 +495,7 @@ final class FullKeyboardEngineTests: XCTestCase {
         type("helo")
         let spaceStart = point(.space)
         engine.touchBegan(id: 1, at: spaceStart)
-        now += FullKeyboardEngine.trackpadDelay + 0.1
+        now += TyprFullKeyboardEngine.trackpadDelay + 0.1
         // Enter trackpad mode (-12 pt) then drag left by 16 pt (-2 chars: before "lo").
         let enterPoint = CGPoint(x: spaceStart.x - 12, y: spaceStart.y)
         engine.touchMoved(id: 1, to: enterPoint)
@@ -649,7 +649,7 @@ final class FullKeyboardEngineTests: XCTestCase {
         type("hallo")
         let space = point(.space)
         engine.touchBegan(id: 1, at: space)
-        now += FullKeyboardEngine.trackpadDelay + 0.1
+        now += TyprFullKeyboardEngine.trackpadDelay + 0.1
         engine.holdSpace(forTouch: 1)
         XCTAssertFalse(engine.isTrackpadActive)
         engine.touchEnded(id: 1, at: space)
@@ -708,7 +708,7 @@ final class FullKeyboardEngineTests: XCTestCase {
 
     func testTheDeleteSlideWorksFromItsStartingTextWhenTheHostReportsContextLate() {
         let host = LateContextTarget(text: "Hallo schöne Welt")
-        engine = FullKeyboardEngine(target: host, autocorrect: AutocorrectEngine(
+        engine = TyprFullKeyboardEngine(target: host, autocorrect: TyprAutocorrectEngine(
             learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil))
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
@@ -726,7 +726,7 @@ final class FullKeyboardEngineTests: XCTestCase {
     }
 
     func testAnotherKeyDuringADeleteSlideKeepsWhatWasDeletedAndEndsTheSlide() {
-        for (key, typed) in [(KeyKind.character("x"), "Hallo schöne x"), (.space, "Hallo schöne  "),
+        for (key, typed) in [(TyprKeyKind.character("x"), "Hallo schöne x"), (.space, "Hallo schöne  "),
                              (.returnKey, "Hallo schöne \n")] {
             resetText("Hallo schöne Welt")
             engine.slidesDeleteByWord = true
@@ -774,9 +774,9 @@ final class FullKeyboardEngineTests: XCTestCase {
         down(1, .delete)
         slideDelete(1, keyWidths: 0.4)
         XCTAssertFalse(engine.isDeleteSliding, "a drifting hold keeps repeating")
-        engine.repeatDelete(heldFor: FullKeyboardEngine.repeatDelay)
+        engine.repeatDelete(heldFor: TyprFullKeyboardEngine.repeatDelay)
         XCTAssertEqual(target.text, "Hallo W")
-        engine.repeatDelete(heldFor: FullKeyboardEngine.wordDeleteAfter)
+        engine.repeatDelete(heldFor: TyprFullKeyboardEngine.wordDeleteAfter)
         XCTAssertEqual(target.text, "Hallo ")
         up(1, .delete)
         XCTAssertEqual(target.text, "Hallo ")
@@ -813,7 +813,7 @@ final class FullKeyboardEngineTests: XCTestCase {
 
     func testRecordingPanelAllocatesLazilyAndTearsDownOnIdle() {
         let model = KeyboardViewModel()
-        let view = FullKeyboardView(model: model, target: target)
+        let view = TyprFullKeyboardView(model: model, target: target)
         view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
         view.layoutIfNeeded()
         XCTAssertFalse(view.hasAllocatedRecordingPanel, "no Metal scope allocated while typing")
@@ -846,11 +846,11 @@ final class FullKeyboardEngineTests: XCTestCase {
 
     func testRecordingPanelSitsInTheStripAndTheKeysStay() throws {
         let model = KeyboardViewModel()
-        let view = FullKeyboardView(model: model, target: target)
+        let view = TyprFullKeyboardView(model: model, target: target)
         view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
         view.layoutIfNeeded()
-        let strip = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardStripView }.first)
-        let plane = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardKeyPlaneView }.first)
+        let strip = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyboardStripView }.first)
+        let plane = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyboardKeyPlaneView }.first)
         let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
         let keysFrame = plane.frame
         let stripFrame = strip.frame
@@ -893,7 +893,7 @@ final class FullKeyboardEngineTests: XCTestCase {
         var events: [String] = []
         model.onArmDictation = { events.append("arm") }
         model.onDisarmDictation = { events.append("disarm") }
-        let view = FullKeyboardView(model: model, target: target)
+        let view = TyprFullKeyboardView(model: model, target: target)
         view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
         view.layoutIfNeeded()
         let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
@@ -938,7 +938,7 @@ final class FullKeyboardEngineTests: XCTestCase {
         var events: [String] = []
         model.onArmDictation = { events.append("arm") }
         model.onDisarmDictation = { events.append("disarm") }
-        let view = FullKeyboardView(model: model, target: target)
+        let view = TyprFullKeyboardView(model: model, target: target)
         view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
         view.layoutIfNeeded()
         let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
@@ -960,10 +960,10 @@ final class FullKeyboardEngineTests: XCTestCase {
         model.onDictateTap = { events.append("start") }
         model.onStopTap = { events.append("stop") }
         model.onColdStart = { events.append("cold") }
-        let view = FullKeyboardView(model: model, target: target)
+        let view = TyprFullKeyboardView(model: model, target: target)
         view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
         view.layoutIfNeeded()
-        let strip = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardStripView }.first)
+        let strip = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyboardStripView }.first)
         let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
         XCTAssertFalse(strip.isHidden)
         let empty = CGPoint(x: strip.frame.minX + 20, y: strip.frame.midY)
@@ -1056,9 +1056,9 @@ final class FullKeyboardEngineTests: XCTestCase {
     }
 
     func testStripWordsAndChipsKeepTheirTouchesBesideTheEmptyHoldArea() {
-        let strip = KeyboardStripView(frame: CGRect(x: 0, y: 0, width: 393, height: 44))
-        let suggestion = KeyboardSuggestion(displayText: "Hallo", replacement: "Hallo", kind: .primary(autoReplace: false))
-        let emoji = KeyboardSuggestion(displayText: "😀", replacement: "😀", kind: .secondary)
+        let strip = TyprKeyboardStripView(frame: CGRect(x: 0, y: 0, width: 393, height: 44))
+        let suggestion = TyprKeyboardSuggestion(displayText: "Hallo", replacement: "Hallo", kind: .primary(autoReplace: false))
+        let emoji = TyprKeyboardSuggestion(displayText: "😀", replacement: "😀", kind: .secondary)
         var picked: [String] = []
         strip.onSelectSuggestion = { picked.append($0.replacement) }
 
@@ -1100,7 +1100,7 @@ final class FullKeyboardEngineTests: XCTestCase {
 
 /// A host whose `documentContextBeforeInput` stops following edits, as some apps report it late.
 @MainActor
-private final class LateContextTarget: KeyboardTextTarget {
+private final class LateContextTarget: TyprKeyboardTextTarget {
     private let field: FixtureTextTarget
     private var frozenBefore: String?
     var freezesContext = false {

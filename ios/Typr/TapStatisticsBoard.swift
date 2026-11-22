@@ -72,7 +72,7 @@ struct TapStatisticsBoard: View {
             : share >= 0.7 ? TyprTheme.warmMic.opacity(0.55) : TyprTheme.danger.opacity(0.55)
     }
 
-    private func drawAim(_ context: inout GraphicsContext, key: KeyboardKey, stats: TapStatistics.Key) {
+    private func drawAim(_ context: inout GraphicsContext, key: TyprKeyboardKey, stats: TapStatistics.Key) {
         let origin = CGPoint(x: key.frame.midX, y: key.frame.midY)
         var line = Path(); line.move(to: origin); line.addLine(to: stats.center)
         context.stroke(line, with: .color(TyprTheme.warmMic), lineWidth: 1.5)
@@ -99,7 +99,7 @@ struct TapStatisticsBoard: View {
 }
 
 struct TapKeyDetailGlyph: View {
-    let key: KeyboardKey
+    let key: TyprKeyboardKey
     let stats: TapStatistics.Key
     var body: some View {
         Canvas { context, size in

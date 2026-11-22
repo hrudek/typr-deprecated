@@ -4,12 +4,12 @@ import XCTest
 
 @MainActor
 final class SpatialWordDecoderTests: XCTestCase {
-    private func layout(width: CGFloat = 393, strip: Bool = true) -> KeyboardLayout {
-        KeyboardLayout(width: width, orientation: .portrait, layer: .letters, field: .text,
+    private func layout(width: CGFloat = 393, strip: Bool = true) -> TyprKeyboardLayout {
+        TyprKeyboardLayout(width: width, orientation: .portrait, layer: .letters, field: .text,
                        showsGlobe: false, showsStrip: strip)
     }
 
-    private func evidence(_ text: String, aimedAt: String, layout: KeyboardLayout? = nil) -> KeyboardTouchWord {
+    private func evidence(_ text: String, aimedAt: String, layout: TyprKeyboardLayout? = nil) -> KeyboardTouchWord {
         let grid = layout ?? self.layout()
         let samples = zip(text, aimedAt).map { typed, aimed in
             let key = grid.key(.character(String(typed).lowercased()))!
@@ -97,11 +97,11 @@ final class SpatialWordDecoderTests: XCTestCase {
         XCTAssertNil(decoder().decode(word, languages: [.english]))
     }
 
-    private func engine(valid: Set<String> = ["hello", "jello"]) -> AutocorrectEngine {
-        AutocorrectEngine(checker: SpatialChecker(valid: valid), learning: KeyboardLearningSession(), spatialDecoder: decoder())
+    private func engine(valid: Set<String> = ["hello", "jello"]) -> TyprAutocorrectEngine {
+        TyprAutocorrectEngine(checker: SpatialChecker(valid: valid), learning: KeyboardLearningSession(), spatialDecoder: decoder())
     }
 
-    private func track(_ word: KeyboardTouchWord, in engine: AutocorrectEngine) {
+    private func track(_ word: KeyboardTouchWord, in engine: TyprAutocorrectEngine) {
         var before = ""
         for sample in word.samples {
             let after = before + sample.text
@@ -111,7 +111,7 @@ final class SpatialWordDecoderTests: XCTestCase {
         }
     }
 
-    private func replacement(_ engine: AutocorrectEngine, _ token: String = "gello") -> String? {
+    private func replacement(_ engine: TyprAutocorrectEngine, _ token: String = "gello") -> String? {
         engine.replacementOnSpace(beforeInput: token, field: .text, autocorrectionType: .default)?.replacement
     }
 
@@ -169,7 +169,7 @@ final class SpatialWordDecoderTests: XCTestCase {
         let ac = engine()
         let target = FixtureTextTarget(text: "gello")
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+        let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         keyboard.width = 393
         keyboard.configureForField()
         track(evidence("gello", aimedAt: "hello", layout: keyboard.layout), in: ac)
@@ -196,7 +196,7 @@ final class SpatialWordDecoderTests: XCTestCase {
         let result = try XCTUnwrap(source.decode(word, languages: [.english]))
         XCTAssertEqual(result.candidates.first?.word, "help")
         XCTAssertEqual(result.automaticCandidate?.word, "help")
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: ["hello", "help"], guesses: ["hello"]),
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: ["hello", "help"], guesses: ["hello"]),
                                    spatialDecoder: source)
         track(word, in: ac)
         XCTAssertEqual(replacement(ac, "helo"), "help")
@@ -218,7 +218,7 @@ final class SpatialWordDecoderTests: XCTestCase {
             }
             let result = try XCTUnwrap(source.decode(word, languages: [.english]))
             XCTAssertEqual(result.automaticCandidate?.word, "hello", typed)
-            let ac = AutocorrectEngine(checker: SpatialChecker(valid: ["hello", "help"], guesses: ["help"]),
+            let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: ["hello", "help"], guesses: ["help"]),
                                        spatialDecoder: source)
             track(word, in: ac)
             XCTAssertEqual(replacement(ac, typed), "hello", typed)
@@ -256,12 +256,12 @@ final class SpatialWordDecoderTests: XCTestCase {
         XCTAssertEqual(ac.learning.diagnostics[.suggestionDecodes], 2)
     }
 
-    private func editSuggestionEngine(valid: Set<String> = ["hello"]) -> AutocorrectEngine {
+    private func editSuggestionEngine(valid: Set<String> = ["hello"]) -> TyprAutocorrectEngine {
         // The large German corpus keeps the English absent-word floor as the literal's prior.
         // Prior odds of 50 do not pay for one edit (log .01), so "hello" stays below the literal.
         let source = SpatialWordDecoder(lexicons: [.english: spatialLexicon([("hello", 50), ("world", 1)]),
                                                    .german: spatialLexicon([("morgen", 1_000_000)])])
-        return AutocorrectEngine(checker: SpatialChecker(valid: valid), spatialDecoder: source)
+        return TyprAutocorrectEngine(checker: SpatialChecker(valid: valid), spatialDecoder: source)
     }
 
     func testEditSuggestionsFillTheStripButNeverReplaceAutomatically() {
@@ -276,7 +276,7 @@ final class SpatialWordDecoderTests: XCTestCase {
     }
 
     func testEditSuggestionsAreSuppressedForTrustedLiterals() {
-        func secondSlot(_ ac: AutocorrectEngine) -> String? {
+        func secondSlot(_ ac: TyprAutocorrectEngine) -> String? {
             track(evidence("helo", aimedAt: "helo"), in: ac)
             return ac.suggestions(beforeInput: "helo", field: .text, autocorrectionType: .default)
                 .dropFirst().first?.replacement
@@ -306,7 +306,7 @@ final class SpatialWordDecoderTests: XCTestCase {
     func testProtectedEditSuggestionsLeaveRoomForNormalCompletions() {
         let source = editSuggestionEngine().spatialDecoder
         let checker = SpatialChecker(valid: ["helo", "hello"], completions: ["helos"])
-        let ac = AutocorrectEngine(checker: checker, spatialDecoder: source)
+        let ac = TyprAutocorrectEngine(checker: checker, spatialDecoder: source)
         track(evidence("helo", aimedAt: "helo"), in: ac)
         let slots = ac.suggestions(beforeInput: "helo", field: .text, autocorrectionType: .default)
         XCTAssertEqual(slots.map(\.replacement), ["helo", "helos"])
@@ -325,7 +325,7 @@ final class SpatialWordDecoderTests: XCTestCase {
         let result = try XCTUnwrap(source.decode(word, languages: [.english]))
         XCTAssertEqual(result.candidates.first?.word, "hello")
         XCTAssertNotEqual(result.candidates.first?.edit, SpatialWordDecoder.Edit.none)
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: ["helo", "hello"], completions: ["helos"]),
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: ["helo", "hello"], completions: ["helos"]),
                                    spatialDecoder: source)
         track(word, in: ac)
         let slots = ac.suggestions(beforeInput: "helo", field: .text, autocorrectionType: .default)
@@ -335,7 +335,7 @@ final class SpatialWordDecoderTests: XCTestCase {
     }
 
     func testLowercaseGermanNounIsProtectedWithoutSpatialResources() {
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: [], guesses: ["hello"]), spatialDecoder: nil)
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: [], guesses: ["hello"]), spatialDecoder: nil)
         ac.german = GermanAutocorrect(checker: SpatialChecker(valid: ["Helo"], guesses: ["Hello"]))
         XCTAssertTrue(ac.literalIsValid("helo"))
         XCTAssertNil(replacement(ac, "helo"))
@@ -347,7 +347,7 @@ final class SpatialWordDecoderTests: XCTestCase {
         let ac = editSuggestionEngine()
         let target = FixtureTextTarget(text: "helo")
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+        let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         keyboard.width = 393
         keyboard.configureForField()
         track(evidence("helo", aimedAt: "helo", layout: keyboard.layout), in: ac)
@@ -369,7 +369,7 @@ final class SpatialWordDecoderTests: XCTestCase {
         let ac = editSuggestionEngine(valid: ["hello", "helo"])
         let target = FixtureTextTarget(text: "helo")
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+        let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         keyboard.width = 393
         keyboard.configureForField()
         track(evidence("helo", aimedAt: "helo", layout: keyboard.layout), in: ac)
@@ -425,7 +425,7 @@ final class SpatialWordDecoderTests: XCTestCase {
 
     func testMissingSelectedLanguageResourceFallsBackWithDiagnostic() {
         let source = SpatialWordDecoder(lexicons: [.english: spatialLexicon([("hello", 100)])])
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: ["hello"], guesses: ["hello"]), spatialDecoder: source)
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: ["hello"], guesses: ["hello"]), spatialDecoder: source)
         ac.german = GermanAutocorrect(checker: SpatialChecker(valid: []))
         track(evidence("gello", aimedAt: "hello"), in: ac)
         XCTAssertEqual(replacement(ac), "hello")
@@ -446,7 +446,7 @@ final class SpatialWordDecoderTests: XCTestCase {
             .init(text: $0.text, point: CGPoint(x: (g.midX + h.midX) / 2, y: g.midY), key: $0.key)
         }
         let guess = String(repeating: "g", count: 11) + "h"
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: [guess], guesses: [guess]), spatialDecoder: source)
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: [guess], guesses: [guess]), spatialDecoder: source)
         XCTAssertFalse(try XCTUnwrap(source.decode(word, languages: [.english])).complete)
         track(word, in: ac)
         // The budget ran out before any word beat the literal; the fallback stays closed.
@@ -485,7 +485,7 @@ final class SpatialWordDecoderTests: XCTestCase {
         session.recordWord("hello")
         XCTAssertNotNil(session.model.calibration(for: grid))
         defaults.set(false, forKey: "keyboard.personalLearning")
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: ["hello"]), learning: session, spatialDecoder: decoder())
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: ["hello"]), learning: session, spatialDecoder: decoder())
         ac.syncLearning()
         XCTAssertNil(session.model.calibration(for: grid))
         XCTAssertTrue(session.model.lexicon.counts.isEmpty)
@@ -999,7 +999,7 @@ final class SpatialWordDecoderTests: XCTestCase {
     }
 
     func testSettledSpatialSubstitutionTeachesOnlyWhenItSettles() {
-        func corrected() -> AutocorrectEngine {
+        func corrected() -> TyprAutocorrectEngine {
             let ac = engine()
             track(evidence("gello", aimedAt: "hello"), in: ac)
             XCTAssertEqual(replacement(ac), "hello")
@@ -1056,11 +1056,11 @@ final class SpatialWordDecoderTests: XCTestCase {
     func testPrefixExtensionFromSpatialAndSpellingIsAlwaysCompletion() async throws {
         let source = SpatialWordDecoder(lexicons: [.english: spatialLexicon([("keyboard", 100)])])
         for spatial in [true, false] {
-            let ac = AutocorrectEngine(checker: SpatialChecker(valid: ["keyboard"],
+            let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: ["keyboard"],
                 guesses: spatial ? [] : ["keyboard"]), spatialDecoder: spatial ? source : nil)
             let target = FixtureTextTarget(text: "keyboar")
             target.autocapitalizationType = UITextAutocapitalizationType.none
-            let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+            let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
             keyboard.width = 393
             keyboard.configureForField()
             track(evidence("keyboar", aimedAt: "keyboar", layout: keyboard.layout), in: ac)
@@ -1084,7 +1084,7 @@ final class SpatialWordDecoderTests: XCTestCase {
         guard case .unavailable(.resource) = source.decodeDetailed(word, languages: [.english]) else {
             return XCTFail("Decode must not synchronously load word data")
         }
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: ["hello"], guesses: ["hello"]),
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: ["hello"], guesses: ["hello"]),
                                    spatialDecoder: source)
         track(word, in: ac)
         for _ in 0..<5 {
@@ -1102,7 +1102,7 @@ final class SpatialWordDecoderTests: XCTestCase {
     }
 
     func testSettledLiteralChecksWordSuffixNotEntireHostContext() {
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: ["hello"]), spatialDecoder: decoder())
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: ["hello"]), spatialDecoder: decoder())
         track(evidence("hello", aimedAt: "hello"), in: ac)
         XCTAssertNil(replacement(ac, "hello"))
         ac.settleFeedback(beforeInput: "public words hello ", insertedLetter: "w", afterInput: "hello w")
@@ -1148,7 +1148,7 @@ private extension SpatialWordDecoder.Result {
 }
 
 @MainActor
-final class SpatialChecker: TextChecking {
+final class SpatialChecker: TyprTextChecking {
     let valid: Set<String>
     let values: [String]
     let prefixes: [String]

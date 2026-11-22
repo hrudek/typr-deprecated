@@ -7,11 +7,11 @@ nonisolated struct KeyboardTouchWord: Equatable, Sendable {
         let text: String
         let point: CGPoint
         /// Original geometric hit; never silently relabeled by the attribution map.
-        let key: KeyboardKey
-        var attributedKey: KeyboardKey? = nil
+        let key: TyprKeyboardKey
+        var attributedKey: TyprKeyboardKey? = nil
     }
 
-    let layout: KeyboardLayout
+    let layout: TyprKeyboardLayout
     var samples: [Sample]
     var learningIntact = true
     var retyped: [Int: TouchLabel] = [:]
@@ -29,7 +29,7 @@ final class KeyboardTouchInput {
     // Survives loss of all samples, so delete-all/retype cannot regain learning trust.
     private var editedWord = false
     private var erased: [Int: KeyboardTouchWord.Sample] = [:]
-    private var erasedLayout: KeyboardLayout?
+    private var erasedLayout: TyprKeyboardLayout?
     var isLearningIntact: Bool { !editedWord }
     // One RAM-only bit, independent of complete tap evidence (also covers partial words).
     // Backspacing is explicit disagreement: the rest of this word must stay geometric.
@@ -63,7 +63,7 @@ final class KeyboardTouchInput {
             }
             return nil
         }
-        guard AutocorrectEngine.currentToken(in: beforeInput) == word.text else {
+        guard TyprAutocorrectEngine.currentToken(in: beforeInput) == word.text else {
             self.word = nil
             previous = nil; space = nil
             return nil
@@ -71,8 +71,8 @@ final class KeyboardTouchInput {
         return word
     }
 
-    func append(text: String, point: CGPoint, key: KeyboardKey, layout: KeyboardLayout,
-                before: String?, after: String?, attributedKey: KeyboardKey? = nil) {
+    func append(text: String, point: CGPoint, key: TyprKeyboardKey, layout: TyprKeyboardLayout,
+                before: String?, after: String?, attributedKey: TyprKeyboardKey? = nil) {
         if text == " " {
             let completed = evidence(beforeInput: before)
             clearAtBoundary() // A second space never carries a window forward.
@@ -93,11 +93,11 @@ final class KeyboardTouchInput {
         guard before != nil, text.count == 1, text.first?.isLetter == true,
               point.x.isFinite, point.y.isFinite, layout.layer == .letters,
               layout.field == .text, (attributedKey ?? key).character?.lowercased() == text.lowercased(),
-              AutocorrectEngine.currentToken(in: after) == (AutocorrectEngine.currentToken(in: before) ?? "") + text else {
+              TyprAutocorrectEngine.currentToken(in: after) == (TyprAutocorrectEngine.currentToken(in: before) ?? "") + text else {
             word = nil; previous = nil; space = nil; forgetErased()
             return
         }
-        if let token = AutocorrectEngine.currentToken(in: before) {
+        if let token = TyprAutocorrectEngine.currentToken(in: before) {
             guard let current = evidence(beforeInput: before), current.text == token,
                   current.layout == layout, current.samples.count < Self.maxSamples else {
                 word = nil; previous = nil; space = nil; forgetErased()
@@ -133,7 +133,7 @@ final class KeyboardTouchInput {
         erased[position] = current.samples.removeLast()
         erasedLayout = current.layout
         current.retyped[position] = nil
-        let token = AutocorrectEngine.currentToken(in: after)
+        let token = TyprAutocorrectEngine.currentToken(in: after)
         guard !current.samples.isEmpty, token == current.text else {
             word = nil
             if !(current.samples.isEmpty && token == nil) { forgetErased() }
