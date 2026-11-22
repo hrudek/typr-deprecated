@@ -269,32 +269,10 @@ final class SettingsPresentationTests: XCTestCase {
     }
 
     @MainActor
-    func testDictationChoiceDescriptionsWrapAtCompactWidthAndLargerText() {
-        let choices = DictationStyle.allCases.map { ($0.label, $0.shortHint) }
-        for (title, detail) in choices {
-            func size(_ type: DynamicTypeSize, selected: Bool) -> CGSize {
-                let host = UIHostingController(rootView:
-                    SettingsChoiceRow(title: title, detail: detail, isSelected: selected, onSelect: {})
-                        .dynamicTypeSize(type)
-                )
-                return host.sizeThatFits(in: CGSize(width: 280, height: 10_000))
-            }
-            let regular = size(.large, selected: true)
-            let accessible = size(.accessibility3, selected: true)
-            XCTAssertGreaterThanOrEqual(regular.height, 64, title)
-            XCTAssertGreaterThan(accessible.height, regular.height, title)
-            XCTAssertLessThanOrEqual(accessible.width, 280.5, title)
-            XCTAssertLessThan(accessible.height, 10_000, title)
-            XCTAssertEqual(size(.large, selected: false).height, regular.height, accuracy: 0.5, title)
-        }
-    }
-
-    @MainActor
     func testLanguageChoicesUseSingleLineRowsWithoutDescriptions() {
         for language in DictationLanguage.allCases {
             for selected in [true, false] {
                 let row = SettingsChoiceRow(title: language.label, isSelected: selected, onSelect: {})
-                XCTAssertNil(row.detail)
                 let host = UIHostingController(rootView: row.dynamicTypeSize(.large))
                 let size = host.sizeThatFits(in: CGSize(width: 280, height: 10_000))
                 XCTAssertEqual(size.height, 64, accuracy: 0.5, language.rawValue)

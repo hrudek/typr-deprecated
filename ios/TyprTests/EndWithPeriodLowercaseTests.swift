@@ -72,7 +72,7 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
             ("Warte...", .polished, "Warte..."),
             ("Warte…", .notes, "Warte…"),
             ("Bring Brot, Milch usw.", .polished, "Bring Brot, Milch usw."),
-            ("Bring Brot, Milch usw.", .notes, "Bring Brot, Milch usw"),
+            ("Bring Brot, Milch usw.", .notes, "Bring Brot, Milch usw."),
             ("Frag bitte Dr.", .polished, "Frag bitte Dr."),
             ("Das gilt auch für Teile, Schrauben o. ä.", .polished, "Das gilt auch für Teile, Schrauben o. ä."),
         ]
@@ -92,12 +92,59 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
             ("That's great!", .notes, "That's great!"),
             ("We met in the U.S.", .polished, "We met in the U.S."),
             ("Bring pens, paper etc.", .polished, "Bring pens, paper etc."),
-            ("Use a fork, e.g.", .notes, "Use a fork, e.g"),
+            ("Use a fork, e.g.", .notes, "Use a fork, e.g."),
         ]
         for (raw, style, expected) in cases {
             XCTAssertEqual(TranscriptFormatter.typrRules(raw, style: style, language: .english, endsWithPeriod: false),
                            expected, "\(style) \(raw)")
         }
+    }
+
+    /// Typr fix on the Hex base: an abbreviation's or initialism's period stays, inside quotes and
+    /// brackets too.
+    func testOffKeepsAbbreviationsAndInitialismsInsideQuotesAndBrackets() {
+        let german = [
+            "Wir waren in den (U.S.)", "Wir waren in den \"U.S.\"", "Er sagte „U.S.“", "Sie schrieb «U.S.»",
+            "Er sagte ‚z.B.‘", "Das ist ein Beispiel (z.B.)", "Das heißt „d.h.“", "Das heißt [d.h.]",
+            "Brot, Milch (usw.)", "Brot, Milch „usw.“", "Morgen oder übermorgen (bzw.)", "Frag bitte „Dr.“",
+            "Das ist z.B.", "Das ist d.h.", "Bring Brot usw.", "Heute bzw.", "Frag Dr.",
+        ]
+        let english = ["We met in the (U.S.)", "She wrote \"e.g.\"", "Bring pens ('etc.')", "We met in the U.S."]
+        for style in [DictationStyle.polished, .notes] {
+            for (texts, language) in [(german, DictationLanguage.german), (english, .english)] {
+                for text in texts {
+                    XCTAssertEqual(TranscriptFormatter.typrRules(text, style: style, language: language, endsWithPeriod: false),
+                                   text, "\(style) \(text)")
+                }
+            }
+        }
+    }
+
+    /// Typr fix on the Hex base: in German, Notes splits no sentence at an abbreviation's or a
+    /// date's period, and Casual lowercases no word after one.
+    func testGermanAbbreviationsAndDatesEndNoSentenceInNotesAndCasual() {
+        let notes: [(String, String)] = [
+            ("Wir treffen uns um 13 Uhr bzw. später.", "Wir treffen uns um 13 Uhr bzw. später"),
+            ("Das kostet ca. 5 Euro, d. h. nicht viel. Danke.", "- Das kostet ca. 5 Euro, d. h. nicht viel\n- Danke"),
+            ("Wir sehen uns am 3. Oktober. Bis dann.", "- Wir sehen uns am 3. Oktober\n- Bis dann"),
+            ("Ich habe u.a. Milch gekauft. Und Brot.", "- Ich habe u.a. Milch gekauft\n- Und Brot"),
+            ("Bring Brot, Milch usw.", "Bring Brot, Milch usw."),
+        ]
+        for (raw, expected) in notes {
+            XCTAssertEqual(TranscriptFormatter.typrRules(raw, style: .notes, language: .german), expected, raw)
+        }
+        let casual: [(String, String)] = [
+            ("Ich treffe Anna z. B. morgen. Danach komme ich.", "ich treffe Anna z. B. morgen. danach komme ich"),
+            ("Ich habe u.a. Milch gekauft. Und Brot.", "ich habe u.a. Milch gekauft. und Brot"),
+            ("Wir sehen uns am 3. Oktober. Bis dann.", "wir sehen uns am 3. Oktober. bis dann"),
+            ("Bring Brot usw.", "bring Brot usw."),
+        ]
+        for (raw, expected) in casual {
+            XCTAssertEqual(TranscriptFormatter.typrRules(raw, style: .casual, language: .german), expected, raw)
+        }
+        // A number that ends a sentence still ends it.
+        XCTAssertEqual(TranscriptFormatter.typrRules("Wir kommen um 13. Danach weiter.", style: .casual, language: .german),
+                       "wir kommen um 13. danach weiter")
     }
 
     func testOffAppliesToEveryListLine() {

@@ -1,24 +1,20 @@
 import SwiftUI
 @preconcurrency import Translation
 
-/// A full-row selection target with enough room for decision copy and larger text.
+/// A full-row selection target for settings choices.
 struct SettingsChoiceRow: View {
     let title: String
-    var detail: String? = nil
     let isSelected: Bool
     let onSelect: () -> Void
 
     var body: some View {
         Button(action: onSelect) {
-            HStack(alignment: detail == nil ? .center : .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title).font(.body.weight(.medium)).foregroundStyle(TyprTheme.textBase)
-                    if let detail {
-                        Text(detail).font(.subheadline).foregroundStyle(TyprTheme.textMuted)
-                    }
-                }
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 16) {
+                Text(title)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(TyprTheme.textBase)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "checkmark")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(TyprTheme.success)
@@ -47,20 +43,33 @@ struct DictationStyleSettingsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsSection {
-                ForEach(DictationStyle.allCases, id: \.self) { style in
-                    if style != DictationStyle.allCases.first { SettingsDivider() }
-                    SettingsChoiceRow(title: style.label, detail: style.shortHint,
-                                      isSelected: dictation.style == style) {
-                        dictation.setStyle(style)
+                HStack(spacing: 12) {
+                    Text("Style").font(.body).foregroundStyle(TyprTheme.textBase)
+                    Spacer(minLength: 8)
+                    Menu {
+                        ForEach(DictationStyle.allCases, id: \.self) { candidate in
+                            Button {
+                                dictation.setStyle(candidate)
+                            } label: {
+                                if dictation.style == candidate {
+                                    Label(candidate.label, systemImage: "checkmark")
+                                } else {
+                                    Text(candidate.label)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(dictation.style.label)
+                            Image(systemName: "chevron.up.chevron.down").font(.footnote.weight(.semibold))
+                        }
+                        .font(.body).foregroundStyle(TyprTheme.textMuted)
                     }
+                    .accessibilityIdentifier("dictation-style-menu")
                 }
-            }
-            Text("AI cleanup, when enabled and available, runs before formatting in every style except Verbatim.")
-                .font(.footnote).foregroundStyle(TyprTheme.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
-            // Hex's style settings, in Hex's order and wording (`SettingsPages.swift` at 0c1c13d7).
-            SettingsSection {
+                .frame(minHeight: 48)
+                SettingsDivider()
                 SettingsToggle(title: "Lowercase", detail: "No capital letters", isOn: $lowercase)
                     .onChange(of: lowercase) { _, isOn in TyprSettings().dictationLowercase = isOn }
                 SettingsDivider()
@@ -79,7 +88,7 @@ struct DictationStyleSettingsCard: View {
                 SettingsToggle(title: "End with a period", detail: "Off still keeps ? and !", isOn: $endsWithPeriod)
                     .onChange(of: endsWithPeriod) { _, isOn in TyprSettings().dictationEndsWithPeriod = isOn }
             }
-            Text("Lists, punctuation and the period apply to every style except Verbatim, from your next dictation.")
+            Text("AI cleanup, when enabled and available, runs before formatting in every style except Verbatim. Lists, punctuation and the period apply to every style except Verbatim, from your next dictation.")
                 .font(.footnote).foregroundStyle(TyprTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)

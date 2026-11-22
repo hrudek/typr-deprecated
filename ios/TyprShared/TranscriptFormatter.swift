@@ -93,6 +93,7 @@ nonisolated enum TranscriptFormatter {
         let fillers = fillerPattern(for: language)
         let english = SpeechLanguagePicker.isEnglish(language)
         let unspaced = writesWithoutSpaces(language)
+        let german = isGerman(language)
         func cleaned() -> String {
             let stripped = stripStandaloneFillers(in: trimmed, fillers: fillers)
             return spoken(unspaced ? closingUnspacedGaps(in: stripped) : stripped, lists, punctuation, language, rules)
@@ -103,13 +104,13 @@ nonisolated enum TranscriptFormatter {
             return collapseHorizontalSpaces(in: trimmed)
 
         case .polished:
-            return polishSentences(cleaned(), english: english, unspaced: unspaced, german: isGerman(language))
+            return polishSentences(cleaned(), english: english, unspaced: unspaced, german: german)
 
         case .casual:
-            return casualMessage(cleaned(), english: english)
+            return casualMessage(cleaned(), english: english, german: german)
 
         case .notes:
-            return formatNotes(cleaned(), english: english)
+            return formatNotes(cleaned(), english: english, german: german)
         }
     }
 
@@ -378,18 +379,8 @@ nonisolated enum TranscriptFormatter {
         var stop = chars.count - 1
         while stop >= 0, "\"”’')]」』）".contains(chars[stop]) { stop -= 1 }
         guard stop >= 0, ".。．｡".contains(chars[stop]) else { return line }
-        if chars[stop] == "." {
-            var start = stop
-            while start > 0, !chars[start - 1].isWhitespace { start -= 1 }
-            let word = String(chars[start..<stop]).lowercased()
-            let initials = word.split(separator: ".", omittingEmptySubsequences: false)
-            let isInitialism = initials.count >= 2 && initials.allSatisfy { $0.count == 1 && $0.first!.isLetter }
-            // Typr addition: German abbreviations ("ca.", "bzw.", "z. B.") keep their period.
-            if word.hasSuffix(".") || isInitialism || abbreviations.contains(word)
-                || german && TyprTranscriptFormatter.endsGermanAbbreviation(chars, periodAt: stop) {
-                return line
-            }
-        }
+        if chars[stop] == ".", stop > 0, chars[stop - 1] == "." { return line }
+        if keepsPeriod(chars, at: stop, german: german) { return line }
         chars.remove(at: stop)
         return String(chars)
     }
@@ -497,19 +488,22 @@ nonisolated enum TranscriptFormatter {
         "so", "well", "sure", "alright", "cool", "thanks",
     ]
 
-    private static func casualMessage(_ text: String, english: Bool) -> String {
+    private static func casualMessage(_ text: String, english: Bool, german: Bool) -> String {
         var message = fixSpacingBeforePunctuation(in: collapseHorizontalSpaces(in: text))
         if english {
             message = droppingInterjectionCommas(in: message)
         }
-        message = lowercasingSentenceStarts(in: message)
+        message = lowercasingSentenceStarts(in: message, german: german)
         if english {
             message = recasingPronounI(in: message, from: "I", to: "i")
         }
         // A short message drops its final full stop; a question or an exclamation keeps its mark.
         let chars = Array(message)
-        let sentences = chars.indices.filter { endsSentence(chars, at: $0) }.count
-        if !message.contains("\n"), sentences <= 3, let last = message.last, last == "." || last == "。" {
+        let sentences = chars.indices.filter {
+            endsSentence(chars, at: $0) && !(german && keepsPeriod(chars, at: $0, german: german))
+        }.count
+        if !message.contains("\n"), sentences <= 3, let last = message.last, last == "." || last == "。",
+           !(german && keepsPeriod(chars, at: chars.count - 1, german: german)) {
             message.removeLast()
         }
         return message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -535,7 +529,7 @@ nonisolated enum TranscriptFormatter {
     /// Lowercases the first letter of each sentence, as people text. Keeps acronyms ("NASA",
     /// though "OK" becomes "ok"), words with capitals inside ("iPhone", "McDonald's"), and
     /// addresses.
-    private static func lowercasingSentenceStarts(in text: String) -> String {
+    private static func lowercasingSentenceStarts(in text: String, german: Bool) -> String {
         var chars = Array(text)
         var atStart = true
         var index = 0
@@ -562,7 +556,7 @@ nonisolated enum TranscriptFormatter {
                 index = end
                 continue
             }
-            if ch.isNewline || endsSentence(chars, at: index) {
+            if ch.isNewline || endsSentence(chars, at: index) && !(german && keepsPeriod(chars, at: index, german: german)) {
                 atStart = true
             } else if !ch.isWhitespace, !"\"“'‘(¿¡”’)]".contains(ch) {
                 atStart = false
@@ -600,7 +594,7 @@ nonisolated enum TranscriptFormatter {
 
     // MARK: Notes
 
-    private static func formatNotes(_ text: String, english: Bool) -> String {
+    private static func formatNotes(_ text: String, english: Bool, german: Bool) -> String {
         guard !text.isEmpty else { return "" }
         var working = text
         let replacements: [(String, String)] = [
@@ -618,7 +612,7 @@ nonisolated enum TranscriptFormatter {
         // Without spoken markers, one dictation of several items becomes a list.
         if lines.count == 1 {
             let line = fixSpacingBeforePunctuation(in: collapseHorizontalSpaces(in: lines[0]))
-            let sentences = noteSentences(in: line)
+            let sentences = noteSentences(in: line, german: german)
             if sentences.count >= 2 {
                 lines = sentences.map { "- " + $0 }
             } else if let list = colonList(in: line, english: english) {
@@ -630,10 +624,10 @@ nonisolated enum TranscriptFormatter {
                 let trimmedLine = collapseHorizontalSpaces(in: line)
                 if trimmedLine.hasPrefix("- ") {
                     let body = String(trimmedLine.dropFirst(2)).trimmingCharacters(in: .whitespaces)
-                    let note = conciseNote(body, english: english)
+                    let note = conciseNote(body, english: english, german: german)
                     return note.isEmpty ? "" : "- " + note
                 }
-                return conciseNote(trimmedLine, english: english)
+                return conciseNote(trimmedLine, english: english, german: german)
             }
             .joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -641,12 +635,13 @@ nonisolated enum TranscriptFormatter {
 
     /// One note: no opening "so," "okay," "and" or "then" (English), no final full stop, and
     /// a capital first letter.
-    private static func conciseNote(_ line: String, english: Bool) -> String {
+    private static func conciseNote(_ line: String, english: Bool, german: Bool) -> String {
         var note = fixSpacingBeforePunctuation(in: line)
         if english {
             note = droppingConnectives(from: note)
         }
-        if let last = note.last, last == "." || last == "。", !note.hasSuffix("...") {
+        if let last = note.last, last == "." || last == "。", !note.hasSuffix("..."),
+           !keepsPeriod(Array(note), at: note.count - 1, german: german) {
             note.removeLast()
         }
         return capitalizeFirstLetter(note.trimmingCharacters(in: .whitespaces))
@@ -692,8 +687,37 @@ nonisolated enum TranscriptFormatter {
         "mr", "mrs", "ms", "dr", "st", "jr", "sr", "prof", "vs", "etc", "inc", "ltd", "approx", "e.g", "i.e",
     ]
 
+    /// Typr fix on the Hex base: whether the period at `index` belongs to a word rather than
+    /// ending a sentence: an abbreviation ("e.g.", "Dr.") or an initialism ("U.S.", "u.a."),
+    /// also inside brackets or quotes, and in German one of Typr's abbreviations ("bzw.",
+    /// "z. B.") or a date's ordinal ("am 3. Oktober").
+    private static func keepsPeriod(_ chars: [Character], at index: Int, german: Bool) -> Bool {
+        guard index < chars.count, chars[index] == "." else { return false }
+        var start = index
+        while start > 0, !chars[start - 1].isWhitespace { start -= 1 }
+        while start < index, openingMarks.contains(chars[start]) { start += 1 }
+        let word = String(chars[start..<index]).lowercased()
+        let parts = word.split(separator: ".", omittingEmptySubsequences: false)
+        if abbreviations.contains(word) || parts.count >= 2 && parts.allSatisfy({ $0.count == 1 && $0.allSatisfy(\.isLetter) }) {
+            return true
+        }
+        guard german else { return false }
+        if TyprTranscriptFormatter.endsGermanAbbreviation(chars, periodAt: index) { return true }
+        guard (1...2).contains(word.count), word.allSatisfy(\.isNumber) else { return false }
+        var end = index + 2
+        while end < chars.count, chars[end].isLetter { end += 1 }
+        guard index + 2 < end, chars[index + 1] == " " else { return false }
+        return germanMonths.contains(String(chars[(index + 2)..<end]).lowercased())
+    }
+
+    private static let openingMarks: Set<Character> = ["(", "[", "{", "\"", "'", "„", "“", "‚", "‘", "«", "»", "‹", "›"]
+    private static let germanMonths: Set<String> = [
+        "januar", "jänner", "februar", "märz", "april", "mai", "juni", "juli", "august", "september",
+        "oktober", "november", "dezember",
+    ]
+
     /// `line`'s sentences, each with its mark; one sentence or none returns `[line]`.
-    private static func noteSentences(in line: String) -> [String] {
+    private static func noteSentences(in line: String, german: Bool) -> [String] {
         let chars = Array(line)
         var sentences: [String] = []
         var start = 0
@@ -702,8 +726,9 @@ nonisolated enum TranscriptFormatter {
                 var wordStart = index
                 while wordStart > start, !chars[wordStart - 1].isWhitespace { wordStart -= 1 }
                 let word = String(chars[wordStart..<index]).lowercased()
-                // "Dr." or an initial ("J. K.") ends nothing.
-                if abbreviations.contains(word) || (word.count == 1 && word.first?.isLetter == true) { continue }
+                // An initial ("J. K.") ends nothing.
+                if word.count == 1, word.first?.isLetter == true { continue }
+                if keepsPeriod(chars, at: index, german: german) { continue }
             }
             let sentence = String(chars[start...index]).trimmingCharacters(in: .whitespaces)
             if !sentence.isEmpty { sentences.append(sentence) }
