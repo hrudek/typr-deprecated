@@ -74,8 +74,14 @@ An explicit engine or language choice never silently falls back to another.
   stored as that word pair only (up to three words a side, at most 200 pairs, never the
   dictation); fixed the same way twice, never contradicted and never fixed another way,
   later dictations write it so, before Custom vocabulary. Undo dictation teaches nothing.
-  AI & vocabulary lists the learned fixes to delete. The full keyboard adds German/English autocorrect and adaptive
-  suggestions. Suggestions, autocorrect, swipe and predictions never offer slurs, and offer
+  AI & vocabulary lists the learned fixes to delete.
+  The full keyboard adds German/English autocorrect and adaptive suggestions. With both
+  languages on, a word only English knows takes the German umlauts or ß once the next word
+  is German ("fur dich" → "für dich", Hex); one Delete takes it back.
+  ; and ) correct the word before them like space and . , ? !. Experimental › **Words from
+  context** follows Hex: its/it's, your/you're, there/their/they're and then/than follow the
+  words around them, at their own space or the next word's, and German writes geht's and gibt's.
+  Suggestions, autocorrect, swipe and predictions never offer slurs, and offer
   swear words only once Typr learned them or with Keyboard › Suggest swear words (LDNOOBW list as curated by Hex). Your iOS text replacements expand on space and punctuation also with Autocorrect off, take a capital you typed on the shortcut ("Mfg") and expand again after a revert kept the shortcut once. Unless a keyboard Anthropic key is stored (then Claude predicts), on iOS 26+
   with Apple Intelligence available for every enabled language, the on-device model adds up to three next-word predictions from the current paragraph before the
   cursor (1 s budget; on failure the count-based predictions stay).
