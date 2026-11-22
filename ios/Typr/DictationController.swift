@@ -82,6 +82,7 @@ final class DictationController {
         let transcriber: any LocalTranscribing
         let language: DictationLanguage
         let speechLanguageName: String
+        let formatLists: Bool
         let spokenPunctuation: Bool
     }
 
@@ -1190,6 +1191,7 @@ final class DictationController {
                     transcriber: captureTranscriber,
                     language: captureLanguage,
                     speechLanguageName: captureLanguageName,
+                    formatLists: languageSettings[experiment: .formatLists],
                     spokenPunctuation: languageSettings[experiment: .spokenPunctuation]
                 )
                 refreshWarmExpiry()
@@ -1340,6 +1342,7 @@ final class DictationController {
                     text = spelled
                 }
                 let beforeSpelling = TranscriptFormatter.format(text, style: session.style, language: session.language,
+                                                                lists: session.formatLists,
                                                                 punctuation: session.spokenPunctuation)
                 recording?.processingStages(cleanupOutput: text, formattedText: beforeSpelling)
                 var secondPass = DictationLogSpellingPass()

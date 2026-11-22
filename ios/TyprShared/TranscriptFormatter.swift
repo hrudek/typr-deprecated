@@ -39,16 +39,24 @@ nonisolated enum DictationStyle: String, Codable, CaseIterable, Sendable {
 }
 
 nonisolated enum TranscriptFormatter {
-    /// With `punctuation` (Settings › Experimental › Spoken punctuation), every style but Verbatim writes
-    /// punctuation said by name as the mark (`SpokenPunctuation`, German or English by `language`)
-    /// after removing fillers and before its own capitalization and final period.
+    /// With `lists` (Settings › Experimental › Format lists), every style but Verbatim writes spoken
+    /// lists and line breaks as lines (`SpokenLists`); with `punctuation` (Settings › Experimental ›
+    /// Spoken punctuation), punctuation said by name as the mark (`SpokenPunctuation`). Both
+    /// German or English by `language`, after removing fillers and before the style's own
+    /// capitalization and final period. Punctuation first, so a spoken "Komma" or "Doppelpunkt"
+    /// separates list items as a written one does.
     static func format(
         _ raw: String,
         style: DictationStyle,
         language: DictationLanguage = .automatic,
+        lists: Bool = false,
         punctuation: Bool = false
     ) -> String {
-        let spoken = { (text: String) in punctuation ? SpokenPunctuation.format(text, language: language) : text }
+        let listed = { (text: String) in lists ? SpokenLists.format(text, language: language) : text }
+        let starters = lists ? SpokenLists.clauseStarters : []
+        let spoken = { (text: String) in
+            punctuation ? SpokenPunctuation.format(text, language: language, starters: starters) : text
+        }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
 
@@ -57,10 +65,12 @@ nonisolated enum TranscriptFormatter {
             return collapseHorizontalSpaces(in: trimmed)
 
         case .polished:
-            return polishSentences(spoken(stripStandaloneFillers(in: trimmed)), spokenPunctuation: punctuation)
+            let cleaned = spoken(stripStandaloneFillers(in: trimmed))
+            let lines = listed(cleaned)
+            return polishSentences(lines, spokenPunctuation: punctuation, endsListItems: lines != cleaned)
 
         case .casual, .veryCasual:
-            let cleaned = spoken(stripStandaloneFillers(in: trimmed))
+            let cleaned = listed(spoken(stripStandaloneFillers(in: trimmed)))
             var result = fixSpacingBeforePunctuation(in: collapseHorizontalSpaces(in: cleaned))
             result = style == .veryCasual ? result.lowercased() : capitalizeSentenceStarts(in: result)
             // Both chat styles omit the final period, regardless of sentence count.
@@ -71,8 +81,7 @@ nonisolated enum TranscriptFormatter {
             return result.trimmingCharacters(in: .whitespacesAndNewlines)
 
         case .notes:
-            let cleaned = stripStandaloneFillers(in: trimmed)
-            return formatNotes(cleaned, spoken: spoken)
+            return formatNotes(stripStandaloneFillers(in: trimmed)) { listed(spoken($0)) }
         }
     }
 
@@ -172,10 +181,19 @@ nonisolated enum TranscriptFormatter {
         return collapseHorizontalSpaces(in: stripped)
     }
 
-    private static func polishSentences(_ text: String, spokenPunctuation: Bool) -> String {
+    private static func polishSentences(_ text: String, spokenPunctuation: Bool, endsListItems: Bool = false) -> String {
         guard !text.isEmpty else { return "" }
         var normalized = fixSpacingBeforePunctuation(in: collapseHorizontalSpaces(in: text))
         normalized = capitalizeSentenceStarts(in: normalized)
+        if endsListItems {
+            let lines = normalized.components(separatedBy: "\n")
+            return lines.enumerated().map { index, line in
+                let isItem = line.hasPrefix("- ") || line.range(of: #"^\d{1,2}\. "#, options: .regularExpression) != nil
+                guard isItem || index == lines.count - 1, let last = line.last,
+                      !".!?…\"”)]:,;“".contains(last) else { return line }
+                return line + "."
+            }.joined(separator: "\n")
+        }
         let germanQuoteClosesSentence = spokenPunctuation && normalized.hasSuffix("“") && ".!?…".contains(normalized.dropLast().last ?? " ")
         if let last = normalized.last, !".!?…\"”)]".contains(last), !germanQuoteClosesSentence {
             normalized.append(".")

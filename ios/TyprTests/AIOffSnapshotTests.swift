@@ -161,4 +161,38 @@ final class AIOffSnapshotTests: XCTestCase {
         clock.fire()
         await mainActorBarrier()
     }
+
+    func testFormatListsAppliesFromTheNextDictation() async throws {
+        let suite = "format-lists.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = TyprSettings(defaults: defaults)
+        settings.dictationLanguage = .german
+        let clock = CleanupTestSleeper()
+        let deps = TranscriptCleanupDependencies(cleaner: CleanupTestCleaner(session: CleanupTestSession()),
+            background: CleanupTestBackground(), isEnabled: { false }, sleep: clock.sleep)
+        let asr = SnapshotASR()
+        await asr.set("Einkaufsliste: erstens Milch, zweitens Eier.")
+        let controller = DictationController(audio: SnapshotAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
+            transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
+            customVocabularySettings: CustomVocabularySettings(defaults: defaults), cleanup: deps,
+            languageSettings: settings)
+        controller.prepareModel()
+        try await waitForState("model ready") { controller.phase == .ready }
+
+        var delivered: [String] = []
+        for enabled in [true, false] {
+            settings[experiment: .formatLists] = enabled
+            controller.startRecording(styleOverride: .polished)
+            try await waitForState("recording \(enabled)") { controller.phase == .recording }
+            controller.finishRecording()
+            try await waitForState("finished \(enabled)") { controller.isIdleForTest }
+            delivered.append(controller.transcript)
+        }
+        XCTAssertEqual(delivered, ["Einkaufsliste:\n1. Milch.\n2. Eier.", "Einkaufsliste: erstens Milch, zweitens Eier."])
+        controller.cancelCurrentJob()
+        try await waitForState("controller idle") { controller.isIdleForTest }
+        clock.fire()
+        await mainActorBarrier()
+    }
 }

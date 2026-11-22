@@ -31,10 +31,12 @@ import Foundation
 ///   after it.
 nonisolated enum SpokenPunctuation {
     /// `language` picks the word table; Automatic uses English only for text that reads as
-    /// English (`TranscriptFormatter.readsAsEnglish`), else German.
-    static func format(_ text: String, language: DictationLanguage) -> String {
+    /// English (`TranscriptFormatter.readsAsEnglish`), else German. `starters` are further words
+    /// that start a clause after a name ("Milch Punkt zweitens"), lowercased and unaccented.
+    static func format(_ text: String, language: DictationLanguage, starters: Set<String> = []) -> String {
         guard !text.isEmpty else { return text }
-        let table = Table.forLanguage(language, text: text)
+        var table = Table.forLanguage(language, text: text)
+        table.starters.formUnion(starters)
         var writer = Writer(tokens: tokenize(text), table: table)
         return writer.write()
     }
@@ -536,7 +538,7 @@ nonisolated enum SpokenPunctuation {
         let familyBlockers: [Family: Set<String>]
         let followers: Set<String>
         let familyFollowers: [Family: Set<String>]
-        let starters: Set<String>
+        var starters: Set<String>
         let quotes: (open: Character, close: Character)
         let capitalizesSentences: Bool
         let adjectiveEndings: [String]
