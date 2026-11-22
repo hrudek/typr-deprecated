@@ -1,6 +1,7 @@
 import AVFAudio
 import Foundation
 import Observation
+import Speech
 import SwiftUI
 import UIKit
 
@@ -335,35 +336,75 @@ final class DictationController {
     /// until an active scene; tests can still exercise immediate initialization explicitly.
     private func prepareLaunchModel() {
         guard phase == .modelRequired, canChangeEngine else { return }
+        let parakeetLoads = ParakeetLoadGuard()
+        parakeetLoads.noteLaunch()
+        let parakeetInterrupted = parakeetLoads.lastLoadWasInterrupted
         if let preferred = preferredEngine {
             // An explicit engine prepares at launch only without downloading: Apple Speech (iOS
             // manages its assets), Parakeet when cached, downloaded engines when verified on disk.
+            // Parakeet waits for a tap after loads that ended Typr (`ParakeetLoadGuard`).
             switch preferred {
             case .appleSpeech:
                 prepareModel()
-            case .parakeetV2, .whisperLargeV3Turbo, .parakeetV3, .orukeet, .cohereTranscribe:
+            case .parakeetV2:
+                if engineProvider.isInstalled(preferred), !parakeetInterrupted {
+                    prepareModel()
+                }
+            case .whisperLargeV3Turbo, .parakeetV3, .orukeet, .cohereTranscribe:
                 if engineProvider.isInstalled(preferred) {
                     prepareModel()
                 }
             }
         } else {
-            if ParakeetTranscriber.hasCachedModel {
+            prepareAutomaticAtLaunch(parakeetInterrupted: parakeetInterrupted)
+        }
+    }
+
+    /// Hex's launch with no engine chosen. A launch after Typr ended while loading Parakeet
+    /// doesn't load it again by itself, or it would end the same way at every launch: from
+    /// iOS 26 Apple Speech takes over where it has the language, before it the on-device
+    /// recognizer always does.
+    private func prepareAutomaticAtLaunch(parakeetInterrupted: Bool) {
+        let hasCachedModel = ParakeetTranscriber.hasCachedModel
+        let policy = HexSpeechEnginePolicy.current
+        let explicit = LanguageSettings().explicitDictationLanguage(typr: dictationLanguage)
+        guard #available(iOS 26.0, *) else {
+            switch policy.engine(for: Self.wantedLanguage(explicit: explicit), appleSpeechPicks: false) {
+            case .parakeet:
                 engineName = "Parakeet V2"
-                prepareModel()
-            } else if #available(iOS 26.0, *), AppleSpeechTranscriber.isAvailable {
-                let language = dictationLanguage
-                let launchGeneration = modelPrepGeneration
-                Task { [weak self] in
-                    let available = await AppleSpeechTranscriber.preferredLocale(language: language, strict: false) != nil
-                    guard let self, self.modelPrepGeneration == launchGeneration,
-                          self.preferredEngine == nil, self.phase == .modelRequired,
-                          self.canChangeEngine else { return }
-                    if available {
-                        self.engineName = "Apple Speech"
-                        self.prepareModel()
-                    } else {
-                        self.engineName = "Parakeet V2"
-                    }
+                if hasCachedModel { prepareModel() }
+            case .onDeviceRecognizer, .appleSpeech:
+                engineName = "Apple Speech"
+                // Speech Recognition is asked for by Prepare, never by a launch by itself.
+                if SFSpeechRecognizer.authorizationStatus() == .authorized {
+                    keyboardBridge.setModelInstalled(true)
+                    prepareModel()
+                }
+            }
+            return
+        }
+        if hasCachedModel && !parakeetInterrupted {
+            engineName = "Parakeet V2"
+            prepareModel()
+            return
+        }
+        let launchGeneration = modelPrepGeneration
+        Task { [weak self] in
+            let speech = await Self.appleSpeechLanguage(
+                picked: AppleSpeechTranscriber.preferredLanguage(explicit: explicit),
+                wanted: Self.wantedLanguage(explicit: explicit),
+                parakeetFits: policy.parakeetFitsBesideAppleSpeech
+            )
+            guard let self, self.modelPrepGeneration == launchGeneration,
+                  self.preferredEngine == nil, self.phase == .modelRequired,
+                  self.canChangeEngine else { return }
+            if speech != nil {
+                self.engineName = "Apple Speech"
+                self.prepareModel()
+            } else {
+                self.engineName = "Parakeet V2"
+                if hasCachedModel {
+                    self.phase = .failed(ParakeetLoadGuard.message)
                 }
             }
         }

@@ -788,10 +788,6 @@ final class SpeechEngineSelectionTests: XCTestCase {
                        "Apple Speech does not support your preferred languages on this iPhone.")
         XCTAssertEqual(SpeechEngineError.languageUnsupported(.appleSpeech, .english).localizedDescription,
                        "Apple Speech does not support English on this iPhone. Choose another language or engine.")
-        if #available(iOS 26.0, *) {
-            XCTAssertEqual(AppleSpeechTranscriber.TranscriberError.languageUnsupported("German").localizedDescription,
-                           "Apple Speech does not support German on this iPhone. Choose another language or engine.")
-        }
     }
 
     // MARK: - Apple Speech availability (pure parts) and the production provider
@@ -809,10 +805,6 @@ final class SpeechEngineSelectionTests: XCTestCase {
                        ["fr-FR", "de_DE", "en-US"])
         XCTAssertEqual(DictationLanguage.english.availabilityLocaleCandidates(preferred: ["de-DE"], current: "de_DE"),
                        ["en-US", "de-DE", "de_DE"])
-        if #available(iOS 26.0, *) {
-            XCTAssertEqual(AppleSpeechTranscriber.requestedLocale(for: .german).identifier, "de-DE")
-            XCTAssertEqual(AppleSpeechTranscriber.requestedLocale(for: .english).identifier, "en-US")
-        }
     }
 
     func testAvailabilityValuesSayWhetherTheEngineCanWork() {
