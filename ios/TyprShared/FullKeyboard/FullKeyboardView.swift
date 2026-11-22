@@ -690,7 +690,6 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         refreshReturnKey()
     }
 
-    /// The chip shows only while Undo would take back exactly the dictation.
     private var offersUndo: Bool {
         lastDictation.map { undoPlan($0) != nil } ?? false
     }
