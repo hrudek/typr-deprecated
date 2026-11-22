@@ -39,7 +39,16 @@ nonisolated enum DictationStyle: String, Codable, CaseIterable, Sendable {
 }
 
 nonisolated enum TranscriptFormatter {
-    static func format(_ raw: String, style: DictationStyle) -> String {
+    /// With `punctuation` (Settings › Experimental › Spoken punctuation), every style but Verbatim writes
+    /// punctuation said by name as the mark (`SpokenPunctuation`, German or English by `language`)
+    /// after removing fillers and before its own capitalization and final period.
+    static func format(
+        _ raw: String,
+        style: DictationStyle,
+        language: DictationLanguage = .automatic,
+        punctuation: Bool = false
+    ) -> String {
+        let spoken = { (text: String) in punctuation ? SpokenPunctuation.format(text, language: language) : text }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
 
@@ -48,11 +57,10 @@ nonisolated enum TranscriptFormatter {
             return collapseHorizontalSpaces(in: trimmed)
 
         case .polished:
-            let cleaned = stripStandaloneFillers(in: trimmed)
-            return polishSentences(cleaned)
+            return polishSentences(spoken(stripStandaloneFillers(in: trimmed)), spokenPunctuation: punctuation)
 
         case .casual, .veryCasual:
-            let cleaned = stripStandaloneFillers(in: trimmed)
+            let cleaned = spoken(stripStandaloneFillers(in: trimmed))
             var result = fixSpacingBeforePunctuation(in: collapseHorizontalSpaces(in: cleaned))
             result = style == .veryCasual ? result.lowercased() : capitalizeSentenceStarts(in: result)
             // Both chat styles omit the final period, regardless of sentence count.
@@ -64,7 +72,7 @@ nonisolated enum TranscriptFormatter {
 
         case .notes:
             let cleaned = stripStandaloneFillers(in: trimmed)
-            return formatNotes(cleaned)
+            return formatNotes(cleaned, spoken: spoken)
         }
     }
 
@@ -164,17 +172,18 @@ nonisolated enum TranscriptFormatter {
         return collapseHorizontalSpaces(in: stripped)
     }
 
-    private static func polishSentences(_ text: String) -> String {
+    private static func polishSentences(_ text: String, spokenPunctuation: Bool) -> String {
         guard !text.isEmpty else { return "" }
         var normalized = fixSpacingBeforePunctuation(in: collapseHorizontalSpaces(in: text))
         normalized = capitalizeSentenceStarts(in: normalized)
-        if let last = normalized.last, !".!?…\"”)]".contains(last) {
+        let germanQuoteClosesSentence = spokenPunctuation && normalized.hasSuffix("“") && ".!?…".contains(normalized.dropLast().last ?? " ")
+        if let last = normalized.last, !".!?…\"”)]".contains(last), !germanQuoteClosesSentence {
             normalized.append(".")
         }
         return normalized
     }
 
-    private static func formatNotes(_ text: String) -> String {
+    private static func formatNotes(_ text: String, spoken: (String) -> String) -> String {
         guard !text.isEmpty else { return "" }
         var working = text
         let replacements: [(String, String)] = [
@@ -188,6 +197,7 @@ nonisolated enum TranscriptFormatter {
                 working = regex.stringByReplacingMatches(in: working, range: range, withTemplate: template)
             }
         }
+        working = spoken(working)
         let lines = working
             .components(separatedBy: "\n")
             .map { line -> String in

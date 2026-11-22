@@ -82,6 +82,7 @@ final class DictationController {
         let transcriber: any LocalTranscribing
         let language: DictationLanguage
         let speechLanguageName: String
+        let spokenPunctuation: Bool
     }
 
     private struct PendingKeyboardHandoff {
@@ -1185,7 +1186,8 @@ final class DictationController {
                     cleanupContext: cleanupContext,
                     transcriber: captureTranscriber,
                     language: captureLanguage,
-                    speechLanguageName: captureLanguageName
+                    speechLanguageName: captureLanguageName,
+                    spokenPunctuation: languageSettings[experiment: .spokenPunctuation]
                 )
                 refreshWarmExpiry()
                 audioLevel = 0
@@ -1329,7 +1331,8 @@ final class DictationController {
                     }
                     text = spelled
                 }
-                let beforeSpelling = TranscriptFormatter.format(text, style: session.style)
+                let beforeSpelling = TranscriptFormatter.format(text, style: session.style, language: session.language,
+                                                                punctuation: session.spokenPunctuation)
                 recording?.processingStages(cleanupOutput: text, formattedText: beforeSpelling)
                 var secondPass = DictationLogSpellingPass()
                 let observeSecond: ((String, String, String) -> Void)? = recording == nil ? nil : { before, after, term in

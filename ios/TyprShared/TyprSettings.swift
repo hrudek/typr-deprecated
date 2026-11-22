@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -31,6 +31,13 @@ struct ExperimentalSwitch: Hashable {
         name: "mixWithOtherAudio",
         title: "Keep other audio playing",
         detail: "Music and videos keep playing while you dictate, and the warm mic stays on while they play. Applies from the next dictation."
+    )
+
+    /// Hex's spoken punctuation (anomalyco/hex #2198, `SpokenPunctuation`), German and English.
+    static let spokenPunctuation = ExperimentalSwitch(
+        name: "spokenPunctuation",
+        title: "Spoken punctuation",
+        detail: "Say “Komma”, “Fragezeichen” or “Klammer auf” for the mark, in every style except Verbatim. Some commands stay words when they could be part of a noun phrase."
     )
 }
 
