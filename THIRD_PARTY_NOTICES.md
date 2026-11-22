@@ -753,7 +753,7 @@ The revision of the word before once the next word tells its language
 groups, contraction expansions, margins and follower penalty of Words from context
 (`contextGroups`, `contractionWords`, `contextChoice`, `contextCost`) in
 `ios/TyprShared/FullKeyboard/AutocorrectEngine+Revision.swift`, and the closing marks that
-correct the word before them (`; : )` in `FullKeyboardEngine.typeCharacter`) are adapted from
+correct the word before them (`;` and `)` in `FullKeyboardEngine.typeCharacter`) are adapted from
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2231: `AutocorrectEngine+Accents.swift`;
 PR #2144: `AutocorrectEngine.contextChoice`, `revision(of:)`). MIT, © Christopher Langton,

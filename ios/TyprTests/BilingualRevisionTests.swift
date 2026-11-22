@@ -99,10 +99,9 @@ final class BilingualRevisionTests: XCTestCase {
     }
 
     func testPunctuationAfterATypoFixesItFirst() {
-        for mark in [";", ":"] {
-            XCTAssertEqual(typed("teh" + mark), "the" + mark)
-            XCTAssertEqual(typed("shcon" + mark), "schon" + mark)
-        }
+        XCTAssertEqual(typed("teh;"), "the;")
+        XCTAssertEqual(typed("shcon;"), "schon;")
+        XCTAssertEqual(typed("teh:"), "teh:", "a colon often ends a label or scheme (Fwd:, ftp:), left as typed")
         XCTAssertEqual(typed("(teh)"), "(the)")
         XCTAssertEqual(typed("(shcon)"), "(schon)")
         XCTAssertEqual(typed("see you ;)"), "see you ;)", "a space before an emoticon stays")
