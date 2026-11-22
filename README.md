@@ -5,6 +5,12 @@ Live Activity. Speech recognition runs on-device: Apple Speech (iOS 26+), Parake
 V2 (iOS 18+), Whisper Large V3 Turbo, Parakeet V3, Orukeet or Cohere Transcribe
 (explicit model downloads).
 An explicit engine or language choice never silently falls back to another.
+With no engine chosen, Typr picks one as Hex does: from iOS 26 Apple Speech for every
+language it has (SpeechTranscriber, else DictationTranscriber), English on Parakeet V2
+only where Apple Speech has no SpeechTranscriber and Parakeet fits in memory. Before
+iOS 26, Parakeet V2 takes English where it has room and Apple's on-device recognizer
+takes everything else. After two Parakeet loads in a row ended Typr, or one found too
+little memory, Parakeet is set aside for a day and Typr no longer loads it at launch.
 
 ## How it works
 
