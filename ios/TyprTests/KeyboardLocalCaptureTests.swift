@@ -1,3 +1,4 @@
+import JavaScriptCore
 import XCTest
 @testable import Typr
 
@@ -141,5 +142,39 @@ final class KeyboardLocalCaptureTests: XCTestCase {
         XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .verbatim, settings: settings),
                        TranscriptFormatter.lowercased(heard.trimmingCharacters(in: .whitespaces), style: .verbatim))
         XCTAssertEqual(KeyboardLocalCapture.text(from: "  ", style: .polished, settings: settings), "")
+    }
+
+    /// A start while the previous stop still closes its audio context keeps its own microphone,
+    /// so the next stop turns it off.
+    func testCapturePageStopDuringAPendingCloseStillStopsTheNextMicrophone() throws {
+        let context = try XCTUnwrap(JSContext())
+        context.exceptionHandler = { _, exception in XCTFail("\(exception?.toString() ?? "")") }
+        let page = KeyboardCapturePage.html
+        let script = try XCTUnwrap(page.components(separatedBy: "<script>").last?.components(separatedBy: "</script>").first)
+        context.evaluateScript("""
+        var posts = [], streams = [], closes = [];
+        var webkit = { messageHandlers: { typr: { postMessage: function (m) { posts.push(m.type); } } } };
+        var setInterval = function () { return 1; }, clearInterval = function () {};
+        var navigator = { mediaDevices: { getUserMedia: async function () {
+          var track = { stopped: false, stop: function () { this.stopped = true; } };
+          var stream = { track: track, getTracks: function () { return [track]; }, getAudioTracks: function () { return [track]; } };
+          streams.push(stream);
+          return stream;
+        } } };
+        class AudioContext {
+          constructor() { this.state = "running"; this.sampleRate = 48000; this.destination = {}; }
+          async resume() {}
+          close() { return new Promise(function (resolve) { closes.push(resolve); }); }
+          createMediaStreamSource() { return { connect: function () {}, disconnect: function () {} }; }
+          createScriptProcessor() { return { connect: function () {}, disconnect: function () {} }; }
+        }
+        """)
+        context.evaluateScript(script)
+        for step in ["typrStart()", "typrStop()", "typrStart()", "closes[0]()", "typrStop()"] {
+            context.evaluateScript(step)
+        }
+        XCTAssertEqual(context.evaluateScript("streams.length").toInt32(), 2)
+        XCTAssertEqual(context.evaluateScript("JSON.stringify(streams.map(s => s.track.stopped))").toString(), "[true,true]")
+        XCTAssertEqual(context.evaluateScript("JSON.stringify(posts)").toString(), #"["started","stopped","started","stopped"]"#)
     }
 }

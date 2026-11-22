@@ -188,3 +188,77 @@ struct KeyboardLocalCapture {
         return settings.dictationLowercase ? TranscriptFormatter.lowercased(formatted, style: style) : formatted
     }
 }
+
+/// The keyboard's hidden capture page (`KeyboardLocalDictation`, Hex's getUserMedia page):
+/// records with getUserMedia and posts 16-bit PCM chunks to the `typr` message handler.
+enum KeyboardCapturePage {
+    /// A stop while a start waits makes that start stale: it releases what it opened.
+    static let html = """
+    <!doctype html><meta charset="utf-8"><script>
+    let ctx, stream, source, node, running = false, generation = 0, revive = null;
+    const post = (m) => webkit.messageHandlers.typr.postMessage(m);
+    const release = (s, c) => {
+      if (s) s.getTracks().forEach((t) => t.stop());
+      if (c) c.close().catch(() => {});
+    };
+    async function typrStart() {
+      if (running) return;
+      running = true;
+      const start = ++generation;
+      const stale = () => start !== generation;
+      let s = null, c = null;
+      try {
+        s = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+        if (stale()) return release(s);
+        c = new AudioContext();
+        await c.resume();
+        if (stale()) return release(s, c);
+        stream = s;
+        ctx = c;
+        source = ctx.createMediaStreamSource(stream);
+        node = ctx.createScriptProcessor(4096, 1, 1);
+        node.onaudioprocess = (event) => {
+          if (!running) return;
+          const input = event.inputBuffer.getChannelData(0);
+          const pcm = new Int16Array(input.length);
+          let peak = 0;
+          for (let i = 0; i < input.length; i++) {
+            const v = Math.max(-1, Math.min(1, input[i]));
+            peak = Math.max(peak, Math.abs(v));
+            pcm[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+          }
+          const bytes = new Uint8Array(pcm.buffer);
+          let binary = "";
+          for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+          post({ type: "pcm", data: btoa(binary), peak });
+        };
+        source.connect(node);
+        node.connect(ctx.destination);
+        // iOS may suspend the context for other audio without resuming it.
+        revive = setInterval(() => {
+          if (running && ctx && ctx.state !== "running" && ctx.state !== "closed") ctx.resume().catch(() => {});
+        }, 250);
+        post({ type: "started", rate: ctx.sampleRate });
+      } catch (error) {
+        if (stale()) return release(s, c);
+        running = false;
+        release(s, c);
+        post({ type: "error", message: (error && (error.name + ": " + error.message)) || String(error) });
+      }
+    }
+    async function typrStop() {
+      generation++;
+      const wasRunning = running;
+      running = false;
+      if (revive) { clearInterval(revive); revive = null; }
+      // Detached before awaiting: a start during the close owns the globals again.
+      const s = stream, c = ctx, src = source, n = node;
+      ctx = stream = source = node = null;
+      try { n && n.disconnect(); src && src.disconnect(); } catch (e) {}
+      if (s) s.getTracks().forEach((t) => t.stop());
+      if (wasRunning) post({ type: "stopped" });
+      if (c) { try { await c.close(); } catch (e) {} }
+    }
+    </script>
+    """
+}

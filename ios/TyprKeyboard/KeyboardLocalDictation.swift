@@ -333,7 +333,6 @@ private final class KeyboardSpeechStream {
     }
 }
 
-/// The converter's input for one chunk, handed over once.
 private final class PendingBuffer: @unchecked Sendable {
     private var buffer: AVAudioPCMBuffer?
 
@@ -377,7 +376,7 @@ private final class KeyboardWebCapture: NSObject, WKNavigationDelegate, WKUIDele
         webView.isUserInteractionEnabled = false
         webView.alpha = 0.02
         host.addSubview(webView)
-        webView.loadHTMLString(Self.page, baseURL: URL(string: "https://keyboard.typr.local/"))
+        webView.loadHTMLString(KeyboardCapturePage.html, baseURL: URL(string: "https://keyboard.typr.local/"))
     }
 
     func start() {
@@ -444,74 +443,6 @@ private final class KeyboardWebCapture: NSObject, WKNavigationDelegate, WKUIDele
             break
         }
     }
-
-    /// A stop while a start waits makes that start stale: it releases what it opened.
-    private static let page = """
-    <!doctype html><meta charset="utf-8"><script>
-    let ctx, stream, source, node, running = false, generation = 0, revive = null;
-    const post = (m) => webkit.messageHandlers.typr.postMessage(m);
-    const release = (s, c) => {
-      if (s) s.getTracks().forEach((t) => t.stop());
-      if (c) c.close().catch(() => {});
-    };
-    async function typrStart() {
-      if (running) return;
-      running = true;
-      const start = ++generation;
-      const stale = () => start !== generation;
-      let s = null, c = null;
-      try {
-        s = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-        if (stale()) return release(s);
-        c = new AudioContext();
-        await c.resume();
-        if (stale()) return release(s, c);
-        stream = s;
-        ctx = c;
-        source = ctx.createMediaStreamSource(stream);
-        node = ctx.createScriptProcessor(4096, 1, 1);
-        node.onaudioprocess = (event) => {
-          if (!running) return;
-          const input = event.inputBuffer.getChannelData(0);
-          const pcm = new Int16Array(input.length);
-          let peak = 0;
-          for (let i = 0; i < input.length; i++) {
-            const v = Math.max(-1, Math.min(1, input[i]));
-            peak = Math.max(peak, Math.abs(v));
-            pcm[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
-          }
-          const bytes = new Uint8Array(pcm.buffer);
-          let binary = "";
-          for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-          post({ type: "pcm", data: btoa(binary), peak });
-        };
-        source.connect(node);
-        node.connect(ctx.destination);
-        // iOS may suspend the context for other audio without resuming it.
-        revive = setInterval(() => {
-          if (running && ctx && ctx.state !== "running" && ctx.state !== "closed") ctx.resume().catch(() => {});
-        }, 250);
-        post({ type: "started", rate: ctx.sampleRate });
-      } catch (error) {
-        if (stale()) return release(s, c);
-        running = false;
-        release(s, c);
-        post({ type: "error", message: (error && (error.name + ": " + error.message)) || String(error) });
-      }
-    }
-    async function typrStop() {
-      generation++;
-      const wasRunning = running;
-      running = false;
-      if (revive) { clearInterval(revive); revive = null; }
-      try { node && node.disconnect(); source && source.disconnect(); } catch (e) {}
-      if (stream) stream.getTracks().forEach((t) => t.stop());
-      if (ctx) { try { await ctx.close(); } catch (e) {} }
-      ctx = stream = source = node = null;
-      if (wasRunning) post({ type: "stopped" });
-    }
-    </script>
-    """
 }
 
 private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
