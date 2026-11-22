@@ -165,7 +165,7 @@ final class DictationLearningTests: XCTestCase {
     private func store() -> DictationLearningStore {
         let suite = "dictation.learning.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
-        addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
+        addTeardownBlock { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
         return DictationLearningStore(defaults: defaults)
     }
 
