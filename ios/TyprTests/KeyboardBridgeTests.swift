@@ -186,22 +186,23 @@ final class KeyboardBridgeTests: XCTestCase {
         XCTAssertEqual(KeyboardBridge(defaults: defaults).fullAccessSeenAt, 1_234)
     }
 
-    func testTranscriptStylesFormatDeterministically() {
+    /// Typr dictation styles' formatter.
+    func testTyprTranscriptStylesFormatDeterministically() {
         let raw = "um let's ship the ios build tonight"
         XCTAssertEqual(
-            TranscriptFormatter.format(raw, style: .polished),
+            TyprTranscriptFormatter.format(raw, style: .polished),
             "Let's ship the ios build tonight."
         )
         XCTAssertEqual(
-            TranscriptFormatter.format("Um, Sounds Good.", style: .veryCasual),
+            TyprTranscriptFormatter.format("Um, Sounds Good.", style: .casual),
             "sounds good"
         )
         XCTAssertEqual(
-            TranscriptFormatter.format("um keep raw words", style: .verbatim),
+            TyprTranscriptFormatter.format("um keep raw words", style: .verbatim),
             "um keep raw words"
         )
         XCTAssertEqual(
-            TranscriptFormatter.format("First item bullet check signing bullet test keyboard", style: .notes),
+            TyprTranscriptFormatter.format("First item bullet check signing bullet test keyboard", style: .notes),
             "First item\n- Check signing\n- Test keyboard"
         )
     }

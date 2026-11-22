@@ -171,21 +171,28 @@ struct KeyboardLocalCapture {
         }
     }
 
-    /// The app's text steps that need no app code: the style, Format lists, Spoken
-    /// punctuation, End with a period and Lowercase.
+    /// The app's `DictationPipeline` without its model steps (AI cleanup, translation): learned
+    /// fixes, Custom vocabulary and the glossary, Clean up what I say, the style with Format
+    /// lists and Spoken punctuation, End with a period and Lowercase.
     @MainActor
-    static func text(from heard: String, style: DictationStyle, settings: TyprSettings) -> String {
-        let trimmed = heard.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "" }
-        let formatted = TranscriptFormatter.format(
-            trimmed,
+    static func text(
+        from heard: String,
+        style: DictationStyle,
+        settings: TyprSettings,
+        vocabulary: CustomVocabularySettings = CustomVocabularySettings(),
+        learning: DictationLearningStore = DictationLearningStore()
+    ) async -> String {
+        guard !heard.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
+        let pipeline = DictationPipeline(
             style: style,
             language: settings.dictationLanguage,
-            lists: settings[experiment: .formatLists],
-            punctuation: settings[experiment: .spokenPunctuation],
-            endsWithPeriod: settings.dictationEndsWithPeriod
+            vocabulary: DictationVocabulary(
+                settings: vocabulary,
+                learnedFixes: settings[experiment: .learnFromEdits] ? learning.corrections : []
+            ),
+            settings: settings
         )
-        return settings.dictationLowercase ? TranscriptFormatter.lowercased(formatted, style: style) : formatted
+        return await pipeline.run(heard).formatted
     }
 }
 

@@ -39,7 +39,8 @@ private actor SnapshotASR: LocalTranscribing {
 
 /// AI cleanup off must deliver byte for byte what Typr delivered before the Hex-style rewrite of
 /// AI cleanup, in every style. The expected texts were recorded from the code before that change;
-/// never update them to make a cleanup change pass.
+/// never update them to make a cleanup change pass. Since Hex's pipeline became the default they
+/// pin Typr's variants: Typr dictation styles and Typr German formatting rules.
 @MainActor
 final class AIOffSnapshotTests: XCTestCase {
     static let corpus: [String] = [
@@ -119,6 +120,8 @@ final class AIOffSnapshotTests: XCTestCase {
         let suite = "ai-off.snapshot.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
+        TyprSettings(defaults: defaults)[experiment: .typrDictationStyles] = true
+        TyprSettings(defaults: defaults)[experiment: .typrGermanFormattingRules] = true
         let vocabulary = CustomVocabularySettings(defaults: defaults)
         vocabulary.isEnabled = true
         vocabulary.terms = ["herdr", "Baden-Württemberg"]
@@ -135,7 +138,7 @@ final class AIOffSnapshotTests: XCTestCase {
         try await waitForState("model ready") { controller.phase == .ready }
 
         var actual: [String: String] = [:]
-        for style in DictationStyle.allCases {
+        for style in DictationStyle.choices(typrStyles: true) {
             for (index, raw) in Self.corpus.enumerated() {
                 await asr.set(raw)
                 controller.startRecording(styleOverride: style)
@@ -162,12 +165,16 @@ final class AIOffSnapshotTests: XCTestCase {
         await mainActorBarrier()
     }
 
-    func testFormatListsAppliesFromTheNextDictation() async throws {
+    /// Typr's styles and German formatting rules: German lists, switched by the old Format lists
+    /// experiment.
+    func testTyprFormatListsAppliesFromTheNextDictation() async throws {
         let suite = "format-lists.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
         settings.dictationLanguage = .german
+        settings[experiment: .typrDictationStyles] = true
+        settings[experiment: .typrGermanFormattingRules] = true
         let clock = CleanupTestSleeper()
         let deps = TranscriptCleanupDependencies(cleaner: CleanupTestCleaner(session: CleanupTestSession()),
             background: CleanupTestBackground(), isEnabled: { false }, sleep: clock.sleep)
@@ -196,6 +203,117 @@ final class AIOffSnapshotTests: XCTestCase {
         await mainActorBarrier()
     }
 
+    /// Hex's Format lists, on by default, from the next dictation. Hex writes English and Spanish
+    /// lists; German ones stay as said (`HexSpokenListsTests`).
+    func testHexFormatListsAppliesFromTheNextDictation() async throws {
+        let suite = "hex-format-lists.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = TyprSettings(defaults: defaults)
+        let clock = CleanupTestSleeper()
+        let deps = TranscriptCleanupDependencies(cleaner: CleanupTestCleaner(session: CleanupTestSession()),
+            background: CleanupTestBackground(), isEnabled: { false }, sleep: clock.sleep)
+        let asr = SnapshotASR()
+        let controller = DictationController(audio: SnapshotAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
+            transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
+            customVocabularySettings: CustomVocabularySettings(defaults: defaults), cleanup: deps,
+            languageSettings: settings)
+        controller.prepareModel()
+        try await waitForState("model ready") { controller.phase == .ready }
+
+        var delivered: [String] = []
+        let runs: [(DictationLanguage, String, Bool)] = [
+            (.english, "Groceries, bullet, eggs, bullet, milk.", true),
+            (.english, "Groceries, bullet, eggs, bullet, milk.", false),
+            (.german, "Einkaufsliste: erstens Milch, zweitens Eier.", true),
+        ]
+        for (language, heard, enabled) in runs {
+            settings.dictationLanguage = language
+            settings.dictationFormatLists = enabled
+            await asr.set(heard)
+            controller.startRecording(styleOverride: .polished)
+            try await waitForState("recording \(heard) \(enabled)") { controller.phase == .recording }
+            controller.finishRecording()
+            try await waitForState("finished \(heard) \(enabled)") { controller.isIdleForTest }
+            delivered.append(controller.transcript)
+        }
+        XCTAssertEqual(delivered, [
+            "Groceries:\n- Eggs.\n- Milk.",
+            "Groceries, bullet, eggs, bullet, milk.",
+            "Einkaufsliste: erstens Milch, zweitens Eier.",
+        ])
+        controller.cancelCurrentJob()
+        try await waitForState("controller idle") { controller.isIdleForTest }
+        clock.fire()
+        await mainActorBarrier()
+    }
+
+    /// Same captured text and settings, same result: the app's dictation and in-keyboard
+    /// dictation run one `DictationPipeline`, vocabulary and glossary included.
+    func testAppAndKeyboardDeliverTheSameText() async throws {
+        let suite = "app-keyboard-parity.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = TyprSettings(defaults: defaults)
+        let vocabulary = CustomVocabularySettings(defaults: defaults)
+        vocabulary.isEnabled = true
+        vocabulary.terms = ["herdr", "Baden-Württemberg"]
+        vocabulary.setSoundsLike(["Herder"], for: "herdr")
+        let learning = DictationLearningStore(defaults: defaults)
+        let clock = CleanupTestSleeper()
+        let deps = TranscriptCleanupDependencies(cleaner: CleanupTestCleaner(session: CleanupTestSession()),
+            background: CleanupTestBackground(), isEnabled: { false }, sleep: clock.sleep)
+        let asr = SnapshotASR()
+        let controller = DictationController(audio: SnapshotAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
+            transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
+            customVocabularySettings: vocabulary, dictationLearning: learning, cleanup: deps,
+            languageSettings: settings)
+        controller.prepareModel()
+        try await waitForState("model ready") { controller.phase == .ready }
+
+        let variants: [(String, (TyprSettings) -> Void)] = [
+            ("Hex defaults", { _ in }),
+            ("German, no period, lowercase", {
+                $0.dictationLanguage = .german
+                $0.dictationEndsWithPeriod = false
+                $0.dictationLowercase = true
+            }),
+            ("Typr variants", {
+                $0[experiment: .typrDictationStyles] = true
+                $0[experiment: .typrGermanFormattingRules] = true
+                $0[experiment: .formatLists] = true
+                $0[experiment: .spokenPunctuation] = true
+                $0[experiment: .cleanUpWhatISay] = true
+            }),
+        ]
+        let corpus = Self.corpus + [
+            "Ich komme morgen Punkt bis bald",
+            "Hallo Komma wie geht es dir Fragezeichen",
+            "Einkaufsliste: erstens Milch, zweitens Eier.",
+            "Groceries, bullet, eggs, bullet, milk.",
+        ]
+        for (name, apply) in variants {
+            apply(settings)
+            let styles = DictationStyle.choices(typrStyles: settings[experiment: .typrDictationStyles])
+            for style in styles {
+                for (index, heard) in corpus.enumerated() {
+                    await asr.set(heard)
+                    controller.startRecording(styleOverride: style)
+                    try await waitForState("recording \(name) \(style) \(index)") { controller.phase == .recording }
+                    controller.finishRecording()
+                    try await waitForState("finished \(name) \(style) \(index)") { controller.isIdleForTest }
+                    let keyboard = await KeyboardLocalCapture.text(from: heard, style: style, settings: settings,
+                                                                   vocabulary: vocabulary, learning: learning)
+                    XCTAssertEqual(controller.transcript, keyboard, "\(name) \(style) \(heard)")
+                }
+            }
+        }
+        controller.cancelCurrentJob()
+        try await waitForState("controller idle") { controller.isIdleForTest }
+        clock.fire()
+        await mainActorBarrier()
+    }
+
     func testEndWithPeriodAndLowercaseApplyAfterVocabularyFromTheNextDictation() async throws {
         let suite = "end-period-lowercase.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
@@ -216,25 +334,29 @@ final class AIOffSnapshotTests: XCTestCase {
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
 
-        var delivered: [String] = []
         let runs: [(DictationStyle, Bool, Bool)] = [
             (.polished, true, false), (.polished, false, false), (.polished, false, true), (.verbatim, false, true),
         ]
-        for (style, endsWithPeriod, lowercase) in runs {
-            settings.dictationEndsWithPeriod = endsWithPeriod
-            settings.dictationLowercase = lowercase
-            controller.startRecording(styleOverride: style)
-            try await waitForState("recording \(style)") { controller.phase == .recording }
-            controller.finishRecording()
-            try await waitForState("finished \(style)") { controller.isIdleForTest }
-            delivered.append(controller.transcript)
+        let sentences = "Ich lade den Bericht auf GitHub hoch. Danach rufe ich Anna an"
+        // Typr dictation styles keeps Verbatim as the model wrote it; Hex lowercases it too.
+        let expected: [Bool: [String]] = [
+            true: [sentences + ".", sentences, sentences.lowercased(), sentences + "."],
+            false: [sentences + ".", sentences, sentences.lowercased(), sentences.lowercased() + "."],
+        ]
+        for typrStyles in [true, false] {
+            settings[experiment: .typrDictationStyles] = typrStyles
+            var delivered: [String] = []
+            for (style, endsWithPeriod, lowercase) in runs {
+                settings.dictationEndsWithPeriod = endsWithPeriod
+                settings.dictationLowercase = lowercase
+                controller.startRecording(styleOverride: style)
+                try await waitForState("recording \(style) \(typrStyles)") { controller.phase == .recording }
+                controller.finishRecording()
+                try await waitForState("finished \(style) \(typrStyles)") { controller.isIdleForTest }
+                delivered.append(controller.transcript)
+            }
+            XCTAssertEqual(delivered, expected[typrStyles], "Typr dictation styles \(typrStyles)")
         }
-        XCTAssertEqual(delivered, [
-            "Ich lade den Bericht auf GitHub hoch. Danach rufe ich Anna an.",
-            "Ich lade den Bericht auf GitHub hoch. Danach rufe ich Anna an",
-            "ich lade den bericht auf github hoch. danach rufe ich anna an",
-            "Ich lade den Bericht auf GitHub hoch. Danach rufe ich Anna an.",
-        ])
         controller.cancelCurrentJob()
         try await waitForState("controller idle") { controller.isIdleForTest }
         clock.fire()

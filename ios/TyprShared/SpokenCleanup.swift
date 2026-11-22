@@ -37,7 +37,7 @@ nonisolated enum SpokenCleanup {
         let english = switch language {
         case .english: true
         case .german: false
-        case .automatic: TranscriptFormatter.readsAsEnglish(text)
+        case .automatic: TyprTranscriptFormatter.readsAsEnglish(text)
         }
         let rules = english ? Self.english : german
         var result = ""

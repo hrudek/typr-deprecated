@@ -69,16 +69,24 @@ An explicit engine or language choice never silently falls back to another.
   is counted on the words as heard, as before; only a cleanup that keeps the words after
   one of Hex's English self-correction markers ("no wait", "I mean", "actually") may keep
   less; Claude gets Hex's dictation rewrite prompt word for
-  word, with the host app and the text around the cursor as context. With Experimental ›
-  Spoken punctuation (off by default), every style but Verbatim writes punctuation said by name as the mark in German and English ("Komma",
-  "Fragezeichen", "Anführungszeichen unten/oben", "Klammer auf/zu", "question mark"),
-  with Hex's guards so "ein wichtiger Punkt" or "zwei Komma fünf" stay as said. Experimental ›
-  Format lists (off by default) writes "erstens … zweitens …", "Punkt eins … Punkt
-  zwei …", "first … second …" as numbered lines, "Spiegelstrich"/"bullet" as "- " lines and
-  "neue Zeile"/"new line" as line breaks, in every style but Verbatim; "Das ist erstens teuer
-  und zweitens hässlich" or "das Wort Zeilenumbruch" stay prose. Style › End with a period
-  (on by default) off drops every line's final period, and Style › Lowercase (off by default)
-  lowercases everything, nouns and vocabulary included, as in Hex; neither touches Verbatim. With Experimental ›
+  word, with the host app and the text around the cursor as context.
+- Formatting is Hex's shared `DictationPipeline`, the same in the app and in in-keyboard
+  dictation: learned fixes, vocabulary and glossary, Clean up what I say, AI cleanup (app
+  only), translation (app only), the style, the vocabulary's spellings again, Lowercase and
+  French spacing. Style offers Hex's Polished, Casual (texting: lowercase start, no final
+  period on a short message), Notes and Verbatim. Style › Format lists (on by default) writes
+  "first … second …" and "bullet" as lines, in English and Spanish; German lists stay as
+  said. Style › Spoken punctuation (on by default) writes "Komma", "Fragezeichen", "question
+  mark" and other names as the mark in English, German, French, Spanish, Italian and
+  Portuguese, with Hex's guards so "ein wichtiger Punkt" or "zwei Komma fünf" stay as said.
+  Both skip Verbatim. Style › End with a period (on by default) off drops every line's final
+  period, and Style › Lowercase (off by default) lowercases everything, Verbatim too, as in
+  Hex. Experimental › **Typr dictation styles** brings back Typr's five styles (Casual with
+  capitals, Very casual lowercase); a saved Typr Casual dictates as Polished while it is off.
+  Experimental › **Typr German formatting rules** uses Typr's German and English list and
+  punctuation rules ("erstens … zweitens …", "Punkt eins …", "Spiegelstrich", "neue Zeile",
+  "Klammer auf/zu"), switched by Experimental › Format lists and Spoken punctuation instead
+  of the Style settings. With Experimental ›
   Learn from my edits (off by default, needs Full Access), the full keyboard follows each
   dictation for a minute like Hex: kept, edited, rewritten, undone, deleted or dictated again.
   A word you replace with a similar one ("Wal" → "Wahl"), by editing or dictating again, is

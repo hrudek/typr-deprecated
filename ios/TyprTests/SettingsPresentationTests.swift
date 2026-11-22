@@ -240,16 +240,18 @@ final class SettingsPresentationTests: XCTestCase {
     }
 
     func testEveryDictationStyleExplainsItsBehavior() {
-        for style in DictationStyle.allCases {
-            XCTAssertFalse(style.settingsDescription.isEmpty, style.rawValue)
+        for typrStyles in [false, true] {
+            for style in DictationStyle.choices(typrStyles: typrStyles) {
+                XCTAssertFalse(style.settingsDescription(typrStyles: typrStyles).isEmpty, style.rawValue)
+            }
+            XCTAssertTrue(DictationStyle.verbatim.settingsDescription(typrStyles: typrStyles).contains("Skips AI cleanup"))
+            XCTAssertTrue(DictationStyle.verbatim.settingsDescription(typrStyles: typrStyles).contains("Vocabulary corrections"))
         }
-        XCTAssertTrue(DictationStyle.notes.settingsDescription.contains("new line"))
-        XCTAssertTrue(DictationStyle.notes.settingsDescription.contains("new paragraph"))
-        XCTAssertEqual(TranscriptFormatter.format("first new line second", style: .notes), "First\nSecond")
-        XCTAssertEqual(TranscriptFormatter.format("first new paragraph second", style: .notes), "First\n\nSecond")
-        XCTAssertEqual(TranscriptFormatter.format("bullet first bullet second", style: .notes), "- First\n- Second")
-        XCTAssertTrue(DictationStyle.verbatim.settingsDescription.contains("Skips AI cleanup"))
-        XCTAssertTrue(DictationStyle.verbatim.settingsDescription.contains("Vocabulary corrections"))
+        XCTAssertTrue(DictationStyle.notes.settingsDescription(typrStyles: true).contains("new line"))
+        XCTAssertTrue(DictationStyle.notes.settingsDescription(typrStyles: true).contains("new paragraph"))
+        XCTAssertEqual(TyprTranscriptFormatter.format("first new line second", style: .notes), "First\nSecond")
+        XCTAssertEqual(TyprTranscriptFormatter.format("first new paragraph second", style: .notes), "First\n\nSecond")
+        XCTAssertEqual(TyprTranscriptFormatter.format("bullet first bullet second", style: .notes), "- First\n- Second")
     }
 
     @MainActor
@@ -272,7 +274,11 @@ final class SettingsPresentationTests: XCTestCase {
 
     @MainActor
     func testDictationChoiceDescriptionsWrapAtCompactWidthAndLargerText() {
-        let choices = DictationStyle.allCases.map { ($0.label, $0.settingsDescription) }
+        let choices = [false, true].flatMap { typrStyles in
+            DictationStyle.choices(typrStyles: typrStyles).map {
+                ($0.label(typrStyles: typrStyles), $0.settingsDescription(typrStyles: typrStyles))
+            }
+        }
         for (title, detail) in choices {
             func size(_ type: DynamicTypeSize, selected: Bool) -> CGSize {
                 let host = UIHostingController(rootView:

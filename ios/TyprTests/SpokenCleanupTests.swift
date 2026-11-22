@@ -300,7 +300,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
             controller.finishRecording()
             try await waitForState("delivered \(index)") { controller.isIdleForTest }
             let spelled = vocabulary.beforeCleanup(CleanupHyphens.spaceCompounds(spoken)).text
-            let dev = vocabulary.afterFormatting(TranscriptFormatter.format(spelled, style: .polished, language: .german))
+            let dev = vocabulary.afterFormatting(TyprTranscriptFormatter.format(spelled, style: .polished, language: .german))
             XCTAssertEqual(controller.transcript, dev, spoken)
         }
     }

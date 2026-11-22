@@ -2,7 +2,7 @@ import XCTest
 @testable import Typr
 
 final class SpokenListsTests: XCTestCase {
-    private let styles: [DictationStyle] = [.polished, .casual, .veryCasual, .notes]
+    private let styles: [DictationStyle] = [.polished, .typrCasual, .casual, .notes]
 
     private func assertRows(
         _ rows: [(String, [String])], language: DictationLanguage, punctuation: Bool,
@@ -10,12 +10,12 @@ final class SpokenListsTests: XCTestCase {
     ) {
         for (heard, expected) in rows {
             let formatted = styles.map {
-                TranscriptFormatter.format(heard, style: $0, language: language, lists: true, punctuation: punctuation)
+                TyprTranscriptFormatter.format(heard, style: $0, language: language, lists: true, punctuation: punctuation)
             }
             XCTAssertEqual(formatted, expected, heard, file: file, line: line)
             XCTAssertEqual(
-                TranscriptFormatter.format(heard, style: .verbatim, language: language, lists: true, punctuation: punctuation),
-                TranscriptFormatter.format(heard, style: .verbatim, language: language),
+                TyprTranscriptFormatter.format(heard, style: .verbatim, language: language, lists: true, punctuation: punctuation),
+                TyprTranscriptFormatter.format(heard, style: .verbatim, language: language),
                 "Verbatim keeps the model's words: \(heard)", file: file, line: line
             )
         }
@@ -41,12 +41,12 @@ final class SpokenListsTests: XCTestCase {
         ] {
             for heard in corpus {
                 for language in languages {
-                    XCTAssertEqual(SpokenLists.format(heard, language: language), heard, "\(language) \(heard)")
-                    for style in DictationStyle.allCases {
+                    XCTAssertEqual(TyprSpokenLists.format(heard, language: language), heard, "\(language) \(heard)")
+                    for style in DictationStyle.choices(typrStyles: true) {
                         for punctuation in [false, true] {
                             XCTAssertEqual(
-                                TranscriptFormatter.format(heard, style: style, language: language, lists: true, punctuation: punctuation),
-                                TranscriptFormatter.format(heard, style: style, language: language, punctuation: punctuation),
+                                TyprTranscriptFormatter.format(heard, style: style, language: language, lists: true, punctuation: punctuation),
+                                TyprTranscriptFormatter.format(heard, style: style, language: language, punctuation: punctuation),
                                 "\(language) \(style) punctuation \(punctuation): \(heard)"
                             )
                         }
@@ -58,22 +58,22 @@ final class SpokenListsTests: XCTestCase {
 
     func testAutomaticLanguage() {
         XCTAssertEqual(
-            SpokenLists.format("Ich habe zwei Punkte: erstens Milch, zweitens Eier.", language: .automatic),
+            TyprSpokenLists.format("Ich habe zwei Punkte: erstens Milch, zweitens Eier.", language: .automatic),
             "Ich habe zwei Punkte:\n1. Milch\n2. Eier"
         )
         XCTAssertEqual(
-            SpokenLists.format("I need two things: first, eggs, second, milk.", language: .automatic),
+            TyprSpokenLists.format("I need two things: first, eggs, second, milk.", language: .automatic),
             "I need two things:\n1. Eggs\n2. Milk"
         )
     }
 
     func testNotesBulletsKeepWorking() {
         XCTAssertEqual(
-            TranscriptFormatter.format("First item bullet check signing bullet test keyboard", style: .notes, lists: true),
+            TyprTranscriptFormatter.format("First item bullet check signing bullet test keyboard", style: .notes, lists: true),
             "First item\n- Check signing\n- Test keyboard"
         )
         XCTAssertEqual(
-            TranscriptFormatter.format("Einkaufen bullet Milch bullet Eier", style: .notes, language: .german, lists: true),
+            TyprTranscriptFormatter.format("Einkaufen bullet Milch bullet Eier", style: .notes, language: .german, lists: true),
             "Einkaufen\n- Milch\n- Eier"
         )
     }
@@ -82,8 +82,8 @@ final class SpokenListsTests: XCTestCase {
         for (language, heard, plain, punctuated) in Self.outputsBeforeLists {
             for (punctuation, expected) in [(false, plain), (true, punctuated)] {
                 XCTAssertEqual(
-                    DictationStyle.allCases.map {
-                        TranscriptFormatter.format(heard, style: $0, language: language, lists: false, punctuation: punctuation)
+                    DictationStyle.choices(typrStyles: true).map {
+                        TyprTranscriptFormatter.format(heard, style: $0, language: language, lists: false, punctuation: punctuation)
                     },
                     expected,
                     "\(language) punctuation \(punctuation): \(heard)"

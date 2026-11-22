@@ -1,49 +1,52 @@
 import Foundation
 
-/// Punctuation said by name written as the mark, with string rules and no model, in German and
-/// English. With Experimental › Spoken punctuation on, runs inside every style but Verbatim, after
-/// fillers (and Notes' spoken line breaks) and before the style's own capitalization and final
-/// period (`TranscriptFormatter.format(_:style:language:punctuation:)`). A mark the speech model
-/// or AI cleanup already wrote beside a name is replaced, never doubled, and text without names
-/// stays as it is.
-/// Ported from Hex (anomalyco/hex `ios/HEXShared/SpokenPunctuation.swift` at d65b02d3, MIT),
-/// German and English tables only; see THIRD_PARTY_NOTICES.md.
+/// Punctuation said by name written as the mark, with string rules and no model, in English,
+/// Spanish, French, German, Italian and Portuguese; other languages are left as they are. Runs
+/// inside a style, after its fillers and Format lists (`SpokenLists`, so "dash … dash …" stays a
+/// list and "comma, new line" keeps its comma) and before the style's own punctuation
+/// (`TranscriptFormatter.format(_:style:language:lists:punctuation:endsWithPeriod:)`), so each
+/// style capitalizes and ends sentences its own way; French spacing comes after (`FrenchSpacing`).
 ///
-/// - Marks attach to the word before them ("Hallo, wie"), a dash is spaced ("gut – und dann"),
-///   "Bindestrich", "Apostroph" and "At-Zeichen" join their words ("E-Mail", "John's",
-///   "ana@gmail"), "Hashtag" and "dollar sign" go on the next word ("#blessed"), and a word after
-///   ".", "?" or "!" starts with a capital.
-/// - Quotes and brackets open and close: „ “ in German, “ ” in English, ( ). A closing name
-///   counts only while one is open, and a bare "Anführungszeichen" or "quote" opens only with a
-///   closing name later, never in "quote unquote".
-/// - Guards keep prose and never turn a noun into a mark; a missed command stays as said. A
-///   name is no command right after a determiner, a preposition, a number, a word like "Wort"
-///   or "symbol", or a word that could be an adjective (German lowercase -e/-er/-en/-es/-em,
-///   English -al/-ous/-ant/-ent/-ive/-ful/-ish/-ward/-ic/-ed/-ing/-y: "ein für mich sehr
-///   wichtiger Punkt", "an important period"); after a determiner earlier in the same phrase
-///   ("ein rosa Punkt", "a short, bizarre period"); when it repeats ("Punkt für Punkt") or
-///   is listed with another name ("Punkt und Komma"); right before a word that continues the
-///   noun ("Punkt ist", "colon cancer"); between two numbers ("zwei Komma fünf"); or inside a
-///   compound ("comma-separated"). An opening bracket or quote needs its closing name later on
-///   the line. The names that are everyday nouns ("Punkt", "Fragezeichen", "period", "question
-///   mark", "dash") need command-like placement as well: the end of the line, a mark after
-///   them, or a next word that starts a clause ("ich", "bis", "I", "see"). A colon needs words
-///   after it.
+/// Apple's `DictationTranscriber` already writes the marks (macOS 27.2.1, `say` voices: "That is
+/// amazing!", "Here is the plan: we leave at noon", "(after lunch)", "#Blessed"), so its text has no
+/// names left. `SpeechTranscriber` writes only some ("comma", "question mark", French "point" and
+/// "virgule", German "Komma" and "Fragezeichen") and leaves the rest as words, often with commas
+/// around them ("I came semicolon, I saw", "open Paren after lunch close, Paren"); Parakeet writes
+/// every name as words ("noon, comma, see you soon, period", "tonight question mark?"). A mark the
+/// model already wrote beside a name is replaced, never doubled.
+///
+/// - Marks attach to the word before them ("noon, see you"), a dash is spaced ("good – really
+///   good"), "hyphen", "apostrophe" and "arroba" ("arobase", "chiocciola", "At-Zeichen") join
+///   their words ("well-known", "John's", "ana@gmail"; English "at sign" is
+///   `SpokenCleanupRules.spokenSymbols`'s), "hashtag" and "dollar sign" go on the next word
+///   ("#blessed"), and a word after ".", "?" or "!" starts with a capital.
+/// - Quotes and brackets open and close: “ ” (« » in French, „ “ in German), ( ). A closing name
+///   counts only while one is open, and a bare "quote" ("comillas", "guillemets",
+///   "Anführungszeichen", "virgolette", "aspas") opens only with a closing name later, never in
+///   "quote unquote".
+/// - Guards keep prose. A name is no command right after a determiner, a preposition, a number
+///   or a word that makes it a noun ("a period of time", "the comma is", "a dash of salt", "his
+///   colon", "trial period", "Oxford comma", "ein wichtiger Punkt"), right before a word that
+///   continues the noun ("question mark tattoo", "colon cancer", "period of", "punto de vista"),
+///   or inside a compound ("comma-separated"). The names that are everyday nouns ("period",
+///   "point", "Punkt", "punto", "ponto", "question mark", "dash", "smiley", "dos puntos") need
+///   command-like placement as well: the end of the line, a mark after them, or a next word that
+///   starts a clause ("I", "see", "thanks", "nos", "à", a capital outside German). A colon needs
+///   words after it.
 nonisolated enum SpokenPunctuation {
-    /// `language` picks the word table; Automatic uses English only for text that reads as
-    /// English (`TranscriptFormatter.readsAsEnglish`), else German. `starters` are further words
-    /// that start a clause after a name ("Milch Punkt zweitens"), lowercased and unaccented.
-    static func format(_ text: String, language: DictationLanguage, starters: Set<String> = []) -> String {
-        guard !text.isEmpty else { return text }
-        var table = Table.forLanguage(language, text: text)
-        table.starters.formUnion(starters)
+    static func format(_ text: String, language: String?) -> String {
+        guard let table = Table.forLanguage(language), !text.isEmpty else { return text }
         var writer = Writer(tokens: tokenize(text), table: table)
         return writer.write()
     }
 
+    // MARK: Words
+
     fileprivate struct Token {
         let text: String
         let isWord: Bool
+        /// Lowercased, accents folded, curly apostrophes straight: "D’Interrogation" reads
+        /// "d'interrogation".
         let folded: String
     }
 
@@ -52,6 +55,7 @@ nonisolated enum SpokenPunctuation {
             .replacingOccurrences(of: "’", with: "'")
     }
 
+    /// Alternating words (letters, digits, apostrophes) and the separators between them.
     private static func tokenize(_ text: String) -> [Token] {
         var tokens: [Token] = []
         var current = ""
@@ -74,11 +78,14 @@ nonisolated enum SpokenPunctuation {
         return tokens
     }
 
+    /// Marks a speech model puts around a spoken name: the name's mark replaces them.
     private static let pauseMarks = ",.;:!?…"
-    private static let sentenceMarks = ".?!…"
     private static let openers: Set<Character> = ["(", "[", "“", "«", "„", "¿", "¡", "\"", "‘"]
     private static let closers: Set<Character> = [")", "]", "”", "»", "“", "\"", "’"]
+    /// Endings after "apostrophe": "John apostrophe S" is "John's".
     private static let contractions: Set<String> = ["s", "t", "d", "m", "ll", "re", "ve"]
+
+    // MARK: Writing
 
     private struct Writer {
         let tokens: [Token]
@@ -99,6 +106,7 @@ nonisolated enum SpokenPunctuation {
                     if allows(command, from: index, to: end) {
                         index = apply(command, end: end)
                     } else {
+                        // A name kept as said stays whole: "a dos puntos" never loses its "puntos".
                         for token in tokens[index..<end] {
                             emit(token)
                         }
@@ -134,6 +142,7 @@ nonisolated enum SpokenPunctuation {
             return first.uppercased() + word.dropFirst()
         }
 
+        /// The command whose words start at `index`, longest first, and where its words end.
         func command(at index: Int) -> (Command, Int)? {
             for command in table.commands {
                 if let end = phraseEnd(command.words, at: index) { return (command, end) }
@@ -141,6 +150,8 @@ nonisolated enum SpokenPunctuation {
             return nil
         }
 
+        /// Where `words` said one after another start at `index` end. Between them only spaces,
+        /// a hyphen ("point-virgule") or one comma a model heard as a pause ("close, Paren").
         private func phraseEnd(_ words: [String], at index: Int) -> Int? {
             var position = index
             for (number, word) in words.enumerated() {
@@ -161,61 +172,6 @@ nonisolated enum SpokenPunctuation {
             out.reduce(0) { $1 == character ? $0 + 1 : $0 }
         }
 
-        private func opens(_ character: Character, _ pair: Pair) -> Bool {
-            switch pair {
-            case .paren: character == "("
-            case .quote: character == table.quotes.open || (character == "\"" && count("\"") % 2 == 0)
-            }
-        }
-
-        private func closes(_ character: Character, _ pair: Pair) -> Bool {
-            switch pair {
-            case .paren: character == ")"
-            case .quote: character == table.quotes.close || (character == "\"" && count("\"") % 2 == 1)
-            }
-        }
-
-        private var lastWritten: Character? {
-            out.last { $0 != " " && $0 != "\t" }
-        }
-
-        private func openedJustBefore(_ pair: Pair) -> Bool {
-            guard let last = lastWritten else { return false }
-            switch pair {
-            case .paren: return last == "("
-            case .quote: return last == table.quotes.open || (last == "\"" && count("\"") % 2 == 1)
-            }
-        }
-
-        private func closedJustBefore(_ pair: Pair) -> Bool {
-            guard !isOpen(pair), let last = lastWritten else { return false }
-            return last == (pair == .paren ? ")" : table.quotes.close) || (pair == .quote && last == "\"")
-        }
-
-        private func firstWritten(in after: String) -> Character? {
-            after.first { $0 != " " && $0 != "\t" }
-        }
-
-        private func opensNext(_ pair: Pair, after: String) -> Bool {
-            firstWritten(in: after).map { opens($0, pair) } ?? false
-        }
-
-        private func closesNext(_ pair: Pair, after: String) -> Bool {
-            firstWritten(in: after).map { closes($0, pair) } ?? false
-        }
-
-        private func alreadyOpened(_ pair: Pair, after: String) -> Bool {
-            openedJustBefore(pair) || opensNext(pair, after: after)
-        }
-
-        private func alreadyClosed(_ pair: Pair, after: String) -> Bool {
-            closedJustBefore(pair) || closesNext(pair, after: after)
-        }
-
-        private func quoteNameCloses(after: String) -> Bool {
-            !alreadyOpened(.quote, after: after) && (alreadyClosed(.quote, after: after) || isOpen(.quote))
-        }
-
         private func isOpen(_ pair: Pair) -> Bool {
             switch pair {
             case .paren:
@@ -225,15 +181,16 @@ nonisolated enum SpokenPunctuation {
             }
         }
 
-        private func closingName(_ pair: Pair, after end: Int, toggles: Bool) -> Bool {
+        /// Whether a closing quote name follows `end`, with words between.
+        private func closingQuote(after end: Int, toggles: Bool) -> Bool {
             var index = end
             var wordsBetween = false
             while index < tokens.count {
                 if tokens[index].text.contains("\n") { return false }
                 if tokens[index].isWord, let (found, commandEnd) = command(at: index) {
                     switch found.mark {
-                    case .close(let closing) where closing == pair: return wordsBetween
-                    case .toggleQuote where pair == .quote: return toggles && wordsBetween
+                    case .close(.quote): return wordsBetween
+                    case .toggleQuote: return toggles && wordsBetween
                     default: index = commandEnd
                     }
                     wordsBetween = true
@@ -254,20 +211,11 @@ nonisolated enum SpokenPunctuation {
             let mark = command.mark
             let family = command.family
 
+            // A compound: "comma-separated", "pre-period", "and/or".
             if let first = after.first, first == "-" || first == "/" { return false }
             if family != .hyphen, let last = before.last, last == "-" || last == "/" { return false }
 
-            switch mark {
-            case .open(_, let pair):
-                if alreadyOpened(pair, after: after) { return true }
-            case .close(let pair):
-                if alreadyClosed(pair, after: after) { return true }
-            case .toggleQuote:
-                if alreadyOpened(.quote, after: after) || alreadyClosed(.quote, after: after) { return true }
-            default:
-                break
-            }
-
+            // A name: "I'll text Dash later", "George Smiley".
             if table.capitalizesSentences, tokens[index].text.first?.isUppercase == true, let previous {
                 if family == .dash, !before.contains(where: { ".!?".contains($0) }) { return false }
                 if family == .smiley, previous.text.first?.isUppercase == true { return false }
@@ -276,16 +224,13 @@ nonisolated enum SpokenPunctuation {
             var opens = false
             var closes = false
             switch mark {
-            case .open(_, let pair):
-                opens = true
-                guard closingName(pair, after: end, toggles: true) else { return false }
-            case .prefix:
+            case .open, .prefix:
                 opens = true
             case .toggleQuote(let toggles):
-                opens = !quoteNameCloses(after: after)
+                opens = !isOpen(.quote)
                 closes = !opens
                 if opens {
-                    guard next != nil, closingName(.quote, after: end, toggles: toggles) else { return false }
+                    guard next != nil, closingQuote(after: end, toggles: toggles) else { return false }
                 }
             case .close(let pair):
                 guard isOpen(pair) else { return false }
@@ -295,15 +240,17 @@ nonisolated enum SpokenPunctuation {
             }
 
             if !opens {
+                // Attached to something said before it on the line; a quote or bracket that is
+                // open closes after any word ("hello, their close quote").
                 guard let previous else { return false }
-                if !closes, isNounPhrase(before: previous, at: index, family: family, mark: mark) { return false }
-            } else if case .prefix = mark, let previous, isNounPhrase(before: previous, at: index, family: family, mark: mark) {
+                if !closes, isNounPhrase(before: previous, at: index, family: family) { return false }
+            } else if case .prefix = mark, let previous, isNounPhrase(before: previous, at: index, family: family) {
                 return false
             }
 
             if case .open = mark {
+                // "The open quote was missing."
                 if let previous, table.blockers.contains(previous.folded) { return false }
-                if listsNames(around: index) { return false }
                 if nextDirect, let next, table.followers.contains(next.folded) { return false }
                 return next != nil
             }
@@ -311,13 +258,15 @@ nonisolated enum SpokenPunctuation {
                 return true
             }
 
+            // A decimal or a time: "two comma five", "3 colon 30".
             if [.comma, .period, .colon].contains(family), let previous, nextDirect, let next,
                isNumber(previous), isNumber(next) {
                 return false
             }
 
             if nextDirect, let next {
-                if table.followers.contains(next.folded) || table.familyFollowers[family]?.contains(next.folded) == true {
+                if table.followers.contains(next.folded) || table.familyFollowers[family]?.contains(next.folded) == true
+                    || table.followerPrefixes.contains(where: next.folded.hasPrefix) {
                     return false
                 }
             }
@@ -339,7 +288,7 @@ nonisolated enum SpokenPunctuation {
                     pauseMarks.contains($0) || closers.contains($0)
                 } ?? false
                 let startsClause = nextDirect && next.map {
-                    table.starters.contains($0.folded)
+                    table.starters.contains($0.folded) || table.starterPrefixes.contains(where: $0.folded.hasPrefix)
                         || (table.capitalizesSentences && $0.text.first?.isUppercase == true)
                 } ?? false
                 let anotherCommand = next != nil && self.command(at: end + 1) != nil
@@ -352,53 +301,28 @@ nonisolated enum SpokenPunctuation {
             token.folded.allSatisfy(\.isNumber) || table.numbers.contains(token.folded)
         }
 
-        private func isNounPhrase(before previous: Token, at index: Int, family: Family, mark: Mark) -> Bool {
+        /// Whether the word before a name makes the name a noun: "a period", "the comma",
+        /// "trial period", "two comma five", "Sarah's colon", "ein wichtiger Punkt".
+        private func isNounPhrase(before previous: Token, at index: Int, family: Family) -> Bool {
             let word = previous.folded
             if table.blockers.contains(word) || table.familyBlockers[family]?.contains(word) == true { return true }
-            if table.prepositions.contains(word), ![.question, .exclamation, .period].contains(family) {
+            // An English or German sentence may end on a preposition or a particle ("Who is it
+            // for?", "Ruf mich an."), a noun phrase not.
+            if table.prepositions.contains(word),
+               !(table.prepositionsEndSentences && [.question, .exclamation, .period].contains(family)) {
                 return true
             }
             if table.possessives, word.hasSuffix("'s"), !table.starters.contains(word) { return true }
-            if index >= 4, tokens[index - 4].folded == tokens[index].folded { return true }
-            if listsNames(around: index) { return true }
-            guard lastWritten?.isLetter == true else { return false }
-            if previous.text.first?.isLowercase == true, word.count > 3,
-               table.adjectiveEndings.contains(where: word.hasSuffix) {
+            // German nouns are capitalized: a lowercase word between an article and the name is
+            // an adjective ("ein wichtiger Punkt"), not the end of a clause ("Ich komme morgen").
+            if table.adjectivesBeforeNouns, previous.text.first?.isLowercase == true, index >= 4,
+               tokens[index - 3].text.allSatisfy({ $0 == " " }), table.blockers.contains(tokens[index - 4].folded) {
                 return true
-            }
-            if case .join = mark { return false }
-            return determinerOpensPhrase(endingAt: index - 2)
-        }
-
-        private func listsNames(around index: Int) -> Bool {
-            if index >= 2, table.conjunctions.contains(tokens[index - 2].folded) {
-                for start in stride(from: index - 4, through: max(index - 8, 0), by: -2)
-                where tokens[start].isWord && command(at: start)?.1 == index - 3 {
-                    return true
-                }
-            }
-            guard let (_, end) = command(at: index), end + 3 < tokens.count,
-                  table.conjunctions.contains(tokens[end + 1].folded) else { return false }
-            return command(at: end + 3) != nil
-        }
-
-        private func determinerOpensPhrase(endingAt start: Int) -> Bool {
-            var position = start
-            while position >= 0 {
-                if position < start, table.phraseBreakers.contains(tokens[position].folded) { return false }
-                if table.phraseDeterminers.contains(tokens[position].folded) { return true }
-                if !table.capitalizesSentences, tokens[position].text.first?.isLowercase != true || start - position >= 4 {
-                    return false
-                }
-                guard position >= 2 else { return false }
-                let separator = tokens[position - 1].text
-                guard separator.allSatisfy({ " \t,".contains($0) }), separator.filter({ $0 == "," }).count <= 1,
-                      command(at: position - 2) == nil else { return false }
-                position -= 2
             }
             return false
         }
 
+        /// Writes the command's mark and returns where reading goes on.
         private mutating func apply(_ command: Command, end: Int) -> Int {
             let after = end < tokens.count ? tokens[end].text : ""
             let resume = end < tokens.count ? end + 1 : end
@@ -413,20 +337,27 @@ nonisolated enum SpokenPunctuation {
             switch command.mark {
             case .attach(let mark):
                 trimEnd(" \t" + pauseMarks)
-                if !(sentenceMarks.contains(mark) && endsSentenceInsideCloser) {
-                    out += mark
-                }
+                out += mark
                 out += spaced(rest(dropping: " \t" + pauseMarks))
-                capitalizeNext = sentenceMarks.contains(mark)
-            case .open(let mark, let pair):
-                openWith(mark, pair: pair, after: after)
+                capitalizeNext = ".?!".contains(mark)
+            case .lineEnd(let mark, let breaks):
+                trimEnd(" \t" + pauseMarks)
+                out += mark + breaks
+                out += rest(dropping: " \t\n" + pauseMarks)
+                capitalizeNext = true
+            case .open(let mark):
+                openWith(mark)
+                out += rest(dropping: " \t" + pauseMarks)
             case .close(let pair):
-                out += spaced(closeWith(pair, after: after))
+                closeWith(pair)
+                out += spaced(after)
             case .toggleQuote:
-                if quoteNameCloses(after: after) {
-                    out += spaced(closeWith(.quote, after: after))
+                if isOpen(.quote) {
+                    closeWith(.quote)
+                    out += spaced(after)
                 } else {
-                    openWith(String(table.quotes.open), pair: .quote, after: after)
+                    openWith(String(table.quotes.open))
+                    out += rest(dropping: " \t" + pauseMarks)
                 }
             case .join(let mark):
                 trimEnd(command.family == .hyphen ? " \t-" : " \t")
@@ -434,7 +365,7 @@ nonisolated enum SpokenPunctuation {
                 out += rest(dropping: " \t")
                 lowercaseNext = command.family == .apostrophe
             case .prefix(let mark):
-                openSpaced(mark)
+                openWith(mark)
                 out += rest(dropping: " \t")
             case .spaced(let mark):
                 trimEnd(" \t,;:")
@@ -454,7 +385,8 @@ nonisolated enum SpokenPunctuation {
             }
         }
 
-        private mutating func openSpaced(_ mark: String) {
+        /// An opening mark with a space before it, none after.
+        private mutating func openWith(_ mark: String) {
             trimEnd(" \t")
             if let last = out.last, !last.isNewline, !openers.contains(last) {
                 out += " "
@@ -462,44 +394,18 @@ nonisolated enum SpokenPunctuation {
             out += mark
         }
 
-        private mutating func openWith(_ mark: String, pair: Pair, after: String) {
-            let rest = after.drop { " \t".contains($0) || pauseMarks.contains($0) }
-            let writtenAfter = rest.first.map { opens($0, pair) } ?? false
-            if openedJustBefore(pair) {
-                trimEnd(" \t")
-            } else {
-                openSpaced(writtenAfter ? "" : mark)
-            }
-            out += rest
-        }
-
-        private var endsSentenceInsideCloser: Bool {
-            guard let last = out.last, closers.contains(last), let inner = out.dropLast().last else { return false }
-            return sentenceMarks.contains(inner)
-        }
-
-        private mutating func closeWith(_ pair: Pair, after: String) -> String {
+        /// A closing mark against the word before it; a straight quote closes a straight one.
+        private mutating func closeWith(_ pair: Pair) {
             let straight = pair == .quote && count("\"") % 2 == 1
-            let writtenBefore = closedJustBefore(pair)
-            let writtenAfter = closesNext(pair, after: after)
             trimEnd(" \t,;:")
-            var rest = Substring(after)
-            if writtenAfter {
-                rest = rest.drop { $0 == " " || $0 == "\t" }
-                let mark = rest.removeFirst()
-                if !writtenBefore { out.append(mark) }
-            } else if !writtenBefore {
-                switch pair {
-                case .paren: out += ")"
-                case .quote: out.append(straight ? "\"" : table.quotes.close)
-                }
+            switch pair {
+            case .paren: out += ")"
+            case .quote: out.append(straight ? "\"" : table.quotes.close)
             }
-            if endsSentenceInsideCloser {
-                rest = rest.drop { sentenceMarks.contains($0) }
-            }
-            return String(rest)
         }
     }
+
+    // MARK: Commands
 
     fileprivate enum Pair: Equatable {
         case paren
@@ -507,12 +413,21 @@ nonisolated enum SpokenPunctuation {
     }
 
     fileprivate enum Mark {
+        /// Against the word before: , . ? ! : ; …
         case attach(String)
-        case open(String, Pair)
+        /// A mark, then line breaks: "punto y aparte".
+        case lineEnd(String, String)
+        /// Before the next word: ( ¿ ¡ “
+        case open(String)
         case close(Pair)
+        /// A bare "quote": opens, or closes the quote that is open. `toggles`: two of them make
+        /// a pair ("Anführungszeichen … Anführungszeichen"); English needs "end quote".
         case toggleQuote(toggles: Bool)
+        /// Between two words, no spaces: - ' @
         case join(String)
+        /// On the next word: # $
         case prefix(String)
+        /// With a space each side: –
         case spaced(String)
         case emoticon(String)
     }
@@ -526,25 +441,40 @@ nonisolated enum SpokenPunctuation {
         let words: [String]
         let mark: Mark
         let family: Family
+        /// Needs command-like placement: the line's end, a mark after it, or a clause start.
         let strict: Bool
+        /// Needs words after it on the line.
         let needsFollowing: Bool
     }
 
+    // MARK: Words per language
+
     private struct Table {
         let commands: [Command]
+        /// Words before a name that make it a noun: articles, possessives, prepositions,
+        /// numbers, adjectives.
         let blockers: Set<String>
+        /// Prepositions, which block too.
         let prepositions: Set<String>
+        /// Number words: "two comma five" is a decimal.
         let numbers: Set<String>
+        /// Whether a sentence may end on one (English, German), so they don't block ".", "?", "!".
+        let prepositionsEndSentences: Bool
         let familyBlockers: [Family: Set<String>]
+        /// Words after a name that continue the noun: "is", "of", "de".
         let followers: Set<String>
         let familyFollowers: [Family: Set<String>]
-        var starters: Set<String>
+        /// "d'eau" after "point".
+        let followerPrefixes: [String]
+        /// Words that start a clause after a name said at its end.
+        let starters: Set<String>
+        /// "j'arrive", "c'est".
+        let starterPrefixes: [String]
         let quotes: (open: Character, close: Character)
+        /// Whether a capital starts a sentence (not German, where every noun has one).
         let capitalizesSentences: Bool
-        let adjectiveEndings: [String]
-        let phraseDeterminers: Set<String>
-        let conjunctions: Set<String>
-        let phraseBreakers: Set<String>
+        let adjectivesBeforeNouns: Bool
+        /// English "Sarah's colon".
         let possessives: Bool
 
         init(
@@ -552,17 +482,17 @@ nonisolated enum SpokenPunctuation {
             blockers: [String],
             numbers: [String],
             prepositions: [String],
+            prepositionsEndSentences: Bool = false,
             familyBlockers: [Family: [String]] = [:],
             followers: [String],
             familyFollowers: [Family: [String]] = [:],
+            followerPrefixes: [String] = [],
             starters: [String],
+            starterPrefixes: [String] = [],
             quotes: (open: Character, close: Character),
             capitalizesSentences: Bool = true,
-            possessives: Bool = false,
-            adjectiveEndings: [String],
-            phraseDeterminers: [String] = [],
-            conjunctions: [String],
-            phraseBreakers: [String] = []
+            adjectivesBeforeNouns: Bool = false,
+            possessives: Bool = false
         ) {
             let fold = SpokenPunctuation.fold
             self.commands = commands
@@ -571,38 +501,43 @@ nonisolated enum SpokenPunctuation {
                         words: fold(phrase).split(whereSeparator: { $0 == " " || $0 == "-" }).map(String.init),
                         mark: mark,
                         family: family,
-                        strict: placement == .strict,
-                        needsFollowing: placement == .following
+                        strict: placement == .strict || placement == .strictFollowing,
+                        needsFollowing: placement == .following || placement == .strictFollowing
                     )
                 }
                 .sorted { $0.words.count > $1.words.count }
             self.blockers = Set(blockers.map(fold))
             self.prepositions = Set(prepositions.map(fold))
             self.numbers = Set(numbers.map(fold))
+            self.prepositionsEndSentences = prepositionsEndSentences
             self.familyBlockers = familyBlockers.mapValues { Set($0.map(fold)) }
             self.followers = Set(followers.map(fold))
             self.familyFollowers = familyFollowers.mapValues { Set($0.map(fold)) }
+            self.followerPrefixes = followerPrefixes.map(fold)
             self.starters = Set(starters.map(fold))
+            self.starterPrefixes = starterPrefixes.map(fold)
             self.quotes = quotes
             self.capitalizesSentences = capitalizesSentences
-            self.adjectiveEndings = adjectiveEndings.map(fold)
-            self.phraseDeterminers = Set(phraseDeterminers.map(fold))
-            self.conjunctions = Set(conjunctions.map(fold))
-            self.phraseBreakers = Set(phraseBreakers.map(fold))
+            self.adjectivesBeforeNouns = adjectivesBeforeNouns
             self.possessives = possessives
         }
 
-        static func forLanguage(_ language: DictationLanguage, text: String) -> Table {
-            switch language {
-            case .german: german
-            case .english: english
-            case .automatic: TranscriptFormatter.readsAsEnglish(text) ? english : german
+        static func forLanguage(_ language: String?) -> Table? {
+            let code = language.flatMap { Locale(identifier: $0).language.languageCode?.identifier } ?? "en"
+            switch code {
+            case "en": return english
+            case "es": return spanish
+            case "fr": return french
+            case "de": return german
+            case "it": return italian
+            case "pt": return portuguese
+            default: return nil
             }
         }
     }
 
     private enum Placement {
-        case lenient, strict, following
+        case lenient, strict, following, strictFollowing
     }
 
     private static let english = Table(
@@ -622,21 +557,21 @@ nonisolated enum SpokenPunctuation {
             ("dash", .spaced("–"), .dash, .lenient),
             ("hyphen", .join("-"), .hyphen, .lenient),
             ("apostrophe", .join("'"), .apostrophe, .lenient),
-            ("at sign", .join("@"), .at, .lenient),
+            // "at sign" is Clean up's (`SpokenCleanupRules.spokenSymbols`), which runs first.
             ("hashtag", .prefix("#"), .hashtag, .lenient),
             ("dollar sign", .prefix("$"), .dollar, .lenient),
-            ("open quote", .open("“", .quote), .quote, .lenient),
-            ("open quotes", .open("“", .quote), .quote, .lenient),
-            ("begin quote", .open("“", .quote), .quote, .lenient),
+            ("open quote", .open("“"), .quote, .lenient),
+            ("open quotes", .open("“"), .quote, .lenient),
+            ("begin quote", .open("“"), .quote, .lenient),
             ("close quote", .close(.quote), .quote, .lenient),
             ("close quotes", .close(.quote), .quote, .lenient),
             ("end quote", .close(.quote), .quote, .lenient),
             ("end quotes", .close(.quote), .quote, .lenient),
             ("unquote", .close(.quote), .quote, .lenient),
             ("quote", .toggleQuote(toggles: false), .quote, .lenient),
-            ("open paren", .open("(", .paren), .paren, .lenient),
-            ("open parenthesis", .open("(", .paren), .paren, .lenient),
-            ("open parentheses", .open("(", .paren), .paren, .lenient),
+            ("open paren", .open("("), .paren, .lenient),
+            ("open parenthesis", .open("("), .paren, .lenient),
+            ("open parentheses", .open("("), .paren, .lenient),
             ("close paren", .close(.paren), .paren, .lenient),
             ("close parenthesis", .close(.paren), .paren, .lenient),
             ("close parentheses", .close(.paren), .paren, .lenient),
@@ -653,10 +588,11 @@ nonisolated enum SpokenPunctuation {
             "large", "tiny", "red", "black", "blue", "green", "white", "yellow", "gold", "golden", "silver", "bold",
             "bright", "extra", "missing", "stray", "misplaced", "single", "double", "triple", "final", "last",
             "first", "second", "third", "next", "same", "whole", "entire", "upside", "inverted", "mad", "quick",
-            "em", "en", "more", "fewer", "less", "word", "symbol", "sign", "key", "called", "named",
+            "em", "en", "more", "fewer", "less",
         ],
         numbers: ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"],
         prepositions: ["in", "on", "at", "to", "for", "with", "by", "from", "about", "into", "than", "like", "without", "per"],
+        prepositionsEndSentences: true,
         familyBlockers: [
             .comma: ["oxford", "serial", "decimal"],
             .period: [
@@ -721,10 +657,141 @@ nonisolated enum SpokenPunctuation {
             "not", "great", "cool", "talk", "speak", "bye", "goodbye", "kind", "warm",
         ],
         quotes: ("“", "”"),
-        possessives: true,
-        adjectiveEndings: ["al", "ous", "ant", "ent", "ive", "ful", "ish", "ward", "ic", "ed", "ing", "y"],
-        phraseDeterminers: ["a", "an", "the", "this", "that", "my", "your", "his", "her", "our", "their", "any", "no", "every"],
-        conjunctions: ["and", "or", "nor"]
+        possessives: true
+    )
+
+    private static let spanish = Table(
+        commands: [
+            ("punto y coma", .attach(";"), .semicolon, .lenient),
+            ("punto y aparte", .lineEnd(".", "\n\n"), .period, .lenient),
+            ("punto y seguido", .attach("."), .period, .lenient),
+            ("punto final", .attach("."), .period, .lenient),
+            ("punto", .attach("."), .period, .strict),
+            ("coma", .attach(","), .comma, .lenient),
+            ("dos puntos", .attach(":"), .colon, .strictFollowing),
+            ("abrir signo de interrogación", .open("¿"), .question, .lenient),
+            ("abre signo de interrogación", .open("¿"), .question, .lenient),
+            ("signo de interrogación de apertura", .open("¿"), .question, .lenient),
+            ("abrir interrogación", .open("¿"), .question, .lenient),
+            ("cerrar signo de interrogación", .attach("?"), .question, .lenient),
+            ("cierra signo de interrogación", .attach("?"), .question, .lenient),
+            ("signo de interrogación de cierre", .attach("?"), .question, .lenient),
+            ("cerrar interrogación", .attach("?"), .question, .lenient),
+            ("signo de interrogación", .attach("?"), .question, .strict),
+            ("abrir signo de exclamación", .open("¡"), .exclamation, .lenient),
+            ("abre signo de exclamación", .open("¡"), .exclamation, .lenient),
+            ("signo de exclamación de apertura", .open("¡"), .exclamation, .lenient),
+            ("abrir exclamación", .open("¡"), .exclamation, .lenient),
+            ("cerrar signo de exclamación", .attach("!"), .exclamation, .lenient),
+            ("cierra signo de exclamación", .attach("!"), .exclamation, .lenient),
+            ("signo de exclamación de cierre", .attach("!"), .exclamation, .lenient),
+            ("cerrar exclamación", .attach("!"), .exclamation, .lenient),
+            ("signo de exclamación", .attach("!"), .exclamation, .strict),
+            ("signo de admiración", .attach("!"), .exclamation, .strict),
+            ("abrir comillas", .open("“"), .quote, .lenient),
+            ("abre comillas", .open("“"), .quote, .lenient),
+            ("comillas de apertura", .open("“"), .quote, .lenient),
+            ("comillas iniciales", .open("“"), .quote, .lenient),
+            ("cerrar comillas", .close(.quote), .quote, .lenient),
+            ("cierra comillas", .close(.quote), .quote, .lenient),
+            ("comillas de cierre", .close(.quote), .quote, .lenient),
+            ("comillas finales", .close(.quote), .quote, .lenient),
+            ("comillas", .toggleQuote(toggles: true), .quote, .lenient),
+            ("abrir paréntesis", .open("("), .paren, .lenient),
+            ("abre paréntesis", .open("("), .paren, .lenient),
+            ("paréntesis de apertura", .open("("), .paren, .lenient),
+            ("cerrar paréntesis", .close(.paren), .paren, .lenient),
+            ("cierra paréntesis", .close(.paren), .paren, .lenient),
+            ("paréntesis de cierre", .close(.paren), .paren, .lenient),
+            ("puntos suspensivos", .attach("…"), .ellipsis, .lenient),
+            ("guion", .join("-"), .hyphen, .lenient),
+            ("arroba", .join("@"), .at, .lenient),
+            ("apóstrofo", .join("'"), .apostrophe, .lenient),
+            ("hashtag", .prefix("#"), .hashtag, .lenient),
+        ],
+        blockers: [
+            "el", "la", "los", "las", "un", "una", "unos", "unas", "este", "esta", "ese", "esa", "aquel", "aquella",
+            "mi", "mis", "tu", "tus", "su", "sus", "nuestro", "nuestra", "cada", "otro", "otra", "ningún", "ninguna",
+            "algún", "alguna", "del", "al", "de", "buen", "gran", "mismo", "misma", "primer", "último", "tercer", "cuyo", "cuya",
+        ],
+        numbers: ["cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez"],
+        prepositions: ["a", "en", "con", "por", "para", "sin", "entre", "sobre", "hasta", "desde", "ante", "tras"],
+        followers: ["de", "del", "es", "era", "fue", "son", "está", "estaba", "para", "en", "que"],
+        familyFollowers: [
+            .period: ["medio", "muerto", "fuerte", "débil", "clave", "crítico", "cardinal", "cardinales", "culminante", "neutro", "álgido", "exacto"],
+            .comma: ["inducido", "etílico", "profundo", "diabético"],
+            .colon: ["más", "menos", "importantes", "clave", "principales"],
+        ],
+        starters: [
+            "yo", "tú", "ella", "nosotros", "nosotras", "ellos", "ellas", "usted", "ustedes", "y", "pero", "o",
+            "entonces", "porque", "también", "gracias", "por", "nos", "te", "me", "se", "que", "qué", "como",
+            "cómo", "cuando", "donde", "hola", "sí", "si", "no", "vale", "bueno", "oye", "saludos", "espero", "ya",
+            "pues", "luego", "después", "tengo", "estoy", "voy", "vamos", "llego", "quiero", "besos", "abrazos",
+            "hasta", "adiós", "chao", "mira", "claro",
+        ],
+        quotes: ("“", "”")
+    )
+
+    private static let french = Table(
+        commands: [
+            ("point virgule", .attach(";"), .semicolon, .lenient),
+            ("point d'interrogation", .attach("?"), .question, .strict),
+            ("point d'exclamation", .attach("!"), .exclamation, .strict),
+            ("points de suspension", .attach("…"), .ellipsis, .lenient),
+            ("point final", .attach("."), .period, .lenient),
+            ("point à la ligne", .lineEnd(".", "\n"), .period, .lenient),
+            ("point", .attach("."), .period, .strict),
+            ("virgule", .attach(","), .comma, .lenient),
+            ("deux points", .attach(":"), .colon, .strictFollowing),
+            ("ouvrir les guillemets", .open("«"), .quote, .lenient),
+            ("ouvrez les guillemets", .open("«"), .quote, .lenient),
+            ("ouvrir guillemets", .open("«"), .quote, .lenient),
+            ("ouvrez guillemets", .open("«"), .quote, .lenient),
+            ("guillemets ouvrants", .open("«"), .quote, .lenient),
+            ("guillemet ouvrant", .open("«"), .quote, .lenient),
+            ("fermer les guillemets", .close(.quote), .quote, .lenient),
+            ("fermez les guillemets", .close(.quote), .quote, .lenient),
+            ("fermer guillemets", .close(.quote), .quote, .lenient),
+            ("fermez guillemets", .close(.quote), .quote, .lenient),
+            ("guillemets fermants", .close(.quote), .quote, .lenient),
+            ("guillemet fermant", .close(.quote), .quote, .lenient),
+            ("fin des guillemets", .close(.quote), .quote, .lenient),
+            ("guillemets", .toggleQuote(toggles: true), .quote, .lenient),
+            ("ouvrir la parenthèse", .open("("), .paren, .lenient),
+            ("ouvrez la parenthèse", .open("("), .paren, .lenient),
+            ("ouvrir parenthèse", .open("("), .paren, .lenient),
+            ("ouvrez parenthèse", .open("("), .paren, .lenient),
+            ("parenthèse ouvrante", .open("("), .paren, .lenient),
+            ("fermer la parenthèse", .close(.paren), .paren, .lenient),
+            ("fermez la parenthèse", .close(.paren), .paren, .lenient),
+            ("fermer parenthèse", .close(.paren), .paren, .lenient),
+            ("fermez parenthèse", .close(.paren), .paren, .lenient),
+            ("parenthèse fermante", .close(.paren), .paren, .lenient),
+            ("tiret", .spaced("–"), .dash, .strict),
+            ("trait d'union", .join("-"), .hyphen, .lenient),
+            ("arobase", .join("@"), .at, .lenient),
+            ("apostrophe", .join("'"), .apostrophe, .lenient),
+            ("hashtag", .prefix("#"), .hashtag, .lenient),
+        ],
+        blockers: [
+            "le", "la", "les", "l'", "un", "une", "des", "du", "de", "d'", "ce", "cet", "cette", "ces", "mon", "ma",
+            "mes", "ton", "ta", "tes", "son", "sa", "ses", "notre", "nos", "votre", "vos", "leur", "leurs", "aucun",
+            "aucune", "chaque", "quel", "quelle", "quelque", "au", "aux", "bon", "mauvais", "dernier", "premier", "seul", "petit", "grand",
+            "gros", "même", "d'un",
+            "d'une", "qu'un", "qu'une", "l'un",
+        ],
+        numbers: ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix"],
+        prepositions: ["à", "en", "sur", "par", "pour", "avec", "sans", "dans", "entre", "vers", "chez"],
+        followers: ["de", "du", "des", "est", "était", "sont", "important", "importante", "essentiel", "principal", "central", "faible", "fort", "commun", "précis", "crucial", "culminant", "clé", "mort", "noir", "chaud", "flottante", "décimale"],
+        followerPrefixes: ["d'"],
+        starters: [
+            "je", "tu", "il", "elle", "on", "nous", "vous", "ils", "elles", "ce", "ça", "et", "mais", "ou", "donc",
+            "alors", "puis", "parce", "merci", "bonjour", "bonsoir", "salut", "coucou", "oui", "non", "à",
+            "bisous", "bises", "si", "quand", "comment", "pourquoi", "où", "qui", "que", "voilà", "ok",
+            "cordialement", "bonne", "bonnes", "d'accord", "désolé", "désolée",
+        ],
+        starterPrefixes: ["j'", "c'", "qu'", "n'", "s'", "m'", "t'"],
+        quotes: ("«", "»")
     )
 
     private static let german = Table(
@@ -738,14 +805,14 @@ nonisolated enum SpokenPunctuation {
             ("semikolon", .attach(";"), .semicolon, .lenient),
             ("strichpunkt", .attach(";"), .semicolon, .lenient),
             ("auslassungspunkte", .attach("…"), .ellipsis, .lenient),
-            ("anführungszeichen unten", .open("„", .quote), .quote, .lenient),
-            ("anführungszeichen auf", .open("„", .quote), .quote, .lenient),
+            ("anführungszeichen unten", .open("„"), .quote, .lenient),
+            ("anführungszeichen auf", .open("„"), .quote, .lenient),
             ("anführungszeichen oben", .close(.quote), .quote, .lenient),
             ("anführungszeichen zu", .close(.quote), .quote, .lenient),
             ("abführungszeichen", .close(.quote), .quote, .lenient),
             ("anführungszeichen", .toggleQuote(toggles: true), .quote, .lenient),
-            ("klammer auf", .open("(", .paren), .paren, .lenient),
-            ("öffnende klammer", .open("(", .paren), .paren, .lenient),
+            ("klammer auf", .open("("), .paren, .lenient),
+            ("öffnende klammer", .open("("), .paren, .lenient),
             ("klammer zu", .close(.paren), .paren, .lenient),
             ("schließende klammer", .close(.paren), .paren, .lenient),
             ("gedankenstrich", .spaced("–"), .dash, .strict),
@@ -761,16 +828,14 @@ nonisolated enum SpokenPunctuation {
             "deinen", "sein", "seine", "seinen", "seinem", "ihr", "ihre", "ihren", "ihrem", "unser", "unsere",
             "unseren", "euer", "eure", "dieser", "diese", "dieses", "diesen", "diesem", "jeder", "jede", "jedes",
             "jeden", "welcher", "welche", "welches", "zum", "zur", "im", "am", "um", "beim", "vom", "ins", "ans",
-            "springende", "zeichen", "symbol", "taste", "wort", "begriff",
+            "springende",
         ],
         numbers: ["null", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn"],
         prepositions: ["mit", "ohne", "für", "auf", "an", "in", "nach", "vor", "bei", "von", "zu", "aus", "über", "unter", "gegen", "durch", "als"],
-        followers: ["ist", "war", "sind", "waren", "hat", "hatte", "für", "der", "des", "von", "auf"],
-        familyFollowers: [
-            .period: [
-                "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf",
-                "uhr",
-            ],
+        prepositionsEndSentences: true,
+        followers: [
+            "ist", "war", "sind", "waren", "hat", "hatte", "für", "der", "des", "von", "auf", "eins", "zwei", "drei",
+            "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf", "uhr",
         ],
         starters: [
             "ich", "du", "er", "sie", "es", "wir", "ihr", "und", "aber", "oder", "dann", "also", "denn", "weil",
@@ -780,19 +845,111 @@ nonisolated enum SpokenPunctuation {
         ],
         quotes: ("„", "“"),
         capitalizesSentences: false,
-        adjectiveEndings: ["e", "er", "en", "es", "em", "ste", "sten"],
-        phraseDeterminers: [
-            "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem", "einer", "eines", "kein",
-            "keine", "keinen", "keinem", "keiner", "mein", "meine", "meinen", "meinem", "meiner", "dein", "deine",
-            "deinen", "sein", "seine", "seinen", "seinem", "ihr", "ihre", "ihren", "ihrem", "unser", "unsere",
-            "unseren", "euer", "eure", "dieser", "diese", "dieses", "diesen", "diesem", "jeder", "jede", "jedes",
-            "jeden", "welcher", "welche", "welches", "zum", "zur", "im", "am", "beim", "vom",
+        adjectivesBeforeNouns: true
+    )
+
+    private static let italian = Table(
+        commands: [
+            ("punto e virgola", .attach(";"), .semicolon, .lenient),
+            ("punto interrogativo", .attach("?"), .question, .strict),
+            ("punto di domanda", .attach("?"), .question, .strict),
+            ("punto esclamativo", .attach("!"), .exclamation, .strict),
+            ("punto fermo", .attach("."), .period, .lenient),
+            ("punto a capo", .lineEnd(".", "\n"), .period, .lenient),
+            ("punto", .attach("."), .period, .strict),
+            ("virgola", .attach(","), .comma, .lenient),
+            ("due punti", .attach(":"), .colon, .strictFollowing),
+            ("puntini di sospensione", .attach("…"), .ellipsis, .lenient),
+            ("tre puntini", .attach("…"), .ellipsis, .lenient),
+            ("apri virgolette", .open("“"), .quote, .lenient),
+            ("aperte virgolette", .open("“"), .quote, .lenient),
+            ("aperta virgolette", .open("“"), .quote, .lenient),
+            ("virgolette aperte", .open("“"), .quote, .lenient),
+            ("chiudi virgolette", .close(.quote), .quote, .lenient),
+            ("chiuse virgolette", .close(.quote), .quote, .lenient),
+            ("chiusa virgolette", .close(.quote), .quote, .lenient),
+            ("virgolette chiuse", .close(.quote), .quote, .lenient),
+            ("virgolette", .toggleQuote(toggles: true), .quote, .lenient),
+            ("apri parentesi", .open("("), .paren, .lenient),
+            ("aperta parentesi", .open("("), .paren, .lenient),
+            ("parentesi aperta", .open("("), .paren, .lenient),
+            ("chiudi parentesi", .close(.paren), .paren, .lenient),
+            ("chiusa parentesi", .close(.paren), .paren, .lenient),
+            ("parentesi chiusa", .close(.paren), .paren, .lenient),
+            ("lineetta", .spaced("–"), .dash, .strict),
+            ("trattino", .join("-"), .hyphen, .lenient),
+            ("chiocciola", .join("@"), .at, .lenient),
+            ("apostrofo", .join("'"), .apostrophe, .lenient),
+            ("hashtag", .prefix("#"), .hashtag, .lenient),
+            ("cancelletto", .prefix("#"), .hashtag, .lenient),
         ],
-        conjunctions: ["und", "oder", "sowie", "bzw"],
-        phraseBreakers: [
-            "ist", "sind", "war", "waren", "bin", "bist", "seid", "hat", "habe", "hast", "haben", "hatte", "wird",
-            "werden", "wurde", "kann", "muss", "soll", "will", "darf", "gibt", "geht", "ich", "du", "er", "es",
-            "wir", "man",
-        ]
+        blockers: [
+            "il", "lo", "la", "i", "gli", "le", "l'", "un", "uno", "una", "un'", "questo", "questa", "quel", "quello",
+            "quella", "quei", "quegli", "quelle", "mio", "mia", "miei", "mie", "tuo", "tua", "suo", "sua", "nostro",
+            "nostra", "vostro", "vostra", "ogni", "nessun", "nessuno", "nessuna", "del", "della", "dello", "dei",
+            "degli", "delle", "al", "alla", "allo", "ai", "agli", "alle", "nel", "nella", "nello", "nei", "sul",
+            "sulla", "di", "buon", "bel", "gran", "grande",
+            "ultimo", "primo", "stesso",
+        ],
+        numbers: ["zero", "uno", "due", "tre", "quattro", "cinque", "sei", "sette", "otto", "nove", "dieci"],
+        prepositions: ["a", "da", "in", "con", "su", "per", "tra", "fra"],
+        followers: ["di", "del", "della", "dello", "dei", "era", "sono", "importante", "fondamentale", "chiave", "centrale", "debole", "forte", "cruciale", "cardine", "morto", "vendita", "cui", "in"],
+        followerPrefixes: ["d'"],
+        starters: [
+            "io", "tu", "lui", "lei", "noi", "voi", "loro", "e", "ma", "o", "poi", "quindi", "perché", "allora",
+            "grazie", "ciao", "sì", "si", "no", "che", "come", "quando", "dove", "chi", "ci", "ti", "mi", "vi", "ok",
+            "va", "a", "buongiorno", "buonasera", "salve", "ecco", "dai", "baci", "ho", "hai", "ha", "abbiamo",
+            "vado", "arrivo", "vengo", "sono",
+        ],
+        starterPrefixes: ["c'", "l'"],
+        quotes: ("“", "”")
+    )
+
+    private static let portuguese = Table(
+        commands: [
+            ("ponto e vírgula", .attach(";"), .semicolon, .lenient),
+            ("ponto de interrogação", .attach("?"), .question, .strict),
+            ("ponto de exclamação", .attach("!"), .exclamation, .strict),
+            ("ponto final", .attach("."), .period, .lenient),
+            ("ponto parágrafo", .lineEnd(".", "\n\n"), .period, .lenient),
+            ("ponto", .attach("."), .period, .strict),
+            ("vírgula", .attach(","), .comma, .lenient),
+            ("dois pontos", .attach(":"), .colon, .strictFollowing),
+            ("reticências", .attach("…"), .ellipsis, .lenient),
+            ("abre aspas", .open("“"), .quote, .lenient),
+            ("abrir aspas", .open("“"), .quote, .lenient),
+            ("fecha aspas", .close(.quote), .quote, .lenient),
+            ("fechar aspas", .close(.quote), .quote, .lenient),
+            ("aspas", .toggleQuote(toggles: true), .quote, .lenient),
+            ("abre parênteses", .open("("), .paren, .lenient),
+            ("abre parêntese", .open("("), .paren, .lenient),
+            ("abrir parênteses", .open("("), .paren, .lenient),
+            ("abrir parêntese", .open("("), .paren, .lenient),
+            ("fecha parênteses", .close(.paren), .paren, .lenient),
+            ("fecha parêntese", .close(.paren), .paren, .lenient),
+            ("fechar parênteses", .close(.paren), .paren, .lenient),
+            ("fechar parêntese", .close(.paren), .paren, .lenient),
+            ("travessão", .spaced("–"), .dash, .strict),
+            ("hífen", .join("-"), .hyphen, .lenient),
+            ("arroba", .join("@"), .at, .lenient),
+            ("apóstrofo", .join("'"), .apostrophe, .lenient),
+            ("hashtag", .prefix("#"), .hashtag, .lenient),
+        ],
+        blockers: [
+            "o", "a", "os", "as", "um", "uma", "uns", "umas", "este", "esta", "estes", "estas", "esse", "essa",
+            "esses", "essas", "aquele", "aquela", "meu", "minha", "meus", "minhas", "teu", "tua", "seu", "sua",
+            "seus", "suas", "nosso", "nossa", "cada", "nenhum", "nenhuma", "algum", "alguma", "outro", "outra",
+            "do", "da", "dos", "das", "no", "na", "nas", "ao", "aos", "pelo", "pela", "pelos", "pelas", "de", "bom", "grande", "mesmo", "último", "primeiro", "dois", "duas",
+        ],
+        numbers: ["zero", "um", "uma", "dois", "duas", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez"],
+        prepositions: ["em", "com", "por", "para", "sem", "entre", "sobre"],
+        followers: ["de", "do", "da", "dos", "das", "era", "são", "foi", "principal", "importante", "chave", "central", "fraco", "forte", "crucial", "em", "morto", "alto", "baixo"],
+        starters: [
+            "eu", "tu", "você", "ele", "ela", "nós", "eles", "elas", "vocês", "e", "mas", "ou", "então", "porque",
+            "também", "obrigado", "obrigada", "olá", "oi", "sim", "não", "que", "como", "quando", "onde", "quem",
+            "até", "te", "me", "se", "beijos", "beijo", "abraço", "abraços", "tudo", "estou", "vou", "vamos",
+            "chego", "tenho",
+        ],
+        quotes: ("“", "”")
     )
 }

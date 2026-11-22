@@ -80,7 +80,8 @@ private final class LogControllerFixture {
         controller = DictationController(audio: audio, keyboardBridge: bridge, transcriber: activeASR,
             transcriberFactory: { activeASR }, autoPrepareOnInit: false,
             customVocabularySettings: CustomVocabularySettings(defaults: env.defaults),
-            cleanup: deps, dictationLog: injectLog ? env.store : nil, statistics: statistics)
+            cleanup: deps, dictationLog: injectLog ? env.store : nil, statistics: statistics,
+            languageSettings: TyprSettings(defaults: env.defaults))
     }
 
     func waitUntil(_ description: String, file: StaticString = #filePath, line: UInt = #line,
@@ -220,12 +221,14 @@ final class DictationLogControllerTests: XCTestCase {
         try await f.dispose()
     }
 
+    /// Typr dictation styles' Very casual lowercases every word, so the restore pass has work.
     func testVeryCasualFormattingRestorationHasSeparateReplacementEvidence() async throws {
         let f = LogControllerFixture()
+        TyprSettings(defaults: f.env.defaults)[experiment: .typrDictationStyles] = true
         let vocabulary = CustomVocabularySettings(defaults: f.env.defaults)
         vocabulary.isEnabled = true
         vocabulary.terms = ["iPhone"]
-        f.controller.setStyle(.veryCasual)
+        f.controller.setStyle(.casual)
         await f.asr.setOutput("my iphone works")
         f.model.result = "my iPhone works"
         try await f.start()

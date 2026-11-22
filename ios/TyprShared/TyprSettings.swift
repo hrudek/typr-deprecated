@@ -19,7 +19,7 @@ struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrDictationStyles, .typrGermanFormattingRules, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
 
     /// Every switch shown in Settings > Experimental.
     static let all = hexExperiments + typrVariants
@@ -57,7 +57,7 @@ struct ExperimentalSwitch: Hashable {
     static let typrGermanFormattingRules = ExperimentalSwitch(
         name: "variant.germanFormattingRules",
         title: "Typr German formatting rules",
-        detail: "Lists and spoken punctuation follow Typr's German and English rules instead of Hex's."
+        detail: "Lists and spoken punctuation follow Typr's German and English rules instead of Hex's, switched by Format lists and Spoken punctuation below instead of the Style settings."
     )
 
     static let typrConservativeSpokenCleanup = ExperimentalSwitch(
@@ -130,11 +130,12 @@ struct ExperimentalSwitch: Hashable {
         detail: "Music and videos keep playing while you dictate, and the warm mic stays on while they play. Applies from the next dictation."
     )
 
-    /// Hex's spoken punctuation (anomalyco/hex #2198, `SpokenPunctuation`), German and English.
+    /// Typr's spoken punctuation (`TyprSpokenPunctuation`), German and English. Compatibility
+    /// only: read while Typr German formatting rules is on; otherwise Style › Spoken punctuation.
     static let spokenPunctuation = ExperimentalSwitch(
         name: "spokenPunctuation",
         title: "Spoken punctuation",
-        detail: "Say “Komma”, “Fragezeichen” or “Klammer auf” for the mark, in every style except Verbatim. Some commands stay words when they could be part of a noun phrase."
+        detail: "With Typr German formatting rules: say “Komma”, “Fragezeichen” or “Klammer auf” for the mark, in every style except Verbatim. Some commands stay words when they could be part of a noun phrase."
     )
 
     static let spaceTrackpad = ExperimentalSwitch(
@@ -143,11 +144,12 @@ struct ExperimentalSwitch: Hashable {
         detail: "Hold the space bar to move the cursor, also up and down through lines. Faster slides move it further."
     )
 
-    /// Hex's Format lists (anomalyco/hex #2131, `SpokenLists`), German and English.
+    /// Typr's Format lists (`TyprSpokenLists`), German and English. Compatibility only: read
+    /// while Typr German formatting rules is on; otherwise Style › Format lists.
     static let formatLists = ExperimentalSwitch(
         name: "formatLists",
         title: "Format lists",
-        detail: "Say “erstens … zweitens …”, “Punkt eins … Punkt zwei …”, “Spiegelstrich” or “neue Zeile” for numbered lines, bullets and line breaks, in every style except Verbatim. Some commands stay words when they could be part of a sentence."
+        detail: "With Typr German formatting rules: say “erstens … zweitens …”, “Punkt eins … Punkt zwei …”, “Spiegelstrich” or “neue Zeile” for numbered lines, bullets and line breaks, in every style except Verbatim. Some commands stay words when they could be part of a sentence."
     )
 
     /// Hex's "Clean up what I say" (anomalyco/hex #2023, #2132) as German and English word rules
@@ -231,6 +233,8 @@ struct TyprSettings {
         static let preferredSpeechEngine = "typr.preferredSpeechEngine"
         static let dictationEndsWithPeriod = "typr.dictationEndsWithPeriod"
         static let dictationLowercase = "typr.dictationLowercase"
+        static let dictationFormatLists = "typr.dictationFormatLists"
+        static let dictationSpokenPunctuation = "typr.dictationSpokenPunctuation"
         static let translateDictation = "typr.translateDictation"
         static let translationTarget = "typr.translationTarget"
         static let translationFailure = "typr.translationFailure"
@@ -307,6 +311,18 @@ struct TyprSettings {
     var dictationLowercase: Bool {
         get { defaults?.object(forKey: Key.dictationLowercase) as? Bool ?? false }
         nonmutating set { defaults?.set(newValue, forKey: Key.dictationLowercase) }
+    }
+
+    /// Hex's Format lists (anomalyco/hex #2131, `SpokenLists`), on by default as in Hex.
+    var dictationFormatLists: Bool {
+        get { defaults?.object(forKey: Key.dictationFormatLists) as? Bool ?? true }
+        nonmutating set { defaults?.set(newValue, forKey: Key.dictationFormatLists) }
+    }
+
+    /// Hex's Spoken punctuation (anomalyco/hex #2198, `SpokenPunctuation`), on by default as in Hex.
+    var dictationSpokenPunctuation: Bool {
+        get { defaults?.object(forKey: Key.dictationSpokenPunctuation) as? Bool ?? true }
+        nonmutating set { defaults?.set(newValue, forKey: Key.dictationSpokenPunctuation) }
     }
 
     /// The speech engine the user explicitly chose (a picker, not a switch). nil, the default and
