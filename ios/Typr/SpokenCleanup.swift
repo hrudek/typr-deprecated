@@ -3,16 +3,18 @@ import Foundation
 /// "Clean up what I say": deterministic German and English word rules, adapted from Hex's
 /// `SpokenCleanupRules` and `CleanupReconstruction` (anomalyco/hex d65b02d3, MIT). Hex's
 /// English cleanup tagger is not used: it is English only and dropped negations in other
-/// languages. Each line is cleaned on its own, and the rules only remove words. When in
+/// languages. Each line is cleaned on its own (line breaks stay), and the rules only remove words. When in
 /// doubt a rule leaves the text as said:
 /// - hesitation sounds ("äh", "ähm", "öh", "hm"; English also "um", "uh"), never "eh"
 ///   ("das ist eh egal"), a sound that asks or exclaims ("Hm?") or one inside quotes;
-/// - a function word said twice in a row ("und und dann"), never a pronoun, three or more
-///   repeats, a repeat with punctuation between or one touching quotes or brackets;
+/// - a conjunction or preposition said twice in a row, written the same ("wir und und
+///   ihr"), never a pronoun or article, three or more repeats, a repeat with punctuation
+///   between or one touching quotes or brackets;
 /// - an explicit self-repair inside one sentence, set off by commas, that swaps a number,
 ///   weekday, month or relative day right before the marker for a different one of the same
-///   kind and ends the clause: "am Dienstag, ich meine, Mittwoch." becomes "am Mittwoch.",
-///   "um 3, nein, um 4." becomes "um 4.".
+///   kind and ends the clause, unless a negation comes earlier in the sentence:
+///   "am Dienstag, ich meine, Mittwoch." becomes "am Mittwoch.", "um 3, nein, um 4." becomes
+///   "um 4.".
 nonisolated enum SpokenCleanup {
     struct Rules {
         let hesitation: NSRegularExpression
@@ -21,6 +23,7 @@ nonisolated enum SpokenCleanup {
         let units: Set<String>
         let noComma: Set<String>
         let stutters: Set<String>
+        let negations: Set<String>
 
         func kind(of word: String) -> Int? {
             if word.contains(where: \.isNumber) { return kinds.count }
@@ -37,9 +40,18 @@ nonisolated enum SpokenCleanup {
         case .automatic: TranscriptFormatter.readsAsEnglish(text)
         }
         let rules = english ? Self.english : german
-        let lines = text.components(separatedBy: "\n")
-        let cleaned = lines.map { cleanLine($0, rules: rules) }
-        return cleaned == lines ? text : cleaned.joined(separator: "\n")
+        var result = ""
+        var line = ""
+        for character in text {
+            if character.isNewline {
+                result += cleanLine(line, rules: rules) + String(character)
+                line = ""
+            } else {
+                line.append(character)
+            }
+        }
+        result += cleanLine(line, rules: rules)
+        return result
     }
 
     private static func cleanLine(_ line: String, rules: Rules) -> String {
@@ -75,16 +87,13 @@ nonisolated enum SpokenCleanup {
             let first = words[index], second = words[index + 1]
             let isPair = first.allSatisfy { $0.isLetter }
                 && !second.contains(where: quotesAndBrackets.contains)
-                && rules.stutters.contains(first.lowercased())
-                && bare(second) == first.lowercased()
+                && rules.stutters.contains(first)
+                && stripped(second) == first
                 && (index == 0 || bare(words[index - 1]) != first.lowercased())
                 && (index + 2 >= words.count || bare(words[index + 2]) != first.lowercased())
             guard isPair else {
                 index += 1
                 continue
-            }
-            if first.first?.isUppercase == true {
-                words[index + 1] = capitalized(second)
             }
             words.remove(at: index)
             index += 1
@@ -116,7 +125,8 @@ nonisolated enum SpokenCleanup {
         for markerStart in 1..<words.count {
             let replaced = words[markerStart - 1]
             guard replaced.hasSuffix(","), !replaced.contains(where: quotesAndBrackets.contains),
-                  let kind = rules.kind(of: bare(replaced)) else { continue }
+                  let kind = rules.kind(of: bare(replaced)),
+                  !sentence(before: markerStart, in: words).contains(where: { isNegation($0, rules) }) else { continue }
             for marker in rules.markers where matches(marker, words, at: markerStart) {
                 let markerEnd = markerStart + marker.count - 1
                 guard words[markerEnd].hasSuffix(","), markerEnd + 1 < words.count else { continue }
@@ -145,6 +155,19 @@ nonisolated enum SpokenCleanup {
             last += 1
         }
         return last == words.count - 1 || isPause(words[last]) || endsSentence(words[last])
+    }
+
+    private static func sentence(before index: Int, in words: [String]) -> ArraySlice<String> {
+        var start = index
+        while start > 0, !endsSentence(words[start - 1]) {
+            start -= 1
+        }
+        return words[start..<index]
+    }
+
+    private static func isNegation(_ word: String, _ rules: Rules) -> Bool {
+        let bare = bare(word)
+        return rules.negations.contains(bare) || bare.hasSuffix("n't") || bare.hasSuffix("n’t")
     }
 
     private static func taking(_ replaced: String, into repair: String) -> String {
@@ -216,8 +239,12 @@ nonisolated enum SpokenCleanup {
     ]
     private static let closingMarks: Set<Character> = [",", ".", ";", ":", "!", "?", "…"]
 
+    private static func stripped(_ word: String) -> String {
+        String(word.reversed().drop { closingMarks.contains($0) }.reversed())
+    }
+
     private static func bare(_ word: String) -> String {
-        String(word.reversed().drop { closingMarks.contains($0) }.reversed()).lowercased()
+        stripped(word).lowercased()
     }
 
     private static func matches(_ phrase: [String], _ words: [String], at index: Int) -> Bool {
@@ -262,7 +289,9 @@ nonisolated enum SpokenCleanup {
         units: ["uhr"],
         noComma: ["und", "oder", "aber", "dass", "der", "die", "das", "ein", "eine", "mit", "zu", "in",
                   "an", "auf", "für", "von", "ich", "du", "er", "sie", "wir"],
-        stutters: ["eine", "einen", "und", "weil", "für"]
+        stutters: ["und", "weil", "für"],
+        negations: ["nicht", "kein", "keine", "keinen", "keinem", "keiner", "keines", "nie", "niemals", "nichts",
+                    "niemand", "nirgends", "weder", "ohne"]
     )
 
     private static let english = Rules(
@@ -277,6 +306,7 @@ nonisolated enum SpokenCleanup {
         ],
         units: ["pm", "am", "o'clock"],
         noComma: ["a", "an", "the", "to", "of", "for", "with", "and", "or", "but", "i", "we", "you", "my"],
-        stutters: ["the", "a", "an", "and", "but", "of", "for", "with", "to"]
+        stutters: ["the", "a", "an", "and", "but", "of", "for", "with", "to"],
+        negations: ["not", "no", "never", "none", "nothing", "nobody", "neither", "nor", "without", "cannot"]
     )
 }

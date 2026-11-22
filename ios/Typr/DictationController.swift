@@ -1108,7 +1108,7 @@ final class DictationController {
         let logCleanupPath: DictationLogCleanupPath = effectiveStyle == .verbatim ? .none
             : (enabled ? .typr : .none)
         let cleanupEnabled = enabled && effectiveStyle != .verbatim
-        let spokenCleanup = languageSettings.cleanUpWhatISay && effectiveStyle != .verbatim
+        let spokenCleanup = languageSettings[experiment: .cleanUpWhatISay] && effectiveStyle != .verbatim
         let disabledCleanupReason: CleanupSkipReason? = !enabled ? .off : (effectiveStyle == .verbatim ? .verbatim : nil)
         // The keyboard's caret text and host app; a cold start knows only the app it came from.
         var cleanupContext = keyboardContext ?? CleanupContext(application: attemptAutoReturnOnStart ? returnHost : nil)

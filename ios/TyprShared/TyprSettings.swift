@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -52,6 +52,14 @@ struct ExperimentalSwitch: Hashable {
         title: "Format lists",
         detail: "Say “erstens … zweitens …”, “Punkt eins … Punkt zwei …”, “Spiegelstrich” or “neue Zeile” for numbered lines, bullets and line breaks, in every style except Verbatim. Some commands stay words when they could be part of a sentence."
     )
+
+    /// Hex's "Clean up what I say" (anomalyco/hex #2023, #2132) as German and English word rules
+    /// (`SpokenCleanup`), before AI cleanup.
+    static let cleanUpWhatISay = ExperimentalSwitch(
+        name: "cleanUpWhatISay",
+        title: "Clean up what I say",
+        detail: "Removes “äh” and “um”, doubled words like “und und” and corrections like “Dienstag, ich meine, Mittwoch”, in every style except Verbatim. Anything less certain stays as said."
+    )
 }
 
 /// Typr switches, stored in the App Group so the keyboard reads them too.
@@ -61,7 +69,6 @@ struct ExperimentalSwitch: Hashable {
 struct TyprSettings {
     private enum Key {
         static let aiCleanup = "typr.aiCleanup"
-        static let cleanUpWhatISay = "typr.cleanUpWhatISay"
         static let dictationLog = "typr.dictationLog"
         static let autocorrectGerman = "typr.autocorrectGerman"
         static let autocorrectEnglish = "typr.autocorrectEnglish"
@@ -82,13 +89,6 @@ struct TyprSettings {
     var aiCleanup: Bool {
         get { defaults?.object(forKey: Key.aiCleanup) as? Bool ?? false }
         nonmutating set { defaults?.set(newValue, forKey: Key.aiCleanup) }
-    }
-
-    /// "Clean up what I say": hesitations, stutters and explicit self-repairs removed by word
-    /// rules before AI cleanup, skipped in Verbatim. On by default, like Hex.
-    var cleanUpWhatISay: Bool {
-        get { defaults?.object(forKey: Key.cleanUpWhatISay) as? Bool ?? true }
-        nonmutating set { defaults?.set(newValue, forKey: Key.cleanUpWhatISay) }
     }
 
     /// Collection only. Off interrupts pending log entries but deliberately keeps saved history.
