@@ -73,7 +73,8 @@ final class ExperimentalSettingsTests: XCTestCase {
 
     func testExistingTyprSwitchesAreTyprVariantsWithTheirKeys() {
         XCTAssertEqual(ExperimentalSwitch.typrVariants.map(\.key), [
-            "typr.experimental.warmMicOnIPhone", "typr.experimental.mixWithOtherAudio",
+            "typr.experimental.variant.exclusiveAudioSession", "typr.experimental.variant.keepSelectedWarmMicrophone",
+            "typr.experimental.variant.audioActivationRetries",
             "typr.experimental.spokenPunctuation", "typr.experimental.spaceTrackpad",
             "typr.experimental.formatLists", "typr.experimental.cleanUpWhatISay",
             "typr.experimental.deleteSlide", "typr.experimental.learnFromEdits",
@@ -83,10 +84,14 @@ final class ExperimentalSettingsTests: XCTestCase {
         XCTAssertEqual(ExperimentalSwitch.all, ExperimentalSwitch.hexExperiments + ExperimentalSwitch.typrVariants)
     }
 
-    func testTyprOverridesAreOffUnlistedAndDistinct() {
+    func testTyprOverridesAreOffDistinctAndListedOnlyOnceTheirAreaIsHex() {
         let overrides = ExperimentalSwitch.typrOverrides
         XCTAssertEqual(Set(overrides.map(\.key)).count, overrides.count)
-        XCTAssertTrue(Set(overrides).isDisjoint(with: Set(ExperimentalSwitch.all)))
+        let audio: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries]
+        XCTAssertEqual(overrides.filter { ExperimentalSwitch.all.contains($0) }, audio)
+        XCTAssertFalse(ExperimentalSwitch.all.contains(.typrOneMinuteLimit), "Hex caps dictation at a minute too")
+        XCTAssertFalse(ExperimentalSwitch.all.contains(.warmMicOnIPhone), "retired by Typr keep selected warm microphone")
+        XCTAssertFalse(ExperimentalSwitch.all.contains(.mixWithOtherAudio), "retired by Typr exclusive audio session")
         let settings = TyprSettings(defaults: defaults)
         for override in overrides {
             XCTAssertTrue(override.key.hasPrefix("typr.experimental.variant."), override.key)

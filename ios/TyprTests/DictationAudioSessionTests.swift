@@ -46,10 +46,10 @@ final class DictationAudioSessionTests: XCTestCase {
         }
     }
 
-    func testActivationUsesProvenInputOnlyMeasurementSession() throws {
+    func testExclusiveActivationUsesTyprsInputOnly16kHzSession() throws {
         let spy = SessionSpy()
         let session = spy.makeSession()
-        try session.activate(microphone: .automatic)
+        try session.activate(microphone: .automatic, exclusive: true)
         XCTAssertEqual(spy.categories, [.record])
         XCTAssertEqual(spy.modes, [.measurement])
         XCTAssertEqual(spy.options, [[]])
@@ -60,9 +60,11 @@ final class DictationAudioSessionTests: XCTestCase {
 
     func testOnlyBluetoothAllowsHandsFreeInputs() throws {
         for choice in MicrophoneChoice.allCases {
-            let spy = SessionSpy()
-            try spy.makeSession().activate(microphone: choice)
-            XCTAssertEqual(spy.options, [choice == .bluetooth ? [.allowBluetoothHFP] : []], "\(choice)")
+            for exclusive in [false, true] {
+                let spy = SessionSpy()
+                try spy.makeSession().activate(microphone: choice, exclusive: exclusive)
+                XCTAssertEqual(spy.options.first?.contains(.allowBluetoothHFP), choice == .bluetooth, "\(choice), exclusive \(exclusive)")
+            }
         }
     }
 
@@ -96,13 +98,13 @@ final class DictationAudioSessionTests: XCTestCase {
         XCTAssertEqual(spy.activationOptions.last, .notifyOthersOnDeactivation)
         try session.activate(microphone: .automatic)
         XCTAssertEqual(spy.activations, [true, false, true])
-        XCTAssertEqual(spy.options, [[], []])
+        XCTAssertEqual(spy.categories, [.playAndRecord, .playAndRecord])
     }
 
-    func testMixingSessionPlaysAndRecordsAtTheHardwaresRateWithoutDucking() throws {
+    func testHexDefaultSessionMixesAndRecordsAtTheHardwaresRateWithoutDucking() throws {
         for choice in MicrophoneChoice.allCases {
             let spy = SessionSpy()
-            try spy.makeSession().activate(microphone: choice, mixWithOthers: true)
+            try spy.makeSession().activate(microphone: choice)
             XCTAssertEqual(spy.categories, [.playAndRecord], "\(choice)")
             XCTAssertEqual(spy.modes, [.measurement], "\(choice)")
             let expected: AVAudioSession.CategoryOptions = [.mixWithOthers, .allowBluetoothA2DP, .defaultToSpeaker]
@@ -112,15 +114,15 @@ final class DictationAudioSessionTests: XCTestCase {
         }
     }
 
-    func testMixingAfterADefaultRecordingClearsThe16kHzPreference() throws {
+    func testHexSessionAfterAnExclusiveRecordingClearsThe16kHzPreference() throws {
         let spy = SessionSpy()
         let session = spy.makeSession()
-        try session.activate(microphone: .automatic)
+        try session.activate(microphone: .automatic, exclusive: true)
         session.deactivate()
-        try session.activate(microphone: .automatic, mixWithOthers: true)
+        try session.activate(microphone: .automatic)
         XCTAssertEqual(spy.sampleRates, [16_000, 0])
         XCTAssertEqual(spy.categories, [.record, .playAndRecord])
-        try session.activate(microphone: .automatic)
+        try session.activate(microphone: .automatic, exclusive: true)
         XCTAssertEqual(spy.sampleRates, [16_000, 0, 16_000], "switching back asks for 16 kHz again")
     }
 
@@ -283,10 +285,10 @@ final class DictationAudioSessionTests: XCTestCase {
         ]
         for (name, inputs, expected) in routes {
             for choice in MicrophoneChoice.allCases {
-                XCTAssertEqual(MicrophoneRoute.input(for: choice, from: inputs), expected[choice], "\(choice) on \(name)")
+                XCTAssertEqual(MicrophoneRoute.capture(choice, from: inputs), expected[choice], "\(choice) on \(name)")
             }
         }
-        XCTAssertNil(MicrophoneRoute.input(for: .iPhone, from: [Self.car]))
+        XCTAssertNil(MicrophoneRoute.capture(.iPhone, from: [Self.car]))
     }
 }
 

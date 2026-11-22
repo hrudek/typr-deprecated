@@ -26,30 +26,34 @@ An explicit engine or language choice never silently falls back to another.
   dictation, and a tap (space), slide or 1.5 s without a hold drops it.
   Holding the suggestion bar where no word or chip is dictates the same way, push
   to talk: lifting the finger stops it, and a tap there does nothing.
-  If iOS reports another app playing audio before
-  microphone activation, Typr leaves idle input cold. Dictate then opens Typr to
-  start recording and interrupt that audio. Stopping or cancelling the recording
-  fully releases the audio session with `notifyOthersOnDeactivation`, before
-  transcription, so the interrupted app can resume. That capture ends the warm
-  session; another cold dictation may require opening Typr again. When no other
-  audio is playing, normal warm behavior is preserved without changing category
-  options on a running input. Later playback/interruption events are also checked
-  before restarting idle input. Detection is a momentary iOS audio signal, not a
-  per-app media inventory; actual resumption is controlled by the media app and iOS.
-  Experimental › **Keep other audio playing** follows Hex: recording mixes with other
-  audio (`.playAndRecord`, never ducking), so media keeps playing, the warm session
-  stays on while it plays, and the iPhone keeps its own sample rate (Typr resamples
-  to 16 kHz). A warm input that keeps stopping by itself is restarted after 1 s, 2 s,
-  4 s … up to 30 s instead of every 100 ms.
+  Recording follows Hex: it mixes with other audio (`.playAndRecord`, never ducking),
+  so music and videos keep playing, the warm session stays on while they play, and the
+  iPhone keeps its own sample rate (Typr resamples to 16 kHz mono for every engine).
+  Each dictation stops after one minute, as in Hex. A warm input that keeps stopping by
+  itself is restarted after 1 s, 2 s, 4 s … up to 30 s instead of every 100 ms. If iOS
+  refuses the microphone, dictation fails at once, as in Hex.
+  Experimental › Typr variants restore Typr's earlier audio, each on its own:
+  **Typr exclusive audio session** records input-only at 16 kHz and interrupts other
+  audio. Then, if iOS reports another app playing audio before microphone activation,
+  Typr leaves idle input cold; Dictate opens Typr to start recording and interrupt that
+  audio, and stopping or cancelling the recording fully releases the audio session
+  with `notifyOthersOnDeactivation` before transcription, so the interrupted app can
+  resume. That capture ends the warm session. Detection is a momentary iOS audio
+  signal; actual resumption is controlled by the media app and iOS.
+  **Typr audio activation retries** tries a refused activation again for about five
+  seconds, as iOS refuses it briefly after another app's audio (seen after WhatsApp
+  voice messages).
 - **Microphone** picks the input. Automatic (default) records from a wired or USB
   headset, from the car in CarPlay, else from the iPhone; iPhone always uses the
   iPhone's. Neither turns on Bluetooth hands-free (HFP), so headphones and car kits
-  never switch to call audio. Bluetooth also records from hands-free microphones, and
-  its warm session holds that call audio for as long as it runs, between dictations
-  too. After a phone call, a Bluetooth warm session resumes without hands-free until
-  it ends. Experimental › **Warm mic on iPhone** follows Hex: the idle warm input stays
-  on the iPhone and each dictation moves to the chosen microphone, which can end the
-  warm session while Typr is in the background.
+  never switch to call audio. Bluetooth also records from hands-free microphones.
+  As in Hex, the idle warm input stays on the iPhone's microphone and each dictation
+  moves to the chosen one; when that needs a new input (a headset, CarPlay or
+  Bluetooth), iOS can refuse it while Typr is in the background and the dictation fails.
+  Experimental › **Typr keep selected warm microphone** keeps the warm input on the
+  chosen microphone instead, so background dictation works there; with Bluetooth it
+  holds call audio for as long as the warm session runs. After a phone call, such a
+  Bluetooth warm session resumes without hands-free until it ends.
 - Text processing combines vocabulary corrections, optional AI cleanup and
   formatting styles. Experimental › **Clean up what I say** (off by default, skipped in
   Verbatim) runs Hex's German word rules, with English rules added, before AI cleanup,
