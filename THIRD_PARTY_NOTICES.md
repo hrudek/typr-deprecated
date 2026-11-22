@@ -725,6 +725,7 @@ text) and the small chip around an autocorrection (`KeyboardStripView.swift`) ar
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2192: `FullKeyboardEngine+Revert.swift` and
 `AutocorrectEngine.AppliedCorrection.isAtEnd`; PR #2207: the autocorrection chip).
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
 ## Hex iOS letter layouts
 
