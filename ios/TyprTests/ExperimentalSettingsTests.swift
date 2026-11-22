@@ -89,7 +89,6 @@ final class ExperimentalSettingsTests: XCTestCase {
         XCTAssertEqual(Set(overrides.map(\.key)).count, overrides.count)
         let audio: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries]
         XCTAssertEqual(overrides.filter { ExperimentalSwitch.all.contains($0) }, audio)
-        XCTAssertFalse(ExperimentalSwitch.all.contains(.typrOneMinuteLimit), "Hex caps dictation at a minute too")
         XCTAssertFalse(ExperimentalSwitch.all.contains(.warmMicOnIPhone), "retired by Typr keep selected warm microphone")
         XCTAssertFalse(ExperimentalSwitch.all.contains(.mixWithOtherAudio), "retired by Typr exclusive audio session")
         let settings = TyprSettings(defaults: defaults)

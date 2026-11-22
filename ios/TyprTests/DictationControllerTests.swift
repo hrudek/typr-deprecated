@@ -488,7 +488,6 @@ final class DictationControllerTests: XCTestCase {
         audio.isOtherAudioPlaying = true
         let transcriber = ControlledTranscriber()
         let bridge = KeyboardBridge(defaults: defaults)
-        // The retired Keep other audio playing switch no longer vetoes the override.
         let settings = typrSettings(.typrExclusiveAudioSession, .mixWithOtherAudio)
         let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now },
                                                    settings: settings)
@@ -887,7 +886,6 @@ final class DictationControllerTests: XCTestCase {
                                   retryDelays: retryDelays, onPrepare: onPrepare, settings: settings)
     }
 
-    /// Settings in this test's suite with the given Typr variants on.
     private func typrSettings(_ switches: ExperimentalSwitch...) -> TyprSettings {
         let settings = TyprSettings(defaults: defaults)
         for item in switches { settings[experiment: item] = true }
@@ -927,21 +925,23 @@ final class DictationControllerTests: XCTestCase {
         let transcriber = ControlledTranscriber()
         let controller = try await readyController(audio: audio, transcriber: transcriber, retryDelays: [])
         audio.nextCaptureDuration = 59
-        controller.startRecording(keyboardJobID: "under-a-minute")
-        try await activationSettled(controller)
-        // Negative check over real time: several meter cycles leave a 59-second capture recording.
-        try await Task.sleep(for: Self.meterCycle * 4)
-        XCTAssertEqual(controller.phase, .recording)
-        controller.cancelCurrentJob()
-
-        audio.nextCaptureDuration = 60
         controller.startRecording(keyboardJobID: "a-minute")
-        try await waitForState("the one-minute limit stopped the capture") { controller.phase != .recording && controller.phase != .requestingPermission }
+        try await activationSettled(controller)
+        let capture = try XCTUnwrap(audio.createdCaptures.last)
+        try await waitForState("meter read 59 s") { controller.recordingDuration == 59 }
+        XCTAssertEqual(controller.phase, .recording)
+
+        capture.currentTime = 59.74
+        try await waitForState("meter read 59.74 s") { controller.recordingDuration == 59.74 }
+        XCTAssertEqual(controller.phase, .recording, "just below the limit keeps recording")
+
+        capture.currentTime = 59.75
+        try await waitForState("the one-minute limit stopped the capture") { controller.phase != .recording }
         try await transcribed(controller)
         XCTAssertEqual(controller.phase, .ready)
         let transcribedCaptures = await transcriber.transcribedURLs.count
         XCTAssertEqual(transcribedCaptures, 1, "the capture at the limit is transcribed")
-        XCTAssertFalse(try XCTUnwrap(audio.createdCaptures.last).isRecording)
+        XCTAssertFalse(capture.isRecording)
     }
 
     func testHeadsetInTheBackgroundNeedsKeepSelectedWarmMicrophone() async throws {
@@ -1154,7 +1154,6 @@ final class DictationControllerTests: XCTestCase {
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
         bridge.microphone = .bluetooth
-        // The retired Warm mic on iPhone switch no longer vetoes the override.
         let controller = try await recoveryController(audio: audio, bridge: bridge, now: 28_000, retryDelays: [],
                                                       settings: typrSettings(.typrKeepSelectedWarmMicrophone, .warmMicOnIPhone))
         XCTAssertEqual(controller.microphone, .bluetooth)

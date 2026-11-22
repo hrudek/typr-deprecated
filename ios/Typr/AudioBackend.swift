@@ -484,7 +484,6 @@ final class SystemAudioManager: AudioManaging {
         AVAudioSession.sharedInstance().isOtherAudioPlaying
     }
 
-    /// `exclusiveSession`: Typr exclusive audio session, read at each activation.
     init(exclusiveSession: @escaping () -> Bool) {
         self.exclusiveSession = exclusiveSession
         installNotifications()

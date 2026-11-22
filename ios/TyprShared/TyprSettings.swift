@@ -42,12 +42,6 @@ struct ExperimentalSwitch: Hashable {
         detail: "When another app still holds audio, Typr tries again for about five seconds before dictation fails."
     )
 
-    static let typrOneMinuteLimit = ExperimentalSwitch(
-        name: "variant.oneMinuteLimit",
-        title: "Typr one-minute dictation limit",
-        detail: "Each dictation stops after one minute."
-    )
-
     static let typrFixedDictationLanguage = ExperimentalSwitch(
         name: "variant.fixedDictationLanguage",
         title: "Typr fixed dictation language",
@@ -111,7 +105,7 @@ struct ExperimentalSwitch: Hashable {
     /// Typr overrides of Hex defaults: off is Hex's behavior, on restores Typr's. Each joins
     /// `typrVariants` when its area switches to Hex.
     static let typrOverrides: [ExperimentalSwitch] = [
-        .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrOneMinuteLimit,
+        .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrFixedDictationLanguage, .typrDictationStyles, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
         .typrAlwaysDictateInApp, .typrAutomaticHostReturn,
