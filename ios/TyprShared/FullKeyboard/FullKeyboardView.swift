@@ -881,7 +881,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             panel.isHidden = false
             var covered: [UIView] = engine.showsStrip ? [stripView] : keyViews + [accentCallout]
             if let feedbackPanel { covered.append(feedbackPanel) }
-            let keys: [UIView] = engine.showsStrip ? [plane, typrKey, globeButton, callout] : []
+            let keys: [UIView] = engine.showsStrip ? [plane, typrKey, globeButton, callout, accentCallout] : []
             fade(in: [panel] + keys, out: covered)
         } else if let panel = recordingPanel {
             panel.scope.phase = .hidden
@@ -894,8 +894,6 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         }
     }
 
-    /// The suggestion strip's frame, so the keys neither move nor hide. Without the suggestion bar
-    /// there is no strip: the panel takes a row over the top of the keys, which fade out.
     private var recordingPanelFrame: CGRect {
         CGRect(x: 0, y: engine.layout.metrics.stripTop, width: bounds.width, height: KeyboardMetrics.headerHeight)
     }

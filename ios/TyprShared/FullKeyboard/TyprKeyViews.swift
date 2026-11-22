@@ -180,9 +180,6 @@ final class TyprKeyControl: UIControl {
     }
 }
 
-/// While recording, this replaces the suggestion strip only, so the keys stay put: a Dot
-/// Scope well that takes the rest of the strip, then ✕ and ✓, which turns into a spinner
-/// while the recording is transcribed.
 @MainActor
 final class TyprKeyRecordingPanel: UIView {
     var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { applyPalette() } } }

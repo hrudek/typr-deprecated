@@ -865,7 +865,10 @@ final class FullKeyboardEngineTests: XCTestCase {
             clearPending: false,
             animated: false
         )
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        let recording = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            MainActor.assumeIsolated { view.hasAllocatedRecordingPanel }
+        }, object: nil)
+        wait(for: [recording], timeout: 2)
         view.layoutIfNeeded()
 
         let panel = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyRecordingPanel }.first)

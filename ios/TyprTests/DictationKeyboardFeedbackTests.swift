@@ -419,6 +419,8 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
         let callout = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyCalloutView }.first)
         XCTAssertFalse(callout.isHidden)
         XCTAssertEqual(callout.alpha, 1)
+        let accentCallout = try XCTUnwrap(view.subviews.compactMap { $0 as? AccentCalloutView }.first)
+        XCTAssertEqual(accentCallout.alpha, 1, "an accent hold opens a visible picker")
     }
 
     /// On a device the full keyboard is mounted first and the feedback arrives with the inserted
