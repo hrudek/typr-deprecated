@@ -277,14 +277,13 @@ final class SpokenCleanupPipelineTests: XCTestCase {
         }
     }
 
-    // Observed Hex output. The ",.", "“." and "\r." entries record known formatter defects;
-    // update them with the fix.
+    // Observed Hex output, with Typr's fixes on the Hex base (`TranscriptFormatterTyprFixTests`).
     static let hexPolishedWithoutCleanup: [String] = [
         "Das ist eh egal.",
         "Ich habe Hunger.",
         "Wir gehen.",
-        "Danke,. Bis dann.",
-        "Ich weiß nicht,.",
+        "Danke. Bis dann.",
+        "Ich weiß nicht.",
         "Brot und und Butter.",
         "Ich komme, weil weil es regnet.",
         "Am Dienstag, ich meine, Mittwoch.",
@@ -297,7 +296,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
         "Am Dienstag, ich meine, Mittwoch.",
         "Montag, nein, Dienstag, nein, Mittwoch.",
         "Er kommt morgen.\nSie bleibt, hier.",
-        "Er kommt morgen.\r.\n\r.\nSie bleibt, hier.",
+        "Er kommt morgen.\r\n\r\nSie bleibt, hier.",
         "Er kommt morgen.\u{2028}Sie bleibt, hier.",
         "Er kommt morgen.\rSie bleibt, hier.\u{2029}Gut.",
         "Das ist eh egal.",
@@ -346,7 +345,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
         "Wir treffen uns im Mai, nein, im Juni geht es nicht.",
         "Am Montag, sorry, am Dienstag kann ich nicht.",
         "Er hat gestern, entschuldigung, gestern Abend angerufen.",
-        "Sie sagte: „Am Montag, nein, am Dienstag.“.",
+        "Sie sagte: „Am Montag, nein, am Dienstag.“",
         "Die Tür ist zu, zu spät.",
         "Was mir wichtig ist, ist Ruhe.",
         "Was es ist ist gut.",
@@ -383,7 +382,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
         "Ich suche Noten für Für Elise.",
         "Und und dann gehen wir.",
         "Weil weil er krank ist.",
-        "Er kommt morgen.\r.\n\r.\nSie bleibt hier.",
+        "Er kommt morgen.\r\n\r\nSie bleibt hier.",
         "Er kommt morgen.\u{2028}Sie bleibt hier.",
         "Weil, weil er krank ist.",
         "Die Familie Freitag, nein, die Familie Samstag.",
@@ -418,5 +417,40 @@ final class SpokenCleanupPipelineTests: XCTestCase {
             delivered.append(controller.transcript)
         }
         XCTAssertEqual(delivered, Self.hexPolishedWithoutCleanup)
+    }
+}
+
+/// Typr fixes on the Hex base: defects Hex's `TranscriptFormatter` (0c1c13d7) has too.
+final class TranscriptFormatterTyprFixTests: XCTestCase {
+    private func polished(_ text: String, _ language: String) -> String {
+        TranscriptFormatter.format(text, style: .polished, language: language)
+    }
+
+    func testFillerEndingASentenceTakesItsCommaAlong() {
+        XCTAssertEqual(polished("Danke, äh. Bis dann.", "de-DE"), "Danke. Bis dann.")
+        XCTAssertEqual(polished("Ich weiß nicht, ähm.", "de-DE"), "Ich weiß nicht.")
+        XCTAssertEqual(polished("Ich weiß nicht, ähm", "de-DE"), "Ich weiß nicht.")
+        XCTAssertEqual(polished("Kommst du, äh?", "de-DE"), "Kommst du?")
+        XCTAssertEqual(polished("Danke, äh, bis dann.", "de-DE"), "Danke, bis dann.")
+        XCTAssertEqual(polished("Thanks, um. See you.", "en-US"), "Thanks. See you.")
+        XCTAssertEqual(polished("I don't know, uh", "en-US"), "I don't know.")
+        XCTAssertEqual(polished("Thanks, um, see you.", "en-US"), "Thanks, see you.")
+        XCTAssertEqual(polished("Hallo Anna,\nähm\nbis morgen.", "de-DE"), "Hallo Anna,\nBis morgen.")
+        XCTAssertEqual(polished("Hallo Anna,\nähm, bis morgen.", "de-DE"), "Hallo Anna,\nBis morgen.")
+        XCTAssertEqual(polished("Hi Sarah,\num", "en-US"), "Hi Sarah,")
+        XCTAssertEqual(polished("Hi Sarah,\num\nsee you.", "en-US"), "Hi Sarah,\nSee you.")
+    }
+
+    func testNoFullStopAfterAClosingQuoteThatFollowsASentenceMark() {
+        XCTAssertEqual(polished("Sie sagte: „Bis Dienstag.“", "de-DE"), "Sie sagte: „Bis Dienstag.“")
+        XCTAssertEqual(polished("Sie fragte: „Kommst du?“", "de-DE"), "Sie fragte: „Kommst du?“")
+        XCTAssertEqual(polished("Er sagte „Hallo“", "de-DE"), "Er sagte „Hallo“.")
+        XCTAssertEqual(polished("She said “See you.”", "en-US"), "She said “See you.”")
+        XCTAssertEqual(polished("She said ‘go!’", "en-US"), "She said ‘go!’")
+    }
+
+    func testWindowsLineBreaksGetNoStrayFullStops() {
+        XCTAssertEqual(polished("Er kommt morgen.\r\n\r\nSie bleibt hier", "de-DE"), "Er kommt morgen.\r\n\r\nSie bleibt hier.")
+        XCTAssertEqual(polished("See you tomorrow\r\nBye", "en-US"), "See you tomorrow.\r\nBye.")
     }
 }
