@@ -90,6 +90,7 @@ final class BilingualRevisionTests: XCTestCase {
         makeEngine()
         type("fur dich ")
         XCTAssertEqual(target.text, "für dich ")
+        XCTAssertTrue(engine.deleteUndoes, "Delete shows that it undoes the revision")
         engine.deleteBackward()
         XCTAssertEqual(target.text, "fur dich")
         type(" ")

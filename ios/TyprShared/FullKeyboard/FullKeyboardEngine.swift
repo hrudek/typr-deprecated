@@ -1297,6 +1297,7 @@ final class FullKeyboardEngine {
         autocorrect.record(.init(original: original, insertedText: inserted,
                                  context: RejectedCorrection.context(before: upToWord, token: word),
                                  revised: RejectedCorrection(typed: word, replacement: revised)), at: clock())
+        didEdit()
     }
 
     private func commitAccentSelection(_ chosen: String) {
