@@ -41,7 +41,7 @@ final class ModelPreparationTests: XCTestCase {
 
 
     func testAPreparationThatNeverReportsEndsAndTryAgainDoesNotWaitForIt() async throws {
-        let hung = PrepTranscriber(.ignoresCancellation(.seconds(5)))
+        let hung = PrepTranscriber(.gated)
         let ready = PrepTranscriber(.ready)
         let queue = Queue([hung, ready])
         let controller = controller(factory: { queue.next() })
@@ -50,9 +50,12 @@ final class ModelPreparationTests: XCTestCase {
         XCTAssertFalse(controller.isModelReady)
 
         controller.prepareModel()
-        try await waitForState("ready after Try again", timeout: .seconds(3)) { controller.phase == .ready }
+        try await waitForState("ready after Try again") { controller.phase == .ready }
+        let hungFinished = await hung.finished
+        XCTAssertFalse(hungFinished, "ready while the dropped preparation still runs")
         XCTAssertTrue(controller.isModelReady)
         XCTAssertEqual(queue.made, 2)
+        await hung.release()
     }
 
     func testAPreparationThatStopsMovingEndsAfterTheStallLimit() async throws {
@@ -69,24 +72,21 @@ final class ModelPreparationTests: XCTestCase {
     }
 
     func testDeletionWaitsForALoadTheTimeoutDropped() async throws {
-        let dropped = PrepTranscriber(.ignoresCancellation(.seconds(2)), name: "Parakeet V2")
+        let dropped = PrepTranscriber(.gated, name: "Parakeet V2")
         let provider = PrepProvider(PrepTranscriber(.ready))
         let controller = controller(factory: { dropped }, provider: provider)
         controller.prepareModel()
         try await waitForState("ended") { controller.phase.isFailure }
         let deletion = Task { await controller.deleteModel(.parakeetV2) }
-        try await Task.sleep(for: .milliseconds(200))
+        try await waitForState("deletion waits") { controller.deletionWaitsForTesting == 1 }
         XCTAssertTrue(provider.deleted.isEmpty, "the dropped load still reads its files")
-        let finished = await dropped.finished
-        XCTAssertFalse(finished)
+        await dropped.release()
         _ = await deletion.value
-        let finishedNow = await dropped.finished
-        XCTAssertTrue(finishedNow)
         XCTAssertEqual(provider.deleted, [.parakeetV2])
     }
 
     func testALateDroppedLoadDoesNotEndTheTrackingOfTheNewerOne() async throws {
-        let dropped = PrepTranscriber(.ignoresCancellation(.milliseconds(800)), name: "Parakeet V2")
+        let dropped = PrepTranscriber(.gated, name: "Parakeet V2")
         let newer = PrepTranscriber(.gated, name: "Parakeet V2")
         let queue = Queue([dropped, newer])
         let provider = PrepProvider(PrepTranscriber(.ready))
@@ -97,10 +97,13 @@ final class ModelPreparationTests: XCTestCase {
         controller.preparationLimits = (firstReport: .seconds(60), stall: .seconds(60))
         controller.prepareModel()
         try await waitForState("newer load running") { await newer.entered }
-        try await waitForState("dropped load returned") { await dropped.finished }
 
         let deletion = Task { await controller.deleteModel(.parakeetV2) }
-        try await Task.sleep(for: .milliseconds(300))
+        try await waitForState("deletion waits") { controller.deletionWaitsForTesting == 1 }
+        await dropped.release()
+        try await waitForState("deletion woke for the dropped load and waits again") {
+            controller.deletionWaitsForTesting == 2
+        }
         XCTAssertTrue(provider.deleted.isEmpty, "the newer load still reads its files")
         await newer.release()
         _ = await deletion.value
@@ -215,7 +218,6 @@ private actor PrepTranscriber: LocalTranscribing {
     enum Behavior: Sendable {
         case ready
         case hangs
-        case ignoresCancellation(Duration)
         case silentFor(Duration)
         case reportsThenHangs
         case reportsFor(Duration)
@@ -249,12 +251,6 @@ private actor PrepTranscriber: LocalTranscribing {
             progressHandler(ModelPreparationProgress(fractionCompleted: 1, detail: "Ready"))
         case .hangs:
             try await Task.sleep(for: .seconds(60))
-        case .ignoresCancellation(let duration):
-            let clock = ContinuousClock()
-            let end = clock.now + duration
-            while clock.now < end {
-                try? await Task.sleep(for: .milliseconds(50))
-            }
         case .silentFor(let duration):
             try await Task.sleep(for: duration)
         case .reportsThenHangs:

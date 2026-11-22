@@ -252,6 +252,7 @@ final class DictationController {
         }
     }
     @ObservationIgnored private var loadFinishedWaiters: [CheckedContinuation<Void, Never>] = []
+    @ObservationIgnored private(set) var deletionWaitsForTesting = 0
     private(set) var modelPreparation = ModelPreparationProgress(
         fractionCompleted: 0,
         detail: "Checking model files"
@@ -555,6 +556,7 @@ final class DictationController {
         }
         // A Core ML load cannot be interrupted, also one superseded by another engine's choice.
         while loadingEngines.values.contains(engine) {
+            deletionWaitsForTesting += 1
             await withCheckedContinuation { loadFinishedWaiters.append($0) }
         }
         let result: ModelDeletion
@@ -1065,9 +1067,6 @@ final class DictationController {
         let languageName: String
     }
 
-    /// `fallbacksLeft` bounds how often Automatic moves on to another language after one whose
-    /// model won't install here, or to another engine after Parakeet had no room; each move
-    /// sets something aside, so it can't loop.
     private func prepareModel(fallbacksLeft: Int) {
         // This is also called by handoff/intents and tests, not just the settings button.
         guard canChangeEngine else { return }
@@ -1130,7 +1129,6 @@ final class DictationController {
                 }
                 guard self.modelPrepGeneration == prepGen else { return }
                 if candidate is ParakeetTranscriber, self.workingEngine?.transcriber is ParakeetTranscriber {
-                    // The same model again: never two copies in memory.
                     self.workingEngine = nil
                 }
                 engineName = candidate.displayName
@@ -1173,8 +1171,6 @@ final class DictationController {
             } catch {
                 guard self.modelPrepGeneration == prepGen else { return }
                 if preferred == nil, fallbacksLeft > 0, let notice = Self.switchNotice(for: error) {
-                    // Automatic set the language aside, or Parakeet had no room: prepare what
-                    // Typr picks now.
                     self.languageNotice = notice
                     self.preparationTask = nil
                     self.prepareModel(fallbacksLeft: fallbacksLeft - 1)
