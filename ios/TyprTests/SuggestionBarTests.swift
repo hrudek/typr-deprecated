@@ -41,6 +41,12 @@ final class SuggestionBarTests: XCTestCase {
         return (view, target)
     }
 
+    /// The three suggestion slots by position. The Code from Messages and Undo dictation chips are
+    /// `UIButton`s with the default tag 0, so they are left out.
+    private static func slots(of strip: UIView) -> [UIControl] {
+        strip.subviews.compactMap { $0 as? UIControl }.filter { !($0 is UIButton) }.sorted { $0.tag < $1.tag }
+    }
+
     private func press(_ kinds: [KeyKind], on view: FullKeyboardView) {
         for (index, kind) in kinds.enumerated() {
             guard let key = view.engine.layout.key(kind) else { return XCTFail("no key \(kind)") }
@@ -82,7 +88,7 @@ final class SuggestionBarTests: XCTestCase {
         var activationCount = 0
         strip.onSelectSuggestion = { selected = $0; activationCount += 1 }
         strip.update(suggestions: [old], statusText: nil)
-        let button = try XCTUnwrap(strip.subviews.compactMap { $0 as? UIControl }.first { $0.tag == 0 })
+        let button = try XCTUnwrap(Self.slots(of: strip).first)
         button.sendActions(for: .touchDown)
         strip.update(suggestions: [new], statusText: nil)
         button.sendActions(for: .touchUpInside)
@@ -107,7 +113,7 @@ final class SuggestionBarTests: XCTestCase {
         view.layoutIfNeeded()
         let layout = view.engine.layout
         let strip = try XCTUnwrap(view.subviews.first { $0 is KeyboardStripView })
-        let slots = strip.subviews.compactMap { $0 as? UIControl }.sorted { $0.tag < $1.tag }
+        let slots = Self.slots(of: strip)
         XCTAssertEqual(slots.count, 3)
         let frames = slots.map { strip.convert($0.frame, to: view) }
         let y = try XCTUnwrap(layout.key(.character("y"))).frame

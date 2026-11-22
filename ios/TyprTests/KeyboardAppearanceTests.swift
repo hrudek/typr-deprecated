@@ -42,7 +42,7 @@ final class KeyboardAppearanceTests: XCTestCase {
         let design = views.compactMap { $0 as? UISegmentedControl }
         XCTAssertEqual(design.count, 1)
         XCTAssertEqual(design.first?.numberOfSegments, KeyboardDesign.allCases.count)
-        XCTAssertEqual(views.filter { $0 is UISwitch }.count, 4)
+        XCTAssertEqual(views.filter { $0 is UISwitch }.count, 5)
     }
 
     func testPreviewIsDockedFullWidthAtTheBottomAndScrollEndsAboveIt() async throws {

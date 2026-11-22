@@ -462,7 +462,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
 
         let ac = AutocorrectEngine(checker: Checker(), spatialDecoder: nil)
         ac.learning.rejectCorrection(typed: "teh", replacement: "the")
-        ac.recordUndo(.init(original: "teh", insertedText: "the "))
+        ac.recordUndo(.init(original: "teh", insertedText: "the ", separator: " "))
         ac.recordSuggestionFeedback(.init(displayText: "the", replacement: "the", kind: .secondary),
                                     literal: "teh", evidence: nil)
         XCTAssertTrue(ac.learning.protections.isRejected(typed: "teh", replacement: "the"))
@@ -611,9 +611,9 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
 
     func testAutomaticUndoMethodMappingAndManualUndosDoNotCountAsAutomatic() {
         let ac = AutocorrectEngine(checker: Checker(), spatialDecoder: nil)
-        ac.recordUndo(.init(original: "teh", insertedText: "the ", kind: .autoSpatial))
-        ac.recordUndo(.init(original: "helo", insertedText: "hello ", kind: .autoSpelling))
-        ac.recordUndo(.init(original: "dont", insertedText: "don't ", kind: .autoRule))
+        ac.recordUndo(.init(original: "teh", insertedText: "the ", separator: " ", kind: .autoSpatial))
+        ac.recordUndo(.init(original: "helo", insertedText: "hello ", separator: " ", kind: .autoSpelling))
+        ac.recordUndo(.init(original: "dont", insertedText: "don't ", separator: " ", kind: .autoRule))
         XCTAssertEqual(ac.learning.diagnostics[.undoSpatial], 1)
         XCTAssertEqual(ac.learning.diagnostics[.undoSpelling], 1)
         XCTAssertEqual(ac.learning.diagnostics[.undoRule], 1)
