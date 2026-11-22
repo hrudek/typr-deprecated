@@ -216,8 +216,8 @@ final class HexSpeechEngineTests: XCTestCase {
             await SpeechLanguagePicker.pick(
                 explicit: "de-DE",
                 candidates: strict ? [] : ["en-US"],
-                speech: { $0.language.languageCode == english.language.languageCode ? english : nil },
-                dictation: { _ in nil }
+                speech: { @Sendable locale in locale.language.languageCode == english.language.languageCode ? english : nil },
+                dictation: { @Sendable _ in nil }
             )
         }
         let fallback = await pick(strict: false)
