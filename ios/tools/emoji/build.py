@@ -120,7 +120,6 @@ def build(sources, alias_path):
     notes = annotations([sources / f"{kind}-{lang}.xml"
                          for kind in ("annotations", "annotationsDerived") for lang in ("de", "en")])
 
-    # word -> {entry: rank}; lower ranks first.
     ranked = {}
 
     def add(word, entry, rank):

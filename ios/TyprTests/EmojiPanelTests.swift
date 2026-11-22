@@ -20,8 +20,6 @@ final class EmojiPanelTests: XCTestCase {
         get throws { try XCTUnwrap(EmojiIndex.load(bundle: Bundle(for: FullKeyboardView.self))) }
     }
 
-    // MARK: - Suggestions for the finished word
-
     func testGermanWordsSuggestTheirEmojiFirst() throws {
         let index = try index
         XCTAssertEqual(index.suggestions(before: "Ich schicke dir ein Herz ").first, "❤️")
@@ -49,8 +47,6 @@ final class EmojiPanelTests: XCTestCase {
         XCTAssertFalse(index.emoji.contains { $0.unicodeScalars.contains { (0x1F3FB...0x1F3FF).contains($0.value) } })
     }
 
-    // MARK: - Frequently used
-
     func testFrequentlyUsedOrdersByUseAndPersists() {
         var now = Date(timeIntervalSince1970: 1_000_000)
         let store = EmojiUsageStore(defaults: defaults, now: { now })
@@ -60,7 +56,6 @@ final class EmojiPanelTests: XCTestCase {
         XCTAssertEqual(store.ranked(limit: 10), ["😂", "❤️"])
         XCTAssertEqual(EmojiUsageStore(defaults: defaults, now: { now }).ranked(limit: 10), ["😂", "❤️"])
 
-        // Three uses a month ago fade below one use today.
         now = now.addingTimeInterval(30 * 86_400)
         store.record("👍")
         XCTAssertEqual(store.ranked(limit: 1), ["👍"])
@@ -86,8 +81,6 @@ final class EmojiPanelTests: XCTestCase {
         let frequent = EmojiPanelView.frequent(used: ["🍕", "🍕", "🚀"], index: try index, capacity: 5)
         XCTAssertEqual(frequent, ["🍕", "🚀", "😂", "❤️", "👍"])
     }
-
-    // MARK: - Keyboard
 
     private func keyboard(emojiKey: Bool, text: String = "") -> (FullKeyboardView, FixtureTextTarget) {
         let target = FixtureTextTarget(text: text)
@@ -154,7 +147,6 @@ final class EmojiPanelTests: XCTestCase {
         XCTAssertEqual(panel.visibleSection, EmojiCategory.allCases.count)
         bar.touchEnded(atX: bar.bounds.width - 2)
 
-        // A tap jumps to the section's start.
         let food = EmojiCategory.foodDrink.rawValue + 1
         let x = (CGFloat(food) + 0.5) * bar.bounds.width / CGFloat(EmojiCategory.allCases.count + 1)
         bar.touchBegan(atX: x)

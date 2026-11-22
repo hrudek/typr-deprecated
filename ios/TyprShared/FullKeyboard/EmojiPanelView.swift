@@ -109,8 +109,6 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
     /// Four rows on roomy keyboards, three on compact ones; Frequently used fills eight columns.
     static func gridRows(for metrics: KeyboardMetrics) -> Int { metrics.keyHeight >= 40 ? 4 : 3 }
 
-    // MARK: - Layout
-
     override func layoutSubviews() {
         super.layoutSubviews()
         let side = metrics.side
@@ -193,8 +191,6 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
         grid.reloadData()
     }
 
-    // MARK: - Grid
-
     func numberOfSections(in collectionView: UICollectionView) -> Int { sections.count }
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
@@ -226,7 +222,6 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        // While a finger slides along the bar, the bar leads and the grid follows.
         guard !categoryBar.isScrubbing else { return }
         if sectionStarts.isEmpty { measureSections() }
         let x = scrollView.contentOffset.x + 24
@@ -272,8 +267,6 @@ final class EmojiPanelView: UIView, UICollectionViewDataSource, UICollectionView
         if sectionStarts.isEmpty { measureSections() }
         return sectionStarts.lastIndex { $0 <= grid.contentOffset.x + 24 } ?? 0
     }
-
-    // MARK: - Keys
 
     @objc private func lettersTapped() {
         onKeyDown?()
@@ -421,7 +414,6 @@ final class EmojiCategoryBar: UIView {
             button.accessibilityLabel = item.title
             button.setImage(UIImage(systemName: item.symbol,
                                     withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)), for: .normal)
-            // The bar takes the touches; the buttons draw and speak.
             button.isUserInteractionEnabled = false
             button.activate = { [weak self] in self?.onSelect?(index) }
             addSubview(button)

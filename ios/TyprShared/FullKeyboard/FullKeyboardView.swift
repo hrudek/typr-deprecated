@@ -583,8 +583,6 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         return revert + emoji + words
     }
 
-    // MARK: - Emoji panel
-
     func openEmojiPanel() {
         guard emojiPanel == nil, !showsRecording, panelContent == nil else { return }
         if emojiIndex == nil { emojiIndex = EmojiIndex.load(bundle: Bundle(for: FullKeyboardView.self)) }

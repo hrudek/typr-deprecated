@@ -154,8 +154,6 @@ nonisolated final class EmojiIndex: @unchecked Sendable {
         return out
     }
 
-    // MARK: - Suggestion bar
-
     /// Up to `limit` emoji for the word just finished ("Herz " → ❤️). Nothing mid-word, after
     /// two spaces, or when the word ends in a digit or punctuation.
     func suggestions(before: String?, limit: Int = 3) -> [String] {
