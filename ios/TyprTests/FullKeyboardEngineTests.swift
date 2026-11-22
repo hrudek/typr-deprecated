@@ -698,6 +698,51 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertFalse(view.hasAllocatedRecordingPanel, "Metal scope torn down once recording ends")
     }
 
+    func testTyprKeyTouchDownArmsOnlyWhileWarmAndATapStillTypesASpace() throws {
+        let model = KeyboardViewModel()
+        var events: [String] = []
+        model.onArmDictation = { events.append("arm") }
+        model.onDisarmDictation = { events.append("disarm") }
+        let view = FullKeyboardView(model: model, target: target)
+        view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
+        view.layoutIfNeeded()
+        let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
+
+        _ = key.beginTracking(UITouch(), with: nil)
+        key.endTracking(UITouch(), with: nil)
+        XCTAssertEqual(events, ["disarm"])
+        XCTAssertEqual(target.text, " ")
+
+        let t = Date().timeIntervalSince1970
+        model.applyBridgeState(
+            hasFullAccess: true,
+            snapshot: KeyboardSnapshot(state: .ready, heartbeat: t, expiresAt: t + 60),
+            isModelInstalled: true,
+            style: .polished,
+            now: t,
+            clearPending: false,
+            animated: false
+        )
+        let warm = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            MainActor.assumeIsolated { key.isWarm }
+        }, object: nil)
+        wait(for: [warm], timeout: 2)
+
+        events = []
+        _ = key.beginTracking(UITouch(), with: nil)
+        XCTAssertEqual(events, ["arm"], "warm: the touch-down arms")
+        key.endTracking(UITouch(), with: nil)
+        XCTAssertEqual(events, ["arm", "disarm"], "the tap drops the arming")
+        XCTAssertEqual(target.text.count, 2, "and types its space")
+        XCTAssertTrue(target.text.hasSuffix(" "))
+
+        events = []
+        _ = key.beginTracking(UITouch(), with: nil)
+        key.cancelTracking(with: nil)
+        XCTAssertEqual(events, ["arm", "disarm"], "a cancelled touch drops the arming")
+        XCTAssertEqual(target.text.count, 2, "a cancelled touch types nothing")
+    }
+
     func testEmailFieldShowsAtAndDot() {
         target.keyboardType = .emailAddress
         engine.configureForField()

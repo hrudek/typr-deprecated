@@ -20,6 +20,7 @@ final class DictationController {
     private static let minCaptureDuration: TimeInterval = 0.30
     private static let maxCaptureDuration: TimeInterval = 60.0
     private static let resultDeliveryTTL: TimeInterval = 30.0
+    nonisolated static let armedCaptureLifetime: TimeInterval = 1.5
     /// Waits before each further microphone activation attempt. After another app ends an audio
     /// interruption (observed: WhatsApp voice messages), iOS refuses Typr's activation for about
     /// five seconds ("Cannot start playing"); later attempts succeed. About 5.5 s in total.
@@ -138,6 +139,12 @@ final class DictationController {
     private var modelPrepGeneration: UInt64 = 0
     @ObservationIgnored private var preparationTask: Task<Void, Never>?
     private var activeCapture: ActiveCaptureSession?
+    private struct ArmedCapture {
+        let jobID: String
+        let capture: any ArmedAudioCapture
+        let armedAt: TimeInterval
+    }
+    private var armedCapture: ArmedCapture?
     /// Latched before audio activation: once interrupted, other audio may report false.
     private var releaseAudioAfterCapture = false
     private var meterTask: Task<Void, Never>?
@@ -548,6 +555,7 @@ final class DictationController {
     }
 
     func cancelCurrentJob() {
+        discardArmedCapture()
         transcribingLog?.finishIfOpen(.cancelled)
         transcribingLog = nil
         endCleanupJob()
@@ -606,6 +614,7 @@ final class DictationController {
         pendingHandoff = nil
         suspendedWarmSessionOnInterruption = false
         releaseAudioAfterCapture = false
+        discardArmedCapture()
 
         // Cancel an unaccepted in-progress recording, but preserve any already-accepted transcription!
         if let session = activeCapture {
@@ -898,6 +907,7 @@ final class DictationController {
     /// Never seize the microphone just to keep it warm while media is playing.
     private func startWarmInput() throws {
         guard !otherAudioBlocksMicrophone else { throw CancellationError() }
+        discardArmedCapture()
         try audio.startKeepalive(microphone: idleMicrophone)
     }
 
@@ -1077,6 +1087,14 @@ final class DictationController {
         if let keyboardJobID, keyboardJobID == activeKeyboardJobID {
             return
         }
+        let armed: ArmedCapture?
+        if let keyboardJobID, armedCapture?.jobID == keyboardJobID, armedCapture?.capture.isRecording == true {
+            armed = armedCapture
+            armedCapture = nil
+        } else {
+            armed = nil
+            discardArmedCapture()
+        }
         activeKeyboardJobID = keyboardJobID
         if keyboardJobID != nil {
             keyboardMessage = nil
@@ -1116,8 +1134,75 @@ final class DictationController {
         var cleanupContext = keyboardContext ?? CleanupContext(application: attemptAutoReturnOnStart ? returnHost : nil)
         cleanupContext.language = captureLanguage
 
-        phase = .requestingPermission
+        func begin(_ capture: any ActiveAudioCapture, startedAt: TimeInterval) {
+            var cleanupJob: CleanupJob?
+            var cleanupSkipReason = disabledCleanupReason
+            if cleanupEnabled, let cleanup {
+                if cleanup.cleaner.unavailableReason != nil {
+                    cleanupSkipReason = .unavailable
+                } else if cleanupCoordinator.reservedBy != nil {
+                    cleanupSkipReason = .busy
+                } else {
+                    let job = CleanupJob(session: cleanup.cleaner.makeSession(), background: cleanup.background)
+                    cleanupJob = job
+                    pendingCleanupJob = job
+                    cleanupCoordinator.prewarm(job)
+                }
+            }
+            activeCapture = ActiveCaptureSession(
+                statisticsToken: statistics?.beginCapture(),
+                generation: captureGeneration,
+                capture: capture,
+                startedAt: startedAt,
+                keyboardJobID: keyboardJobID,
+                style: effectiveStyle,
+                vocabularyTerms: vocabularyTerms,
+                vocabulary: vocabulary,
+                vocabularyEnabled: vocabularyEnabled,
+                typrCleanupEnabled: enabled,
+                spokenCleanup: spokenCleanup,
+                copyToPasteboard: copyToPasteboard,
+                cleanupJob: cleanupJob,
+                cleanupSkipReason: cleanupSkipReason,
+                logToken: logToken,
+                logCleanupPath: logCleanupPath,
+                cleanupContext: cleanupContext,
+                transcriber: captureTranscriber,
+                language: captureLanguage,
+                speechLanguageName: captureLanguageName,
+                formatLists: languageSettings[experiment: .formatLists],
+                spokenPunctuation: languageSettings[experiment: .spokenPunctuation],
+                endsWithPeriod: languageSettings.dictationEndsWithPeriod,
+                lowercase: languageSettings.dictationLowercase
+            )
+            refreshWarmExpiry()
+            audioLevel = 0
+            loudnessDB = -120
+            loudestAverageDBFS = nil
+            recordingDuration = 0
+            phase = .recording
+            liveActivity?.startRecording(startedAt: Date(timeIntervalSince1970: startedAt))
+            startMetering(for: captureGeneration)
+            publishKeyboardSnapshot()
+
+            if attemptAutoReturnOnStart {
+                maybeAutoReturnAfterActivation(allowed: true)
+            }
+        }
+
         copied = false
+        if let armed {
+            let url = newCaptureURL(for: captureGeneration)
+            do {
+                begin(try armed.capture.commit(to: url), startedAt: armed.armedAt)
+                return
+            } catch {
+                armed.capture.stop()
+                try? fileManager.removeItem(at: url)
+            }
+        }
+
+        phase = .requestingPermission
         // The capture starts the input itself. A resume still retrying after an interruption
         // must not restart (stop) the input under it later.
         takeOverInterruptionResume()
@@ -1139,9 +1224,7 @@ final class DictationController {
                 return
             }
 
-            let captureURL = fileManager.temporaryDirectory
-                .appendingPathComponent("typr-\(captureGeneration)-\(UUID().uuidString)")
-                .appendingPathExtension("wav")
+            let captureURL = newCaptureURL(for: captureGeneration)
 
             do {
                 let capture = try await activateAudio(isCurrent: { self.jobGeneration == captureGeneration }) {
@@ -1160,61 +1243,7 @@ final class DictationController {
                     return
                 }
                 noteAudioActivated()
-
-                let startedAt = now()
-                var cleanupJob: CleanupJob?
-                var cleanupSkipReason = disabledCleanupReason
-                if cleanupEnabled, let cleanup {
-                    if cleanup.cleaner.unavailableReason != nil {
-                        cleanupSkipReason = .unavailable
-                    } else if cleanupCoordinator.reservedBy != nil {
-                        cleanupSkipReason = .busy
-                    } else {
-                        let job = CleanupJob(session: cleanup.cleaner.makeSession(), background: cleanup.background)
-                        cleanupJob = job
-                        pendingCleanupJob = job
-                        cleanupCoordinator.prewarm(job)
-                    }
-                }
-                activeCapture = ActiveCaptureSession(
-                    statisticsToken: statistics?.beginCapture(),
-                    generation: captureGeneration,
-                    capture: capture,
-                    startedAt: startedAt,
-                    keyboardJobID: keyboardJobID,
-                    style: effectiveStyle,
-                    vocabularyTerms: vocabularyTerms,
-                    vocabulary: vocabulary,
-                    vocabularyEnabled: vocabularyEnabled,
-                    typrCleanupEnabled: enabled,
-                    spokenCleanup: spokenCleanup,
-                    copyToPasteboard: copyToPasteboard,
-                    cleanupJob: cleanupJob,
-                    cleanupSkipReason: cleanupSkipReason,
-                    logToken: logToken,
-                    logCleanupPath: logCleanupPath,
-                    cleanupContext: cleanupContext,
-                    transcriber: captureTranscriber,
-                    language: captureLanguage,
-                    speechLanguageName: captureLanguageName,
-                    formatLists: languageSettings[experiment: .formatLists],
-                    spokenPunctuation: languageSettings[experiment: .spokenPunctuation],
-                    endsWithPeriod: languageSettings.dictationEndsWithPeriod,
-                    lowercase: languageSettings.dictationLowercase
-                )
-                refreshWarmExpiry()
-                audioLevel = 0
-                loudnessDB = -120
-                loudestAverageDBFS = nil
-                recordingDuration = 0
-                phase = .recording
-                liveActivity?.startRecording(startedAt: Date(timeIntervalSince1970: startedAt))
-                startMetering(for: captureGeneration)
-                publishKeyboardSnapshot()
-
-                if attemptAutoReturnOnStart {
-                    maybeAutoReturnAfterActivation(allowed: true)
-                }
+                begin(capture, startedAt: now())
             } catch {
                 try? fileManager.removeItem(at: captureURL)
                 guard self.jobGeneration == captureGeneration else { return }
@@ -1236,6 +1265,11 @@ final class DictationController {
         stopMetering()
         let finalDuration = max(recordingDuration, session.capture.currentTime)
         session.capture.stop()
+        if session.capture.didFailWriting {
+            activeCapture = session
+            failRecording()
+            return
+        }
         audioLevel = 0
         loudnessDB = -120
 
@@ -1548,7 +1582,7 @@ final class DictationController {
                 if self.phase != .recording {
                     self.publishKeyboardSnapshot(minInterval: 0.60)
                 }
-                try? await Task.sleep(for: .milliseconds(100))
+                try? await Task.sleep(for: .milliseconds(self.armedCapture == nil ? 100 : 20))
             }
         }
     }
@@ -1578,6 +1612,9 @@ final class DictationController {
     }
 
     private func consumeKeyboardCommand() {
+        if let armed = armedCapture, now() - armed.armedAt > Self.armedCaptureLifetime {
+            discardArmedCapture()
+        }
         dictationLog?.drainKeyboardFeedback()
         guard let command = keyboardBridge.latestCommand(),
               command.id != lastKeyboardCommandID else { return }
@@ -1587,6 +1624,8 @@ final class DictationController {
         guard now() - command.sentAt <= KeyboardLaunchRequest.handoffWindow else { return }
 
         switch command.kind {
+        case .arm:
+            armCapture(jobID: command.jobID, sentAt: command.sentAt)
         case .start:
             // After a failure the warm input and prepared model can still serve this dictation.
             let canStart = phase == .ready
@@ -1604,10 +1643,43 @@ final class DictationController {
             guard phase == .recording, activeKeyboardJobID == command.jobID else { return }
             finishRecording()
         case .cancel:
+            if armedCapture?.jobID == command.jobID {
+                discardArmedCapture()
+                return
+            }
             guard (phase == .recording || phase == .transcribing),
                   activeKeyboardJobID == command.jobID else { return }
             cancelCurrentJob()
         }
+    }
+
+    private func armCapture(jobID: String, sentAt: TimeInterval) {
+        discardArmedCapture()
+        let microphone = captureMicrophone
+        guard now() - sentAt <= Self.armedCaptureLifetime,
+              keyboardSessionEnabled, phase == .ready, activeCapture == nil, activeKeyboardJobID == nil,
+              isModelReady, !pendingAppleLanguageChange, !suspendedWarmSessionOnInterruption,
+              !otherAudioBlocksMicrophone, audio.keepaliveFollows(microphone) else { return }
+        guard let capture = try? audio.beginArmedCapture(maxDuration: Self.maxCaptureDuration, microphone: microphone)
+        else { return }
+        armedCapture = ArmedCapture(jobID: jobID, capture: capture, armedAt: now())
+    }
+
+    private func failRecording() {
+        cancelCurrentJob()
+        phase = .failed("Recording stopped unexpectedly.")
+        publishKeyboardSnapshot()
+    }
+
+    private func discardArmedCapture() {
+        armedCapture?.capture.stop()
+        armedCapture = nil
+    }
+
+    private func newCaptureURL(for generation: UInt64) -> URL {
+        fileManager.temporaryDirectory
+            .appendingPathComponent("typr-\(generation)-\(UUID().uuidString)")
+            .appendingPathExtension("wav")
     }
 
     private func publishKeyboardSnapshot(minInterval: TimeInterval = 0) {
@@ -1692,9 +1764,7 @@ final class DictationController {
             if succeeded {
                 self.finishRecording()
             } else {
-                self.cancelCurrentJob()
-                self.phase = .failed("Recording stopped unexpectedly.")
-                self.publishKeyboardSnapshot()
+                self.failRecording()
             }
         }
 
@@ -1704,6 +1774,7 @@ final class DictationController {
     }
 
     func handleAudioSystemEvent(_ event: AudioSystemEvent) {
+        discardArmedCapture()
         switch event {
         case .interruptionBegan:
             interruptionInProgress = true

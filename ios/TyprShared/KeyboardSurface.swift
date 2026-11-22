@@ -103,6 +103,9 @@ final class KeyboardViewModel: ObservableObject {
     private(set) var pendingCommand: PendingCommand?
 
     var onDictateTap: (() -> Void)?
+    /// Typr key touch-down and its end without a hold (`TyprKeyControl.onArm`/`onDisarm`).
+    var onArmDictation: (() -> Void)?
+    var onDisarmDictation: (() -> Void)?
     var onStopTap: (() -> Void)?
     var onCancelTap: (() -> Void)?
     var onStyleSelected: ((DictationStyle) -> Void)?

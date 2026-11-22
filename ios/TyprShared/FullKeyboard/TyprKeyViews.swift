@@ -18,6 +18,10 @@ final class TyprKeyControl: UIControl {
     /// Typr: a downward slide shows the compact dictation bar.
     var allowsCompactBar = false { didSet { if allowsCompactBar != oldValue { updateAccessibility() } } }
 
+    /// Touch-down: a warm session starts capturing now, so a hold dictates from this moment.
+    var onArm: (() -> Void)?
+    /// The touch ended, slid or was cancelled: drops an arming the hold did not commit.
+    var onDisarm: (() -> Void)?
     /// A still hold: dictate, or open Typr.
     var onHold: (() -> Void)?
     /// Typr: a quick tap types a space.
@@ -94,6 +98,7 @@ final class TyprKeyControl: UIControl {
         let work = DispatchWorkItem { [weak self] in self?.holdElapsed() }
         holdWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + TyprKeyGesture.holdDuration, execute: work)
+        onArm?()
         return true
     }
 
@@ -103,10 +108,12 @@ final class TyprKeyControl: UIControl {
         case .showCompactBar:
             stopTimer()
             isHighlighted = false
+            onDisarm?()
             onShowCompactBar?()
         case .openMenu:
             stopTimer()
             isHighlighted = false
+            onDisarm?()
             onMenuOpen?(point)
         case .dragMenu:
             onMenuDrag?(point)
@@ -119,6 +126,7 @@ final class TyprKeyControl: UIControl {
     override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
         stopTimer()
         isHighlighted = false
+        onDisarm?()
         switch gesture.touchUp() {
         case .releaseMenu:
             if let touch { onMenuRelease?(touch.location(in: self)) }
@@ -132,6 +140,7 @@ final class TyprKeyControl: UIControl {
     override func cancelTracking(with event: UIEvent?) {
         stopTimer()
         isHighlighted = false
+        onDisarm?()
         gesture.cancel()
     }
 

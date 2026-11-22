@@ -12,6 +12,7 @@ final class KeyboardViewController: UIInputViewController {
     private let viewModel = KeyboardViewModel()
     private var pollTimer: Timer?
     private var coldStartJobID = UUID().uuidString
+    private var armedJobID: String?
     private var lastRemountBucket: Int = 0
     private var lastFullAccessNote: TimeInterval = 0
     private var surface: UIView?
@@ -66,6 +67,7 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.flushLearning()
         pollTimer?.invalidate()
         pollTimer = nil
+        disarmWarmDictation()
         viewModel.dismissFeedback()
     }
 
@@ -165,6 +167,8 @@ final class KeyboardViewController: UIInputViewController {
 
         viewModel.inputViewController = self
         viewModel.onDictateTap = { [weak self] in self?.startWarmDictation() }
+        viewModel.onArmDictation = { [weak self] in self?.armWarmDictation() }
+        viewModel.onDisarmDictation = { [weak self] in self?.disarmWarmDictation() }
         viewModel.onStopTap = { [weak self] in self?.stopWarmDictation() }
         viewModel.onCancelTap = { [weak self] in self?.cancelWarmDictation() }
         viewModel.onStyleSelected = { [weak self] style in
@@ -300,10 +304,9 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    /// The dictation bar polls at 25 Hz; the full keyboard at 4 Hz, and 30 Hz while recording.
     private func schedulePoll(force: Bool) {
         let busy = viewModel.stagePhase == .recording || viewModel.stagePhase == .transcribing
-            || viewModel.pendingCommand != nil
+            || viewModel.pendingCommand != nil || armedJobID != nil
         let interval: TimeInterval = fullKeyboard == nil ? 0.04 : (busy ? 1.0 / 30 : 0.25)
         guard force || (pollTimer != nil && interval != pollInterval) else { return }
         pollInterval = interval
@@ -474,10 +477,33 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    private func armWarmDictation() {
+        disarmWarmDictation()
+        let now = Date().timeIntervalSince1970
+        let snapshot = viewModel.currentSnapshot
+        guard viewModel.hasFullAccess, viewModel.stagePhase == .idle, viewModel.pendingCommand == nil,
+              snapshot.state == .ready, snapshot.isAvailable(at: now) else { return }
+        let jobID = UUID().uuidString
+        armedJobID = jobID
+        bridge.send(.arm, jobID: jobID, style: viewModel.style, sentAt: now)
+        schedulePoll(force: false)
+    }
+
+    private func disarmWarmDictation() {
+        guard let jobID = armedJobID else { return }
+        armedJobID = nil
+        bridge.send(.cancel, jobID: jobID, style: viewModel.style, sentAt: Date().timeIntervalSince1970)
+        schedulePoll(force: false)
+    }
+
     private func startWarmDictation() {
         let now = Date().timeIntervalSince1970
-        guard viewModel.hasFullAccess, viewModel.currentSnapshot.isAvailable(at: now) else { return }
-        let jobID = UUID().uuidString
+        guard viewModel.hasFullAccess, viewModel.currentSnapshot.isAvailable(at: now) else {
+            disarmWarmDictation()
+            return
+        }
+        let jobID = armedJobID ?? UUID().uuidString
+        armedJobID = nil
         ownedFeedbackJobs.insert(jobID)
         bridge.ownFeedbackJob(jobID)
         viewModel.dismissFeedback()

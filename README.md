@@ -16,6 +16,9 @@ An explicit engine or language choice never silently falls back to another.
   such as share sheets require **Keep mic warm** instead.
 - **Keep mic warm** keeps microphone input running so repeated dictations can start
   without leaving the keyboard. The duration is 5 minutes, 15 minutes or 1 hour.
+  While it runs, touching the Typr key already holds the running input's audio in
+  memory (at most 3 s, never on disk); the hold writes it as the start of the
+  dictation, and a tap (space), slide or 1.5 s without a hold drops it.
   If iOS reports another app playing audio before
   microphone activation, Typr leaves idle input cold. Dictate then opens Typr to
   start recording and interrupt that audio. Stopping or cancelling the recording
