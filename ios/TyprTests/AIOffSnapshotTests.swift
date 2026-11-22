@@ -133,7 +133,7 @@ final class AIOffSnapshotTests: XCTestCase {
         let asr = SnapshotASR()
         let controller = DictationController(audio: SnapshotAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
             transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
-            customVocabularySettings: vocabulary, cleanup: deps, languageSettings: TyprSettings(defaults: defaults))
+            customVocabularySettings: vocabulary, cleanup: deps, transcriptionBackground: CleanupTestBackground(), languageSettings: TyprSettings(defaults: defaults))
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
 
@@ -182,7 +182,7 @@ final class AIOffSnapshotTests: XCTestCase {
         await asr.set("Einkaufsliste: erstens Milch, zweitens Eier.")
         let controller = DictationController(audio: SnapshotAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
             transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
-            customVocabularySettings: CustomVocabularySettings(defaults: defaults), cleanup: deps,
+            customVocabularySettings: CustomVocabularySettings(defaults: defaults), cleanup: deps, transcriptionBackground: CleanupTestBackground(),
             languageSettings: settings)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
@@ -216,7 +216,7 @@ final class AIOffSnapshotTests: XCTestCase {
         let asr = SnapshotASR()
         let controller = DictationController(audio: SnapshotAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
             transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
-            customVocabularySettings: CustomVocabularySettings(defaults: defaults), cleanup: deps,
+            customVocabularySettings: CustomVocabularySettings(defaults: defaults), cleanup: deps, transcriptionBackground: CleanupTestBackground(),
             languageSettings: settings)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
@@ -266,7 +266,7 @@ final class AIOffSnapshotTests: XCTestCase {
         let asr = SnapshotASR()
         let controller = DictationController(audio: SnapshotAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
             transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
-            customVocabularySettings: vocabulary, dictationLearning: learning, cleanup: deps,
+            customVocabularySettings: vocabulary, dictationLearning: learning, cleanup: deps, transcriptionBackground: CleanupTestBackground(),
             languageSettings: settings)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
@@ -331,7 +331,7 @@ final class AIOffSnapshotTests: XCTestCase {
         await asr.set("Ich lade den Bericht auf github hoch. Danach rufe ich Anna an.")
         let controller = DictationController(audio: SnapshotAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
             transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
-            customVocabularySettings: vocabulary, cleanup: deps, languageSettings: settings)
+            customVocabularySettings: vocabulary, cleanup: deps, transcriptionBackground: CleanupTestBackground(), languageSettings: settings)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
 
