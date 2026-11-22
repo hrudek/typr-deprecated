@@ -22,7 +22,7 @@ struct ExperimentalSettingsCard: View {
     }
 }
 
-private struct ExperimentalToggle: View {
+struct ExperimentalToggle: View {
     let experiment: ExperimentalSwitch
     let settings: TyprSettings
     @State private var isOn: Bool

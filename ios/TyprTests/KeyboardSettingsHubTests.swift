@@ -18,8 +18,8 @@ final class KeyboardSettingsHubTests: XCTestCase {
         defaults.set(false, forKey: "experiments.fullKeyboard")
         let stored = defaults.persistentDomain(forName: suite) as NSDictionary?
 
-        let switches = try await mountedSwitches(KeyboardSettingsCard(defaults: defaults), count: 2)
-        XCTAssertEqual(switches.map(\.isOn), [true, true], "Autocorrect, Swipe typing")
+        let switches = try await mountedSwitches(KeyboardSettingsCard(defaults: defaults), count: 3)
+        XCTAssertEqual(switches.map(\.isOn), [true, false, true], "Autocorrect, Suggest swear words, Swipe typing")
         XCTAssertTrue(switches.allSatisfy(\.isEnabled), "a retired Full keyboard value disables nothing")
         XCTAssertEqual(defaults.persistentDomain(forName: suite) as NSDictionary?, stored, "opening the page writes nothing")
     }
