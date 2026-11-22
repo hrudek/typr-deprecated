@@ -43,12 +43,13 @@ final class MidSentenceEditingTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
     }
 
-    private func start(_ text: String, german: Bool, lexicon: [String] = [], swiped: String? = nil) {
+    private func start(_ text: String, german: Bool, lexicon: [String] = [], swiped: String? = nil,
+                       wordLists: Bool = false) {
         let cursor = text.firstIndex(of: "|")!
         let after = text[text.index(after: cursor)...].count
         target = FixtureTextTarget(text: text.replacingOccurrences(of: "|", with: ""))
         target.adjustTextPosition(byCharacterOffset: -after)
-        let spatial = swiped.map { _ in SpatialWordDecoder(lexicons: BundledKeyboardData.lexicons ?? [:]) }
+        let spatial = swiped != nil || wordLists ? SpatialWordDecoder(lexicons: BundledKeyboardData.lexicons ?? [:]) : nil
         let autocorrect = AutocorrectEngine(checker: german ? Self.german : Self.english,
                                             learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: spatial)
         if german {
@@ -86,6 +87,12 @@ final class MidSentenceEditingTests: XCTestCase {
         return engine.suggestions.map(\.replacement)
     }
 
+    private func chipReplacing(with replacement: String) async throws -> KeyboardSuggestion {
+        await engine.waitForSuggestions()
+        return try XCTUnwrap(engine.suggestions.first { $0.replacement == replacement && $0.boundary != nil },
+                             "\(engine.suggestions.map(\.replacement))")
+    }
+
     private func pick(_ word: String) async throws {
         await engine.waitForSuggestions()
         engine.acceptSuggestion(try XCTUnwrap(engine.suggestions.first { $0.replacement == word }, "\(word) offered"))
@@ -115,6 +122,8 @@ final class MidSentenceEditingTests: XCTestCase {
         XCTAssertEqual(revert.kind, .revert)
         engine.acceptSuggestion(revert)
         XCTAssertEqual(shown, "Ich habe mrogen| Zeit.")
+        type(" ")
+        XCTAssertEqual(shown, "Ich habe mrogen| Zeit.", "the reverted word stays")
     }
 
     func testAnAutocorrectionMidSentenceEnglish() {
@@ -240,6 +249,35 @@ final class MidSentenceEditingTests: XCTestCase {
                                                    kind: .primary(autoReplace: false),
                                                    ownership: engine.suggestionOwnership))
         XCTAssertEqual(shown, "ich nicht komme| heute")
+    }
+
+    func testDeleteAfterAHeldBoundaryPickUndoesIt() async throws {
+        start("We | today", german: false, wordLists: true)
+        type("greatday")
+        let chip = try await chipReplacing(with: "great day")
+        engine.acceptSuggestion(chip)
+        XCTAssertEqual(shown, "We great day| today")
+        XCTAssertFalse(engine.deleteUndoes, "the first delete takes the held space")
+        engine.deleteBackward()
+        XCTAssertEqual(shown, "We great day| today")
+        XCTAssertTrue(engine.deleteUndoes)
+        engine.deleteBackward()
+        XCTAssertEqual(shown, "We greatday| today")
+    }
+
+    func testDeleteAfterAHeldKeepPickUndoesTheKeep() async throws {
+        for (text, typed) in [("ich | heute", "nciht"), ("I | today", "cmoe")] {
+            start(text, german: text.hasPrefix("ich"))
+            type(typed)
+            await engine.waitForSuggestions()
+            engine.acceptSuggestion(try XCTUnwrap(engine.suggestions.first { $0.kind == .keepLiteral }))
+            let kept = text.replacingOccurrences(of: "| ", with: typed + "| ")
+            XCTAssertEqual(shown, kept)
+            engine.deleteBackward()
+            XCTAssertTrue(engine.deleteUndoes)
+            engine.deleteBackward()
+            XCTAssertEqual(shown, kept, "delete undoes the keep instead of taking a letter")
+        }
     }
 
     func testLexiconTermsCompleteInLowercaseMidSentenceGerman() async {

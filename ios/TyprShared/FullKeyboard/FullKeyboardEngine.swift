@@ -562,9 +562,8 @@ final class FullKeyboardEngine {
             }
         }
         autocorrect.clearPendingUndo()
-        let holdsSpace = textAfterSeparates
-        insert(holdsSpace ? replacement : replacement + " ", keepsFeedback: suggestion.boundary == nil,
-               holdsSpace: holdsSpace)
+        let separator = textAfterSeparates ? "" : " "
+        insert(replacement + separator, keepsFeedback: suggestion.boundary == nil, holdsSpace: separator.isEmpty)
         logTyping { log in
             if let original {
                 log.picked(from: original, to: replacement, chip: Self.chipName(suggestion.kind),
@@ -572,9 +571,10 @@ final class FullKeyboardEngine {
             } else { log.end("prediction") }
         }
         if let boundary = suggestion.boundary {
-            autocorrect.recordAppliedBoundary(boundary, replacement: suggestion.replacement, at: clock())
+            autocorrect.recordAppliedBoundary(boundary, replacement: suggestion.replacement, separator: separator,
+                                              at: clock())
         } else if suggestion.kind == .keepLiteral, let token {
-            autocorrect.recordAppliedKeep(token, wasNew: keepWasNew, at: clock())
+            autocorrect.recordAppliedKeep(token, separator: separator, wasNew: keepWasNew, at: clock())
         }
         refreshDeleteUndo()
         // The suggestion's separator counts as the first space of double-space period.
@@ -1393,7 +1393,7 @@ final class FullKeyboardEngine {
     /// Redraws the delete key when undo starts or ends, including once when its window closes.
     func refreshDeleteUndo() {
         let undo = autocorrect.pendingUndo(at: clock()).flatMap { undo in
-            target.documentContextBeforeInput?.hasSuffix(undo.correction.insertedText) == true ? undo : nil
+            !spacePending && target.documentContextBeforeInput?.hasSuffix(undo.correction.insertedText) == true ? undo : nil
         }
         if let closesAt = undo?.window.closesAt, undoRedrawAt != closesAt {
             undoRedrawAt = closesAt
