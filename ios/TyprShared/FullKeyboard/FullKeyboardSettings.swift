@@ -15,6 +15,7 @@ struct FullKeyboardSettings {
         static let globeKey = "settings.keyboardGlobeKey"
         static let bottomRowOrder = "settings.keyboardBottomRowOrder"
         static let periodKey = "settings.keyboardPeriodKey"
+        static let emojiKey = "settings.keyboardEmojiKey"
         static let numberRow = "settings.keyboardNumberRow"
         static let splitKeyboard = "settings.keyboardSplit"
         static let splitColumns = "settings.keyboardSplitColumns"
@@ -54,18 +55,20 @@ struct FullKeyboardSettings {
         nonmutating set { defaults?.set(newValue.rawValue, forKey: Key.globeKey) }
     }
 
-    /// The keys around the space bar. Space then Typr, no period key, by default.
+    /// The keys around the space bar. Space then Typr, no period or emoji key, by default.
     var bottomRow: BottomRow {
         get {
             let order = (defaults?.stringArray(forKey: Key.bottomRowOrder) ?? []).compactMap(BottomKey.init(rawValue:))
             return BottomRow(
                 order: BottomKey.arranged(order),
-                periodKey: defaults?.object(forKey: Key.periodKey) as? Bool ?? false
+                periodKey: defaults?.object(forKey: Key.periodKey) as? Bool ?? false,
+                emojiKey: defaults?.object(forKey: Key.emojiKey) as? Bool ?? false
             )
         }
         nonmutating set {
             defaults?.set(newValue.order.map(\.rawValue), forKey: Key.bottomRowOrder)
             defaults?.set(newValue.periodKey, forKey: Key.periodKey)
+            defaults?.set(newValue.emojiKey, forKey: Key.emojiKey)
         }
     }
 

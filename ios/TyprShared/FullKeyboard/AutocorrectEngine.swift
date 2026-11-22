@@ -24,6 +24,8 @@ nonisolated struct KeyboardSuggestion: Equatable, Sendable {
     var boundary: KeyboardBoundaryDecoder.Candidate?
     /// An alternative for the word just swiped: swaps it in place, never learned.
     var isSwipe = false
+    /// An emoji for the word just finished: typed after it, never learned.
+    var isEmoji = false
 
     var willAutoReplace: Bool {
         if case .primary(let auto) = kind { return auto }

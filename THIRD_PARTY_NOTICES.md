@@ -782,3 +782,28 @@ the hold timer in `KeyboardKeyPlaneView.swift`, and the tests in
 `ios/TyprTests/FullKeyboardEngineTests.swift` follow `FullKeyboardEngine+Trackpad.swift`,
 `KeyboardKeyPlaneView.swift` and `FullKeyboardEngineTests.swift` there. MIT, © Christopher
 Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Hex iOS emoji panel
+
+The emoji panel, its category bar that scrubs the grid, the decaying Frequently used count,
+the index lookup by binary search over a memory-mapped file, word folding and German/English
+word endings, and the finished-word strip emoji placement
+(`ios/TyprShared/FullKeyboard/EmojiPanelView.swift`, `EmojiUsageStore.swift`,
+`EmojiIndex.swift`, `FullKeyboardView.swift`) are adapted from
+`ios/HEXShared/FullKeyboard/Emoji/` and `FullKeyboardView+Emoji.swift` in
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (#2051, #2142, #2189).
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Unicode emoji data and CLDR annotations
+
+`ios/TyprShared/FullKeyboard/WordData/emoji-index.txt` is built by `ios/tools/emoji/build.py`
+from [emoji-test.txt 15.1](https://www.unicode.org/Public/emoji/15.1/emoji-test.txt)
+(SHA-256 `d876ee249aa28eaa76cfa6dfaa702847a8d13b062aa488d465d0395ee8137ed9`) and the German and English
+[CLDR](https://github.com/unicode-org/cldr/tree/release-47) annotations and derived
+annotations at tag `release-47` (`adbaf76bf62572cbfe2044564c40ed44beb00f8a`; hashes in
+`build.py`), © Unicode, Inc., under the Unicode License v3
+([WordData/LICENSE-Unicode.txt](ios/TyprShared/FullKeyboard/WordData/LICENSE-Unicode.txt)).
+Typr keeps the emoji order and groups (no skin tone variants) and one-word names and
+keywords that name at most three emoji, folded, beside its own alias list
+(`ios/tools/emoji/aliases.txt`).

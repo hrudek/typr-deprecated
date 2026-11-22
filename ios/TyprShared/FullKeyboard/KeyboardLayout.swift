@@ -156,10 +156,12 @@ nonisolated enum BottomKey: String, CaseIterable, Sendable {
     }
 }
 
-/// Settings › Bottom row: the keys' order around space, and whether the period key shows.
+/// Settings › Bottom row: the keys' order around space, and whether the period and emoji keys show.
 nonisolated struct BottomRow: Equatable, Sendable {
     var order = BottomKey.standard
     var periodKey = false
+    /// After 123 and the globe, where Apple's keyboard has it; in text fields only.
+    var emojiKey = false
 }
 
 nonisolated enum KeyKind: Equatable, Hashable, Sendable {
@@ -174,6 +176,8 @@ nonisolated enum KeyKind: Equatable, Hashable, Sendable {
     case globe
     /// Settings' globe spacer: drawn dimmed, does nothing when tapped.
     case globeSpacer
+    /// Opens the emoji panel.
+    case emoji
 }
 
 nonisolated struct KeyboardKey: Equatable, Sendable {
@@ -417,6 +421,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
             layer: layer,
             field: field,
             globe: showsGlobe ? globeKey : .hidden,
+            emoji: bottomRow.emojiKey && field == .text,
             aroundSpace: BottomKey.arranged(bottomRow.order).filter {
                 $0 != .period || Self.showsPeriodKey(bottomRow, layer: layer, field: field)
             },
@@ -592,6 +597,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         layer: KeyboardLayer,
         field: KeyboardFieldKind,
         globe: GlobeKey,
+        emoji: Bool,
         aroundSpace: [BottomKey],
         inset: CGFloat,
         splitColumns: Bool,
@@ -705,7 +711,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
             add(.delete, row: shiftRow, x: right - shiftRowModW, w: shiftRowModW, label: "delete")
         }
 
-        let isCompactBottomRow = globe != .hidden || field != .text || aroundSpace.contains(.period)
+        let isCompactBottomRow = globe != .hidden || emoji || field != .text || aroundSpace.contains(.period)
         let switchW = isCompactBottomRow ? modW : lw * bottomSwitchWidthRatio
         let returnW = isCompactBottomRow ? (lw * compactReturnWidthRatio) : (lw * returnWidthRatio + m.gap)
         var leading: [(KeyKind, CGFloat, String)] = [
@@ -718,6 +724,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         case .spacer: leading.insert((.globeSpacer, modW, "globe"), at: 0)
         case .hidden: break
         }
+        if emoji { leading.append((.emoji, modW, "emoji")) }
         func arrangedKey(_ key: BottomKey) -> (KeyKind, CGFloat, String)? {
             switch key {
             case .space: nil
