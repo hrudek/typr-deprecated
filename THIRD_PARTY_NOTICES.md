@@ -806,6 +806,35 @@ The words come from the
 [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
 Hex lowercased and classified the entries as slur or swear word, omitted ordinary,
 medical and search-only terms, and added common slurs, inflections and spelling variants.
+`ios/TyprShared/FullKeyboard/Hex/never-suggest.tsv` is Hex's whole file at
+`0c1c13d71b853ac3113d9a622e4fd9af3755d068`, unchanged (the same list, every layout).
+
+## Hex typing models
+
+`ios/TyprKeyboard/TypingModel/{en,es,de}.hextm` and `de.capitals` are Hex's files
+(`ios/HEXKeyboard/TypingModel/`) from [anomalyco/hex](https://github.com/anomalyco/hex) at
+`0c1c13d71b853ac3113d9a622e4fd9af3755d068`, unchanged. Hex builds them (its
+`ios/scripts/build-typing-model.py`, `build-german-capitals.py` and
+`android/benchmark/typing/build-layout-model.py`) from:
+
+- **Google Books Ngram data:** word and word-pair frequencies and German's capitalisation
+  shares come from the Google Books Ngram Viewer data, version 3 (2020), by Google, licensed
+  under [Creative Commons Attribution 3.0](https://creativecommons.org/licenses/by/3.0/).
+  Counts are summed over 1980–2019.
+- **SCOWL:** English words are checked against SCOWL (Spell Checker Oriented Word Lists)
+  and VarCon by Kevin Atkinson, sizes up to 70 (<http://wordlist.aspell.net/>). Copyright
+  2000-2018 by Kevin Atkinson. Permission to use, copy, modify, distribute and sell these
+  word lists, the associated scripts, the output created from the scripts, and its
+  documentation for any purpose is hereby granted without fee, provided that the above
+  copyright notice appears in all copies and that both that copyright notice and this
+  permission notice appear in supporting documentation. Kevin Atkinson makes no
+  representations about the suitability of this array for any purpose. It is provided
+  "as is" without express or implied warranty. SCOWL's inflections come from WordNet 1.6,
+  Copyright 1997 by Princeton University, all rights reserved, provided "as is" without
+  warranties; its other sources are public domain.
+- **RLA-ES:** Spanish words are checked against LibreOffice's `es_ES` and `es_MX` Hunspell
+  dictionaries (<https://github.com/LibreOffice/dictionaries/tree/master/es>), used under
+  their MPL 1.1 option.
 
 ## Hex spoken punctuation
 
