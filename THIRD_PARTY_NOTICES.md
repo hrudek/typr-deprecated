@@ -761,3 +761,12 @@ The words come from the
 [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
 Hex lowercased and classified the entries as slur or swear word, omitted ordinary,
 medical and search-only terms, and added common slurs, inflections and spelling variants.
+
+## Hex spoken punctuation
+
+Typr's spoken punctuation (`ios/TyprShared/SpokenPunctuation.swift`) is adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb`: `SpokenPunctuation` in
+`ios/HEXShared/SpokenPunctuation.swift`, keeping the German and English tables and adding
+English "at sign". MIT, © Christopher Langton, the same license as this repository
+([LICENSE](LICENSE)).
