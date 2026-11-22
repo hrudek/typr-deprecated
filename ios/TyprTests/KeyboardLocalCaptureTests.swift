@@ -144,8 +144,6 @@ final class KeyboardLocalCaptureTests: XCTestCase {
         XCTAssertEqual(KeyboardLocalCapture.text(from: "  ", style: .polished, settings: settings), "")
     }
 
-    /// A start while the previous stop still closes its audio context keeps its own microphone,
-    /// so the next stop turns it off.
     func testCapturePageStopDuringAPendingCloseStillStopsTheNextMicrophone() throws {
         let context = try XCTUnwrap(JSContext())
         context.exceptionHandler = { _, exception in XCTFail("\(exception?.toString() ?? "")") }

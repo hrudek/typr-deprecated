@@ -251,7 +251,6 @@ enum KeyboardCapturePage {
       const wasRunning = running;
       running = false;
       if (revive) { clearInterval(revive); revive = null; }
-      // Detached before awaiting: a start during the close owns the globals again.
       const s = stream, c = ctx, src = source, n = node;
       ctx = stream = source = node = null;
       try { n && n.disconnect(); src && src.disconnect(); } catch (e) {}

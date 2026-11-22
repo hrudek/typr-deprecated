@@ -479,8 +479,6 @@ final class KeyboardViewController: UIInputViewController {
         ContainingAppOpener.open(request.url, from: self)
     }
 
-    /// Settings > Experimental's in-keyboard dictation: a running warm mic keeps the selected
-    /// engine, also for the top bar's Typr mark and a retry after a failure (`onColdStart`).
     private var localDictationRoute: KeyboardDictationRoute {
         let app = bridge.snapshot()
         return localDictation.route(
