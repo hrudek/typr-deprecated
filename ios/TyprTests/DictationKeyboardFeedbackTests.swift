@@ -391,7 +391,7 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
     func testFullKeyboardKeysReturnWhenRecordingStartsOverTheFeedbackPanel() throws {
         let model = KeyboardViewModel()
         model.configureFixture(snapshot: .offline, now: 10_000)
-        let view = makeKeyboard(model: model)
+        let view = makeKeyboard(model: model, showsBar: true)
         view.didInsertDictation("Synthetic result.", before: "", after: "")
         model.feedback = .snapshotFixture()
         pumpMainRunLoop()
