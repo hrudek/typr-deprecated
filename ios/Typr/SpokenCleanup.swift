@@ -11,7 +11,8 @@ import Foundation
 ///   it replaces, counted back from the nearest earlier word that matches the repair's first
 ///   word or is of its kind (number, weekday, month, relative day), within the sentence and
 ///   `maxReach` words. A bare "nein", "no" or "sorry" counts only when the repair names a
-///   word of the same kind, and never right after a question. Anything else stays as said.
+///   word of the same kind, and never right after a question. A repair that starts with a
+///   pronoun is a new clause and stays. Anything else stays as said.
 nonisolated enum SpokenCleanup {
     static let maxReach = 8
 
@@ -23,6 +24,7 @@ nonisolated enum SpokenCleanup {
         let kinds: [Set<String>]
         let noComma: Set<String>
         let stutters: Set<String>
+        let pronouns: Set<String>
 
         func kind(of word: String) -> Int? {
             if word.contains(where: \.isNumber) { return kinds.count }
@@ -127,6 +129,7 @@ nonisolated enum SpokenCleanup {
                     low -= 1
                 }
                 let candidates = (low..<markerStart).reversed()
+                if rules.pronouns.contains(first) { continue }
                 var start = candidates.first { bare(words[$0]) == first }
                 if start == nil, let kind = rules.kind(of: first) {
                     start = candidates.first { rules.kind(of: bare(words[$0])) == kind }
@@ -280,7 +283,8 @@ nonisolated enum SpokenCleanup {
         noComma: ["und", "oder", "aber", "dass", "der", "die", "das", "ein", "eine", "mit", "zu", "in",
                   "an", "auf", "für", "von", "ich", "du", "er", "sie", "wir"],
         stutters: ["ich", "wir", "du", "ein", "eine", "einen", "und", "oder", "aber", "dass", "weil", "wenn",
-                   "dann", "ist", "mit", "zu", "im", "am", "auf", "für"]
+                   "dann", "ist", "mit", "auf", "für"],
+        pronouns: ["ich", "du", "er", "sie", "es", "wir", "ihr", "man", "das", "dies", "dieser", "diese", "dieses"]
     )
 
     private static let english = Rules(
@@ -296,6 +300,8 @@ nonisolated enum SpokenCleanup {
             ["today", "tomorrow", "yesterday", "tonight"],
         ],
         noComma: ["a", "an", "the", "to", "of", "for", "with", "and", "or", "but", "i", "we", "you", "my"],
-        stutters: ["i", "we", "the", "a", "an", "and", "but", "of", "for", "with", "my", "to"]
+        stutters: ["i", "we", "the", "a", "an", "and", "but", "of", "for", "with", "my", "to"],
+        pronouns: ["i", "we", "you", "he", "she", "it", "they", "this", "that", "there", "i'm", "it's", "we're",
+                   "you're", "they're", "there's", "that's"]
     )
 }

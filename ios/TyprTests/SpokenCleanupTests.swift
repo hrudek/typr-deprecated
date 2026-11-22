@@ -42,6 +42,10 @@ final class SpokenCleanupTests: XCTestCase {
             ("Ich mag das nicht, nein, wirklich nicht.", "Ich mag das nicht, nein, wirklich nicht."),
             ("Sag Anna, nein, das geht nicht.", "Sag Anna, nein, das geht nicht."),
             ("Das ist teuer, ich meine, wirklich teuer.", "Das ist teuer, ich meine, wirklich teuer."),
+            ("Ich war müde, ich meine, ich habe nicht geschlafen.", "Ich war müde, ich meine, ich habe nicht geschlafen."),
+            ("Das ist teuer, ich meine, das ist zu viel.", "Das ist teuer, ich meine, das ist zu viel."),
+            ("Wir können gehen, ich meine, wir müssen nicht bleiben.", "Wir können gehen, ich meine, wir müssen nicht bleiben."),
+            ("Die Tür ist zu, zu spät.", "Die Tür ist zu, zu spät."),
         ], language: .german)
     }
 
@@ -60,6 +64,7 @@ final class SpokenCleanupTests: XCTestCase {
             ("It is very very good.", "It is very very good."),
             ("I know that that works.", "I know that that works."),
             ("No, I mean it.", "No, I mean it."),
+            ("I was tired, I mean, I didn't sleep.", "I was tired, I mean, I didn't sleep."),
             ("I said no, not today.", "I said no, not today."),
             ("Is it Monday? No, it is Tuesday.", "Is it Monday? No, it is Tuesday."),
         ], language: .english)
