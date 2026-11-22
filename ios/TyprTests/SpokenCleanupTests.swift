@@ -182,6 +182,7 @@ final class SpokenCleanupTests: XCTestCase {
         ], language: .automatic)
     }
 
+    @MainActor
     func testExperimentalSwitchIsOffByDefault() {
         let suite = "spoken.cleanup.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
