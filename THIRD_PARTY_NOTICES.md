@@ -938,3 +938,15 @@ Typr's in-keyboard dictation (`ios/TyprKeyboard/KeyboardLocalDictation.swift`,
 and its stale-start guard, touch-down arming with its 3 s timeout, the 32/24 MiB memory gates
 and disposing terminated web views. MIT, © Christopher Langton, the same license as this
 repository ([LICENSE](LICENSE)).
+
+## Hex strip-only recording panel
+
+The recording panel (`TyprKeyRecordingPanel` in `ios/TyprShared/FullKeyboard/TyprKeyViews.swift`)
+and its placement in `FullKeyboardView` (panel frame, fade of the suggestion strip only) are
+adapted from `HexKeyRecordingPanel` in `ios/HEXShared/FullKeyboard/HexKeyViews.swift` and
+`recordingPanelFrame` / `setRecording` in `ios/HEXShared/FullKeyboard/FullKeyboardView.swift` of
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`994b346982484efee6b1340837318b4aa09a5e82`: the well, ✕ and ✓ that turns into a spinner,
+without the style chip, the logging mark, the leading-key mirroring and the morph from the Hex
+mark (Typr's key is never in the strip). MIT, © Christopher Langton, the same license as this
+repository ([LICENSE](LICENSE)).
