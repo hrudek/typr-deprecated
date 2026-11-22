@@ -351,9 +351,10 @@ nonisolated enum TranscriptFormatter {
         let pattern = #"(?i)(?:^|(?<=[\s,]))(?:"# + fillers + #")(?=(?:[\s,.!?]|$)),?\s*"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
         // Typr fix on the Hex base: a filler that ends a sentence takes the comma before it
-        // along ("Danke, äh. Bis dann." -> "Danke. Bis dann.", not "Danke,. Bis dann.").
+        // along ("Danke, äh. Bis dann." -> "Danke. Bis dann.", not "Danke,. Bis dann."), in every
+        // style; a comma before a line break stays ("Hi Sarah,\num" -> "Hi Sarah,").
         let unpunctuated = text.replacingOccurrences(
-            of: #"(?im),\s*(?:"# + fillers + #")(?=[.!?…]|\s*$)"#, with: "", options: .regularExpression)
+            of: #"(?im),[ \t]*(?:"# + fillers + #")(?=[.!?…]|[ \t]*$)"#, with: "", options: .regularExpression)
         let range = NSRange(unpunctuated.startIndex..<unpunctuated.endIndex, in: unpunctuated)
         let stripped = regex.stringByReplacingMatches(in: unpunctuated, range: range, withTemplate: " ")
         return collapseHorizontalSpaces(in: stripped)

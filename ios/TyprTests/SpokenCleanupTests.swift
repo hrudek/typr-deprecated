@@ -435,6 +435,10 @@ final class TranscriptFormatterTyprFixTests: XCTestCase {
         XCTAssertEqual(polished("Thanks, um. See you.", "en-US"), "Thanks. See you.")
         XCTAssertEqual(polished("I don't know, uh", "en-US"), "I don't know.")
         XCTAssertEqual(polished("Thanks, um, see you.", "en-US"), "Thanks, see you.")
+        XCTAssertEqual(polished("Hallo Anna,\nähm\nbis morgen.", "de-DE"), "Hallo Anna,\nBis morgen.")
+        XCTAssertEqual(polished("Hallo Anna,\nähm, bis morgen.", "de-DE"), "Hallo Anna,\nBis morgen.")
+        XCTAssertEqual(polished("Hi Sarah,\num", "en-US"), "Hi Sarah,")
+        XCTAssertEqual(polished("Hi Sarah,\num\nsee you.", "en-US"), "Hi Sarah,\nSee you.")
     }
 
     func testNoFullStopAfterAClosingQuoteThatFollowsASentenceMark() {
