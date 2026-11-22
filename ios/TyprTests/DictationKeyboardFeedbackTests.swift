@@ -388,8 +388,6 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
         }
     }
 
-    /// On a device the full keyboard is mounted first and the feedback arrives with the inserted
-    /// result. The panel must cover the keys then, not only when present at construction.
     func testFullKeyboardKeysReturnWhenRecordingStartsOverTheFeedbackPanel() throws {
         let model = KeyboardViewModel()
         model.configureFixture(snapshot: .offline, now: 10_000)
@@ -418,8 +416,13 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
         XCTAssertEqual(plane.alpha, 1, "the keys show under the recording panel")
         XCTAssertFalse(key.isHidden)
         XCTAssertEqual(key.alpha, 1)
+        let callout = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyCalloutView }.first)
+        XCTAssertFalse(callout.isHidden)
+        XCTAssertEqual(callout.alpha, 1)
     }
 
+    /// On a device the full keyboard is mounted first and the feedback arrives with the inserted
+    /// result. The panel must cover the keys then, not only when present at construction.
     func testFullKeyboardShowsFeedbackPanelThatArrivesAfterMount() {
         let model = KeyboardViewModel()
         model.configureFixture(snapshot: .offline, now: 10_000)

@@ -881,7 +881,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             panel.isHidden = false
             var covered: [UIView] = engine.showsStrip ? [stripView] : keyViews + [accentCallout]
             if let feedbackPanel { covered.append(feedbackPanel) }
-            let keys: [UIView] = engine.showsStrip ? [plane, typrKey, globeButton] : []
+            let keys: [UIView] = engine.showsStrip ? [plane, typrKey, globeButton, callout] : []
             fade(in: [panel] + keys, out: covered)
         } else if let panel = recordingPanel {
             panel.scope.phase = .hidden
