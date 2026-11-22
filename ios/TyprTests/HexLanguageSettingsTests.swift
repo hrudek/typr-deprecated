@@ -1,0 +1,129 @@
+import XCTest
+@testable import Typr
+
+final class HexLanguageSettingsTests: XCTestCase {
+    private var suite = ""
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        suite = "HexLanguageSettingsTests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suite)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    func testDefaultsToAutomaticWithoutTouchingTyprsLanguage() {
+        let settings = LanguageSettings(defaults: defaults)
+        XCTAssertNil(settings.dictationLanguage)
+        XCTAssertFalse(settings.dictationFollowsKeyboard)
+        settings.chooseDictationLanguage("de-AT")
+        XCTAssertEqual(settings.dictationLanguage, "de-AT")
+        XCTAssertNil(defaults.string(forKey: "typr.dictationLanguage"))
+    }
+
+    func testChoosingAVariantReplacesTheOtherVariantInRecents() {
+        let settings = LanguageSettings(defaults: defaults)
+        settings.chooseDictationLanguage("es-ES")
+        settings.chooseDictationLanguage("de-DE")
+        settings.chooseDictationLanguage("es-US")
+        XCTAssertEqual(settings.recentDictationLanguages, ["es-US", "de-DE"])
+    }
+
+    func testAutomaticFollowsTheKeyboardsCurrentLanguage() {
+        let settings = LanguageSettings(defaults: defaults)
+        settings.supportedDictationLanguages = ["de-DE", "de-AT", "en-US", "en-GB"]
+        let keyboard = ["de-DE", "en-US"]
+        XCTAssertEqual(settings.keyboardDictationLanguage(keyboard: keyboard, current: "en-US", preferred: ["en-GB", "de-AT"]), "en-GB")
+        XCTAssertEqual(settings.keyboardDictationLanguage(keyboard: keyboard, current: "de-DE", preferred: ["en-GB", "de-AT"]), "de-AT")
+        XCTAssertEqual(settings.keyboardDictationLanguage(keyboard: keyboard, current: "fr-FR", preferred: ["en-GB"]), "de-DE")
+        XCTAssertEqual(settings.effectiveDictationLanguage(keyboard: keyboard, current: "en-US"), settings.keyboardDictationLanguage(keyboard: keyboard, current: "en-US"))
+    }
+
+    func testKeyboardIsNotFollowedWithOneLanguageOrAnExplicitChoice() {
+        let settings = LanguageSettings(defaults: defaults)
+        XCTAssertNil(settings.keyboardDictationLanguage(keyboard: ["de-DE"], current: "de-DE", preferred: ["de-DE"]))
+        settings.dictationLanguage = "en-US"
+        XCTAssertNil(settings.keyboardDictationLanguage(keyboard: ["de-DE", "en-US"], current: "de-DE", preferred: ["de-DE"]))
+        XCTAssertEqual(settings.effectiveDictationLanguage(keyboard: ["de-DE", "en-US"], current: "de-DE"), "en-US")
+    }
+
+    func testIPhoneLanguageWithoutKeyboardLayoutIsKeptUnlessFollowingIsOn() {
+        let settings = LanguageSettings(defaults: defaults)
+        let keyboard = ["de-DE", "en-US"]
+        XCTAssertNil(settings.keyboardDictationLanguage(keyboard: keyboard, current: "en-US", preferred: ["he-IL"]))
+        settings.dictationFollowsKeyboard = true
+        XCTAssertEqual(settings.keyboardDictationLanguage(keyboard: keyboard, current: "en-US", preferred: ["he-IL"]), "en-US")
+    }
+
+    func testKeyboardLanguageApplesSpeechLacksDictatesNothing() {
+        let settings = LanguageSettings(defaults: defaults)
+        settings.supportedDictationLanguages = ["en-US", "de-DE"]
+        XCTAssertNil(settings.dictationLanguage(forKeyboard: "sr-Latn-RS", preferred: []))
+    }
+
+    func testExplicitLanguageUsesSpeechThenDictationModule() async {
+        let picked = await SpeechLanguagePicker.pick(
+            explicit: "nb-NO",
+            candidates: ["en-US"],
+            speech: { $0.identifier(.bcp47) == "en-US" ? $0 : nil },
+            dictation: { $0.identifier(.bcp47) == "nb-NO" ? $0 : nil }
+        )
+        XCTAssertEqual(picked?.identifier, "nb-NO")
+        XCTAssertEqual(picked?.module, .dictation)
+    }
+
+    func testUnsupportedExplicitLanguageFallsBackToAutomaticCandidates() async {
+        let candidates = SpeechLanguagePicker.automaticCandidates(preferred: ["de-DE"], current: "de_DE")
+        XCTAssertEqual(candidates, ["de-DE", "en-US"])
+        let picked = await SpeechLanguagePicker.pick(
+            explicit: "xx-XX",
+            candidates: candidates,
+            speech: { ["de-DE", "en-US"].contains($0.identifier(.bcp47)) ? $0 : nil },
+            dictation: { _ in nil }
+        )
+        XCTAssertEqual(picked?.identifier, "de-DE")
+        XCTAssertEqual(picked?.module, .speech)
+    }
+
+    func testNoSupportedLanguageResolvesToNil() async {
+        let picked = await SpeechLanguagePicker.pick(
+            explicit: "xx-XX",
+            candidates: ["yy-YY"],
+            speech: { _ in nil },
+            dictation: { _ in nil }
+        )
+        XCTAssertNil(picked)
+    }
+
+    func testAutomaticSkipsSetAsideLanguageButNeverGivesUpOnTheOnlyOne() async {
+        let speech: (Locale) async -> Locale? = { ["de-DE", "en-US"].contains($0.identifier(.bcp47)) ? $0 : nil }
+        let skipGerman = await SpeechLanguagePicker.pick(
+            explicit: nil, candidates: ["de-DE", "en-US"], speech: speech, dictation: { _ in nil },
+            skip: { $0.identifier(.bcp47) == "de-DE" }
+        )
+        XCTAssertEqual(skipGerman?.identifier, "en-US")
+        let skipAll = await SpeechLanguagePicker.pick(
+            explicit: nil, candidates: ["de-DE", "en-US"], speech: speech, dictation: { _ in nil },
+            skip: { _ in true }
+        )
+        XCTAssertEqual(skipAll?.identifier, "de-DE")
+    }
+
+    func testSpeechModuleFailureSetsALanguageAsideOnTheSecondStrike() {
+        let settings = LanguageSettings(defaults: defaults)
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        settings.noteSpeechModuleFailure("de-DE", at: now)
+        XCTAssertFalse(settings.speechModuleFailed("de-DE", now: now))
+        settings.noteSpeechModuleFailure("de-DE", at: now)
+        XCTAssertTrue(settings.speechModuleFailed("de-DE", now: now))
+        XCTAssertFalse(settings.speechModuleFailed("de-DE", now: now + LanguageSettings.setAsideDuration))
+    }
+
+    func testSpanishFollowsTheIPhonesRegion() {
+        XCTAssertEqual(DictationLanguageSwitch.spanishCandidates(for: "es", region: "MX"), ["es-MX", "es-US", "es-ES"])
+        XCTAssertEqual(DictationLanguageSwitch.supportedMatch(for: "es-AR", in: ["es-ES", "es-US"]), "es-US")
+        XCTAssertEqual(DictationLanguageSwitch.supportedMatch(for: "nn-NO", in: ["nb-NO", "en-US"]), "nb-NO")
+    }
+}

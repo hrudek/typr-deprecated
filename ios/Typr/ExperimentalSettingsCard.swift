@@ -1,13 +1,23 @@
 import SwiftUI
 
 struct ExperimentalSettingsCard: View {
+    static let hexTitle = "Hex experiments"
+    static let typrTitle = "Typr variants"
     static let emptyNotice = "No experiments right now."
 
-    var switches = ExperimentalSwitch.all
+    var hexExperiments = ExperimentalSwitch.hexExperiments
+    var typrVariants = ExperimentalSwitch.typrVariants
     var defaults = UserDefaults(suiteName: KeyboardBridge.appGroup)
 
     var body: some View {
-        SettingsSection {
+        VStack(alignment: .leading, spacing: 24) {
+            group(Self.hexTitle, switches: hexExperiments)
+            group(Self.typrTitle, switches: typrVariants)
+        }
+    }
+
+    private func group(_ title: String, switches: [ExperimentalSwitch]) -> some View {
+        SettingsSection(title: title) {
             if switches.isEmpty {
                 Text(Self.emptyNotice)
                     .font(.subheadline).foregroundStyle(TyprTheme.textMuted)

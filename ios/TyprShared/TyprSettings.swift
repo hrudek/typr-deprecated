@@ -13,8 +13,109 @@ struct ExperimentalSwitch: Hashable {
         self.detail = detail
     }
 
-    /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
+    /// Settings > Experimental › Hex experiments: Hex's own experiments, with Hex's names and
+    /// defaults. Each is listed once its implementation works.
+    static let hexExperiments: [ExperimentalSwitch] = []
+
+    /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
+    /// display order. Each is listed once its implementation works.
+    static let typrVariants: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
+
+    /// Every switch shown in Settings > Experimental.
+    static let all = hexExperiments + typrVariants
+
+    static let typrExclusiveAudioSession = ExperimentalSwitch(
+        name: "variant.exclusiveAudioSession",
+        title: "Typr exclusive audio session",
+        detail: "Dictation pauses other audio and records at 16 kHz, as Typr did before Hex."
+    )
+
+    static let typrKeepSelectedWarmMicrophone = ExperimentalSwitch(
+        name: "variant.keepSelectedWarmMicrophone",
+        title: "Typr keep selected warm microphone",
+        detail: "Between dictations the warm mic stays on the chosen microphone instead of the iPhone's."
+    )
+
+    static let typrAudioActivationRetries = ExperimentalSwitch(
+        name: "variant.audioActivationRetries",
+        title: "Typr audio activation retries",
+        detail: "When another app holds the microphone, Typr tries again for up to 2.5 seconds."
+    )
+
+    static let typrOneMinuteLimit = ExperimentalSwitch(
+        name: "variant.oneMinuteLimit",
+        title: "Typr one-minute dictation limit",
+        detail: "Each dictation stops after one minute."
+    )
+
+    static let typrFixedDictationLanguage = ExperimentalSwitch(
+        name: "variant.fixedDictationLanguage",
+        title: "Typr fixed dictation language",
+        detail: "Dictation uses Typr's Automatic, German or English choice instead of following the keyboard and iPhone languages."
+    )
+
+    static let typrDictationStyles = ExperimentalSwitch(
+        name: "variant.dictationStyles",
+        title: "Typr dictation styles",
+        detail: "Typr's five styles, including Casual and Very casual, instead of Hex's four."
+    )
+
+    static let typrGermanFormattingRules = ExperimentalSwitch(
+        name: "variant.germanFormattingRules",
+        title: "Typr German formatting rules",
+        detail: "Lists and spoken punctuation follow Typr's German and English rules instead of Hex's."
+    )
+
+    static let typrConservativeSpokenCleanup = ExperimentalSwitch(
+        name: "variant.conservativeSpokenCleanup",
+        title: "Typr conservative spoken cleanup",
+        detail: "Clean up what I say uses Typr's German and English word rules instead of Hex's."
+    )
+
+    static let typrAICleanupPipeline = ExperimentalSwitch(
+        name: "variant.aiCleanupPipeline",
+        title: "Typr AI cleanup pipeline",
+        detail: "AI cleanup uses Typr's prompt, rewrites and guard, and the Anthropic provider when it is chosen."
+    )
+
+    static let typrVocabularyMatching = ExperimentalSwitch(
+        name: "variant.vocabularyMatching",
+        title: "Typr vocabulary matching",
+        detail: "Your words are matched with Typr's spelling rules instead of Hex's."
+    )
+
+    static let typrDictationEditLearning = ExperimentalSwitch(
+        name: "variant.dictationEditLearning",
+        title: "Typr dictation edit learning",
+        detail: "Learning from your edits uses Typr's rules and storage instead of Hex's."
+    )
+
+    static let typrTranslationPolicy = ExperimentalSwitch(
+        name: "variant.translationPolicy",
+        title: "Typr translation policy",
+        detail: "Translate what I say only between German and English, with Typr's five-second limit."
+    )
+
+    static let typrAlwaysDictateInApp = ExperimentalSwitch(
+        name: "variant.alwaysDictateInApp",
+        title: "Typr always dictate in app",
+        detail: "The Typr key always dictates in the Typr app, never in the keyboard."
+    )
+
+    static let typrAutomaticHostReturn = ExperimentalSwitch(
+        name: "variant.automaticHostReturn",
+        title: "Typr automatic host return",
+        detail: "After dictating in the Typr app, Typr goes back to the app you came from."
+    )
+
+    /// Typr overrides of Hex defaults: off is Hex's behavior, on restores Typr's. Each joins
+    /// `typrVariants` when its area switches to Hex.
+    static let typrOverrides: [ExperimentalSwitch] = [
+        .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrOneMinuteLimit,
+        .typrFixedDictationLanguage, .typrDictationStyles, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
+        .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
+        .typrAlwaysDictateInApp, .typrAutomaticHostReturn,
+    ]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
