@@ -81,6 +81,8 @@ final class FullKeyboardEngine {
         var trackpadAnchorX: CGFloat = 0
         var trackpad: TrackpadCursor.State?
         var trackpadPath: [TrackpadCursor.Sample] = []
+        /// A delete press slid left (`slidesDeleteByWord`): the words it deleted, oldest first.
+        var slideDeleted: [String]?
         /// Samples of a letter press that may still become a swipe; nil once it cannot.
         var swipePath: [SwipePoint]?
         /// Crossed `swipeActivation`: no key, preview or accent menu any more; a word on release.
@@ -110,6 +112,9 @@ final class FullKeyboardEngine {
     /// The field's body font, which `TrackpadCursor` lays the text out in.
     var trackpadLineHeight: CGFloat = 20
     var trackpadCharacterWidth: (Character) -> CGFloat = { $0.isNewline ? 0 : 8.5 }
+    /// Settings > Experimental: sliding left from delete deletes a word per key width, sliding
+    /// back types them back, lifting keeps what is deleted.
+    var slidesDeleteByWord = false
     /// A letter press becomes a swipe after travelling this many letter widths (iikb: 0.8):
     /// beyond a slipped tap, short of a deliberate slide.
     static let swipeActivation: CGFloat = 0.8
@@ -730,6 +735,12 @@ final class FullKeyboardEngine {
             return
         }
 
+        if touch.key.kind == .delete, slidesDeleteByWord {
+            slideDelete(&touch, to: point.x)
+            touches[id] = touch
+            return
+        }
+
         if touch.key.kind == .space, !touch.committed {
             if !touch.isTrackpad, clock() - touch.startTime >= Self.trackpadDelay,
                abs(point.x - touch.startPoint.x) >= Self.trackpadActivationDistance {
@@ -1010,6 +1021,43 @@ final class FullKeyboardEngine {
     static let repeatInterval: TimeInterval = 0.075
     static let fastRepeatAfter: TimeInterval = 0.85
     static let wordDeleteAfter: TimeInterval = 1.4
+
+    /// A delete press is sliding by words; hold-to-repeat stops for the rest of the press.
+    var isDeleteSliding: Bool {
+        touches.values.contains { $0.slideDeleted != nil }
+    }
+
+    private func slideDelete(_ touch: inout ActiveTouch, to x: CGFloat) {
+        let wanted = max(0, Int(((touch.startPoint.x - x) / max(1, layout.letterWidth)).rounded(.down)))
+        if touch.slideDeleted == nil {
+            guard wanted > 0 else { return }
+            prepareStatisticsEdit()
+            autocorrect.forgetSpaceTaps()
+            autocorrect.discardFeedback()
+            autocorrect.clearPendingUndo()
+            typingLog?.discard()
+        }
+        var deleted = touch.slideDeleted ?? []
+        var changed = false
+        while deleted.count < wanted, let before = target.documentContextBeforeInput,
+              let length = DeleteWordSlide.wordLength(before: before) {
+            deleted.append(String(before.suffix(length)))
+            for _ in 0..<length { target.deleteBackward() }
+            statistics?.deletion(wholeWord: true)
+            changed = true
+            onSelectionStep?()
+        }
+        while deleted.count > wanted, let word = deleted.popLast() {
+            target.insertText(word)
+            changed = true
+            onSelectionStep?()
+        }
+        touch.slideDeleted = deleted
+        guard changed else { return }
+        autocorrect.touchInput.clear()
+        lastSpaceAt = nil
+        didEdit()
+    }
 
     func repeatDelete(heldFor: TimeInterval) {
         prepareStatisticsEdit()

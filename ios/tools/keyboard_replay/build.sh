@@ -39,7 +39,7 @@ else
 fi
 
 sources=(
-  FullKeyboard/AutocorrectEngine FullKeyboard/DictationUndo FullKeyboard/FullKeyboardEngine FullKeyboard/GermanAutocorrect
+  FullKeyboard/AutocorrectEngine FullKeyboard/DeleteWordSlide FullKeyboard/DictationUndo FullKeyboard/FullKeyboardEngine FullKeyboard/GermanAutocorrect
   FullKeyboard/KeyboardBoundaryDecoder FullKeyboard/KeyboardBoundaryTouch FullKeyboard/KeyboardContextModel
   FullKeyboard/EmojiIndex FullKeyboard/KeyboardDiagnostics FullKeyboard/KeyboardKeyMap FullKeyboard/KeyboardLayout
   FullKeyboard/KeyboardLearningSession FullKeyboard/KeyboardLearningStore FullKeyboard/KeyboardLetterMap FullKeyboard/KeyboardModelPredictions FullKeyboard/AnthropicPredictionProvider

@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -59,6 +59,14 @@ struct ExperimentalSwitch: Hashable {
         name: "cleanUpWhatISay",
         title: "Clean up what I say",
         detail: "Removes “äh” and “um”, doubled words like “und und” and corrections like “Dienstag, ich meine, Mittwoch”, in every style except Verbatim. Anything less certain stays as said."
+    )
+
+    /// Hex's delete slide (anomalyco/hex #2080, #2257). Off, a delete press that drifts left keeps
+    /// repeating letters.
+    static let deleteSlide = ExperimentalSwitch(
+        name: "deleteSlide",
+        title: "Slide delete to remove words",
+        detail: "Press delete and slide left: each key width removes one more word. Slide back to bring words back; lift to keep the rest deleted."
     )
 }
 
