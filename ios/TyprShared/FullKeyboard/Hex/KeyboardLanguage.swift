@@ -170,8 +170,8 @@ nonisolated enum KeyboardLanguage: String, CaseIterable, Sendable {
     var letterRows: [[String]] { letterRows(defaultLetterLayout) }
 
     /// The major version of the iOS Hex runs on, for where Apple's keyboard was measured to differ
-    /// between versions: Ukrainian's rows (`ukrainianHasTwelveKeys`) and the iPhone's key rows
-    /// (`KeyboardMetrics.appleRowsAreIOS26`). Tests set it.
+    /// between versions: Ukrainian's rows (`ukrainianHasTwelveKeys`). Tests set it. (Typr: the
+    /// iPhone's key rows no longer follow it; `KeyboardMetrics.typrPortrait`.)
     nonisolated(unsafe) static var systemMajorVersion = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
 
     /// Apple's Ukrainian keyboard has twelve keys in rows 1 and 2 from iOS 27 (iOS 27.0 and 27.2

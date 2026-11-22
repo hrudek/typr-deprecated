@@ -81,8 +81,9 @@ nonisolated struct KeyBalloon: Equatable, Sendable {
     var bounds: CGRect { bubble.union(keyFrame) }
 }
 
-/// Which of Apple's iPhone key planes a screen gets (`KeyboardMetrics.phonePortrait`), by its
-/// height in points: Apple's keycaps and rows differ with it (iOS 27.2).
+/// Which of Apple's iPhone key planes a screen gets, by its height in points: Apple's keycaps and
+/// rows differ with it (iOS 27.2). Typr: its compact keys are the same on every size
+/// (`KeyboardMetrics.typrPortrait`), so the metrics no longer read it.
 nonisolated enum KeyboardPhoneSize: Equatable, Sendable {
     /// A Home-button iPhone (the SE, 667 pt).
     case homeButton
@@ -260,6 +261,9 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
     /// from `barPillTop` down (28 pt), inside the strip. Elsewhere it's the strip less half a
     /// point above and below, at most 36 pt.
     var stripPillHeight: CGFloat {
+        // Typr: its compact strip keeps Typr's 26 pt pills (`TyprKeyboardMetrics.stripPillHeight`),
+        // clear of row 1's touch band below it.
+        if stripHeight == Self.typrPortrait.stripHeight { return Self.typrStripPillHeight }
         guard stripHeight == Self.stripBarHeight else { return min(stripHeight - 1, 36) }
         return 2 * min(stripTextCenter - Self.barPillTop, stripHeight - stripTextCenter)
     }
@@ -305,49 +309,36 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
         keysTop: 0, keysBottom: 0, cornerRadius: keyCornerRadius, bottomRowTrim: 4
     )
 
-    /// Upright on iOS 26 (iPhone 12, 16 and 17 Pro, iOS 26.5, beside Hex in the same field): the
-    /// same keycaps, pitch and prediction bar, but Apple's panel is 7 pt taller under the keys, so
-    /// every row is 7 pt higher and row 4 is whole, ending 3 pt above where a third-party
-    /// keyboard's view ends: 46 pt + 208 pt of keys (4 × 43 pt + 3 × 11 pt + 3 pt) = 254 pt.
-    static let portraitIOS26 = KeyboardMetrics(
-        side: 6.5, gap: 6, rowGap: 11, keyHeight: 43,
-        stripTop: 0, stripHeight: stripBarHeight, stripBottom: stripGap,
-        keysTop: 0, keysBottom: 3, cornerRadius: keyCornerRadius
+    /// Typr: its compact iPhone keys replace Hex's Apple-measured ones on every iPhone size and
+    /// iOS version (`TyprKeyboardMetrics.portrait`): 35 pt strip area + 218 pt of keys
+    /// (4 × 45 pt + 3 × 11 pt + 5 pt) = 253 pt. Hex's corners and row arrangement stay.
+    static let typrPortrait = KeyboardMetrics(
+        side: 6.5, gap: 6, rowGap: 11, keyHeight: 45,
+        stripTop: 0, stripHeight: 33, stripBottom: 2,
+        keysTop: 0, keysBottom: 5, cornerRadius: keyCornerRadius
     )
 
-    /// Whether Apple's iPhone keyboard draws iOS 26's rows (`KeyboardLanguage.systemMajorVersion`):
-    /// on iOS 26 (iOS 26.2 to 26.5 simulators, black box) its panel is 7 pt taller under the keys
-    /// on an 844 to 874 pt iPhone and 2 pt shorter on a 900 pt or taller one, and turned its keys
-    /// are smaller (`landscapeIOS26`). iOS 18 is unmeasured (no simulator runtime) and keeps the
-    /// iOS 27 rows Hex always drew there. The SE, the Duo and the iPad keep one set of metrics.
-    static var appleRowsAreIOS26: Bool { KeyboardLanguage.systemMajorVersion == 26 }
+    /// Typr's compact iPhone keys turned (`TyprKeyboardMetrics.landscape`): 39 pt strip area +
+    /// 137 pt of keys (4 × 27.5 pt + 3 × 8 pt + 3 pt) = 176 pt, in Hex's turned columns.
+    static let typrLandscape = KeyboardMetrics(
+        side: 4, gap: 6, rowGap: 8, keyHeight: 27.5,
+        stripTop: 0, stripHeight: 33, stripBottom: 6,
+        keysTop: 0, keysBottom: 3, cornerRadius: keyCornerRadius, bottomRowReturnColumn: 8,
+        modifierLetterRatio: 1.33
+    )
+
+    static let typrStripPillHeight: CGFloat = 26
+
+    /// Typr's portrait side insets by keyboard width (`TyprKeyboardMetrics.for`).
+    static func typrPortraitSide(innerWidth: CGFloat?) -> CGFloat {
+        guard let innerWidth else { return typrPortrait.side }
+        if innerWidth >= 390 { return 6.5 }
+        return innerWidth >= 370 ? 4.5 : 3.0
+    }
 
     /// Turned, iOS draws no band above the keyboard (iPhone 17 Pro Max, iOS 27.2): Apple's keycaps
     /// start 50 pt below the panel's edge, so the strip is 42 pt and the same gap.
     static let landscapeStripHeight: CGFloat = 42
-
-    /// The other iPhones' key planes (`KeyboardPhoneSize`), measured the same way: a Home-button
-    /// iPhone (SE) has 42 pt keycaps on a 54 pt pitch and 4 pt under row 4; one 900 pt or taller
-    /// (Air, Pro Max) 45 pt keycaps on a 56 pt pitch and 7 pt under row 4, 5 pt on iOS 26 (Air and
-    /// 17 Pro Max, iOS 26.5: every row 2 pt lower, 264 pt in all).
-    static func phonePortrait(_ size: KeyboardPhoneSize) -> KeyboardMetrics {
-        switch size {
-        case .regular:
-            return appleRowsAreIOS26 ? .portraitIOS26 : .portrait
-        case .homeButton:
-            return KeyboardMetrics(
-                side: 6.5, gap: 6, rowGap: 12, keyHeight: 42,
-                stripTop: 0, stripHeight: stripBarHeight, stripBottom: stripGap,
-                keysTop: 0, keysBottom: 4, cornerRadius: keyCornerRadius
-            )
-        case .large:
-            return KeyboardMetrics(
-                side: 6.5, gap: 6, rowGap: 11, keyHeight: 45,
-                stripTop: 0, stripHeight: stripBarHeight, stripBottom: stripGap,
-                keysTop: 0, keysBottom: appleRowsAreIOS26 ? 5 : 7, cornerRadius: keyCornerRadius
-            )
-        }
-    }
 
     /// Turned, Apple's keys are the same on every iPhone (17e, 17 Pro, Air, 17 Pro Max and SE,
     /// iOS 27.2, beside Hex in the same field): 32 pt keycaps on a 40 pt pitch, row 4 ending
@@ -361,30 +352,6 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
         keysTop: 0, keysBottom: 2, cornerRadius: keyCornerRadius, bottomRowReturnColumn: 8,
         modifierLetterRatio: 1.33
     )
-
-    /// Turned on iOS 26 (iPhone 12, 16, 17 Pro, Air and 17 Pro Max, iOS 26.5): iOS 26's 27.33 pt
-    /// keycaps on a 35.33 pt pitch, row 4 ending 4 pt above the view's bottom, in iOS 27's
-    /// columns: 50 pt + 137.33 pt of keys (4 × 27.33 pt + 3 × 8 pt + 4 pt) = 187.33 pt, whose top
-    /// edge meets Apple's panel edge.
-    static let landscapeIOS26 = KeyboardMetrics(
-        side: 4, gap: 6, rowGap: 8, keyHeight: 82.0 / 3,
-        stripTop: 0, stripHeight: landscapeStripHeight, stripBottom: stripGap,
-        keysTop: 0, keysBottom: 4, cornerRadius: keyCornerRadius, bottomRowReturnColumn: 8,
-        modifierLetterRatio: 1.33
-    )
-
-    /// Turned, a Home-button iPhone (the SE) sets Apple's keys 72 pt in from each side, 47 pt
-    /// wide, with 4 pt under row 4; Hex's ran to 4 pt from the edges, 60.5 pt wide.
-    static let homeButtonLandscape: KeyboardMetrics = {
-        var m = landscape.with(side: 72)
-        m = KeyboardMetrics(
-            side: m.side, gap: m.gap, rowGap: m.rowGap, keyHeight: m.keyHeight,
-            stripTop: m.stripTop, stripHeight: m.stripHeight, stripBottom: m.stripBottom,
-            keysTop: m.keysTop, keysBottom: 4, cornerRadius: m.cornerRadius,
-            bottomRowReturnColumn: m.bottomRowReturnColumn, modifierLetterRatio: m.modifierLetterRatio
-        )
-        return m
-    }()
 
     /// iPad keys, measured beside Apple's keyboard in the same field (iPadOS 27.2 simulator: iPad
     /// mini A17 Pro, iPad Pro 11-inch and 13-inch M5). Docked, Hex keeps the iPhone's rows, and
@@ -460,7 +427,7 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
     ) -> KeyboardMetrics {
         let rows = letterRows(
             orientation, innerWidth: innerWidth, posture: posture, windowInset: windowInset,
-            phoneSize: phoneSize, pad: pad, joinsUnfoldedKeyboard: joinsUnfoldedKeyboard
+            pad: pad, joinsUnfoldedKeyboard: joinsUnfoldedKeyboard
         )
         return numberRow && pad == nil ? rows.withNumberRow() : rows
     }
@@ -489,25 +456,17 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
         innerWidth: CGFloat?,
         posture: KeyboardPosture,
         windowInset: CGFloat,
-        phoneSize: KeyboardPhoneSize,
         pad: KeyboardPadPlacement?,
         joinsUnfoldedKeyboard: Bool
     ) -> KeyboardMetrics {
         if let pad { return .pad(pad, orientation: orientation) }
         let base: KeyboardMetrics
+        // Typr: an iPhone gets Typr's compact keys (`typrPortrait`, `typrLandscape`) instead of
+        // Hex's per-size Apple rows; the Duo and the iPad keep Hex's.
         if orientation == .landscape {
-            if posture != .phone {
-                base = .landscape
-            } else if phoneSize == .homeButton {
-                base = .homeButtonLandscape
-            } else {
-                base = appleRowsAreIOS26 ? .landscapeIOS26 : .landscape
-            }
+            base = posture != .phone ? .landscape : .typrLandscape
         } else if posture == .phone {
-            let phone = phonePortrait(phoneSize)
-            // Apple's keys start 6.5 pt in on every iPhone from the SE's 375 pt up.
-            let side: CGFloat = (innerWidth ?? 402) >= 370 ? 6.5 : 3.0
-            base = side == phone.side ? phone : phone.with(side: side)
+            base = typrPortrait.with(side: typrPortraitSide(innerWidth: innerWidth))
         } else {
             base = .portrait
         }
