@@ -7,4 +7,5 @@ public struct CGVector: Equatable, Sendable {
         self.dx = dx
         self.dy = dy
     }
+    public static let zero = CGVector(dx: 0, dy: 0)
 }
