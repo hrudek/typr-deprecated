@@ -294,6 +294,7 @@ final class AIOffSnapshotTests: XCTestCase {
         ]
         for (name, apply) in variants {
             apply(settings)
+            controller.setDictationLanguage(settings.dictationLanguage)
             let styles = DictationStyle.choices(typrStyles: settings[experiment: .typrDictationStyles])
             for style in styles {
                 for (index, heard) in corpus.enumerated() {

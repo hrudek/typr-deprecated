@@ -2,7 +2,7 @@ import Foundation
 
 /// An opt-in switch in Settings > Experimental for behavior that deviates from the default.
 /// Always off by default. To add one: declare a static constant and list it in `all`.
-struct ExperimentalSwitch: Hashable {
+nonisolated struct ExperimentalSwitch: Hashable {
     let key: String
     let title: String
     let detail: String
@@ -219,8 +219,7 @@ nonisolated enum TranslationFailure: String, Sendable {
 /// Typr switches, stored in the App Group so the keyboard reads them too.
 /// Each switch documents its default. Dictation log deliberately retains saved history while off;
 /// other switches keep upstream's behavior when off.
-@MainActor
-struct TyprSettings {
+nonisolated struct TyprSettings {
     private enum Key {
         static let aiCleanup = "typr.aiCleanup"
         static let dictationLog = "typr.dictationLog"
