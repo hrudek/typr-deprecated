@@ -320,6 +320,7 @@ final class FullKeyboardEngine {
         }
         shift.reset()
         lastSpaceAt = nil
+        heldSpaceBefore = nil
         autocorrect.clearPendingUndo()
         autocorrect.clearRevertOffer()
         refreshDeleteUndo()
@@ -332,6 +333,7 @@ final class FullKeyboardEngine {
 
     /// Call after the text or the cursor changed outside these keys.
     func textDidChange() {
+        heldSpaceBefore = nil
         endTypingLogWord("external")
         endStatisticsSession()
         invalidateTouchEvidence()
@@ -349,6 +351,11 @@ final class FullKeyboardEngine {
     func discardTouchEvidence() {
         invalidateTouchEvidence()
         refreshSuggestions()
+    }
+
+    func discardTouchEvidenceAndHeldSpace() {
+        heldSpaceBefore = nil
+        discardTouchEvidence()
     }
 
     /// For callers that refresh right afterwards anyway. Applied manual choices clear the
@@ -556,8 +563,8 @@ final class FullKeyboardEngine {
         }
         autocorrect.clearPendingUndo()
         let holdsSpace = textAfterSeparates
-        insert(holdsSpace ? replacement : replacement + " ", keepsFeedback: suggestion.boundary == nil)
-        if holdsSpace { holdSpace() }
+        insert(holdsSpace ? replacement : replacement + " ", keepsFeedback: suggestion.boundary == nil,
+               holdsSpace: holdsSpace)
         logTyping { log in
             if let original {
                 log.picked(from: original, to: replacement, chip: Self.chipName(suggestion.kind),
@@ -923,6 +930,7 @@ final class FullKeyboardEngine {
     }
 
     private func startTrackpad(_ touch: inout ActiveTouch, id: Int, time: TimeInterval?) {
+        heldSpaceBefore = nil
         discardTouchEvidence()
         endTypingLogWord("cursor")
         touch.isTrackpad = true
@@ -1019,7 +1027,6 @@ final class FullKeyboardEngine {
 
     func deleteBackward(allowAutocorrectUndo: Bool = true, recordsStatistics: Bool = true) {
         if spacePending {
-            heldSpaceBefore = nil
             lastSpaceAt = nil
             didEdit()
             return
@@ -1142,7 +1149,6 @@ final class FullKeyboardEngine {
         prepareStatisticsEdit()
         if spacePending {
             if let first = text.first, Self.closingMarks.contains(first) {
-                heldSpaceBefore = nil
                 autocorrect.forgetSpaceTaps()
                 statistics?.direct(text)
                 insert(text)
@@ -1220,7 +1226,6 @@ final class FullKeyboardEngine {
         onChange?()
     }
 
-    // MARK: - Held space
     // Adapted from Hex (anomalyco/hex #2214, MIT): mid-sentence, where the text after the cursor
     // already starts with a space or a closing mark, the space after a word is held instead of
     // typed, and goes in only if the next key starts another word.
@@ -1247,12 +1252,6 @@ final class FullKeyboardEngine {
     private var stripBefore: String? {
         let before = target.documentContextBeforeInput
         return spacePending ? before.map { $0 + " " } : before
-    }
-
-    private func holdSpace() {
-        heldSpaceBefore = target.documentContextBeforeInput
-        refreshAutoCapitalization()
-        refreshSuggestions()
     }
 
     private func typeHeldSpace() {
@@ -1311,14 +1310,13 @@ final class FullKeyboardEngine {
             logTyping { $0.boundary(" ", replacement: replacement, correction: typingLogCorrection) }
             autocorrect.recordAppliedCorrection(original: original, corrected: replacement, separator: ending,
                                                 before: target.documentContextBeforeInput)
-            if ending.isEmpty { heldSpaceBefore = target.documentContextBeforeInput }
             if let sample {
                 autocorrect.spaceTyped(at: sample.point, layout: layout, afterInput: target.documentContextBeforeInput)
             }
             lastSpaceAt = now
             layerState.didInsert(" ")
             rebuildLayoutIfNeeded()
-            didEdit()
+            didEdit(holdsSpace: ending.isEmpty)
             return
         }
         autocorrect.clearPendingUndo()
@@ -1329,8 +1327,7 @@ final class FullKeyboardEngine {
             lastSpaceAt = now
             layerState.didInsert(" ")
             rebuildLayoutIfNeeded()
-            heldSpaceBefore = target.documentContextBeforeInput
-            didEdit()
+            didEdit(holdsSpace: true)
             return
         }
         let calibration = sample == nil ? nil : autocorrect.learning.calibration(for: layout)
@@ -1356,7 +1353,8 @@ final class FullKeyboardEngine {
     }
 
     /// `keepsFeedback`: the boundary's own separator, which opened the pending word feedback.
-    private func insert(_ text: String, sample: KeyboardTouchWord.Sample? = nil, keepsFeedback: Bool = false) {
+    private func insert(_ text: String, sample: KeyboardTouchWord.Sample? = nil, keepsFeedback: Bool = false,
+                        holdsSpace: Bool = false) {
         let before = target.documentContextBeforeInput
         target.insertText(text)
         if sample != nil, text.count == 1, text.first?.isLetter == true {
@@ -1377,10 +1375,11 @@ final class FullKeyboardEngine {
         lastSpaceAt = nil
         layerState.didInsert(text)
         rebuildLayoutIfNeeded()
-        didEdit()
+        didEdit(holdsSpace: holdsSpace)
     }
 
-    private func didEdit() {
+    private func didEdit(holdsSpace: Bool = false) {
+        heldSpaceBefore = holdsSpace ? target.documentContextBeforeInput : nil
         statisticsContext = statistics == nil ? nil : target.documentContextBeforeInput.flatMap(Self.boundedSuggestionContext)
         statisticsSessionRevision = statistics?.sessionRevision
         refreshAutoCapitalization()

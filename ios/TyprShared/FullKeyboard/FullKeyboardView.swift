@@ -373,7 +373,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     func discardTouchEvidence() {
         engine.endTypingLogWord("external")
         engine.endStatisticsSession()
-        engine.discardTouchEvidence()
+        engine.discardTouchEvidenceAndHeldSpace()
     }
 
     /// Frees non-essential UI and Metal drawables when the extension approaches its memory ceiling.

@@ -91,8 +91,6 @@ final class MidSentenceEditingTests: XCTestCase {
         engine.acceptSuggestion(try XCTUnwrap(engine.suggestions.first { $0.replacement == word }, "\(word) offered"))
     }
 
-    // MARK: - Space after a word mid-sentence
-
     func testSpaceBeforeASpaceTypesNoSecondOneGerman() {
         start("Ich habe | Zeit.", german: true)
         type("morgen ")
@@ -148,7 +146,73 @@ final class MidSentenceEditingTests: XCTestCase {
         XCTAssertEqual(shown, "I come |\ntoday")
     }
 
-    // MARK: - Picking a suggestion mid-sentence
+    func testMovingTheCursorAwayAndBackDropsTheHeldSpace() {
+        start("Ich habe | Zeit.", german: true)
+        type("morgen ")
+        target.adjustTextPosition(byCharacterOffset: -3)
+        engine.discardTouchEvidenceAndHeldSpace()
+        target.adjustTextPosition(byCharacterOffset: 3)
+        engine.discardTouchEvidenceAndHeldSpace()
+        type("s")
+        XCTAssertEqual(shown, "Ich habe morgens| Zeit.")
+
+        start("I have | time.", german: false)
+        type("today ")
+        engine.textDidChange()
+        type("s")
+        XCTAssertEqual(shown, "I have todays| time.")
+    }
+
+    func testTheSpaceBarTrackpadDropsTheHeldSpace() {
+        start("Ich habe | Zeit.", german: true)
+        type("morgen ")
+        let space = engine.layout.key(.space)!.frame
+        let start = CGPoint(x: space.midX, y: space.midY)
+        let activated = CGPoint(x: start.x - FullKeyboardEngine.trackpadActivationDistance, y: start.y)
+        let away = CGPoint(x: activated.x - 3 * FullKeyboardEngine.trackpadPointsPerCharacter, y: start.y)
+        engine.touchBegan(id: 3, at: start)
+        now += FullKeyboardEngine.trackpadDelay + 0.1
+        engine.touchMoved(id: 3, to: activated)
+        engine.touchMoved(id: 3, to: away)
+        engine.touchMoved(id: 3, to: activated)
+        engine.touchEnded(id: 3, at: activated)
+        now += 0.3
+        XCTAssertEqual(shown, "Ich habe morgen| Zeit.")
+        type("s")
+        XCTAssertEqual(shown, "Ich habe morgens| Zeit.")
+    }
+
+    func testEditsAfterTheHeldSpaceDropItWhenDeletedBack() {
+        start("Ich habe | Zeit.", german: true)
+        type("morgen x")
+        XCTAssertEqual(shown, "Ich habe morgen x| Zeit.")
+        engine.deleteBackward()
+        engine.deleteBackward()
+        XCTAssertEqual(shown, "Ich habe morgen| Zeit.")
+        type("s")
+        XCTAssertEqual(shown, "Ich habe morgens| Zeit.")
+    }
+
+    func testASwipeAfterTheHeldSpaceDropsItWhenDeletedBack() async {
+        start("Ich komme| Zeit.", german: true, swiped: "heute")
+        type(" ")
+        await swipe("heute")
+        XCTAssertEqual(shown, "Ich komme heute| Zeit.")
+        engine.deleteBackward()
+        engine.deleteBackward()
+        XCTAssertEqual(shown, "Ich komme| Zeit.")
+        type("s")
+        XCTAssertEqual(shown, "Ich kommes| Zeit.")
+
+        start("I come| today.", german: false, swiped: "back")
+        type(" ")
+        await swipe("back")
+        XCTAssertEqual(shown, "I come back| today.")
+        engine.deleteBackward()
+        engine.deleteBackward()
+        type("s")
+        XCTAssertEqual(shown, "I comes| today.")
+    }
 
     func testPickingACorrectionMidSentenceTypesNoSecondSpaceGerman() async throws {
         start("ich | heute", german: true)
@@ -177,8 +241,6 @@ final class MidSentenceEditingTests: XCTestCase {
                                                    ownership: engine.suggestionOwnership))
         XCTAssertEqual(shown, "ich nicht komme| heute")
     }
-
-    // MARK: - No stray capitals mid-sentence
 
     func testLexiconTermsCompleteInLowercaseMidSentenceGerman() async {
         start("Wir warten |", german: true, lexicon: ["Lange", "Rose"])
