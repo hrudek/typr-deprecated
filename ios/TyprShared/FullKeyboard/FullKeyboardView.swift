@@ -296,6 +296,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             engine.refreshSuggestions()
         }
         if wantsAutocorrect { engine.autocorrect.spatialDecoder?.prepareResources() }
+        engine.autocorrect.learnsLanguagesSeparately = TyprSettings()[experiment: .learnEachLanguage]
+        if engine.autocorrect.loadCustomWords(CustomVocabularySettings().terms) { engine.refreshSuggestions() }
         engine.swipeTypingEnabled = FullKeyboardSettings().swipeTyping
         engine.followsTextOnTrackpad = TyprSettings()[experiment: .spaceTrackpad]
         engine.slidesDeleteByWord = TyprSettings()[experiment: .deleteSlide]

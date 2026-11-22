@@ -148,6 +148,12 @@ extension AutocorrectEngine {
         return checker.isWordValid(word) || checker.isWordValid(lower)
     }
 
+    /// The language `text`'s last words lean to, which a word learned at its end is kept under.
+    func learningLanguage(_ text: String) -> SpatialWordDecoder.Language? {
+        let lean = languageLean(text, commonFrom: 2)
+        return lean > 0 ? .german : lean < 0 ? .english : nil
+    }
+
     /// Positive when the last words lean German, negative for English: a word only one
     /// dictionary knows counts for it, one both know by the typing models' odds when it has
     /// at least `commonFrom` letters.

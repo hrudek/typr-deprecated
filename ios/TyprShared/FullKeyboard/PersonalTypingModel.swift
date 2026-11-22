@@ -191,12 +191,18 @@ final class PersonalTypingModel {
         // Historical field name retained: schema 1/2 lack it, schema 3 holds bigrams,
         // schema 4 additionally allows two-word context keys. No observations invented.
         var bigrams: PersonalBigramModel? = .init()
+        /// The language each learned word was typed in ("de", "en", or `bothLanguages` once typed in
+        /// both). Words learned before this field, or in a sentence of neither, belong to both.
+        var languages: [String: String]?
+        static let bothLanguages = "mul"
 
         func validated() -> State? {
             guard (1...5).contains(schemaVersion), layouts.count <= 4,
                   (schemaVersion < 3 || bigrams != nil),
                   Set(kept.keys).union(counts.keys).count <= 2000, rejected.count <= 512,
-                  Set(rejected).count == rejected.count else { return nil }
+                  Set(rejected).count == rejected.count,
+                  (languages ?? [:]).allSatisfy({ Self.validWord($0.key)
+                      && [Self.bothLanguages, "de", "en"].contains($0.value) }) else { return nil }
             for (id, layout) in layouts {
                 let signature = layout.signature
                 guard id == signature.id, signature.isValid,
@@ -233,6 +239,7 @@ final class PersonalTypingModel {
             // Schema 1/2 start empty (no invented observations). An out-of-bounds pair section
             // drops only the pairs: keeps, counts, rejections and touch statistics survive.
             if migrated.bigrams?.isValid != true { migrated.bigrams = .init() }
+            migrated.pruneLanguages()
             return migrated
         }
 
@@ -288,6 +295,18 @@ final class PersonalTypingModel {
                     bigrams?.purge(victim)
                 }
             }
+            pruneLanguages()
+        }
+
+        mutating func tag(_ word: String, _ language: SpatialWordDecoder.Language?) {
+            guard let language else { return }
+            let previous = languages?[word]
+            languages = languages ?? [:]
+            languages?[word] = previous == nil || previous == language.rawValue ? language.rawValue : Self.bothLanguages
+        }
+
+        mutating func pruneLanguages() {
+            languages = languages?.filter { kept[$0.key] != nil || counts[$0.key] != nil }
         }
 
         /// Used only to enforce the encoded byte ceiling. Touch statistics are never evicted here.
@@ -312,6 +331,7 @@ final class PersonalTypingModel {
                 case .counted(let word): counts.removeValue(forKey: word)
                 }
             }
+            pruneLanguages()
             let pairsToDrop = min(rejected.count, limit - oldest.count)
             if pairsToDrop > 0 { rejected.removeFirst(pairsToDrop) }
             return !oldest.isEmpty || pairsToDrop > 0
@@ -465,17 +485,18 @@ final class PersonalTypingModel {
 
     // Explicit keeps remain available while learning is off. Counting is a separate trusted event.
     @discardableResult
-    func keep(_ word: String) -> Bool {
+    func keep(_ word: String, language: SpatialWordDecoder.Language? = nil) -> Bool {
         let word = PersonalLexiconSnapshot.normalize(word)
         guard State.validWord(word) else { return false }
         state.kept[word] = now()
+        state.tag(word, language)
         state.enforceWordLimit()
         cachedLexicon = nil
         return true
     }
 
     @discardableResult
-    func recordWord(_ word: String) -> Bool {
+    func recordWord(_ word: String, language: SpatialWordDecoder.Language? = nil) -> Bool {
         let word = PersonalLexiconSnapshot.normalize(word)
         guard isLearningEnabled, State.validWord(word) else { return false }
         // Manual acceptances and independent literal settlements advance the same clock.
@@ -483,6 +504,7 @@ final class PersonalTypingModel {
         ageRejections()
         let count = min(10_000, (state.counts[word]?.count ?? 0) + 1)
         state.counts[word] = WordCount(count: count, lastUpdated: now())
+        state.tag(word, language)
         state.enforceWordLimit()
         cachedLexicon = nil
         return true
@@ -544,6 +566,7 @@ final class PersonalTypingModel {
     /// Explicit deletion in Manage learned words purges pairs in the store instead.
     func forgetKeep(_ word: String) {
         state.kept.removeValue(forKey: PersonalLexiconSnapshot.normalize(word))
+        state.pruneLanguages()
         cachedLexicon = nil
     }
 
@@ -556,7 +579,13 @@ final class PersonalTypingModel {
     func forgetCount(_ word: String) {
         state.bigrams?.purge(word)
         state.counts.removeValue(forKey: PersonalLexiconSnapshot.normalize(word))
+        state.pruneLanguages()
         cachedLexicon = nil
+    }
+
+    /// The one language a learned word was typed in; nil for a word of both or an untagged one.
+    func language(of word: String) -> SpatialWordDecoder.Language? {
+        state.languages?[PersonalLexiconSnapshot.normalize(word)].flatMap(SpatialWordDecoder.Language.init(rawValue:))
     }
 
     var lexicon: PersonalLexiconSnapshot {

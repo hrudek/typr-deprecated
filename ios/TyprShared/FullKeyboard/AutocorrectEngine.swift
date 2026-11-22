@@ -222,6 +222,11 @@ final class AutocorrectEngine {
     var letters = KeyboardLetterLayout.qwerty
     /// Settings > Experimental > Words from context (`ExperimentalSwitch.wordsFromContext`).
     var choosesWordsFromContext = false { didSet { invalidateDecode() } }
+    /// Settings > Experimental > Learn each language separately (`ExperimentalSwitch.learnEachLanguage`):
+    /// a sentence leaning one language gets no learned completions typed only in the other.
+    var learnsLanguagesSeparately = false
+    /// The text before the cursor of the last strip, so a pick from it is learned in its language.
+    private var stripInput: String?
     private(set) var lexiconShortcuts: [String: String] = [:]
     private(set) var protectedLexicon: ProtectedPersonalLexicon = .empty
 
@@ -261,6 +266,8 @@ final class AutocorrectEngine {
     }
 
     private var lexiconTerms: [String] = []
+    private var systemLexiconTerms: [String] = []
+    private var customWords: [String] = []
     private(set) var lexiconTermKeys: Set<String> = []
     private(set) var suppressedInSession: Set<String> = []
     private var reversibleRejection: RejectedCorrection?
@@ -564,8 +571,29 @@ final class AutocorrectEngine {
         }
         invalidateDecode()
         lexiconShortcuts = shortcuts
-        lexiconTerms = terms
-        lexiconTermKeys = Set(terms.map { $0.lowercased() })
+        systemLexiconTerms = terms
+        updateLexiconTerms()
+    }
+
+    /// Your words (the vocabulary list dictation spells with) join the lexicon's: never corrected
+    /// away and completed in the strip in either language. A phrase adds each of its words.
+    /// Returns whether they changed.
+    @discardableResult
+    func loadCustomWords(_ terms: [String]) -> Bool {
+        var seen: Set<String> = []
+        let words = terms.flatMap { $0.split(whereSeparator: \.isWhitespace).map(String.init) }
+            .filter { $0.count >= 2 && seen.insert($0.lowercased()).inserted }
+        guard words != customWords else { return false }
+        invalidateDecode()
+        customWords = words
+        updateLexiconTerms()
+        return true
+    }
+
+    private func updateLexiconTerms() {
+        let systemKeys = Set(systemLexiconTerms.map { $0.lowercased() })
+        lexiconTerms = systemLexiconTerms + customWords.filter { !systemKeys.contains($0.lowercased()) }
+        lexiconTermKeys = Set(lexiconTerms.map { $0.lowercased() })
     }
 
     // Casing adapted from anomalyco/hex AutocorrectEngine.shortcut(for:) (MIT, #2153).
@@ -637,7 +665,12 @@ final class AutocorrectEngine {
     /// Explicit keep: protects the spelling for this engine and in the personal lexicon.
     func suppressAndKeep(_ word: String) {
         suppressedInSession.insert(word.lowercased())
-        learning.keep(word)
+        learning.keep(word, language: stripLanguage(of: word))
+    }
+
+    private func stripLanguage(of word: String) -> SpatialWordDecoder.Language? {
+        let input = stripInput ?? ""
+        return learningLanguage(String(input.dropLast(Self.currentToken(in: input)?.count ?? 0)) + word)
     }
 
     /// Settings poll and keyboard appearance: switch value, app resets and storage access.
@@ -750,7 +783,7 @@ final class AutocorrectEngine {
         learning.settleTrustedWord(pending.literal, beforeInput: beforeInput)
         learnIdentity(evidence, literal: pending.literal, source: .literalValid)
         learning.confirmLiteral(pending.literal)
-        learning.recordWord(pending.literal)
+        learning.recordWord(pending.literal, language: learningLanguage(beforeInput))
     }
 
     func forgetSpaceTaps() {
@@ -869,16 +902,16 @@ final class AutocorrectEngine {
             learning.increment(.keepChip)
             if let evidence { learnIdentity(evidence, literal: literal, source: .keep) }
             suppressAndKeep(literal)
-            if mayLearn { learning.recordWord(literal) }
+            if mayLearn { learning.recordWord(literal, language: stripLanguage(of: literal)) }
         } else if suggestion.isCompletion || Self.isPrefixExtension(suggestion.replacement, of: literal) {
             learning.increment(.manualCompletionPick)
             // Text-free: which chip a personal reorder placed, never which word.
             if suggestion.isPersonal { learning.increment(.personalCompletionPick) }
-            if mayLearn { learning.recordWord(suggestion.replacement) }
+            if mayLearn { learning.recordWord(suggestion.replacement, language: stripLanguage(of: suggestion.replacement)) }
         } else {
             learning.increment(.manualAlternativePick)
             if let evidence, evidence.learningIntact { learnAligned(evidence, word: suggestion.replacement) }
-            if mayLearn { learning.recordWord(suggestion.replacement) }
+            if mayLearn { learning.recordWord(suggestion.replacement, language: stripLanguage(of: suggestion.replacement)) }
         }
     }
 
@@ -892,7 +925,7 @@ final class AutocorrectEngine {
         }
         settleFeedback(beforeInput: beforeInput, insertedLetter: String(first), afterInput: beforeInput + String(first))
         pendingPairChoice = learning.isLearningEnabled ? (word, learning.feedbackEpoch) : nil
-        learning.recordWord(word)
+        learning.recordWord(word, language: learningLanguage(beforeInput + word))
     }
 
     private func learnIdentity(_ evidence: KeyboardTouchWord, literal: String, source: TouchLabelSource) {
@@ -982,6 +1015,7 @@ final class AutocorrectEngine {
     ) -> [KeyboardSuggestion] {
         let evidence = touchInput.evidence(beforeInput: beforeInput)
         guard field == .text, autocorrectionType != .no else { return [] }
+        stripInput = beforeInput
         let activeToken = Self.currentToken(in: beforeInput)
         let sentence = sentenceContext(before: beforeInput, token: activeToken)
         let contextModel = sentence?.model
@@ -1145,11 +1179,15 @@ final class AutocorrectEngine {
             // Learn from my typing: completions the user types often (or kept) move up, and
             // missing personal words with this prefix may join. Off: no personal influence.
             if job.personal?.completions.entries.isEmpty == false {
+                let sentenceLanguage = learnsLanguagesSeparately
+                    ? learningLanguage(String(beforeInput?.dropLast(token.count) ?? "")) : nil
                 let system = englishEnabled && token.count >= 2 ? systemCompletions(for: token) : []
                 let baseline = corpus.filter(\.isCompletion).map(\.text) + system
                 for promotion in KeyboardCompletionRanking.promotions(
                     token: token, baseline: baseline, additions: retrieval.personal,
                     personal: learning.personalPriors) where pool.count < completionLimit {
+                    if let sentenceLanguage, let learned = learning.model.language(of: promotion.word),
+                       learned != sentenceLanguage { continue }
                     let cased = promotion.isAddition ? personalSpelling(promotion.word, token: token) : promotion.word
                     offer(cased, isCompletion: true, personal: true)
                 }

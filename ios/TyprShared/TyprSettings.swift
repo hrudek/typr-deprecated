@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -90,6 +90,14 @@ struct ExperimentalSwitch: Hashable {
         name: "keyboardDictationAppleSpeech",
         title: "Keyboard dictation: Apple Speech in the keyboard",
         detail: "Off: the Typr key dictates in the Typr app with your selected engine, such as Orukeet. On: without a warm mic, the keyboard records itself and transcribes with Apple Speech, not Orukeet, without opening Typr. A warm mic still uses your selected engine. Needs iOS 26; Typr opens as before when memory, the microphone or Apple Speech's language isn't available."
+    )
+
+    /// Hex's per-language learning (anomalyco/hex #2188): learned words carry the language of the
+    /// sentence they were typed in, whether this is on or not.
+    static let learnEachLanguage = ExperimentalSwitch(
+        name: "learnEachLanguage",
+        title: "Learn each language separately",
+        detail: "Words Typr learned from your typing in English are not suggested in a German sentence, and the other way round. Words typed in both languages stay in both."
     )
 }
 
