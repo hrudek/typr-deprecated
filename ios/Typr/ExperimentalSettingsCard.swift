@@ -8,6 +8,7 @@ struct ExperimentalSettingsCard: View {
     var hexExperiments = ExperimentalSwitch.hexExperiments
     var typrVariants = ExperimentalSwitch.typrVariants
     var defaults = UserDefaults(suiteName: KeyboardBridge.appGroup)
+    var dictation: DictationController?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -26,7 +27,11 @@ struct ExperimentalSettingsCard: View {
             }
             ForEach(Array(switches.enumerated()), id: \.element) { index, experiment in
                 if index > 0 { SettingsDivider() }
-                ExperimentalToggle(experiment: experiment, settings: TyprSettings(defaults: defaults))
+                if experiment == .multilingualParakeet {
+                    MultilingualParakeetToggle(settings: TyprSettings(defaults: defaults), dictation: dictation)
+                } else {
+                    ExperimentalToggle(experiment: experiment, settings: TyprSettings(defaults: defaults))
+                }
             }
         }
     }
@@ -46,5 +51,48 @@ struct ExperimentalToggle: View {
     var body: some View {
         SettingsToggle(title: experiment.title, detail: experiment.detail, isOn: $isOn)
             .onChange(of: isOn) { _, enabled in settings[experiment: experiment] = enabled }
+    }
+}
+
+/// Hex's multilingual model switch: downloads Parakeet Ultra when turned on, deletes it when
+/// turned off, and shows the download or load beneath it.
+struct MultilingualParakeetToggle: View {
+    static let doesNotFitDetail = "Needs an iPhone with 6 GB of memory or more."
+
+    let settings: TyprSettings
+    let dictation: DictationController?
+    private let fits = MultilingualParakeetSettings.fits()
+    @State private var isOn: Bool
+
+    init(settings: TyprSettings, dictation: DictationController?) {
+        self.settings = settings
+        self.dictation = dictation
+        _isOn = State(initialValue: settings[experiment: .multilingualParakeet])
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsToggle(
+                title: ExperimentalSwitch.multilingualParakeet.title,
+                detail: fits ? ExperimentalSwitch.multilingualParakeet.detail : Self.doesNotFitDetail,
+                isOn: $isOn
+            )
+            .disabled(!fits)
+            .onChange(of: isOn) { _, enabled in
+                guard enabled != settings[experiment: .multilingualParakeet] else { return }
+                settings[experiment: .multilingualParakeet] = enabled
+                dictation?.multilingualParakeetChanged()
+            }
+            if isOn, let dictation {
+                MultilingualModelStatus(
+                    download: dictation.multilingualDownload,
+                    retry: { dictation.retryMultilingualParakeet() },
+                    turnOff: { isOn = false }
+                )
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+            }
+        }
+        .onAppear { isOn = settings[experiment: .multilingualParakeet] }
     }
 }

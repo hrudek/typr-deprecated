@@ -208,6 +208,90 @@ final class ModelPreparationTests: XCTestCase {
             for: SpeechModelUnavailable(language: "ru-RU", reason: .notOnThisIPhone, fallback: "en-US", automatic: false)),
             "a language picked by hand is not switched")
     }
+
+    // MARK: - Experimental › Hex experiments › Multilingual model (Parakeet)
+
+    /// The App Group switch the controller reads, cleared after each test.
+    private func clearMultilingualSwitch() {
+        let group = UserDefaults(suiteName: KeyboardBridge.appGroup)
+        group?.removeObject(forKey: MultilingualParakeetSettings.enabledKey)
+        group?.removeObject(forKey: MultilingualParakeetSettings.modelReadyKey)
+    }
+
+    func testTurningTheMultilingualModelOffDeletesItOnlyOnceItsLoadReturned() async throws {
+        defer {
+            ParakeetUltraModel.remove()
+            clearMultilingualSwitch()
+        }
+        let controller = controller(factory: { PrepTranscriber(.ready) })
+        let folder = ParakeetUltraModel.directory
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        controller.multilingualLoads.insert(99)
+
+        controller.turnOffMultilingualParakeet()
+        try await waitForState("deletion waits") { controller.deletionWaitsForTesting == 1 }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path), "the load still reads its files")
+
+        controller.multilingualLoads.remove(99)
+        try await waitForState("deleted") { !FileManager.default.fileExists(atPath: folder.path) }
+    }
+
+    func testAMultilingualModelThatFailsToLoadKeepsTheEngineThatWorked() async throws {
+        defer { clearMultilingualSwitch() }
+        let controller = controller(factory: { PrepTranscriber(.ready, name: "Apple Speech") })
+        controller.prepareModel()
+        try await waitForState("ready") { controller.phase == .ready }
+
+        controller.prepareModel(fallbacksLeft: 2, candidate: ParakeetUltraTranscriber(language: "de-DE"))
+        try await waitForState("kept") { controller.phase == .ready && controller.languageNotice != nil }
+        XCTAssertEqual(controller.currentEngine, .appleSpeech)
+        XCTAssertTrue(controller.isModelReady)
+        XCTAssertEqual(controller.languageNotice,
+                       "The multilingual model isn't downloaded yet. Typr keeps using Apple Speech.")
+        XCTAssertTrue(controller.multilingualLoads.isEmpty)
+    }
+
+    func testTurningMultilingualParakeetOnOrOffPreparesAgainOnceIdle() async throws {
+        defer { clearMultilingualSwitch() }
+        let queue = Queue([PrepTranscriber(.ready)])
+        let controller = controller(factory: { queue.next() })
+        controller.prepareModel()
+        try await waitForState("ready") { controller.phase == .ready }
+        XCTAssertEqual(queue.made, 1)
+
+        // Turned off while the usual engine dictates: nothing to prepare again.
+        controller.turnOffMultilingualParakeet()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(queue.made, 1)
+        XCTAssertEqual(controller.phase, .ready)
+
+        // Turned off while Parakeet Ultra dictated: Typr prepares the engine it picks without it.
+        controller.engineName = ParakeetUltraTranscriber.name
+        controller.multilingualParakeetChanged()
+        try await waitForState("prepared again") { queue.made == 2 && controller.phase == .ready }
+    }
+
+    func testTheMultilingualModelNeverReplacesAChosenEngine() async throws {
+        defer { clearMultilingualSwitch() }
+        let provider = PrepProvider(PrepTranscriber(.ready, name: "Orukeet"))
+        let controller = controller(provider: provider)
+        XCTAssertEqual(controller.selectEngine(.orukeet), .selected)
+        try await waitForState("ready") { controller.phase == .ready }
+
+        MultilingualParakeetSettings().isEnabled = true
+        controller.multilingualParakeetChanged()
+        XCTAssertEqual(controller.multilingualDownload.state, .idle, "no download for a chosen engine")
+        XCTAssertFalse(controller.multilingualDownload.isRunning)
+        XCTAssertEqual(controller.currentEngine, .orukeet)
+        XCTAssertEqual(provider.created, 1)
+    }
+
+    func testSilenceFromTheMultilingualModelKeepsItLoaded() {
+        XCTAssertTrue(DictationController.transcriptionFailureKeepsModel(ParakeetUltraTranscriber.TranscriberError.emptyTranscript))
+        XCTAssertFalse(DictationController.transcriptionFailureKeepsModel(ParakeetUltraTranscriber.TranscriberError.notPrepared))
+        XCTAssertEqual(DictationController.switchNotice(for: ParakeetUltraTranscriber.TranscriberError.notEnoughMemory),
+                       ParakeetUltraTranscriber.notEnoughMemoryMessage)
+    }
 }
 
 private struct PrepError: LocalizedError {

@@ -506,6 +506,22 @@ The NVIDIA Parakeet TDT 0.6B v3 model is licensed under
 The Core ML conversion is provided by FluidInference.
 [Original NVIDIA model and attribution](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3).
 
+## Parakeet Ultra Core ML (multilingual model experiment)
+
+Typr downloads this at runtime, only after the user turns on Experimental ›
+Hex experiments › Multilingual model (Parakeet); nothing is bundled in this
+repository or the app: `Preprocessor`, `Encoder`, `Decoder` and
+`JointDecisionv3` (`.mlmodelc`) and `parakeet_vocab.json` from
+[FluidInference/parakeet-ultra-coreml](https://huggingface.co/FluidInference/parakeet-ultra-coreml/tree/95eaa59a39d4394f047a4dc5cce480388a60d1b6)
+at revision `95eaa59a39d4394f047a4dc5cce480388a60d1b6`, each file checked
+against its SHA-256 digest. Parakeet Ultra is Moondream's post-training of
+NVIDIA Parakeet TDT 0.6B v3
+([moondream/parakeet-ultra](https://huggingface.co/moondream/parakeet-ultra)),
+licensed under
+[Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/).
+The Core ML conversion is provided by FluidInference. The download and load
+code is Hex's (`anomalyco/hex` #2197, #2337, MIT), covered by the Hex base pin.
+
 ## Orukeet r3 Core ML (INT8 encoder)
 
 Typr downloads this at runtime, only when the user taps Download; nothing is

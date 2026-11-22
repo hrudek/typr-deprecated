@@ -178,7 +178,7 @@ struct ContentView: View {
                             case .speechEngine: SpeechEngineCard(dictation: dictation)
                             case .style: DictationStyleSettingsCard(dictation: dictation)
                             case .language: DictationLanguageSettingsCard(dictation: dictation)
-                            case .experimental: ExperimentalSettingsCard()
+                            case .experimental: ExperimentalSettingsCard(dictation: dictation)
                             }
                         }
                     }
@@ -234,6 +234,13 @@ struct ContentView: View {
                     errorBanner(message)
                         .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 }
+
+                // Experimental › Hex experiments › Multilingual model: its download or load, beside dictation.
+                MultilingualModelStatus(
+                    download: dictation.multilingualDownload,
+                    retry: { dictation.retryMultilingualParakeet() },
+                    turnOff: { dictation.turnOffMultilingualParakeet() }
+                )
 
                 if let notice = dictation.languageNotice {
                     Label(notice, systemImage: "info.circle")

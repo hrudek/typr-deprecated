@@ -3,7 +3,7 @@ import Speech
 
 /// Hex's automatic engine choice (Hex's `DictationController+Engine`), used when no engine is
 /// chosen in Typr (`SpeechEngineProviding.automaticTranscriber`). A chosen engine never comes
-/// through here. Parakeet Ultra (Hex's multilingual experiment) is not part of it yet.
+/// through here, Parakeet Ultra (Hex's multilingual experiment) included.
 extension DictationController {
     // MARK: - Which engine dictates (`HexSpeechEnginePolicy`)
 
@@ -23,6 +23,16 @@ extension DictationController {
         policy: HexSpeechEnginePolicy = .current,
         strict: Bool = TyprSettings()[experiment: .typrStrictDictationLanguage]
     ) async -> any LocalTranscribing {
+        // Experimental › Hex experiments › Multilingual model (Parakeet), for its languages once
+        // it's downloaded and compiled; until then (and off) the engine Typr uses without it.
+        if let ultra = ParakeetUltraTranscriber.chosenLanguage(),
+           multilingualStep(
+               language: ultra,
+               downloaded: ParakeetUltraModel.isDownloaded(),
+               compiled: ParakeetUltraTranscriber.isCompiled
+           ) == .dictate {
+            return ParakeetUltraTranscriber(language: ultra)
+        }
         let explicit = settings.explicitDictationLanguage(typr: language)
         guard #available(iOS 26.0, *) else {
             return transcriberBeforeAppleSpeech(policy: policy, explicit: explicit, strict: strict)
@@ -101,6 +111,7 @@ extension DictationController {
         let parakeetLoads = ParakeetLoadGuard()
         parakeetLoads.noteLaunch()
         let parakeetInterrupted = parakeetLoads.lastLoadWasInterrupted
+        let multilingualTakesOver = prepareMultilingualParakeetAtLaunch()
         if let preferred = preferredEngine {
             // An explicit engine prepares at launch only without downloading: Apple Speech (iOS
             // manages its assets), Parakeet when cached, downloaded engines when verified on disk.
@@ -117,9 +128,149 @@ extension DictationController {
                     prepareModel()
                 }
             }
-        } else {
+        } else if !multilingualTakesOver {
             prepareAutomaticAtLaunch(parakeetInterrupted: parakeetInterrupted)
         }
+    }
+
+    /// Experimental › Hex experiments › Multilingual model (Parakeet) at launch: true when
+    /// Parakeet Ultra takes the dictation language and loads now, downloaded and compiled for
+    /// this iOS (seconds). Otherwise Typr gets ready with the engine it uses without it, and the
+    /// download or a first load runs beside it (`syncMultilingualParakeet`). With the
+    /// experiment turned off, it only deletes a download turning it off left mid-way.
+    private func prepareMultilingualParakeetAtLaunch() -> Bool {
+        let loads = ParakeetLoadGuard(model: ParakeetUltraTranscriber.loadGuardModel)
+        loads.noteLaunch()
+        let settings = MultilingualParakeetSettings()
+        guard settings.isEnabled else {
+            if settings.isTurnedOff {
+                ParakeetUltraModel.remove()
+            }
+            return false
+        }
+        guard preferredEngine == nil else { return false }
+        if !ParakeetUltraModel.isDownloaded() {
+            settings.isModelReady = false
+        }
+        if loads.lastLoadWasInterrupted, settings.language() != nil {
+            settings.isModelReady = false
+            multilingualDownload.fail(ParakeetUltraTranscriber.setAsideMessage)
+        }
+        guard Self.multilingualStep(
+            language: ParakeetUltraTranscriber.chosenLanguage(),
+            downloaded: ParakeetUltraModel.isDownloaded(),
+            compiled: ParakeetUltraTranscriber.isCompiled
+        ) == .dictate else {
+            // A first load waits for the engine Typr gets ready meanwhile (its end syncs).
+            startMultilingualDownloadIfWanted()
+            return false
+        }
+        engineName = ParakeetUltraTranscriber.name
+        prepareModel()
+        return true
+    }
+
+    /// What Typr does about Parakeet Ultra: nothing (off, a language it doesn't take, set
+    /// aside), download it, load it beside the engine that dictates meanwhile (a first load
+    /// compiles for a minute or more), or dictate with it.
+    enum MultilingualStep: Equatable {
+        case none
+        case download
+        case loadBeside
+        case dictate
+    }
+
+    nonisolated static func multilingualStep(language: String?, downloaded: Bool, compiled: Bool) -> MultilingualStep {
+        guard language != nil else { return .none }
+        guard downloaded else { return .download }
+        return compiled ? .dictate : .loadBeside
+    }
+
+    /// Starts Parakeet Ultra's download when the experiment wants it and it isn't on the
+    /// iPhone, whatever engine is getting ready meanwhile.
+    func startMultilingualDownloadIfWanted() {
+        // Memory left only matters for a load, not a download.
+        guard preferredEngine == nil,
+              ParakeetUltraTranscriber.chosenLanguage(availableMemory: 0) != nil,
+              !ParakeetUltraModel.isDownloaded() else { return }
+        MultilingualParakeetSettings().isModelReady = false
+        multilingualDownload.start()
+    }
+
+    /// Once an engine is ready, and once the download finishes: downloads Parakeet Ultra, or
+    /// loads it beside the engine that dictates, when the experiment wants it and it isn't the
+    /// one dictating already.
+    func syncMultilingualParakeet() {
+        guard MultilingualParakeetSettings().isEnabled, preferredEngine == nil else {
+            multilingualDownload.settle()
+            return
+        }
+        let language = ParakeetUltraTranscriber.chosenLanguage()
+        let wanted = ParakeetUltraTranscriber.chosenLanguage(availableMemory: 0)
+        switch Self.multilingualStep(
+            language: wanted,
+            downloaded: ParakeetUltraModel.isDownloaded(),
+            compiled: true
+        ) {
+        case .none:
+            if !multilingualDownload.isFailed { multilingualDownload.settle() }
+        case .download:
+            startMultilingualDownloadIfWanted()
+        case .loadBeside, .dictate:
+            if engineName == ParakeetUltraTranscriber.name, isModelReady {
+                multilingualDownload.settle()
+            } else if let language {
+                loadMultilingualParakeetBeside(language: language)
+            } else if let wanted, replaceParakeetWithMultilingual(language: wanted) {
+                multilingualDownload.loading()
+            } else {
+                // Too little memory left to load it now: said, with Try again.
+                multilingualDownload.fail(ParakeetUltraTranscriber.notEnoughMemoryMessage)
+            }
+        }
+    }
+
+    /// Parakeet Ultra loaded: the keyboard opens Typr for its languages from now on.
+    func multilingualParakeetLoaded() {
+        MultilingualParakeetSettings().isModelReady = true
+        multilingualDownload.settle()
+    }
+
+    /// Parakeet Ultra didn't load. Missing files download again; anything else sets it aside
+    /// (`ParakeetLoadGuard`) until Try again, so Typr doesn't try at every launch.
+    func multilingualParakeetFailedToLoad(_ error: any Error) {
+        let settings = MultilingualParakeetSettings()
+        settings.isModelReady = false
+        guard settings.isEnabled, !(error is CancellationError) else {
+            multilingualDownload.settle()
+            return
+        }
+        if (error as? ParakeetUltraTranscriber.TranscriberError) == .notDownloaded {
+            multilingualDownload.settle()
+            startMultilingualDownloadIfWanted()
+            return
+        }
+        ParakeetLoadGuard(model: ParakeetUltraTranscriber.loadGuardModel).setAside()
+        multilingualDownload.fail(Self.switchNotice(for: error) ?? error.localizedDescription)
+    }
+
+    /// Try again beside the multilingual model's status: lets a set-aside load try again, and
+    /// picks up the download from what's on disk.
+    func retryMultilingualParakeet() {
+        ParakeetLoadGuard(model: ParakeetUltraTranscriber.loadGuardModel).forget()
+        multilingualDownload.settle()
+        if ParakeetUltraModel.isDownloaded() {
+            syncMultilingualParakeet()
+        } else if preferredEngine == nil, ParakeetUltraTranscriber.chosenLanguage(availableMemory: 0) != nil {
+            MultilingualParakeetSettings().isModelReady = false
+            multilingualDownload.restart()
+        }
+    }
+
+    /// Turn off beside the multilingual model's status, as the switch in Experimental does.
+    func turnOffMultilingualParakeet() {
+        MultilingualParakeetSettings().isEnabled = false
+        multilingualParakeetChanged()
     }
 
     /// Hex's launch with no engine chosen. A launch after Typr ended while loading Parakeet

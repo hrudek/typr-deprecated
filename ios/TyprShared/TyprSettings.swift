@@ -15,7 +15,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Hex experiments: Hex's own experiments, with Hex's names and
     /// defaults. Each is listed once its implementation works.
-    static let hexExperiments: [ExperimentalSwitch] = [.appleIntelligenceCleanup]
+    static let hexExperiments: [ExperimentalSwitch] = [.appleIntelligenceCleanup, .multilingualParakeet]
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
@@ -188,6 +188,14 @@ nonisolated struct ExperimentalSwitch: Hashable {
         name: "wordsFromContext",
         title: "Words from context",
         detail: "Autocorrect picks its or it's, your or you're, then or than by the words around them, and writes geht's and gibt's with an apostrophe."
+    )
+
+    /// Hex's multilingual model (anomalyco/hex #2197, #2337): Parakeet Ultra
+    /// (`MultilingualParakeetSettings`), downloaded and loaded beside the engine that dictates.
+    static let multilingualParakeet = ExperimentalSwitch(
+        name: "multilingualParakeet",
+        title: "Multilingual model (Parakeet)",
+        detail: "25 languages, even mixed in one sentence, with Automatic as the speech engine. 632 MB download, deleted when you turn this off. Once ready, keyboard dictation opens Typr."
     )
 
     /// Hex's in-keyboard dictation (anomalyco/hex #1999, #2089, #2045): off, the Typr app dictates.
