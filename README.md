@@ -62,7 +62,9 @@ An explicit engine or language choice never silently falls back to another.
   Format lists (off by default) writes "erstens … zweitens …", "Punkt eins … Punkt
   zwei …", "first … second …" as numbered lines, "Spiegelstrich"/"bullet" as "- " lines and
   "neue Zeile"/"new line" as line breaks, in every style but Verbatim; "Das ist erstens teuer
-  und zweitens hässlich" or "das Wort Zeilenumbruch" stay prose. The full keyboard adds German/English autocorrect and adaptive
+  und zweitens hässlich" or "das Wort Zeilenumbruch" stay prose. Style › End with a period
+  (on by default) off drops every line's final period, and Style › Lowercase (off by default)
+  lowercases everything, nouns and vocabulary included, as in Hex; neither touches Verbatim. The full keyboard adds German/English autocorrect and adaptive
   suggestions. Suggestions, autocorrect, swipe and predictions never offer slurs, and offer
   swear words only once Typr learned them or with Keyboard › Suggest swear words (LDNOOBW list as curated by Hex). Unless a keyboard Anthropic key is stored (then Claude predicts), on iOS 26+
   with Apple Intelligence available for every enabled language, the on-device model adds up to three next-word predictions from the current paragraph before the

@@ -86,6 +86,8 @@ final class DictationController {
         let speechLanguageName: String
         let formatLists: Bool
         let spokenPunctuation: Bool
+        let endsWithPeriod: Bool
+        let lowercase: Bool
     }
 
     private struct PendingKeyboardHandoff {
@@ -1196,7 +1198,9 @@ final class DictationController {
                     language: captureLanguage,
                     speechLanguageName: captureLanguageName,
                     formatLists: languageSettings[experiment: .formatLists],
-                    spokenPunctuation: languageSettings[experiment: .spokenPunctuation]
+                    spokenPunctuation: languageSettings[experiment: .spokenPunctuation],
+                    endsWithPeriod: languageSettings.dictationEndsWithPeriod,
+                    lowercase: languageSettings.dictationLowercase
                 )
                 refreshWarmExpiry()
                 audioLevel = 0
@@ -1347,13 +1351,16 @@ final class DictationController {
                 }
                 let beforeSpelling = TranscriptFormatter.format(text, style: session.style, language: session.language,
                                                                 lists: session.formatLists,
-                                                                punctuation: session.spokenPunctuation)
+                                                                punctuation: session.spokenPunctuation,
+                                                                endsWithPeriod: session.endsWithPeriod)
                 recording?.processingStages(cleanupOutput: text, formattedText: beforeSpelling)
                 var secondPass = DictationLogSpellingPass()
                 let observeSecond: ((String, String, String) -> Void)? = recording == nil ? nil : { before, after, term in
                     secondPass.record(before: before, after: after, term: term)
                 }
-                let formatted = session.vocabulary.afterFormatting(beforeSpelling, onReplacement: observeSecond)
+                let respelled = session.vocabulary.afterFormatting(beforeSpelling, onReplacement: observeSecond)
+                let formatted = session.lowercase
+                    ? TranscriptFormatter.lowercased(respelled, style: session.style) : respelled
                 if keyboardJobID != nil, recording != nil {
                     // An offer omitted while the archive loads cannot be added after insertion:
                     // the keyboard deliberately consumes each result exactly once.

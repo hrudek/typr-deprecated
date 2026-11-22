@@ -45,12 +45,59 @@ nonisolated enum TranscriptFormatter {
     /// German or English by `language`, after removing fillers and before the style's own
     /// capitalization and final period. Punctuation first, so a spoken "Komma" or "Doppelpunkt"
     /// separates list items as a written one does.
+    ///
+    /// With `endsWithPeriod` off (Settings › Style › End with a period), no line ends with a full
+    /// stop, whether the speech model or the style wrote it; "?" and "!" stay. Verbatim keeps
+    /// the model's text.
     static func format(
         _ raw: String,
         style: DictationStyle,
         language: DictationLanguage = .automatic,
         lists: Bool = false,
-        punctuation: Bool = false
+        punctuation: Bool = false,
+        endsWithPeriod: Bool = true
+    ) -> String {
+        let styled = formatted(raw, style: style, language: language, lists: lists, punctuation: punctuation)
+        guard !endsWithPeriod, style != .verbatim else { return styled }
+        return styled.components(separatedBy: "\n").map(droppingFinalFullStop).joined(separator: "\n")
+    }
+
+    /// `line` without the full stops that end it, also before closing quotes or brackets
+    /// ("„Hallo.“." -> "„Hallo“"). An ellipsis, an abbreviation's ("usw.", "z. B.") or an
+    /// initialism's ("U.S.") stays, inside quotes or brackets too.
+    private static func droppingFinalFullStop(_ line: String) -> String {
+        var chars = Array(line)
+        var stop = chars.count - 1
+        while stop >= 0, closingDelimiters.contains(chars[stop]) { stop -= 1 }
+        guard stop >= 0, chars[stop] == "." else { return line }
+        if stop > 0, chars[stop - 1] == "." { return line }
+        if endsAbbreviation(chars, periodAt: stop) || endsInitialism(chars, periodAt: stop) { return line }
+        chars.remove(at: stop)
+        return droppingFinalFullStop(String(chars))
+    }
+
+    private static let closingDelimiters: Set<Character> = ["\"", "'", "“", "”", "‘", "’", "»", "«", "›", "‹", ")", "]", "}"]
+    private static let openingDelimiters: Set<Character> = ["\"", "'", "„", "“", "‚", "‘", "«", "»", "‹", "›", "(", "[", "{"]
+
+    private static func endsInitialism(_ chars: [Character], periodAt index: Int) -> Bool {
+        var start = index
+        while start > 0, !chars[start - 1].isWhitespace, !openingDelimiters.contains(chars[start - 1]) { start -= 1 }
+        let parts = chars[start..<index].split(separator: ".", omittingEmptySubsequences: false)
+        return parts.count >= 2 && parts.allSatisfy { $0.count == 1 && $0.allSatisfy(\.isLetter) }
+    }
+
+    /// Everything lowercased (Settings › Style › Lowercase), German nouns and vocabulary
+    /// terms included; Verbatim keeps the model's text.
+    static func lowercased(_ text: String, style: DictationStyle) -> String {
+        style == .verbatim ? text : text.lowercased(with: nil)
+    }
+
+    private static func formatted(
+        _ raw: String,
+        style: DictationStyle,
+        language: DictationLanguage,
+        lists: Bool,
+        punctuation: Bool
     ) -> String {
         let listed = { (text: String) in lists ? SpokenLists.format(text, language: language) : text }
         let starters = lists ? SpokenLists.clauseStarters : []
