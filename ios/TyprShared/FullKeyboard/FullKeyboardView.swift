@@ -77,6 +77,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     private var subscriptions: Set<AnyCancellable> = []
     private var showsRecording = false
     private var lastDictation: DictationUndo?
+    /// Follows inserted dictations for Learn from my edits; the controller stores its results.
+    var dictationEdits = DictationEditTracker()
     private var undoHideWork: DispatchWorkItem?
     private let haptics = UIImpactFeedbackGenerator(style: .light)
     private let selectionHaptics = UISelectionFeedbackGenerator()
@@ -158,6 +160,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         engine.onCursorMove = { [weak self] in self?.revalidateUndo() }
         engine.onChange = { [weak self] in self?.engineChanged() }
         engine.onEdit = { [weak self] in
+            self?.observeDictationEdits(fromKeys: true)
             self?.hideUndo()
             self?.model.dismissFeedback()
             self?.refreshReturnKey()
@@ -327,6 +330,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         } else {
             engine.textDidChange()
         }
+        observeDictationEdits(fromKeys: false)
         revalidateUndo()
         refreshReturnKey()
         refreshStrip()
@@ -334,6 +338,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
 
     /// The keyboard came on screen for a (possibly new) field.
     func prepareForField() {
+        dictationEdits.finish(nil)
         hideUndo()
         cloudKeyStored = hasCloudKey()
         syncSettings()
@@ -372,6 +377,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     /// The cursor or selection moved outside these keys.
     func selectionDidChange() {
         discardTouchEvidence()
+        observeDictationEdits(fromKeys: false)
         revalidateUndo()
     }
 
@@ -398,8 +404,15 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     /// Typr inserted a dictation between `before` and `after`; offer to take it back until the
-    /// next edit, for 12 seconds, or until it can't be found from the cursor.
-    func didInsertDictation(_ text: String, before: String, after: String) {
+    /// next edit, for 12 seconds, or until it can't be found from the cursor. With `learns`,
+    /// follow what you do with it for Learn from my edits.
+    func didInsertDictation(_ text: String, before: String, after: String, learns: Bool = false) {
+        let context = DictationEditTracker.Context(before: before, after: after, hasText: !(before + after).isEmpty)
+        if learns {
+            dictationEdits.willInsert(text, context: context)
+        } else {
+            dictationEdits.finish(context)
+        }
         lastDictation = DictationUndo(text: text, before: before, after: after)
         undoHideWork?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.hideUndo() }
@@ -690,10 +703,34 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
                 engine.target.deleteBackward()
             }
             if plan.back != 0 { engine.target.adjustTextPosition(byCharacterOffset: plan.back) }
+            dictationEdits.didUndo()
         }
         hideUndo()
         engine.textDidChange()
         refreshReturnKey()
+    }
+
+    /// The keyboard is going away: report what became of the dictation it followed.
+    func finishDictationEdits() {
+        guard dictationEdits.isTracking else { return }
+        dictationEdits.finish(dictationEditContext)
+    }
+
+    /// On the controller's poll: closes the edit window a minute after the dictation.
+    func tickDictationEdits() {
+        guard dictationEdits.isTracking else { return }
+        dictationEdits.tick { dictationEditContext }
+    }
+
+    private func observeDictationEdits(fromKeys: Bool) {
+        guard dictationEdits.isTracking else { return }
+        dictationEdits.observe(dictationEditContext, fromKeys: fromKeys)
+    }
+
+    private var dictationEditContext: DictationEditTracker.Context {
+        let target = engine.target
+        return DictationEditTracker.Context(before: target.documentContextBeforeInput,
+                                            after: target.documentContextAfterInput, hasText: target.hasText)
     }
 
     private var offersUndo: Bool {

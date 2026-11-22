@@ -1,8 +1,9 @@
 import Foundation
 
 /// Everything one dictation needs from vocabulary, frozen at recording start: the Apple Speech
-/// hints, the spelling fixes before AI cleanup (Custom vocabulary first, then the built-in
-/// tech glossary), the terms named to cleanup, and the spelling restore after formatting.
+/// hints, the spelling fixes before AI cleanup (fixes learned from your edits, then Custom
+/// vocabulary, then the built-in tech glossary), the terms named to cleanup, and the spelling
+/// restore after formatting.
 /// Callers never order the passes or merge the lists themselves.
 nonisolated struct DictationVocabulary: Sendable {
     enum Source: String, Sendable {
@@ -24,26 +25,31 @@ nonisolated struct DictationVocabulary: Sendable {
     /// Active Custom vocabulary terms (empty while that experiment is off).
     let userTerms: [String]
     private let userRules: [VocabularySpelling.Rule]
+    /// Fixes Learn from my edits learned (empty while that experiment is off).
+    let learnedFixes: [DictationCorrection]
+    private let restoreRules: [VocabularySpelling.Rule]
 
-    init(userTerms: [String], soundsLike: [String: [String]] = [:]) {
+    init(userTerms: [String], soundsLike: [String: [String]] = [:], learnedFixes: [DictationCorrection] = []) {
         self.userTerms = userTerms
+        self.learnedFixes = learnedFixes
         userRules = CustomVocabularySettings.rules(terms: userTerms, soundsLike: soundsLike)
+        restoreRules = userRules + DictationCorrections.spellings(learnedFixes).map(VocabularySpelling.Rule.init(term:))
     }
 
     /// Reads the Custom vocabulary switch, terms and sounds-like forms once.
-    init(settings: CustomVocabularySettings) {
+    init(settings: CustomVocabularySettings, learnedFixes: [DictationCorrection] = []) {
         if settings.isEnabled {
-            self.init(userTerms: settings.terms, soundsLike: settings.soundsLike)
+            self.init(userTerms: settings.terms, soundsLike: settings.soundsLike, learnedFixes: learnedFixes)
         } else {
-            self.init(userTerms: [])
+            self.init(userTerms: [], learnedFixes: learnedFixes)
         }
     }
 
-    /// The user's terms first, then the glossary's listed terms, without duplicate spellings,
-    /// capped at Apple's limit of 100.
+    /// The user's terms first, then learned spellings, then the glossary's listed terms, without
+    /// duplicate spellings, capped at Apple's limit of 100.
     var speechHints: [String] {
         var seen = Set<String>()
-        let all = (userTerms + TechGlossary.listedTerms).filter {
+        let all = (userTerms + learnedFixes.map(\.meant) + TechGlossary.listedTerms).filter {
             seen.insert(VocabularySpelling.normalizedKey($0)).inserted
         }
         return Array(all.prefix(Self.maxSpeechHints))
@@ -74,16 +80,18 @@ nonisolated struct DictationVocabulary: Sendable {
             { before, after, term in report(before, after, term, .builtIn) }
         }
         let protected = protectedKeys
-        let custom = VocabularySpelling.apply(rules: userRules, to: recognized, onReplacement: reportCustom)
+        let learned = DictationCorrections.apply(learnedFixes, to: recognized)
+        let custom = VocabularySpelling.apply(rules: userRules, to: learned, onReplacement: reportCustom)
         let glossary = TechGlossary.apply(to: custom, protectedKeys: protected, onReplacement: reportBuiltIn)
         let glossaryTerms = glossary.terms.filter { !protected.contains(VocabularySpelling.normalizedKey($0)) }
         return Prepared(text: glossary.text, cleanupTerms: userTerms + glossaryTerms)
     }
 
-    /// Restores the user's spellings after a style changed their case ("iPhone" → "IPhone").
-    /// The glossary does not run again: its fixes are already in the text cleanup received.
+    /// Restores the user's spellings and learned ones with inner capitals after a style changed
+    /// their case ("iPhone" → "IPhone"). The glossary does not run again: its fixes are already
+    /// in the text cleanup received.
     func afterFormatting(_ formatted: String,
                          onReplacement: ((_ before: String, _ after: String, _ term: String) -> Void)? = nil) -> String {
-        VocabularySpelling.apply(rules: userRules, to: formatted, onReplacement: onReplacement)
+        VocabularySpelling.apply(rules: restoreRules, to: formatted, onReplacement: onReplacement)
     }
 }

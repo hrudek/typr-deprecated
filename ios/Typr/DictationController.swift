@@ -105,6 +105,7 @@ final class DictationController {
     private let modelBackground: (any ModelPreparationScheduling)?
     private var deferredLaunchPreparation: Bool
     private let customVocabularySettings: CustomVocabularySettings
+    private let dictationLearning: DictationLearningStore
     private let audio: any AudioManaging
     private let keyboardBridge: KeyboardBridge
     private let fileManager: FileManager
@@ -260,6 +261,7 @@ final class DictationController {
         autoPrepareOnInit: Bool = true,
         hostReturner: HostReturner? = nil,
         customVocabularySettings: CustomVocabularySettings = CustomVocabularySettings(),
+        dictationLearning: DictationLearningStore = DictationLearningStore(),
         cleanup: TranscriptCleanupDependencies? = nil,
         transcriptionBackground: (any BackgroundTaskStarting)? = nil,
         dictationLog: DictationLogStore? = nil,
@@ -294,6 +296,7 @@ final class DictationController {
         self.deferredLaunchPreparation = autoPrepareOnInit && deferPreparationUntilActive
         self.preferredEngine = preferred
         self.customVocabularySettings = customVocabularySettings
+        self.dictationLearning = dictationLearning
         self.fileManager = fileManager
         self.now = now
         self.warmDuration = resolvedBridge.warmDuration
@@ -1122,7 +1125,10 @@ final class DictationController {
         let vocabularyEnabled = customVocabularySettings.isEnabled
         let savedVocabularyTerms = customVocabularySettings.terms
         let vocabularyTerms = vocabularyEnabled ? savedVocabularyTerms : []
-        let vocabulary = DictationVocabulary(settings: customVocabularySettings)
+        let vocabulary = DictationVocabulary(
+            settings: customVocabularySettings,
+            learnedFixes: languageSettings[experiment: .learnFromEdits] ? dictationLearning.corrections : []
+        )
         let enabled = cleanup?.isEnabled() == true
         let logToken = dictationLog?.token()
         let logCleanupPath: DictationLogCleanupPath = effectiveStyle == .verbatim ? .none
