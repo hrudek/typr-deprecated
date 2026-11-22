@@ -68,12 +68,12 @@ final class DictationController {
         let keyboardJobID: String?
         let style: DictationStyle
         let vocabularyTerms: [String]
-        /// Speech hints, spelling passes and cleanup terms (Custom vocabulary + built-in glossary).
+        /// Speech hints (Custom vocabulary + built-in glossary).
         let vocabulary: DictationVocabulary
         let vocabularyEnabled: Bool
         let typrCleanupEnabled: Bool
-        /// "Clean up what I say" word rules, frozen at start; never in Verbatim.
-        let spokenCleanup: Bool
+        /// Spelling, Clean up what I say and formatting, frozen at start.
+        let pipeline: DictationPipeline
         let copyToPasteboard: Bool
         let cleanupJob: CleanupJob?
         let cleanupSkipReason: CleanupSkipReason?
@@ -86,10 +86,6 @@ final class DictationController {
         let transcriber: any LocalTranscribing
         let language: DictationLanguage
         let speechLanguageName: String
-        let formatLists: Bool
-        let spokenPunctuation: Bool
-        let endsWithPeriod: Bool
-        let lowercase: Bool
         /// Translate what I say's output language, frozen at start; nil inserts as spoken.
         let translationTarget: DictationLanguage?
     }
@@ -1137,7 +1133,8 @@ final class DictationController {
         case .cohereTranscribe: CohereTranscriber.languageName(for: captureLanguage)
         default: transcriptionLanguage
         }
-        let effectiveStyle = styleOverride ?? style
+        let effectiveStyle = (styleOverride ?? style)
+            .resolved(typrStyles: languageSettings[experiment: .typrDictationStyles])
         let vocabularyEnabled = customVocabularySettings.isEnabled
         let savedVocabularyTerms = customVocabularySettings.terms
         let vocabularyTerms = vocabularyEnabled ? savedVocabularyTerms : []
@@ -1150,7 +1147,8 @@ final class DictationController {
         let logCleanupPath: DictationLogCleanupPath = effectiveStyle == .verbatim ? .none
             : (enabled ? .typr : .none)
         let cleanupEnabled = enabled && effectiveStyle != .verbatim
-        let spokenCleanup = languageSettings[experiment: .cleanUpWhatISay] && effectiveStyle != .verbatim
+        let pipeline = DictationPipeline(style: effectiveStyle, language: captureLanguage,
+                                         vocabulary: vocabulary, settings: languageSettings)
         let translationTarget = languageSettings.translateDictation && translator != nil ? languageSettings.translationTarget : nil
         let disabledCleanupReason: CleanupSkipReason? = !enabled ? .off : (effectiveStyle == .verbatim ? .verbatim : nil)
         // The keyboard's caret text and host app; a cold start knows only the app it came from.
@@ -1183,7 +1181,7 @@ final class DictationController {
                 vocabulary: vocabulary,
                 vocabularyEnabled: vocabularyEnabled,
                 typrCleanupEnabled: enabled,
-                spokenCleanup: spokenCleanup,
+                pipeline: pipeline,
                 copyToPasteboard: copyToPasteboard,
                 cleanupJob: cleanupJob,
                 cleanupSkipReason: cleanupSkipReason,
@@ -1193,10 +1191,6 @@ final class DictationController {
                 transcriber: captureTranscriber,
                 language: captureLanguage,
                 speechLanguageName: captureLanguageName,
-                formatLists: languageSettings[experiment: .formatLists],
-                spokenPunctuation: languageSettings[experiment: .spokenPunctuation],
-                endsWithPeriod: languageSettings.dictationEndsWithPeriod,
-                lowercase: languageSettings.dictationLowercase,
                 translationTarget: translationTarget
             )
             refreshWarmExpiry()
@@ -1382,63 +1376,65 @@ final class DictationController {
                     firstPass.record(before: before, after: after, term: term,
                                      source: source == .builtIn ? source.rawValue : nil)
                 }
-                // Hyphens between words become spaces first (owner style, every style and path), so
-                // spelling and cleanup see "Pull Request" and a hyphenated user term is restored.
-                let prepared = session.vocabulary.beforeCleanup(CleanupHyphens.spaceCompounds(rawText),
-                                                                onReplacement: observeFirst)
-                let spelled = prepared.text
-                recording?.recognized(rawText, spelled: spelled, asrMilliseconds: asrMilliseconds, spellingPass: firstPass)
-                let spoken = session.spokenCleanup ? SpokenCleanup.clean(spelled, language: session.language) : spelled
-                var text = spoken
-                if let cleanup = self.cleanup, session.cleanupSkipReason != .off {
-                    // Typr AI cleanup is on.
-                    if session.cleanupSkipReason == .verbatim {
-                        // Verbatim remains synchronous: no prepare, model call, lease or await.
-                        self.cleanupCoordinator.recordSkip(.verbatim, dependencies: cleanup, diagnostics: recording)
-                    } else {
-                        text = await self.cleanupCoordinator.clean(spoken, job: session.cleanupJob,
-                            dependencies: cleanup, skipReason: session.cleanupSkipReason,
-                            vocabulary: prepared.cleanupTerms, context: session.cleanupContext, diagnostics: recording)
-                        guard self.jobGeneration == captureGeneration, !Task.isCancelled else { return }
-                    }
-                } else {
-                    if let cleanup = self.cleanup {
-                        // Off remains synchronous: no prepare, model call, lease or await.
-                        self.cleanupCoordinator.recordSkip(.off, dependencies: cleanup, diagnostics: recording)
-                    }
-                }
-                let cleaned = text
-                var outputLanguage = session.language
-                var translationFailure: TranslationFailure?
-                var translated = false
-                if let target = session.translationTarget, let translator = self.translator {
-                    let outcome = await translator.translate(cleaned, from: session.language, to: target)
-                    guard let outcome, self.jobGeneration == captureGeneration, !Task.isCancelled else { return }
-                    switch outcome {
-                    case .translated(let translation):
-                        text = translation
-                        outputLanguage = target
-                        translated = true
-                        self.languageSettings.translationFailure = nil
-                    case .failed(let failure):
-                        translationFailure = failure
-                        self.languageSettings.translationFailure = failure
-                    case .skipped:
-                        break
-                    }
-                }
-                let beforeSpelling = TyprTranscriptFormatter.format(text, style: session.style, language: outputLanguage,
-                                                                lists: session.formatLists,
-                                                                punctuation: session.spokenPunctuation,
-                                                                endsWithPeriod: session.endsWithPeriod)
-                recording?.processingStages(cleanupOutput: cleaned, formattedText: beforeSpelling)
                 var secondPass = DictationLogSpellingPass()
                 let observeSecond: ((String, String, String) -> Void)? = recording == nil ? nil : { before, after, term in
                     secondPass.record(before: before, after: after, term: term)
                 }
-                let respelled = session.vocabulary.afterFormatting(beforeSpelling, onReplacement: observeSecond)
-                let formatted = session.lowercase
-                    ? TyprTranscriptFormatter.lowercased(respelled, style: session.style) : respelled
+                let cleanup = self.cleanup
+                // Off and Verbatim remain synchronous: no prepare, model call, lease or await.
+                let skipped: CleanupSkipReason? = cleanup == nil ? nil
+                    : (session.cleanupSkipReason == .off || session.cleanupSkipReason == .verbatim
+                        ? session.cleanupSkipReason : nil)
+                var refine: ((String, [String]) async -> String)?
+                if let cleanup, skipped == nil {
+                    // Typr AI cleanup is on.
+                    refine = { [weak self] text, terms in
+                        guard let self else { return text }
+                        return await self.cleanupCoordinator.clean(text, job: session.cleanupJob,
+                            dependencies: cleanup, skipReason: session.cleanupSkipReason,
+                            vocabulary: terms, context: session.cleanupContext, diagnostics: recording)
+                    }
+                }
+                var translationFailure: TranslationFailure?
+                var translated = false
+                var translate: ((String) async -> DictationPipeline.Translation)?
+                if let target = session.translationTarget, let translator = self.translator {
+                    translate = { [weak self] text in
+                        guard let self, self.jobGeneration == captureGeneration, !Task.isCancelled,
+                              let outcome = await translator.translate(text, from: session.language, to: target),
+                              self.jobGeneration == captureGeneration, !Task.isCancelled else { return .asSpoken }
+                        switch outcome {
+                        case .translated(let translation):
+                            translated = true
+                            self.languageSettings.translationFailure = nil
+                            return .translated(translation, language: target.formattingIdentifier)
+                        case .failed(let failure):
+                            translationFailure = failure
+                            self.languageSettings.translationFailure = failure
+                            return .asSpoken
+                        case .skipped:
+                            return .asSpoken
+                        }
+                    }
+                }
+                let stages = await session.pipeline.run(
+                    rawText,
+                    onSpelling: observeFirst,
+                    onSpelled: { [weak self] spelled in
+                        recording?.recognized(rawText, spelled: spelled, asrMilliseconds: asrMilliseconds,
+                                              spellingPass: firstPass)
+                        if let skipped, let cleanup {
+                            self?.cleanupCoordinator.recordSkip(skipped, dependencies: cleanup, diagnostics: recording)
+                        }
+                    },
+                    refine: refine,
+                    translate: translate,
+                    onRespelling: observeSecond
+                )
+                guard self.jobGeneration == captureGeneration, !Task.isCancelled else { return }
+                recording?.processingStages(cleanupOutput: stages.cleaned, formattedText: stages.styled)
+                let beforeSpelling = stages.styled
+                let formatted = stages.formatted
                 if keyboardJobID != nil, recording != nil {
                     // An offer omitted while the archive loads cannot be added after insertion:
                     // the keyboard deliberately consumes each result exactly once.

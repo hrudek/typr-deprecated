@@ -3,50 +3,18 @@ import Foundation
 import NaturalLanguage
 #endif
 
-nonisolated enum DictationStyle: String, Codable, CaseIterable, Sendable {
-    case polished
-    // Keep the old stored value for the renamed lowercase style (settings, links and logs).
-    case casual = "casualCapitalized"
-    case veryCasual = "casual"
-    case notes
-    case verbatim
-
-    var label: String {
-        switch self {
-        case .polished: "Polished"
-        case .casual: "Casual"
-        case .veryCasual: "Very casual"
-        case .notes: "Notes"
-        case .verbatim: "Verbatim"
-        }
-    }
-
-    var shortHint: String {
-        switch self {
-        case .polished: "Clean punctuation and filler trim"
-        case .casual: "Natural capitalization, no trailing period"
-        case .veryCasual: "Lowercase texting, no trailing period"
-        case .notes: "Spoken bullets and line breaks"
-        case .verbatim: "Exact words from the model"
-        }
-    }
-
-    var next: DictationStyle {
-        let all = Self.allCases
-        guard let index = all.firstIndex(of: self) else { return .polished }
-        return all[(index + 1) % all.count]
-    }
-}
-
+/// Typr's own style formatter, for Settings › Experimental › Typr dictation styles: Typr's
+/// Polished, Casual (`.typrCasual`), Very casual (`.casual`), Notes and Verbatim, German first.
+/// Hex's `TranscriptFormatter` is the default.
 nonisolated enum TyprTranscriptFormatter {
-    /// With `lists` (Settings › Experimental › Format lists), every style but Verbatim writes spoken
-    /// lists and line breaks as lines (`TyprSpokenLists`); with `punctuation` (Settings › Experimental ›
-    /// Spoken punctuation), punctuation said by name as the mark (`TyprSpokenPunctuation`). Both
-    /// German or English by `language`, after removing fillers and before the style's own
-    /// capitalization and final period. Punctuation first, so a spoken "Komma" or "Doppelpunkt"
-    /// separates list items as a written one does.
+    /// With `lists` (Format lists), every style but Verbatim writes spoken lists and line breaks as
+    /// lines; with `punctuation` (Spoken punctuation), punctuation said by name as the mark, by
+    /// `rules`: Hex's `SpokenLists` and `SpokenPunctuation`, or Typr's German and English
+    /// `TyprSpokenLists` and `TyprSpokenPunctuation`. After removing fillers and before the
+    /// style's own capitalization and final period. Punctuation first, so a spoken "Komma" or
+    /// "Doppelpunkt" separates list items as a written one does.
     ///
-    /// With `endsWithPeriod` off (Settings › Style › End with a period), no line ends with a full
+    /// With `endsWithPeriod` off (End with a period), no line ends with a full
     /// stop, whether the speech model or the style wrote it; "?" and "!" stay. Verbatim keeps
     /// the model's text.
     static func format(
@@ -55,9 +23,11 @@ nonisolated enum TyprTranscriptFormatter {
         language: DictationLanguage = .automatic,
         lists: Bool = false,
         punctuation: Bool = false,
-        endsWithPeriod: Bool = true
+        endsWithPeriod: Bool = true,
+        rules: SpokenFormattingRules = .typr
     ) -> String {
-        let styled = formatted(raw, style: style, language: language, lists: lists, punctuation: punctuation)
+        let styled = formatted(raw, style: style, language: language, lists: lists, punctuation: punctuation,
+                               rules: rules)
         guard !endsWithPeriod, style != .verbatim else { return styled }
         return styled.components(separatedBy: "\n").map(droppingFinalFullStop).joined(separator: "\n")
     }
@@ -86,23 +56,24 @@ nonisolated enum TyprTranscriptFormatter {
         return parts.count >= 2 && parts.allSatisfy { $0.count == 1 && $0.allSatisfy(\.isLetter) }
     }
 
-    /// Everything lowercased (Settings › Style › Lowercase), German nouns and vocabulary
-    /// terms included; Verbatim keeps the model's text.
-    static func lowercased(_ text: String, style: DictationStyle) -> String {
-        style == .verbatim ? text : text.lowercased(with: nil)
-    }
-
     private static func formatted(
         _ raw: String,
         style: DictationStyle,
         language: DictationLanguage,
         lists: Bool,
-        punctuation: Bool
+        punctuation: Bool,
+        rules: SpokenFormattingRules
     ) -> String {
-        let listed = { (text: String) in lists ? TyprSpokenLists.format(text, language: language) : text }
-        let starters = lists ? TyprSpokenLists.clauseStarters : []
+        let listed = { (text: String) in
+            guard lists else { return text }
+            return rules == .typr ? TyprSpokenLists.format(text, language: language)
+                : SpokenLists.format(text, language: language.formattingLanguage(for: text))
+        }
+        let starters = lists && rules == .typr ? TyprSpokenLists.clauseStarters : []
         let spoken = { (text: String) in
-            punctuation ? TyprSpokenPunctuation.format(text, language: language, starters: starters) : text
+            guard punctuation else { return text }
+            return rules == .typr ? TyprSpokenPunctuation.format(text, language: language, starters: starters)
+                : SpokenPunctuation.format(text, language: language.formattingLanguage(for: text))
         }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
@@ -116,10 +87,10 @@ nonisolated enum TyprTranscriptFormatter {
             let lines = listed(cleaned)
             return polishSentences(lines, spokenPunctuation: punctuation, endsListItems: lines != cleaned)
 
-        case .casual, .veryCasual:
+        case .typrCasual, .casual:
             let cleaned = listed(spoken(stripStandaloneFillers(in: trimmed)))
             var result = fixSpacingBeforePunctuation(in: collapseHorizontalSpaces(in: cleaned))
-            result = style == .veryCasual ? result.lowercased() : capitalizeSentenceStarts(in: result)
+            result = style == .casual ? result.lowercased() : capitalizeSentenceStarts(in: result)
             // Both chat styles omit the final period, regardless of sentence count.
             // Internal punctuation and final question/exclamation marks stay unchanged.
             if result.hasSuffix(".") {
@@ -130,47 +101,6 @@ nonisolated enum TyprTranscriptFormatter {
         case .notes:
             return formatNotes(stripStandaloneFillers(in: trimmed)) { listed(spoken($0)) }
         }
-    }
-
-    /// Joins dictated text cleanly with existing text around the insertion cursor.
-    static func insertionText(
-        for formatted: String,
-        beforeContext: String?,
-        afterContext: String?
-    ) -> String {
-        guard !formatted.isEmpty else { return "" }
-        var output = formatted
-
-        if let before = beforeContext, let lastChar = before.last {
-            let needsLeadingSpace = !lastChar.isWhitespace
-                && lastChar != "("
-                && lastChar != "["
-                && lastChar != "{"
-                && lastChar != "\""
-                && lastChar != "“"
-                && !output.hasPrefix("\n")
-                && !isClosingPunctuation(output.first)
-            if needsLeadingSpace {
-                output = " " + output
-            }
-        }
-
-        if let after = afterContext, let firstChar = after.first {
-            let needsTrailingSpace = !firstChar.isWhitespace
-                && !isClosingPunctuation(firstChar)
-                && !output.hasSuffix("\n")
-                && !output.hasSuffix(" ")
-            if needsTrailingSpace {
-                output += " "
-            }
-        }
-
-        return output
-    }
-
-    private static func isClosingPunctuation(_ character: Character?) -> Bool {
-        guard let character else { return false }
-        return ".,!?;:)]}”".contains(character)
     }
 
     /// Hesitation sounds that are never a word in German or English (äh, ähm, öhm, hm, mhm).

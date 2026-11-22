@@ -174,7 +174,7 @@ final class TranscriptFormatterLanguageTests: XCTestCase {
                        "Setze das bitte komplett um.")
         XCTAssertEqual(TyprTranscriptFormatter.format("ich sehe nicht, was er wirklich erkannt hat", style: .polished),
                        "Ich sehe nicht, was er wirklich erkannt hat.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("Er kommt um acht", style: .veryCasual), "er kommt um acht")
+        XCTAssertEqual(TyprTranscriptFormatter.format("Er kommt um acht", style: .casual), "er kommt um acht")
     }
 
     func testGermanFillersAreStripped() {

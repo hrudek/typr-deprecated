@@ -119,29 +119,64 @@ final class KeyboardLocalCaptureTests: XCTestCase {
         XCTAssertNil(capture.snapshot(now: 401, loudnessDB: -62), "no speech ends quietly")
     }
 
+    /// Hex's default: Spoken punctuation on (Hex's German rules), End with a period, Lowercase
+    /// after the style and, as in Hex, in Verbatim too.
     @MainActor
-    func testGermanTextGetsTheAppsFormatting() {
+    func testGermanTextGetsTheAppsFormatting() async {
         let suite = "keyboard.local.text.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
         settings.dictationLanguage = .german
+        let vocabulary = CustomVocabularySettings(defaults: defaults)
+        let learning = DictationLearningStore(defaults: defaults)
+        func text(_ heard: String, _ style: DictationStyle = .polished) async -> String {
+            await KeyboardLocalCapture.text(from: heard, style: style, settings: settings,
+                                            vocabulary: vocabulary, learning: learning)
+        }
+        let heard = " Ich komme morgen Punkt bis bald "
+
+        var result = await text(heard)
+        XCTAssertEqual(result, "Ich komme morgen. Bis bald.")
+        settings.dictationSpokenPunctuation = false
+        result = await text(heard)
+        XCTAssertEqual(result, "Ich komme morgen Punkt bis bald.")
+        settings.dictationSpokenPunctuation = true
+        settings.dictationEndsWithPeriod = false
+        result = await text(heard)
+        XCTAssertEqual(result, "Ich komme morgen. Bis bald")
+        settings.dictationLowercase = true
+        result = await text(heard)
+        XCTAssertEqual(result, "ich komme morgen. bis bald")
+        result = await text(heard, .verbatim)
+        XCTAssertEqual(result, "ich komme morgen punkt bis bald")
+        result = await text("  ")
+        XCTAssertEqual(result, "")
+    }
+
+    /// Typr German formatting rules: Typr's parser, switched by the old Spoken punctuation
+    /// experiment instead of the Style setting.
+    @MainActor
+    func testTyprGermanFormattingRulesUseTheOldExperimentSwitch() async {
+        let suite = "keyboard.local.typr-rules.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = TyprSettings(defaults: defaults)
+        settings.dictationLanguage = .german
+        settings[experiment: .typrGermanFormattingRules] = true
+        let vocabulary = CustomVocabularySettings(defaults: defaults)
+        let learning = DictationLearningStore(defaults: defaults)
         let heard = " Hallo Komma wie geht es dir Fragezeichen ich bin gleich da Punkt bis bald "
 
-        XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings),
-                       TyprTranscriptFormatter.format(heard.trimmingCharacters(in: .whitespaces), style: .polished, language: .german))
+        var result = await KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings,
+                                                     vocabulary: vocabulary, learning: learning)
+        XCTAssertEqual(result, TranscriptFormatter.format(heard.trimmingCharacters(in: .whitespaces),
+                                                          style: .polished, language: "de"),
+                       "the old experiment is off: no spoken punctuation, whatever the Style setting says")
         settings[experiment: .spokenPunctuation] = true
-        XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings),
-                       "Hallo, wie geht es dir? Ich bin gleich da. Bis bald.")
-        settings.dictationEndsWithPeriod = false
-        XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings),
-                       "Hallo, wie geht es dir? Ich bin gleich da. Bis bald")
-        settings.dictationLowercase = true
-        XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings),
-                       TyprTranscriptFormatter.lowercased("Hallo, wie geht es dir? Ich bin gleich da. Bis bald", style: .polished))
-        XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .verbatim, settings: settings),
-                       TyprTranscriptFormatter.lowercased(heard.trimmingCharacters(in: .whitespaces), style: .verbatim))
-        XCTAssertEqual(KeyboardLocalCapture.text(from: "  ", style: .polished, settings: settings), "")
+        result = await KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings,
+                                                 vocabulary: vocabulary, learning: learning)
+        XCTAssertEqual(result, "Hallo, wie geht es dir? Ich bin gleich da. Bis bald.")
     }
 
     func testCapturePageStopDuringAPendingCloseStillStopsTheNextMicrophone() throws {

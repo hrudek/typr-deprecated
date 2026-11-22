@@ -228,8 +228,9 @@ final class KeyboardLocalDictation {
                 return
             }
             guard let self, !Task.isCancelled else { return }
+            let text = await KeyboardLocalCapture.text(from: heard, style: style, settings: TyprSettings())
+            guard !Task.isCancelled else { return }
             self.transcription = nil
-            let text = KeyboardLocalCapture.text(from: heard, style: style, settings: TyprSettings())
             self.state.finish(jobID: jobID, transcript: text, resultID: UUID().uuidString)
         }
     }

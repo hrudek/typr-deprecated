@@ -1,7 +1,7 @@
 import Foundation
 
 /// Punctuation said by name written as the mark, with string rules and no model, in German and
-/// English. With Experimental › Spoken punctuation on, runs inside every style but Verbatim, after
+/// English, for Typr German formatting rules. With Experimental › Spoken punctuation on, runs inside every style but Verbatim, after
 /// fillers (and Notes' spoken line breaks) and before the style's own capitalization and final
 /// period (`TyprTranscriptFormatter.format(_:style:language:punctuation:)`). A mark the speech model
 /// or AI cleanup already wrote beside a name is replaced, never doubled, and text without names

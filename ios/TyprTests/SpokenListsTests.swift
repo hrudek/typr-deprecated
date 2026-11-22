@@ -2,7 +2,7 @@ import XCTest
 @testable import Typr
 
 final class SpokenListsTests: XCTestCase {
-    private let styles: [DictationStyle] = [.polished, .casual, .veryCasual, .notes]
+    private let styles: [DictationStyle] = [.polished, .typrCasual, .casual, .notes]
 
     private func assertRows(
         _ rows: [(String, [String])], language: DictationLanguage, punctuation: Bool,
@@ -42,7 +42,7 @@ final class SpokenListsTests: XCTestCase {
             for heard in corpus {
                 for language in languages {
                     XCTAssertEqual(TyprSpokenLists.format(heard, language: language), heard, "\(language) \(heard)")
-                    for style in DictationStyle.allCases {
+                    for style in DictationStyle.choices(typrStyles: true) {
                         for punctuation in [false, true] {
                             XCTAssertEqual(
                                 TyprTranscriptFormatter.format(heard, style: style, language: language, lists: true, punctuation: punctuation),
@@ -82,7 +82,7 @@ final class SpokenListsTests: XCTestCase {
         for (language, heard, plain, punctuated) in Self.outputsBeforeLists {
             for (punctuation, expected) in [(false, plain), (true, punctuated)] {
                 XCTAssertEqual(
-                    DictationStyle.allCases.map {
+                    DictationStyle.choices(typrStyles: true).map {
                         TyprTranscriptFormatter.format(heard, style: $0, language: language, lists: false, punctuation: punctuation)
                     },
                     expected,

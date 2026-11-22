@@ -1,7 +1,7 @@
 import Foundation
 
 /// Dictated lists and line breaks as lines, with string rules and no model, in German and
-/// English. With Settings › Experimental › Format lists on, runs inside every style but
+/// English, for Typr German formatting rules. With Experimental › Format lists on, runs inside every style but
 /// Verbatim, after its fillers and spoken punctuation and before the style's own capitalization
 /// and final period (`TyprTranscriptFormatter.format(_:style:language:lists:punctuation:)`).
 /// Ported from Hex (anomalyco/hex `ios/HEXShared/SpokenLists.swift` at d65b02d3, MIT), English

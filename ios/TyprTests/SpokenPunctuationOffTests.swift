@@ -3,11 +3,11 @@ import XCTest
 
 final class SpokenPunctuationOffTests: XCTestCase {
     func testSwitchOffMatchesFormatterWithoutSpokenPunctuation() {
-        XCTAssertEqual(DictationStyle.allCases, [.polished, .casual, .veryCasual, .notes, .verbatim])
+        XCTAssertEqual(DictationStyle.choices(typrStyles: true), [.polished, .typrCasual, .casual, .notes, .verbatim])
         for (heard, expected) in Self.outputsBeforeSpokenPunctuation {
             for language in DictationLanguage.allCases {
                 XCTAssertEqual(
-                    DictationStyle.allCases.map { TyprTranscriptFormatter.format(heard, style: $0, language: language, punctuation: false) },
+                    DictationStyle.choices(typrStyles: true).map { TyprTranscriptFormatter.format(heard, style: $0, language: language, punctuation: false) },
                     expected,
                     "\(language) \(heard)"
                 )

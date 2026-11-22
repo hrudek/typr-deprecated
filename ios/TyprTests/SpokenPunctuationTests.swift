@@ -112,7 +112,7 @@ final class SpokenPunctuationTests: XCTestCase {
 
     func testStyles() {
         let heard = "Hallo Komma wie geht es dir Fragezeichen ich bin gleich da Punkt bis bald"
-        let formatted = DictationStyle.allCases.map {
+        let formatted = DictationStyle.choices(typrStyles: true).map {
             TyprTranscriptFormatter.format(heard, style: $0, language: .german, punctuation: true)
         }
         XCTAssertEqual(formatted, [
@@ -333,7 +333,7 @@ final class SpokenPunctuationTests: XCTestCase {
             + Self.englishNounPhrases.map { ($0, DictationLanguage.english) }
         XCTAssertGreaterThanOrEqual(cases.count, 60)
         for (sentence, language) in cases {
-            for style in DictationStyle.allCases {
+            for style in DictationStyle.choices(typrStyles: true) {
                 XCTAssertEqual(
                     TyprTranscriptFormatter.format(sentence, style: style, language: language, punctuation: true),
                     TyprTranscriptFormatter.format(sentence, style: style, language: language),

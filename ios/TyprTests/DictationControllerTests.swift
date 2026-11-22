@@ -297,9 +297,9 @@ final class DictationControllerTests: XCTestCase {
                                                    hostReturner: HostReturner(openByBundleID: { _ in false }, openURL: { _ in false }))
 
         controller.setWarmDuration(.off)
-        // Very casual preserves this regression's lowercase output after the Casual style split.
+        // Hex's Casual: no filler, a lowercase start and no final period on a short message.
         controller.handleKeyboardLaunch(
-            .startRecording(jobID: "one-shot-job", requestedAt: now, style: .veryCasual, host: nil)
+            .startRecording(jobID: "one-shot-job", requestedAt: now, style: .casual, host: nil)
         )
         try await activationSettled(controller)
         XCTAssertEqual(controller.phase, .recording)
@@ -311,7 +311,7 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertGreaterThan(audio.deactivateCount, 0)
         try await asrSuspended(transcriber)
 
-        await transcriber.resumeSuspended(with: "Um, Ship It Tonight.")
+        await transcriber.resumeSuspended(with: "Um, ship it tonight.")
         try await transcribed(controller)
 
         XCTAssertEqual(controller.phase, .ready)

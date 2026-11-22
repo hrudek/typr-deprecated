@@ -15,17 +15,23 @@ final class CasualStyleTests: XCTestCase {
             ("", "", ""),
         ]
         for (raw, casual, veryCasual) in cases {
-            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: .casual), casual, raw)
-            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: .veryCasual), veryCasual, raw)
+            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: .typrCasual), casual, raw)
+            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: .casual), veryCasual, raw)
         }
     }
 
-    func testOldStoredCasualValueKeepsLowercaseBehavior() throws {
-        XCTAssertEqual(DictationStyle(rawValue: "casual"), .veryCasual)
-        XCTAssertEqual(try JSONDecoder().decode(DictationStyle.self, from: Data("\"casual\"".utf8)), .veryCasual)
-        XCTAssertEqual(DictationStyle.veryCasual.label, "Very casual")
-        XCTAssertEqual(DictationStyle.casual.label, "Casual")
-        for style in DictationStyle.allCases {
+    /// Stored values never change: "casual" (Typr's old Very casual) is Hex's Casual, and
+    /// Typr's Casual ("casualCapitalized") is a style only with Typr dictation styles on.
+    func testStoredStylesDecodeWithHexSemantics() throws {
+        XCTAssertEqual(DictationStyle(rawValue: "casual"), .casual)
+        XCTAssertEqual(try JSONDecoder().decode(DictationStyle.self, from: Data("\"casual\"".utf8)), .casual)
+        XCTAssertEqual(DictationStyle(rawValue: "casualCapitalized"), .typrCasual)
+        XCTAssertEqual(DictationStyle.choices(typrStyles: false), [.polished, .casual, .notes, .verbatim])
+        XCTAssertEqual(DictationStyle.choices(typrStyles: true), [.polished, .typrCasual, .casual, .notes, .verbatim])
+        XCTAssertEqual(DictationStyle.casual.label(typrStyles: false), "Casual")
+        XCTAssertEqual(DictationStyle.casual.label(typrStyles: true), "Very casual")
+        XCTAssertEqual(DictationStyle.typrCasual.label(typrStyles: true), "Casual")
+        for style in DictationStyle.choices(typrStyles: true) {
             XCTAssertEqual(try JSONDecoder().decode(DictationStyle.self, from: JSONEncoder().encode(style)), style)
             XCTAssertEqual(DictationStyle(rawValue: style.rawValue), style)
             let request = KeyboardLaunchRequest.startRecording(jobID: "style-test", requestedAt: 100, style: style, host: nil)
@@ -35,8 +41,9 @@ final class CasualStyleTests: XCTestCase {
 
     @MainActor
     func testCapturedLogStylesCannotCollideWithHistoricalCasualLabel() throws {
-        for (style, expected) in [(DictationStyle.casual, "Casual (natural case)"),
-                                  (.veryCasual, "Very casual")] {
+        let typrStyles = DictationStyle.typrStylesEnabled
+        for (style, expected) in [(DictationStyle.typrCasual, "Casual (natural case)"),
+                                  (.casual, typrStyles ? "Very casual" : "Casual (texting)")] {
             let context = DictationLogContext.capture(
                 keyboardJob: false, copyToPasteboard: false, style: style,
                 engine: "test", language: "de", duration: 1,
@@ -53,18 +60,32 @@ final class CasualStyleTests: XCTestCase {
         XCTAssertEqual(decoded.style, "Casual")
     }
 
+    /// A saved Typr Casual reads as Polished while Typr dictation styles is off, with the stored
+    /// value kept for when it is on again.
     @MainActor
-    func testSavedStyleSelectionAndCycleIncludeBothChatStyles() {
+    func testSavedStyleSelectionFallsBackWhileTyprStylesAreOff() {
         let suite = "typr.tests.casual.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let bridge = KeyboardBridge(defaults: defaults)
-        bridge.style = .veryCasual
-        XCTAssertEqual(KeyboardBridge(defaults: defaults).style, .veryCasual)
         bridge.style = .casual
         XCTAssertEqual(KeyboardBridge(defaults: defaults).style, .casual)
-        XCTAssertEqual(DictationStyle.polished.next, .casual)
-        XCTAssertEqual(DictationStyle.casual.next, .veryCasual)
-        XCTAssertEqual(DictationStyle.veryCasual.next, .notes)
+        bridge.style = .typrCasual
+        XCTAssertEqual(KeyboardBridge(defaults: defaults).style,
+                       DictationStyle.typrStylesEnabled ? .typrCasual : .polished)
+        XCTAssertEqual(defaults.string(forKey: "settings.dictationStyle"), "casualCapitalized")
+    }
+
+    func testPipelineFallsBackToPolishedForUnavailableStyle() {
+        let suite = "typr.tests.casual.pipeline.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = TyprSettings(defaults: defaults)
+        let vocabulary = DictationVocabulary(userTerms: [])
+        XCTAssertEqual(DictationPipeline(style: .typrCasual, language: .german, vocabulary: vocabulary,
+                                         settings: settings).style, .polished)
+        settings[experiment: .typrDictationStyles] = true
+        XCTAssertEqual(DictationPipeline(style: .typrCasual, language: .german, vocabulary: vocabulary,
+                                         settings: settings).style, .typrCasual)
     }
 }

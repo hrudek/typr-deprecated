@@ -186,14 +186,15 @@ final class KeyboardBridgeTests: XCTestCase {
         XCTAssertEqual(KeyboardBridge(defaults: defaults).fullAccessSeenAt, 1_234)
     }
 
-    func testTranscriptStylesFormatDeterministically() {
+    /// Typr dictation styles' formatter.
+    func testTyprTranscriptStylesFormatDeterministically() {
         let raw = "um let's ship the ios build tonight"
         XCTAssertEqual(
             TyprTranscriptFormatter.format(raw, style: .polished),
             "Let's ship the ios build tonight."
         )
         XCTAssertEqual(
-            TyprTranscriptFormatter.format("Um, Sounds Good.", style: .veryCasual),
+            TyprTranscriptFormatter.format("Um, Sounds Good.", style: .casual),
             "sounds good"
         )
         XCTAssertEqual(
@@ -208,15 +209,15 @@ final class KeyboardBridgeTests: XCTestCase {
 
     func testSmartInsertionSpacingRespectsSurroundingContext() {
         XCTAssertEqual(
-            TyprTranscriptFormatter.insertionText(for: "world.", beforeContext: "Hello", afterContext: nil),
+            TranscriptFormatter.insertionText(for: "world.", beforeContext: "Hello", afterContext: nil),
             " world."
         )
         XCTAssertEqual(
-            TyprTranscriptFormatter.insertionText(for: "world.", beforeContext: "Hello ", afterContext: nil),
+            TranscriptFormatter.insertionText(for: "world.", beforeContext: "Hello ", afterContext: nil),
             "world."
         )
         XCTAssertEqual(
-            TyprTranscriptFormatter.insertionText(for: "Hello", beforeContext: nil, afterContext: "world"),
+            TranscriptFormatter.insertionText(for: "Hello", beforeContext: nil, afterContext: "world"),
             "Hello "
         )
     }
