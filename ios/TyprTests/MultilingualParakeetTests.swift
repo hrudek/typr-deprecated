@@ -94,6 +94,18 @@ final class MultilingualParakeetTests: XCTestCase {
         XCTAssertFalse(settings.keyboardOpensTypr(language: "nl-NL"))
     }
 
+    func testChoosingASpeechEngineStopsTheKeyboardFromOpeningTyprForUltra() {
+        let settings = MultilingualParakeetSettings(defaults: defaults)
+        let typr = TyprSettings(defaults: defaults)
+        settings.isEnabled = true
+        settings.isModelReady = true
+        XCTAssertTrue(settings.keyboardOpensTypr(language: "nl-NL"))
+
+        typr.preferredSpeechEngine = .orukeet
+
+        XCTAssertFalse(settings.keyboardOpensTypr(language: "nl-NL"))
+    }
+
     func testOnlyASwitchTurnedOffDeletesTheMultilingualModelAtLaunch() {
         let settings = MultilingualParakeetSettings(defaults: defaults)
         XCTAssertFalse(settings.isTurnedOff, "never set: nothing to delete")

@@ -45,9 +45,10 @@ nonisolated struct MultilingualParakeetSettings {
         nonmutating set { defaults?.set(newValue, forKey: Self.modelReadyKey) }
     }
 
-    /// The keyboard's dictation opens Typr for it: on, ready, and the language its.
+    /// Keyboard dictation opens Typr when Ultra is ready for the automatic engine and language.
     func keyboardOpensTypr(language: String?) -> Bool {
         isEnabled && isModelReady && language != nil
+            && TyprSettings(defaults: defaults).preferredSpeechEngine == nil
     }
 
     /// Whether this iPhone has the memory to load it at all.
