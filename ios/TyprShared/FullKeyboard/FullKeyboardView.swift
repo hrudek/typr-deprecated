@@ -995,8 +995,6 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         }
     }
 
-    // MARK: - Holding the strip (Hex #2210)
-
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard stripPressTouch == nil, let touch = touches.first, beginStripPress(at: touch.location(in: self)) else {
             super.touchesBegan(touches, with: event)
