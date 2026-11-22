@@ -725,6 +725,46 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(host.text, "Hallo schöne Wel")
     }
 
+    func testAnotherKeyDuringADeleteSlideKeepsWhatWasDeletedAndEndsTheSlide() {
+        for (key, typed) in [(KeyKind.character("x"), "Hallo schöne x"), (.space, "Hallo schöne  "),
+                             (.returnKey, "Hallo schöne \n")] {
+            resetText("Hallo schöne Welt")
+            engine.slidesDeleteByWord = true
+            down(1, .delete)
+            slideDelete(1, keyWidths: 1.2)
+            XCTAssertEqual(target.text, "Hallo schöne ", "\(key)")
+            down(2, key)
+            up(2, key)
+            XCTAssertEqual(target.text, typed, "\(key)")
+            slideDelete(1, keyWidths: 2.2)
+            slideDelete(1, keyWidths: 0)
+            up(1, .delete)
+            XCTAssertEqual(target.text, typed, "\(key): the slide ended at the other key")
+        }
+    }
+
+    func testASwipeOrSuggestionDuringADeleteSlideEndsTheSlide() {
+        resetText("Hallo schöne Welt")
+        engine.slidesDeleteByWord = true
+        down(1, .delete)
+        slideDelete(1, keyWidths: 1.2)
+        let letter = point(.character("a"))
+        engine.touchBegan(id: 2, at: letter)
+        engine.touchMoved(id: 2, to: CGPoint(x: letter.x + 3 * engine.layout.letterWidth, y: letter.y))
+        engine.touchCancelled(id: 2)
+        slideDelete(1, keyWidths: 2.2)
+        XCTAssertEqual(target.text, "Hallo schöne ", "a second finger starting a swipe ends the slide")
+        up(1, .delete)
+
+        down(3, .delete)
+        slideDelete(3, keyWidths: 1.2)
+        XCTAssertEqual(target.text, "Hallo ")
+        engine.insertEmoji("👋")
+        slideDelete(3, keyWidths: 0)
+        up(3, .delete)
+        XCTAssertEqual(target.text, "Hallo 👋")
+    }
+
     func testWithTheDeleteSlideATapAndAStillHoldDeleteAsBefore() {
         resetText("Hallo Welt")
         engine.slidesDeleteByWord = true

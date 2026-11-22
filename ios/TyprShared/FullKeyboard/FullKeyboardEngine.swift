@@ -628,6 +628,7 @@ final class FullKeyboardEngine {
         if !suggestionsAreActive { resumeSuggestions() }
         // A swipe still decoding would land after this key's text: drop it instead.
         cancelPendingSwipe()
+        endDeleteSlide()
         // Rollover: commit a held character or real Space before the next key. Space
         // keeps its last observed point, never a fabricated key centre.
         for other in touchOrder {
@@ -738,7 +739,7 @@ final class FullKeyboardEngine {
         }
 
         if touch.key.kind == .delete, slidesDeleteByWord {
-            slideDelete(&touch, to: point.x)
+            if !touch.committed { slideDelete(&touch, to: point.x) }
             touches[id] = touch
             return
         }
@@ -761,6 +762,7 @@ final class FullKeyboardEngine {
                 if rawSteps != 0 {
                     touch.trackpadAnchorX += CGFloat(rawSteps) * Self.trackpadPointsPerCharacter
                     touches[id] = touch
+                    endDeleteSlide()
                     target.adjustTextPosition(byCharacterOffset: rawSteps)
                     onSelectionStep?()
                     onCursorMove?()
@@ -1010,6 +1012,7 @@ final class FullKeyboardEngine {
 
     private func trackpadMovedCursor(by offset: Int) {
         guard offset != 0 else { return }
+        endDeleteSlide()
         target.adjustTextPosition(byCharacterOffset: offset)
         onCursorMove?()
         refreshAutoCapitalization()
@@ -1060,7 +1063,13 @@ final class FullKeyboardEngine {
         guard changed else { return }
         autocorrect.touchInput.clear()
         lastSpaceAt = nil
-        didEdit()
+        didEdit(endsDeleteSlide: false)
+    }
+
+    private func endDeleteSlide() {
+        for (id, touch) in touches where touch.slideDeleted != nil {
+            touches[id]?.committed = true
+        }
     }
 
     func repeatDelete(heldFor: TimeInterval) {
@@ -1430,7 +1439,8 @@ final class FullKeyboardEngine {
         didEdit(holdsSpace: holdsSpace)
     }
 
-    private func didEdit(holdsSpace: Bool = false) {
+    private func didEdit(holdsSpace: Bool = false, endsDeleteSlide: Bool = true) {
+        if endsDeleteSlide { endDeleteSlide() }
         heldSpaceBefore = holdsSpace ? target.documentContextBeforeInput : nil
         statisticsContext = statistics == nil ? nil : target.documentContextBeforeInput.flatMap(Self.boundedSuggestionContext)
         statisticsSessionRevision = statistics?.sessionRevision
