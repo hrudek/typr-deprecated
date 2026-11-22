@@ -36,10 +36,10 @@ final class ExperimentalSettingsTests: XCTestCase {
         XCTAssertFalse(TyprSettings(defaults: keyboardDefaults)[experiment: experiment])
     }
 
-    func testPreferencesLinkToTheExperimentalPage() async throws {
+    func testPreferencesLinkToTheExperimentalPage() {
         XCTAssertEqual(SettingsDestination.experimental.title, "Experimental")
-        let host = mount(NavigationStack { SettingsPreferences() })
-        try await waitForState("Preferences list Experimental") { labels(in: host).contains("Experimental") }
+        let links = Self.descendants(of: SettingsPreferences().body).compactMap { $0 as? SettingsLink }
+        XCTAssertTrue(links.contains { $0.title == "Experimental" }, "\(links.map(\.title))")
     }
 
     func testPageShowsEachSwitchWithItsStoredValue() async throws {
@@ -48,16 +48,18 @@ final class ExperimentalSettingsTests: XCTestCase {
         let host = mount(ExperimentalSettingsCard(switches: [experiment, other], defaults: defaults))
         try await waitForState("the page shows two switches") { switchesTopToBottom(in: host).count == 2 }
         XCTAssertEqual(switchesTopToBottom(in: host).map(\.isOn), [false, true])
-        for text in [experiment.title, experiment.detail, other.title, other.detail] {
-            XCTAssertTrue(labels(in: host).contains(text), "\(text) missing from \(labels(in: host))")
+        for item in [experiment, other] {
+            let row = Self.descendants(of: ExperimentalToggle(experiment: item, settings: TyprSettings(defaults: defaults)).body)
+                .compactMap { $0 as? SettingsToggle }
+            XCTAssertEqual(row.map(\.title), [item.title])
+            XCTAssertEqual(row.map(\.detail), [item.detail])
         }
     }
 
-    func testPageWithoutSwitchesSaysSo() async throws {
-        let host = mount(ExperimentalSettingsCard(switches: [], defaults: defaults))
-        try await waitForState("the empty notice is shown") {
-            labels(in: host).contains(ExperimentalSettingsCard.emptyNotice)
-        }
+    func testPageWithoutSwitchesSaysSo() {
+        let card = ExperimentalSettingsCard(switches: [], defaults: defaults)
+        XCTAssertTrue(Self.descendants(of: card.body).contains { $0 as? String == ExperimentalSettingsCard.emptyNotice })
+        XCTAssertTrue(switchesTopToBottom(in: mount(card)).isEmpty)
     }
 
     private func mount(_ view: some View) -> UIViewController {
@@ -69,9 +71,16 @@ final class ExperimentalSettingsTests: XCTestCase {
         return host
     }
 
-    private func labels(in host: UIViewController) -> [String] {
-        host.view.layoutIfNeeded()
-        return Self.subviews(of: host.view).compactMap { ($0 as? UILabel)?.text }
+    /// SwiftUI draws `Text` without a `UILabel`, so copy is read from the view values instead.
+    private static func descendants(of value: Any, depth: Int = 0) -> [Any] {
+        guard depth < 30 else { return [] }
+        var found: [Any] = []
+        var mirror: Mirror? = Mirror(reflecting: value)
+        while let current = mirror {
+            for child in current.children { found += [child.value] + descendants(of: child.value, depth: depth + 1) }
+            mirror = current.superclassMirror
+        }
+        return found
     }
 
     private func switchesTopToBottom(in host: UIViewController) -> [UISwitch] {

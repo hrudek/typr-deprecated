@@ -9,7 +9,7 @@ final class PersonalTypingBigramTests: XCTestCase {
         var valid: Set<String> = ["hello", "world", "the", "next", "ich", "code", "swift", "morgen", "coffee", "please",
                                    "meine", "tastatur", "heute", "mittag", "guten", "daily", "review", "project", "update", "morning"]
         func isWordValid(_ word: String) -> Bool { valid.contains(word) }
-        func guesses(for word: String) -> [String] { [] }
+        func guesses(for word: String) -> [String] { word == "teh" ? ["the"] : [] }
         func completions(for prefix: String) -> [String] { [] }
     }
     private func keyboard(_ session: KeyboardLearningSession? = nil, text: String = "",
@@ -56,7 +56,7 @@ final class PersonalTypingBigramTests: XCTestCase {
         XCTAssertEqual(mixed.autocorrect.learning.previousTrustedWord, "coffee", "RAM-only predecessor")
     }
 
-    func testAutomaticUndoneRetypedAndDiscontinuousWordsNeverTeachPairs() {
+    func testAutomaticUndoneRetypedAndDiscontinuousWordsNeverTeachPairs() async {
         let modes = ["auto", "undo", "retype", "field", "selection", "language", "doubleSpace", "return",
                      "punctuation", "learningToggle"]
         for mode in modes {
@@ -64,8 +64,15 @@ final class PersonalTypingBigramTests: XCTestCase {
             let (engine, target) = keyboard(KeyboardLearningSession(defaults: defaults))
             type("hello ", engine)
             if mode == "auto" || mode == "undo" {
-                type("teh ", engine)
-                if mode == "undo" { engine.deleteAndRevert(); type(" ", engine) }
+                type("teh", engine)
+                await engine.waitForSuggestions()
+                type(" ", engine)
+                XCTAssertEqual(target.text, "hello the ", mode)
+                if mode == "undo" {
+                    engine.deleteAndRevert()
+                    XCTAssertEqual(target.text, "hello teh", mode)
+                    type(" ", engine)
+                }
                 type("world n", engine)
             } else if mode == "retype" {
                 type("worla", engine); tap(.delete, engine); type("d next n", engine)
@@ -90,6 +97,7 @@ final class PersonalTypingBigramTests: XCTestCase {
             XCTAssertNil(pairs.followers(after: "hello")["world"], mode)
             XCTAssertNil(pairs.followers(after: "hello")["the"], mode)
             XCTAssertNil(pairs.followers(after: "the")["world"], mode)
+            XCTAssertNil(pairs.followers(after: "teh")["world"], mode)
             // Language/learning toggles break only the earlier boundary; `world next` is then a
             // fresh, trusted adjacent pair. Field/selection changes also drop world's own evidence.
             let freshPair = mode == "language" || mode == "learningToggle"
