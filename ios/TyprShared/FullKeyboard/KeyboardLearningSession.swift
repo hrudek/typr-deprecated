@@ -213,8 +213,8 @@ final class KeyboardLearningSession {
         markChanged()
     }
 
-    func keep(_ word: String) {
-        guard model.keep(word) else { return }
+    func keep(_ word: String, language: SpatialWordDecoder.Language? = nil) {
+        guard model.keep(word, language: language) else { return }
         diagnostics.increment(.wordsKept)
         modelChanged()
     }
@@ -229,8 +229,8 @@ final class KeyboardLearningSession {
         modelChanged()
     }
 
-    func recordWord(_ word: String) {
-        guard model.recordWord(word) else { return }
+    func recordWord(_ word: String, language: SpatialWordDecoder.Language? = nil) {
+        guard model.recordWord(word, language: language) else { return }
         diagnostics.increment(.wordsCounted)
         modelChanged()
     }

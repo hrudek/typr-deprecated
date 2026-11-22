@@ -771,6 +771,15 @@ correct the word before them (`;` and `)` in `FullKeyboardEngine.typeCharacter`)
 PR #2144: `AutocorrectEngine.contextChoice`, `revision(of:)`). MIT, © Christopher Langton,
 the same license as this repository ([LICENSE](LICENSE)).
 
+## Hex custom words for typing and per-language learning
+
+The behavior of custom words in the full keyboard (`AutocorrectEngine.loadCustomWords`) and of
+Learn each language separately (`PersonalTypingModel.State.languages`, `learningLanguage`) follows
+[anomalyco/hex](https://github.com/anomalyco/hex) at `d65b02d36efbaf1ff771420e89c0632dea4706cb`
+(PR #2205: custom words for typing; PR #2188: learn each language separately), reimplemented on
+Typr's lexicon and learning store without copying code. MIT, © Christopher Langton, the same
+license as this repository ([LICENSE](LICENSE)).
+
 ## Hex iOS audio mixing and keepalive backoff
 
 The Keep other audio playing session in `ios/Typr/DictationAudioSession.swift` (category,

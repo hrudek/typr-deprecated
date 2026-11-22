@@ -197,6 +197,7 @@ final class KeyboardLearningStore {
                     }
                 case .rejected: break
                 }
+                state.pruneLanguages()
                 let next = epochs.learning == Int.max ? 0 : epochs.learning + 1
                 let data = try JSONEncoder().encode(Saved(epoch: next, value: state))
                 guard data.count <= Self.maximumLearningBytes else { throw CocoaError(.fileWriteOutOfSpace) }

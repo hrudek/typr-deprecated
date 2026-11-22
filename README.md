@@ -94,6 +94,13 @@ An explicit engine or language choice never silently falls back to another.
   ; and ) correct the word before them like space and . , ? !. Experimental › **Words from
   context** follows Hex: its/it's, your/you're, there/their/they're and then/than follow the
   words around them, at their own space or the next word's, and German writes geht's and gibt's.
+  Your Custom vocabulary words (each word of a phrase) are never corrected away and are
+  completed in German and English sentences, after your contacts (Hex). Learned words carry the
+  language of the sentence they were typed in only while every use leaned that way; a word
+  used in both, first typed leaning neither, or learned before stays in both. With
+  Experimental › **Learn each language separately** (off by default), a German sentence gets no
+  learned completions or next-word predictions typed only in English that German does not know,
+  and the other way round.
   Suggestions, autocorrect, swipe and predictions never offer slurs, and offer
   swear words only once Typr learned them or with Keyboard › Suggest swear words (LDNOOBW list as curated by Hex). Your iOS text replacements expand on space and punctuation also with Autocorrect off, take a capital you typed on the shortcut ("Mfg") and expand again after a revert kept the shortcut once. Unless a keyboard Anthropic key is stored (then Claude predicts), on iOS 26+
   with Apple Intelligence available for every enabled language, the on-device model adds up to three next-word predictions from the current paragraph before the
