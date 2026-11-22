@@ -77,6 +77,8 @@ struct TyprSettings {
         static let personalLearning = "keyboard.personalLearning"
         static let dictationLanguage = "typr.dictationLanguage"
         static let preferredSpeechEngine = "typr.preferredSpeechEngine"
+        static let dictationEndsWithPeriod = "typr.dictationEndsWithPeriod"
+        static let dictationLowercase = "typr.dictationLowercase"
     }
 
     private let defaults: UserDefaults?
@@ -137,6 +139,19 @@ struct TyprSettings {
     var dictationLanguage: DictationLanguage {
         get { defaults?.string(forKey: Key.dictationLanguage).flatMap(DictationLanguage.init(rawValue:)) ?? .automatic }
         nonmutating set { defaults?.set(newValue.rawValue, forKey: Key.dictationLanguage) }
+    }
+
+    /// On by default: each style ends its text as before. Off, no dictated line ends with a full
+    /// stop (`TranscriptFormatter.format(_:style:language:lists:punctuation:endsWithPeriod:)`).
+    var dictationEndsWithPeriod: Bool {
+        get { defaults?.object(forKey: Key.dictationEndsWithPeriod) as? Bool ?? true }
+        nonmutating set { defaults?.set(newValue, forKey: Key.dictationEndsWithPeriod) }
+    }
+
+    /// Off by default. On, dictation is lowercased after its style and vocabulary.
+    var dictationLowercase: Bool {
+        get { defaults?.object(forKey: Key.dictationLowercase) as? Bool ?? false }
+        nonmutating set { defaults?.set(newValue, forKey: Key.dictationLowercase) }
     }
 
     /// The speech engine the user explicitly chose (a picker, not a switch). nil, the default and

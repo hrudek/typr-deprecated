@@ -844,3 +844,13 @@ Typr's list formatting (`ios/TyprShared/SpokenLists.swift`) is adapted from
 `d65b02d36efbaf1ff771420e89c0632dea4706cb`: `SpokenLists` in
 `ios/HEXShared/SpokenLists.swift` (#2131), keeping the English table and adding a German one.
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Hex iOS End with a period and Lowercase
+
+The End with a period and Lowercase settings (`TranscriptFormatter.format(…endsWithPeriod:)`,
+`TranscriptFormatter.droppingFinalFullStop`, `TranscriptFormatter.lowercased` and their use in
+`ios/Typr/DictationController.swift`) are adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2147: `TranscriptFormatter.format(…endsWithPeriod:)`
+and `droppingFinalFullStop`; PR #2103: Lowercase in `DictationPipeline.format`).
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).

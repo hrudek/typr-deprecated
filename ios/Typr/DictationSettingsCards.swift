@@ -49,6 +49,8 @@ struct SettingsChoiceRow: View {
 @MainActor
 struct DictationStyleSettingsCard: View {
     @Bindable var dictation: DictationController
+    @State private var endsWithPeriod = TyprSettings().dictationEndsWithPeriod
+    @State private var lowercase = TyprSettings().dictationLowercase
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -62,6 +64,21 @@ struct DictationStyleSettingsCard: View {
                 }
             }
             Text("AI cleanup, when enabled and available, runs before formatting in every style except Verbatim.")
+                .font(.footnote).foregroundStyle(TyprTheme.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 16)
+            SettingsSection {
+                SettingsToggle(title: "End with a period",
+                               detail: "Off: no line ends with a period. Question and exclamation marks stay.",
+                               isOn: $endsWithPeriod)
+                    .onChange(of: endsWithPeriod) { _, isOn in TyprSettings().dictationEndsWithPeriod = isOn }
+                SettingsDivider()
+                SettingsToggle(title: "Lowercase",
+                               detail: "Lowercases everything, nouns and vocabulary included.",
+                               isOn: $lowercase)
+                    .onChange(of: lowercase) { _, isOn in TyprSettings().dictationLowercase = isOn }
+            }
+            Text("Both apply to every style except Verbatim, from your next dictation.")
                 .font(.footnote).foregroundStyle(TyprTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
