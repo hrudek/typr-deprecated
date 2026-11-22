@@ -5,7 +5,7 @@ import SwiftUI
 struct LearnedDictationFixesCard: View {
     static let emptyNotice = "Nothing learned yet. Replace a dictated word with a similar one twice, and Typr writes it that way."
     static let offNotice = "Turn on Learn from my edits in Experimental."
-    static let about = "Typr keeps only the words you replaced, what you wrote instead (up to three words each) and how often, never the dictation."
+    static let about = "Typr keeps only the words you replaced, what you wrote instead (up to three words each) and how often, never the dictation. Fixes made once stay unlisted until you delete everything."
 
     var store = DictationLearningStore()
 

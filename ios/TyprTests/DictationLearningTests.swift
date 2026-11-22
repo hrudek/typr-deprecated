@@ -100,6 +100,19 @@ final class DictationEditTrackerTests: XCTestCase {
         XCTAssertTrue(results.allSatisfy { $0.pairs.isEmpty })
     }
 
+    func testRetypingAnUndoneDictationTeachesNothing() {
+        let tracker = makeTracker()
+        dictate(" Ich habe die Wal getroffen.", with: tracker)
+        field.replace(" Ich habe die Wal getroffen.", with: "")
+        tracker.didUndo()
+        tracker.observe(field.context, fromKeys: false)
+        field.insert(" Ich habe die Wahl getroffen.")
+        tracker.observe(field.context, fromKeys: true)
+        tracker.finish(field.context)
+        XCTAssertEqual(results.map(\.outcome), [.undone])
+        XCTAssertTrue(results.allSatisfy { $0.pairs.isEmpty })
+    }
+
     func testDeletedWhenRemovedAndNotDictatedAgain() {
         let tracker = makeTracker()
         dictate(" Bis später.", with: tracker)

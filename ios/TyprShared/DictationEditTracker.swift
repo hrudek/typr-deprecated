@@ -75,8 +75,8 @@ final class DictationEditTracker {
         }
     }
 
-    /// Undo dictation took the dictation back. Reported as undone, never paired with the
-    /// next dictation.
+    /// Undo dictation took the dictation back. Reported as undone whatever follows, so nothing
+    /// is learned from it.
     func didUndo() {
         guard var current = tracked else { return }
         current.latest.text = ""
@@ -140,7 +140,6 @@ final class DictationEditTracker {
             current.latest = span
             current.located = true
             current.emptiedAt = nil
-            current.undone = false
         } else if current.located {
             current.latest = span
             current.emptiedAt = current.emptiedAt ?? now()
@@ -150,12 +149,16 @@ final class DictationEditTracker {
 
     private func settle(_ current: Tracked, next inserted: String?, at time: TimeInterval) {
         guard current.located else { return }
+        guard !current.undone else {
+            emitRemoval(current)
+            return
+        }
         guard !current.latest.hasWords else {
             emit(DictationEditClassifier.classify(inserted: current.insertion.inserted, final: current.latest))
             return
         }
         let emptiedAt = current.emptiedAt ?? time
-        if current.undone || time - emptiedAt > Self.redictationWindow {
+        if time - emptiedAt > Self.redictationWindow {
             emitRemoval(current)
         } else if let inserted {
             emit(DictationEditClassifier.redictation(
