@@ -294,7 +294,6 @@ final class AIOffSnapshotTests: XCTestCase {
         ]
         for (name, apply) in variants {
             apply(settings)
-            // The controller keeps its own dictation language; the keyboard reads the setting.
             controller.setDictationLanguage(settings.dictationLanguage)
             let styles = DictationStyle.choices(typrStyles: settings[experiment: .typrDictationStyles])
             for style in styles {
