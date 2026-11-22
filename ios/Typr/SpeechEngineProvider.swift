@@ -9,22 +9,20 @@ nonisolated enum SpeechEngineAvailability: Equatable, Sendable {
     /// Whisper, Parakeet V3, Orukeet and Cohere Transcribe only through their Download buttons. The text says which.
     case downloadRequired(String)
     case requiresNewerOS(String)
-    case unsupportedDevice(String)
     case languageUnsupported(String)
 
     /// Whether choosing the engine can work at all on this iPhone and language.
     var isSupported: Bool {
         switch self {
         case .installed, .downloadRequired: true
-        case .requiresNewerOS, .unsupportedDevice, .languageUnsupported: false
+        case .requiresNewerOS, .languageUnsupported: false
         }
     }
 
     var detail: String {
         switch self {
         case .installed: "Installed on this iPhone"
-        case .downloadRequired(let text), .requiresNewerOS(let text),
-             .unsupportedDevice(let text), .languageUnsupported(let text): text
+        case .downloadRequired(let text), .requiresNewerOS(let text), .languageUnsupported(let text): text
         }
     }
 }
@@ -34,7 +32,6 @@ nonisolated enum SpeechEngineAvailability: Equatable, Sendable {
 nonisolated enum SpeechEngineError: LocalizedError, Equatable {
     case notReady
     case requiresNewerOS(SpeechEngineChoice)
-    case unsupportedDevice(SpeechEngineChoice)
     case languageUnsupported(SpeechEngineChoice, DictationLanguage)
     case notInstalled(SpeechEngineChoice)
 
@@ -44,8 +41,6 @@ nonisolated enum SpeechEngineError: LocalizedError, Equatable {
             "No speech engine is ready yet."
         case .requiresNewerOS(let engine):
             "\(engine.displayName) requires iOS 26 or later. Choose another engine under Speech engine."
-        case .unsupportedDevice(let engine):
-            "\(engine.displayName) is not supported on this iPhone. Choose another engine under Speech engine."
         case .languageUnsupported(let engine, let language):
             language == .automatic
                 ? "\(engine.displayName) does not support your preferred languages on this iPhone."
@@ -105,7 +100,6 @@ final class ProductionSpeechEngineProvider: SpeechEngineProviding {
         switch engine {
         case .appleSpeech:
             guard #available(iOS 26.0, *) else { throw SpeechEngineError.requiresNewerOS(engine) }
-            // Hex's language pick: `SpeechTranscriber`, else `DictationTranscriber`.
             let explicit = LanguageSettings().explicitDictationLanguage(typr: language)
             guard let speech = await AppleSpeechTranscriber.preferredLanguage(explicit: explicit) else {
                 throw SpeechEngineError.languageUnsupported(engine, language)

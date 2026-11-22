@@ -375,7 +375,6 @@ final class DictationController {
                 if hasCachedModel { prepareModel() }
             case .onDeviceRecognizer, .appleSpeech:
                 engineName = "Apple Speech"
-                // Speech Recognition is asked for by Prepare, never by a launch by itself.
                 if SFSpeechRecognizer.authorizationStatus() == .authorized {
                     keyboardBridge.setModelInstalled(true)
                     prepareModel()

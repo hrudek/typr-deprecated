@@ -103,7 +103,7 @@ enum DictationLogASRFailure: String, Codable, Sendable {
         if let error = error as? SpeechEngineError {
             switch error {
             case .notReady, .notInstalled: return .modelNotReady
-            case .requiresNewerOS, .unsupportedDevice, .languageUnsupported: return .other
+            case .requiresNewerOS, .languageUnsupported: return .other
             }
         }
         if #available(iOS 26.0, *), let error = error as? AppleSpeechTranscriber.TranscriberError {

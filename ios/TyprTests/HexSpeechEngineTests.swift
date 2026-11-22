@@ -232,6 +232,13 @@ final class HexSpeechEngineTests: XCTestCase {
         XCTAssertEqual(progress.snapshot(at: 61).fractionCompleted, 1)
     }
 
+    func testTheDictationLogNamesHexsEngineFailures() {
+        XCTAssertEqual(DictationLogASRFailure.classify(ParakeetTranscriber.TranscriberError.notEnoughMemory), .modelNotReady)
+        XCTAssertEqual(DictationLogASRFailure.classify(ParakeetTranscriber.TranscriberError.downloadFailed), .modelNotReady)
+        XCTAssertEqual(DictationLogASRFailure.classify(OnDeviceSpeechTranscriber.TranscriberError.notAllowed), .modelNotReady)
+        XCTAssertEqual(DictationLogASRFailure.classify(OnDeviceSpeechTranscriber.TranscriberError.emptyTranscript), .noSpeech)
+    }
+
     // MARK: - Engine selection matrix
 
     private func emptyProvider() -> ProductionSpeechEngineProvider {
@@ -255,7 +262,7 @@ final class HexSpeechEngineTests: XCTestCase {
                     XCTAssertFalse(engine.requiresExplicitDownload, "\(engine) created without its download")
                 } catch let error as SpeechEngineError {
                     switch error {
-                    case .notInstalled(let named), .requiresNewerOS(let named), .unsupportedDevice(let named):
+                    case .notInstalled(let named), .requiresNewerOS(let named):
                         XCTAssertEqual(named, engine)
                     case .languageUnsupported(let named, let failed):
                         XCTAssertEqual(named, engine)
