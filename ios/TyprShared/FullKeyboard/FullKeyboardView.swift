@@ -76,6 +76,10 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     private(set) var design = KeyboardDesign.standard
     private var subscriptions: Set<AnyCancellable> = []
     private var showsRecording = false
+    private var stripPressTouch: UITouch?
+    private var stripPressStart: CGPoint?
+    private var stripHoldWork: DispatchWorkItem?
+    private var stripHoldDictates = false
     private var lastDictation: DictationUndo?
     /// Follows inserted dictations for Learn from my edits; the controller stores its results.
     var dictationEdits = DictationEditTracker()
@@ -989,6 +993,76 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         } else {
             model.onColdStart?()
         }
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard stripPressTouch == nil, let touch = touches.first, beginStripPress(at: touch.location(in: self)) else {
+            super.touchesBegan(touches, with: event)
+            return
+        }
+        stripPressTouch = touch
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = stripPressTouch, touches.contains(touch) else {
+            super.touchesMoved(touches, with: event)
+            return
+        }
+        moveStripPress(to: touch.location(in: self))
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = stripPressTouch, touches.contains(touch) else {
+            super.touchesEnded(touches, with: event)
+            return
+        }
+        endStripPress()
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = stripPressTouch, touches.contains(touch) else {
+            super.touchesCancelled(touches, with: event)
+            return
+        }
+        endStripPress()
+    }
+
+    /// A finger on the strip where no word or chip is (`KeyboardStripView.hitTest`): touch-down
+    /// arms like the Typr key, a still hold dictates like holding it, and the end stops that
+    /// dictation (push to talk). A tap, or a slide past 10 pt before the hold, does nothing.
+    @discardableResult
+    func beginStripPress(at point: CGPoint) -> Bool {
+        guard !stripView.isHidden, stripView.frame.contains(point), !showsRecording, styleMenu == nil else { return false }
+        endStripPress()
+        stripPressStart = point
+        let work = DispatchWorkItem { [weak self] in self?.stripHoldElapsed() }
+        stripHoldWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + TyprKeyGesture.holdDuration, execute: work)
+        if typrKey.isWarm { model.onArmDictation?() }
+        return true
+    }
+
+    func moveStripPress(to point: CGPoint) {
+        guard let start = stripPressStart, stripHoldWork != nil, hypot(point.x - start.x, point.y - start.y) > 10 else { return }
+        endStripPress()
+    }
+
+    func endStripPress() {
+        stripPressTouch = nil
+        guard stripPressStart != nil else { return }
+        stripPressStart = nil
+        stripHoldWork?.cancel()
+        stripHoldWork = nil
+        model.onDisarmDictation?()
+        if stripHoldDictates { model.onStopTap?() }
+        stripHoldDictates = false
+    }
+
+    private func stripHoldElapsed() {
+        stripHoldWork = nil
+        guard !showsRecording, styleMenu == nil else { return }
+        stripHoldDictates = typrKey.isWarm
+        typrKeyHeld()
     }
 
     /// Typr: a quick tap on the Typr key types a space, like the space bar.

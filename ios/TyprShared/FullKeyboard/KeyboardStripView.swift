@@ -194,6 +194,13 @@ final class KeyboardStripView: UIView {
         UIRectFill(CGRect(x: (slots.minX + slotW * 2).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
     }
 
+    /// Empty space passes through, so `FullKeyboardView` (never hidden) owns a hold there even
+    /// after the recording panel hides this strip; words and chips keep their touches.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hit = super.hitTest(point, with: event)
+        return hit === self ? nil : hit
+    }
+
     @objc private func handleCodeChip() {
         onCodeFromMessages?()
     }
