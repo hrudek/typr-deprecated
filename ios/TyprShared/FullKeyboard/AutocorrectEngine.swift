@@ -1024,10 +1024,14 @@ final class AutocorrectEngine {
             guard canPredictNextWord(after: beforeInput), let context, context.canPredict,
                   let model = contextModel else { return [] }
             let previous = Self.lastWord(of: RejectedCorrection.context(before: beforeInput, token: ""))
+            let sentenceLanguage = learnsLanguagesSeparately ? learningLanguage(beforeInput ?? "") : nil
             let words = model.suggestions(after: context.previous, weightDE: context.state.weightDE,
                                           german: german != nil, english: englishEnabled,
                                           personal: learning.personalBigrams, earlier: context.earlier,
-                                          allows: { self.mayOffer($0, after: previous) })
+                                          allows: {
+                                              self.mayOffer($0, after: previous)
+                                                  && !self.learnedElsewhere($0, sentence: sentenceLanguage)
+                                          })
             // Most likely word in the centre slot, like the current-word strip; never automatic.
             return KeyboardContextModel.stripOrder(words).map { word in
                 let selected = learning.personalBigrams.select(after: context.previous, earlier: context.earlier).context
@@ -1186,8 +1190,7 @@ final class AutocorrectEngine {
                 for promotion in KeyboardCompletionRanking.promotions(
                     token: token, baseline: baseline, additions: retrieval.personal,
                     personal: learning.personalPriors) where pool.count < completionLimit {
-                    if let sentenceLanguage, let learned = learning.model.language(of: promotion.word),
-                       learned != sentenceLanguage { continue }
+                    if learnedElsewhere(promotion.word, sentence: sentenceLanguage) { continue }
                     let cased = promotion.isAddition ? personalSpelling(promotion.word, token: token) : promotion.word
                     offer(cased, isCompletion: true, personal: true)
                 }

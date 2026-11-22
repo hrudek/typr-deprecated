@@ -2,8 +2,6 @@ import Foundation
 import XCTest
 @testable import Typr
 
-/// Hex #2205 (custom words for typing) and #2188 (learn each language separately), German first.
-/// Injected checkers, no Apple dictionaries.
 @MainActor
 final class CustomWordsPerLanguageTests: XCTestCase {
     private final class Checker: TextChecking {
@@ -14,11 +12,12 @@ final class CustomWordsPerLanguageTests: XCTestCase {
         func completions(for prefix: String) -> [String] { [] }
     }
 
-    private static let english: Set<String> = ["we", "have", "a", "use", "run", "meeting"]
+    private static let english: Set<String> = ["we", "have", "a", "use", "run", "meeting", "it", "also"]
     private static let german: Set<String> = ["ich", "habe", "heute", "nutze", "wir"]
 
-    private func engine(_ session: KeyboardLearningSession) -> AutocorrectEngine {
-        let ac = AutocorrectEngine(checker: Checker(Self.english), learning: session, spatialDecoder: nil)
+    private func engine(_ session: KeyboardLearningSession, predicts: Bool = false) -> AutocorrectEngine {
+        let ac = AutocorrectEngine(checker: Checker(Self.english), learning: session, spatialDecoder: nil,
+                                   contextResources: predicts ? .init(model: BundledKeyboardData.contextModel) : nil)
         ac.german = GermanAutocorrect(checker: Checker(Self.german))
         return ac
     }
@@ -70,7 +69,8 @@ final class CustomWordsPerLanguageTests: XCTestCase {
         XCTAssertEqual(learning.model.language(of: "meerblick"), .german)
         pick("meeting", typed: "mee", after: "ich habe heute ", in: ac)
         XCTAssertNil(learning.model.language(of: "meeting"))
-        XCTAssertEqual(learning.model.state.languages?["meeting"], PersonalTypingModel.State.bothLanguages)
+        pick("meeting", typed: "mee", after: "we have a ", in: ac)
+        XCTAssertNil(learning.model.language(of: "meeting"), "once in both, in both for good")
     }
 
     func testLearnedWordIsOnlySuggestedInItsLanguageWithTheSwitchOn() {
@@ -93,6 +93,39 @@ final class CustomWordsPerLanguageTests: XCTestCase {
                       "no lean: every learned word")
         pick("meeting", typed: "mee", after: "ich habe heute ", in: ac)
         XCTAssertTrue(alternatives(ac, "ich habe heute mee").contains("meeting"), "typed in both: in both")
+    }
+
+    func testSharedWordsStayInBothLanguagesUntilEveryUseLeansOneWay() {
+        let learning = session()
+        learning.model.recordWord("meeting")
+        let ac = engine(learning)
+        ac.learnsLanguagesSeparately = true
+        pick("meeting", typed: "mee", after: "we have a ", in: ac)
+        XCTAssertNil(learning.model.language(of: "meeting"), "learned before languages: stays shared")
+        XCTAssertTrue(alternatives(ac, "ich habe heute mee").contains("meeting"))
+        pick("Meerblick", typed: "mee", after: "", in: ac)
+        pick("Meerblick", typed: "mee", after: "ich habe heute ", in: ac)
+        XCTAssertNil(learning.model.language(of: "meerblick"), "first used leaning neither: shared")
+        XCTAssertTrue(alternatives(ac, "we have a mee").contains { $0.lowercased() == "meerblick" })
+    }
+
+    func testNextWordPredictionsKeepToTheSentenceLanguage() throws {
+        try XCTSkipIf(BundledKeyboardData.contextModel == nil, "no bundled word data")
+        let learning = session()
+        for _ in 0..<4 {
+            learning.model.recordWord("zorbex", language: .english)
+            learning.model.recordPair("zorbex", after: "also")
+        }
+        let ac = engine(learning, predicts: true)
+        func predicts(_ text: String) -> Bool {
+            ac.suggestions(beforeInput: text, field: .text, autocorrectionType: .default)
+                .contains { $0.replacement.lowercased() == "zorbex" }
+        }
+        XCTAssertTrue(predicts("ich habe heute also "), "off: as before")
+        XCTAssertTrue(predicts("we have it also "))
+        ac.learnsLanguagesSeparately = true
+        XCTAssertFalse(predicts("ich habe heute also "))
+        XCTAssertTrue(predicts("we have it also "))
     }
 
     func testLanguagesSurviveSavingAndForgetting() throws {

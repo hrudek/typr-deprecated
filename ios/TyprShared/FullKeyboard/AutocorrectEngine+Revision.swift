@@ -154,6 +154,13 @@ extension AutocorrectEngine {
         return lean > 0 ? .german : lean < 0 ? .english : nil
     }
 
+    /// Learn each language separately: a word learned only in the other language than the
+    /// sentence's, and unknown to the sentence language's dictionary, is not offered.
+    func learnedElsewhere(_ word: String, sentence language: SpatialWordDecoder.Language?) -> Bool {
+        guard let language, let learned = learning.model.language(of: word), learned != language else { return false }
+        return !knowsAsTyped(word, german: language == .german)
+    }
+
     /// Positive when the last words lean German, negative for English: a word only one
     /// dictionary knows counts for it, one both know by the typing models' odds when it has
     /// at least `commonFrom` letters.
