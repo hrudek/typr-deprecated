@@ -19,7 +19,7 @@ struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
 
     /// Every switch shown in Settings > Experimental.
     static let all = hexExperiments + typrVariants
@@ -27,7 +27,7 @@ struct ExperimentalSwitch: Hashable {
     static let typrExclusiveAudioSession = ExperimentalSwitch(
         name: "variant.exclusiveAudioSession",
         title: "Typr exclusive audio session",
-        detail: "Dictation pauses other audio and records at 16 kHz, as Typr did before Hex."
+        detail: "Dictation pauses other audio and records at 16 kHz, and the warm mic stays off while other audio plays, as Typr did before Hex."
     )
 
     static let typrKeepSelectedWarmMicrophone = ExperimentalSwitch(
@@ -39,13 +39,7 @@ struct ExperimentalSwitch: Hashable {
     static let typrAudioActivationRetries = ExperimentalSwitch(
         name: "variant.audioActivationRetries",
         title: "Typr audio activation retries",
-        detail: "When another app holds the microphone, Typr tries again for up to 2.5 seconds."
-    )
-
-    static let typrOneMinuteLimit = ExperimentalSwitch(
-        name: "variant.oneMinuteLimit",
-        title: "Typr one-minute dictation limit",
-        detail: "Each dictation stops after one minute."
+        detail: "When another app still holds audio, Typr tries again for about five seconds before dictation fails."
     )
 
     static let typrFixedDictationLanguage = ExperimentalSwitch(
@@ -111,23 +105,25 @@ struct ExperimentalSwitch: Hashable {
     /// Typr overrides of Hex defaults: off is Hex's behavior, on restores Typr's. Each joins
     /// `typrVariants` when its area switches to Hex.
     static let typrOverrides: [ExperimentalSwitch] = [
-        .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrOneMinuteLimit,
+        .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrFixedDictationLanguage, .typrDictationStyles, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
         .typrAlwaysDictateInApp, .typrAutomaticHostReturn,
     ]
 
-    /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
-    /// moves to the chosen one. Typr can't start input in the background, so a move there can
-    /// end the warm session.
+    /// Retired: Hex's warm session (anomalyco/hex #2179) is the default since its audio cutover;
+    /// Typr keep selected warm microphone restores the old behavior. Kept for its stored key
+    /// only, which nothing reads, so a stored value never changes the default or an override.
     static let warmMicOnIPhone = ExperimentalSwitch(
         name: "warmMicOnIPhone",
         title: "Warm mic on iPhone",
         detail: "Between dictations the warm mic uses the iPhone's; each dictation switches to the chosen microphone. Switching can end the warm session while Typr is in the background."
     )
 
-    /// Hex's recording session (anomalyco/hex #2005, #2151, #2160): mixes with other apps'
-    /// audio instead of interrupting it, and leaves the hardware at its own sample rate.
+    /// Retired: Hex's recording session (anomalyco/hex #2005, #2151, #2160) is the default since
+    /// its audio cutover; Typr exclusive audio session restores the old behavior. Kept for its
+    /// stored key only, which nothing reads, so a stored value never changes the default or an
+    /// override.
     static let mixWithOtherAudio = ExperimentalSwitch(
         name: "mixWithOtherAudio",
         title: "Keep other audio playing",

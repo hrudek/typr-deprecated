@@ -466,10 +466,10 @@ private final class TapArmedCapture: ArmedAudioCapture {
 final class SystemAudioManager: AudioManaging {
     private var inputGraph = TyprAudioInput()
     private let audioSession = DictationAudioSession()
-    private let mixWithOthers: () -> Bool
+    private let exclusiveSession: () -> Bool
     private var keepaliveMicrophone: MicrophoneChoice?
     private var keepaliveInput: Microphone?
-    private var keepaliveMixes = false
+    private var keepaliveExclusive = false
     private let tapRouter = TapRouter()
     nonisolated(unsafe) private var observers: [NSObjectProtocol] = []
 
@@ -484,8 +484,8 @@ final class SystemAudioManager: AudioManaging {
         AVAudioSession.sharedInstance().isOtherAudioPlaying
     }
 
-    init(mixWithOthers: @escaping () -> Bool) {
-        self.mixWithOthers = mixWithOthers
+    init(exclusiveSession: @escaping () -> Bool) {
+        self.exclusiveSession = exclusiveSession
         installNotifications()
     }
 
@@ -505,17 +505,17 @@ final class SystemAudioManager: AudioManaging {
 
     func startKeepalive(microphone: MicrophoneChoice) throws {
         stopKeepalive()
-        let mixes = mixWithOthers()
-        let input = try audioSession.activate(microphone: microphone, mixWithOthers: mixes)
+        let exclusive = exclusiveSession()
+        let input = try audioSession.activate(microphone: microphone, exclusive: exclusive)
 
         try inputGraph.start(bufferHandler: Self.tapBlock(routingTo: tapRouter))
         keepaliveMicrophone = microphone
         keepaliveInput = input
-        keepaliveMixes = mixes
+        keepaliveExclusive = exclusive
     }
 
     func ensureKeepalive(microphone: MicrophoneChoice) throws {
-        if inputGraph.isRunning, keepaliveMixes == mixWithOthers(),
+        if inputGraph.isRunning, keepaliveExclusive == exclusiveSession(),
            keepaliveMicrophone == microphone || keepaliveFollows(microphone) {
             return
         }
@@ -523,8 +523,8 @@ final class SystemAudioManager: AudioManaging {
     }
 
     func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool {
-        guard inputGraph.isRunning, let keepaliveMicrophone, keepaliveMixes == mixWithOthers() else { return false }
-        return MicrophoneRoute.categoryOptions(for: keepaliveMicrophone) == MicrophoneRoute.categoryOptions(for: microphone)
+        guard inputGraph.isRunning, let keepaliveMicrophone, keepaliveExclusive == exclusiveSession() else { return false }
+        return keepaliveMicrophone.allowsBluetooth == microphone.allowsBluetooth
             && audioSession.input(for: microphone) == keepaliveInput
     }
 

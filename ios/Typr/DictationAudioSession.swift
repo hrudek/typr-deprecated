@@ -1,7 +1,7 @@
 import AVFAudio
 
-/// Keep the proven input-only session stable for the lifetime of the input graph.
-/// The controller decides whether to retain it or fully deactivate after capture.
+/// The session the input graph records in, stable for the graph's lifetime. The controller
+/// decides whether to retain it or fully deactivate after capture.
 @MainActor
 final class DictationAudioSession {
     private let setCategory: (AVAudioSession.Category, AVAudioSession.Mode, AVAudioSession.CategoryOptions) throws -> Void
@@ -47,26 +47,30 @@ final class DictationAudioSession {
     }
 
     func input(for choice: MicrophoneChoice) -> Microphone? {
-        MicrophoneRoute.input(for: choice, from: availableInputs())
+        MicrophoneRoute.capture(choice, from: availableInputs())
     }
 
     /// Returns the input the route records from: iOS keeps its own when it refuses the preference.
     ///
-    /// `mixWithOthers` uses `.playAndRecord`, which runs input and output at one hardware rate,
-    /// so it clears the preferred sample rate (an earlier `.record` activation's 16 kHz otherwise
-    /// stays for the process; 0 is undocumented as "none", so a refusal must not stop recording): 16 kHz would move every app's playback and
-    /// recording (a screen recording too) to 16 kHz while Typr holds the session. The tap
-    /// writer resamples to 16 kHz itself. Never `.duckOthers`: iOS lifts ducking only on
-    /// deactivation.
+    /// Hex's session (anomalyco/hex #2005, #2151, #2160), the default: `.playAndRecord` with
+    /// `.mixWithOthers`, so other apps' video and music keep playing with nothing to resume, and
+    /// never `.duckOthers` (iOS lifts ducking only on deactivation). It runs input and output
+    /// at one hardware rate, so it clears the preferred sample rate: 16 kHz would move every
+    /// app's playback and recording (a screen recording too) to 16 kHz while Typr holds the
+    /// session, and an `exclusive` activation's 16 kHz otherwise stays for the process. 0 is
+    /// undocumented as "none", so a refusal must not stop recording. The tap writer resamples
+    /// to 16 kHz itself.
+    ///
+    /// `exclusive` (Typr exclusive audio session): input-only `.record` at a preferred 16 kHz,
+    /// which interrupts other audio.
     @discardableResult
-    func activate(microphone: MicrophoneChoice, mixWithOthers: Bool = false) throws -> Microphone? {
-        let options = MicrophoneRoute.categoryOptions(for: microphone)
-        if mixWithOthers {
-            try setCategory(.playAndRecord, .measurement, options.union([.mixWithOthers, .allowBluetoothA2DP, .defaultToSpeaker]))
-            try? setPreferredSampleRate(0)
-        } else {
-            try setCategory(.record, .measurement, options)
+    func activate(microphone: MicrophoneChoice, exclusive: Bool = false) throws -> Microphone? {
+        if exclusive {
+            try setCategory(.record, .measurement, MicrophoneRoute.exclusiveCategoryOptions(allowingBluetooth: microphone.allowsBluetooth))
             try setPreferredSampleRate(16_000)
+        } else {
+            try setCategory(.playAndRecord, .measurement, MicrophoneRoute.categoryOptions(allowingBluetooth: microphone.allowsBluetooth))
+            try? setPreferredSampleRate(0)
         }
         try setActive(true, [])
         try? setPreferredInput(input(for: microphone))

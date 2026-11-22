@@ -21,9 +21,10 @@ final class DictationController {
     private static let maxCaptureDuration: TimeInterval = 60.0
     private static let resultDeliveryTTL: TimeInterval = 30.0
     nonisolated static let armedCaptureLifetime: TimeInterval = 1.5
-    /// Waits before each further microphone activation attempt. After another app ends an audio
-    /// interruption (observed: WhatsApp voice messages), iOS refuses Typr's activation for about
-    /// five seconds ("Cannot start playing"); later attempts succeed. About 5.5 s in total.
+    /// Typr audio activation retries: waits before each further microphone activation attempt.
+    /// After another app ends an audio interruption (observed: WhatsApp voice messages), iOS
+    /// refuses Typr's activation for about five seconds ("Cannot start playing"); later attempts
+    /// succeed. About 5.5 s in total. Off, like Hex, one attempt.
     nonisolated static let audioActivationRetryDelays: [Duration] = [
         .milliseconds(500), .seconds(1), .milliseconds(1500), .milliseconds(2500),
     ]
@@ -284,7 +285,7 @@ final class DictationController {
         self.translator = translator
         self.audioRetryDelays = audioActivationRetryDelays
         let resolvedBridge = keyboardBridge ?? KeyboardBridge()
-        let resolvedAudio = audio ?? SystemAudioManager(mixWithOthers: { languageSettings[experiment: .mixWithOtherAudio] })
+        let resolvedAudio = audio ?? SystemAudioManager(exclusiveSession: { languageSettings[experiment: .typrExclusiveAudioSession] })
         let initialTranscriber = transcriber ?? ParakeetTranscriber()
         let resolvedProvider = engineProvider ?? ProductionSpeechEngineProvider()
         let preferred = languageSettings.preferredSpeechEngine
@@ -925,15 +926,20 @@ final class DictationController {
     }
 
     private var otherAudioBlocksMicrophone: Bool {
-        !languageSettings[experiment: .mixWithOtherAudio] && audio.isOtherAudioPlaying
+        languageSettings[experiment: .typrExclusiveAudioSession] && audio.isOtherAudioPlaying
     }
 
     private var captureMicrophone: MicrophoneChoice {
         warmSessionInterrupted && microphone == .bluetooth ? .automatic : microphone
     }
 
+    /// Hex's warm session (anomalyco/hex #2179) idles on the iPhone's microphone, so it never
+    /// holds a car or headset in call audio between dictations; each dictation moves to its own
+    /// input. iOS can't start input in the background, so there a move that needs another input
+    /// (a headset, CarPlay or Bluetooth hands-free) fails the dictation. Typr keep selected warm
+    /// microphone idles on the chosen one instead.
     private var idleMicrophone: MicrophoneChoice {
-        languageSettings[experiment: .warmMicOnIPhone] ? .iPhone : captureMicrophone
+        languageSettings[experiment: .typrKeepSelectedWarmMicrophone] ? captureMicrophone : .iPhone
     }
 
     private func enableWarmSessionBookkeeping() {
@@ -1960,7 +1966,8 @@ final class DictationController {
     /// app's audio. Stops with `CancellationError` once `isCurrent` turns false.
     private func activateAudio<T>(isCurrent: () -> Bool, _ attempt: () throws -> T) async throws -> T {
         var lastError: (any Error)?
-        for delay in [Duration.zero] + audioRetryDelays {
+        let retries = languageSettings[experiment: .typrAudioActivationRetries] ? audioRetryDelays : []
+        for delay in [Duration.zero] + retries {
             if delay > .zero {
                 try await Task.sleep(for: delay)
             }

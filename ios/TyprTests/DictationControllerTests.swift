@@ -71,7 +71,10 @@ private final class FakeAudioManager: AudioManaging {
     var keepaliveMicrophones: [MicrophoneChoice] = []
     var captureMicrophones: [MicrophoneChoice] = []
     var keepaliveInputIsStale = false
-    var mixesWithOtherAudio = false
+    /// Hex's session mixes; Typr exclusive audio session interrupts playing media.
+    var mixesWithOtherAudio = true
+    /// A headset or CarPlay microphone that Automatic records from instead of the iPhone's.
+    var externalMicrophone = false
     var keepaliveStopsRightAway = false
 
     var onSystemEvent: ((AudioSystemEvent) -> Void)?
@@ -100,11 +103,16 @@ private final class FakeAudioManager: AudioManaging {
     }
 
     func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool {
-        isKeepaliveRunning && keepaliveMicrophones.last == microphone && !keepaliveInputIsStale
+        isKeepaliveRunning && !keepaliveInputIsStale && keepaliveMicrophones.last.map { sharesInput($0, microphone) } == true
+    }
+
+    /// Without an external microphone, Automatic and iPhone both record from the iPhone's.
+    private func sharesInput(_ one: MicrophoneChoice, _ other: MicrophoneChoice) -> Bool {
+        one == other || (!externalMicrophone && Set([one, other]).isSubset(of: [.automatic, .iPhone]))
     }
 
     func ensureKeepalive(microphone: MicrophoneChoice) throws {
-        guard !isKeepaliveRunning || keepaliveMicrophones.last != microphone else { return }
+        if isKeepaliveRunning, keepaliveMicrophones.last == microphone || keepaliveFollows(microphone) { return }
         try startKeepalive(microphone: microphone)
     }
 
@@ -473,13 +481,16 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertEqual(audio.deactivateCount, 0)
     }
 
-    func testMediaPreventsWarmOnlyActivationButAllowsColdKeyboardDictation() async throws {
+    func testExclusiveSessionMediaPreventsWarmOnlyActivationButAllowsColdKeyboardDictation() async throws {
         let now = 9_100.0
         let audio = FakeAudioManager()
+        audio.mixesWithOtherAudio = false
         audio.isOtherAudioPlaying = true
         let transcriber = ControlledTranscriber()
         let bridge = KeyboardBridge(defaults: defaults)
-        let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now })
+        let settings = typrSettings(.typrExclusiveAudioSession, .mixWithOtherAudio)
+        let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now },
+                                                   settings: settings)
         // Synchronous: with media playing a warm-only request ends the session without activating.
         controller.selectWarmDuration(.fifteenMinutes)
         XCTAssertFalse(controller.keyboardSessionEnabled)
@@ -520,14 +531,16 @@ final class DictationControllerTests: XCTestCase {
         controller.endWarmSession()
     }
 
-    func testMediaCaptureReleasesOnCancelShortCaptureFailureAndUnexpectedEnd() async throws {
+    func testExclusiveSessionMediaCaptureReleasesOnCancelShortCaptureFailureAndUnexpectedEnd() async throws {
         for outcome in ["cancel", "short", "failure", "unexpected-success", "unexpected-failure"] {
             let audio = FakeAudioManager()
+            audio.mixesWithOtherAudio = false
             audio.isOtherAudioPlaying = true
             audio.nextCaptureDuration = outcome == "short" ? 0.1 : 1.4
             audio.captureShouldThrow = outcome == "failure"
             let transcriber = ControlledTranscriber()
-            let controller = try await readyController(audio: audio, transcriber: transcriber, retryDelays: [])
+            let controller = try await readyController(audio: audio, transcriber: transcriber, retryDelays: [],
+                                                       settings: typrSettings(.typrExclusiveAudioSession))
             controller.setWarmDuration(.fifteenMinutes)
             controller.startRecording()
             try await activationSettled(controller)
@@ -553,10 +566,12 @@ final class DictationControllerTests: XCTestCase {
         }
     }
 
-    func testMediaStartingDuringWarmSessionLeavesInputColdAfterInterruption() async throws {
+    func testExclusiveSessionMediaStartingDuringWarmSessionLeavesInputColdAfterInterruption() async throws {
         let audio = FakeAudioManager()
+        audio.mixesWithOtherAudio = false
         let transcriber = ControlledTranscriber()
-        let controller = try await readyController(audio: audio, transcriber: transcriber)
+        let controller = try await readyController(audio: audio, transcriber: transcriber,
+                                                   settings: typrSettings(.typrExclusiveAudioSession))
         controller.selectWarmDuration(.fifteenMinutes)
         try await activationSettled(controller)
         XCTAssertTrue(audio.isKeepaliveRunning)
@@ -620,10 +635,12 @@ final class DictationControllerTests: XCTestCase {
     func testKeyboardStillSeesALongTranscriptionAfterTheMicIsReleased() async throws {
         var now = 14_000.0
         let audio = FakeAudioManager()
+        audio.mixesWithOtherAudio = false
         audio.isOtherAudioPlaying = true
         let transcriber = ControlledTranscriber()
         let bridge = KeyboardBridge(defaults: defaults)
-        let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now })
+        let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now },
+                                                   settings: typrSettings(.typrExclusiveAudioSession))
         controller.setWarmDuration(.off)
         controller.handleKeyboardLaunch(
             .startRecording(jobID: "media-job", requestedAt: now - 0.3, style: .polished, host: nil)
@@ -862,17 +879,25 @@ final class DictationControllerTests: XCTestCase {
     // MARK: - Start without waiting after failures (2026-11-12 device logs)
 
     private func recoveryController(audio: FakeAudioManager, bridge: KeyboardBridge, now: TimeInterval,
-                                    retryDelays: [Duration], onPrepare: @escaping () -> Void = {}) async throws -> DictationController {
+                                    retryDelays: [Duration], onPrepare: @escaping () -> Void = {},
+                                    settings: TyprSettings? = nil) async throws -> DictationController {
         try await readyController(audio: audio, bridge: bridge, now: { now },
                                   hostReturner: HostReturner(openByBundleID: { _ in false }, openURL: { _ in false }),
-                                  retryDelays: retryDelays, onPrepare: onPrepare)
+                                  retryDelays: retryDelays, onPrepare: onPrepare, settings: settings)
+    }
+
+    private func typrSettings(_ switches: ExperimentalSwitch...) -> TyprSettings {
+        let settings = TyprSettings(defaults: defaults)
+        for item in switches { settings[experiment: item] = true }
+        return settings
     }
 
     func testActivationRetriesWhileAnotherAppStillHoldsAudio() async throws {
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
         let controller = try await recoveryController(audio: audio, bridge: bridge, now: 20_000,
-                                                      retryDelays: [.milliseconds(1), .milliseconds(1)])
+                                                      retryDelays: [.milliseconds(1), .milliseconds(1)],
+                                                      settings: typrSettings(.typrAudioActivationRetries))
 
         audio.busyActivationsRemaining = 2
         controller.startRecording(keyboardJobID: "after-voice-message")
@@ -882,11 +907,79 @@ final class DictationControllerTests: XCTestCase {
         controller.cancelCurrentJob()
     }
 
+    func testHexDefaultTriesAudioActivationOnce() async throws {
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await recoveryController(audio: audio, bridge: bridge, now: 20_500,
+                                                      retryDelays: [.milliseconds(1), .milliseconds(1)])
+
+        audio.busyActivationsRemaining = 1
+        controller.startRecording(keyboardJobID: "busy-once")
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .failed(DictationController.audioBusyMessage))
+        XCTAssertEqual(audio.startKeepaliveCount, 1, "Typr audio activation retries is off")
+    }
+
+    func testHexDefaultStopsADictationAfterOneMinute() async throws {
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let controller = try await readyController(audio: audio, transcriber: transcriber, retryDelays: [])
+        audio.nextCaptureDuration = 59
+        controller.startRecording(keyboardJobID: "a-minute")
+        try await activationSettled(controller)
+        let capture = try XCTUnwrap(audio.createdCaptures.last)
+        try await waitForState("meter read 59 s") { controller.recordingDuration == 59 }
+        XCTAssertEqual(controller.phase, .recording)
+
+        capture.currentTime = 59.74
+        try await waitForState("meter read 59.74 s") { controller.recordingDuration == 59.74 }
+        XCTAssertEqual(controller.phase, .recording, "just below the limit keeps recording")
+
+        capture.currentTime = 59.75
+        try await waitForState("the one-minute limit stopped the capture") { controller.phase != .recording }
+        try await transcribed(controller)
+        XCTAssertEqual(controller.phase, .ready)
+        let transcribedCaptures = await transcriber.transcribedURLs.count
+        XCTAssertEqual(transcribedCaptures, 1, "the capture at the limit is transcribed")
+        XCTAssertFalse(capture.isRecording)
+    }
+
+    func testHeadsetInTheBackgroundNeedsKeepSelectedWarmMicrophone() async throws {
+        for keepSelected in [false, true] {
+            let now = 21_500.0
+            let audio = FakeAudioManager()
+            audio.externalMicrophone = true
+            let bridge = KeyboardBridge(defaults: defaults)
+            let settings = keepSelected ? typrSettings(.typrKeepSelectedWarmMicrophone) : TyprSettings(defaults: defaults)
+            let controller = try await recoveryController(audio: audio, bridge: bridge, now: now, retryDelays: [],
+                                                          settings: settings)
+            controller.selectWarmDuration(.fifteenMinutes)
+            try await activationSettled(controller)
+            XCTAssertEqual(audio.keepaliveMicrophones, [keepSelected ? .automatic : .iPhone])
+
+            audio.canStartInput = false
+            bridge.send(.start, jobID: "headset-\(keepSelected)", style: .polished, sentAt: now)
+            controller.processPendingKeyboardCommandForTesting()
+            try await activationSettled(controller)
+            if keepSelected {
+                XCTAssertEqual(controller.phase, .recording, "the warm input already records from the headset")
+                XCTAssertEqual(audio.startKeepaliveCount, 1)
+            } else {
+                // Hex moves to the headset for the dictation, which iOS refuses in the background.
+                guard case .failed = controller.phase else { return XCTFail("expected failure, got \(controller.phase)") }
+                XCTAssertEqual(Array(audio.keepaliveMicrophones.prefix(2)), [.iPhone, .automatic])
+            }
+            controller.cancelCurrentJob()
+            controller.endWarmSession()
+        }
+    }
+
     func testRefusalBeyondRetriesExplainsThatAudioIsBusy() async throws {
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
         let controller = try await recoveryController(audio: audio, bridge: bridge, now: 21_000,
-                                                      retryDelays: [.milliseconds(1)])
+                                                      retryDelays: [.milliseconds(1)],
+                                                      settings: typrSettings(.typrAudioActivationRetries))
 
         audio.busyActivationsRemaining = 5
         controller.startRecording(keyboardJobID: "busy")
@@ -947,7 +1040,8 @@ final class DictationControllerTests: XCTestCase {
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
         let controller = try await recoveryController(audio: audio, bridge: bridge, now: 24_000,
-                                                      retryDelays: [.milliseconds(1), .milliseconds(1)])
+                                                      retryDelays: [.milliseconds(1), .milliseconds(1)],
+                                                      settings: typrSettings(.typrAudioActivationRetries))
         controller.selectWarmDuration(.fifteenMinutes)
         try await activationSettled(controller)
 
@@ -974,7 +1068,8 @@ final class DictationControllerTests: XCTestCase {
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
         let controller = try await recoveryController(audio: audio, bridge: bridge, now: now,
-                                                      retryDelays: [.milliseconds(50), .milliseconds(50)])
+                                                      retryDelays: [.milliseconds(50), .milliseconds(50)],
+                                                      settings: typrSettings(.typrAudioActivationRetries))
         controller.selectWarmDuration(.fifteenMinutes)
         try await activationSettled(controller)
 
@@ -1055,11 +1150,12 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertTrue(audio.isKeepaliveRunning, "the session loop must not skip a dead input after the suspension")
     }
 
-    func testWarmInputAndCapturesFollowTheMicrophoneChoice() async throws {
+    func testKeepSelectedWarmMicrophoneHoldsTheChosenMicrophoneBetweenDictations() async throws {
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
         bridge.microphone = .bluetooth
-        let controller = try await recoveryController(audio: audio, bridge: bridge, now: 28_000, retryDelays: [])
+        let controller = try await recoveryController(audio: audio, bridge: bridge, now: 28_000, retryDelays: [],
+                                                      settings: typrSettings(.typrKeepSelectedWarmMicrophone, .warmMicOnIPhone))
         XCTAssertEqual(controller.microphone, .bluetooth)
         controller.selectWarmDuration(.fifteenMinutes)
         try await activationSettled(controller)
@@ -1084,7 +1180,8 @@ final class DictationControllerTests: XCTestCase {
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
         bridge.microphone = .bluetooth
-        let controller = try await recoveryController(audio: audio, bridge: bridge, now: now, retryDelays: [])
+        let controller = try await recoveryController(audio: audio, bridge: bridge, now: now, retryDelays: [],
+                                                      settings: typrSettings(.typrKeepSelectedWarmMicrophone))
         controller.selectWarmDuration(.fifteenMinutes)
         try await activationSettled(controller)
 
@@ -1114,7 +1211,8 @@ final class DictationControllerTests: XCTestCase {
     func testNewRouteDeviceRestartsWarmInputOnlyWhenItsInputChanged() async throws {
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
-        let controller = try await recoveryController(audio: audio, bridge: bridge, now: 30_000, retryDelays: [])
+        let controller = try await recoveryController(audio: audio, bridge: bridge, now: 30_000, retryDelays: [],
+                                                      settings: typrSettings(.typrKeepSelectedWarmMicrophone))
         XCTAssertEqual(controller.microphone, .automatic, "Automatic is the default")
         controller.selectWarmDuration(.fifteenMinutes)
         try await activationSettled(controller)
@@ -1136,9 +1234,8 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertTrue(controller.keyboardSessionEnabled)
     }
 
-    func testExperimentalWarmMicOnIPhoneMovesEachDictationToTheChosenMicrophone() async throws {
+    func testHexWarmMicIdlesOnIPhoneAndMovesEachDictationToTheChosenMicrophone() async throws {
         let settings = TyprSettings(defaults: defaults)
-        settings[experiment: .warmMicOnIPhone] = true
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
         bridge.microphone = .bluetooth
@@ -1158,11 +1255,9 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertTrue(controller.keyboardSessionEnabled)
     }
 
-    func testExperimentalKeepOtherAudioPlayingWarmsAndDictatesOverMedia() async throws {
+    func testHexSessionWarmsAndDictatesOverMedia() async throws {
         let settings = TyprSettings(defaults: defaults)
-        settings[experiment: .mixWithOtherAudio] = true
         let audio = FakeAudioManager()
-        audio.mixesWithOtherAudio = true
         audio.isOtherAudioPlaying = true
         let bridge = KeyboardBridge(defaults: defaults)
         let controller = try await readyController(audio: audio, bridge: bridge, now: { 32_000 }, settings: settings)
@@ -1420,7 +1515,6 @@ final class DictationControllerTests: XCTestCase {
     func testArmingOnlyUsesARunningWarmInputThatAlreadyFollowsTheMicrophone() async throws {
         let now = 64_000.0
         let settings = TyprSettings(defaults: defaults)
-        settings[experiment: .warmMicOnIPhone] = true
         let audio = FakeAudioManager()
         let bridge = KeyboardBridge(defaults: defaults)
         bridge.microphone = .bluetooth
@@ -1438,7 +1532,6 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertTrue(audio.armedCaptures.isEmpty, "the iPhone warm input would have to move to Bluetooth")
         XCTAssertEqual(audio.keepaliveMicrophones, keepalives)
 
-        settings[experiment: .warmMicOnIPhone] = false
         controller.setMicrophone(.iPhone)
         bridge.send(.arm, jobID: "alt", sentAt: now - DictationController.armedCaptureLifetime - 1)
         controller.processPendingKeyboardCommandForTesting()
@@ -1477,8 +1570,9 @@ final class DictationControllerTests: XCTestCase {
         now: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }, hostReturner: HostReturner? = nil,
         vocabulary: CustomVocabularySettings = CustomVocabularySettings(),
         retryDelays: [Duration] = DictationController.audioActivationRetryDelays, onPrepare: @escaping () -> Void = {},
-        settings: TyprSettings = TyprSettings(), background: (any BackgroundTaskStarting)? = nil
+        settings: TyprSettings? = nil, background: (any BackgroundTaskStarting)? = nil
     ) async throws -> DictationController {
+        let settings = settings ?? TyprSettings(defaults: defaults)
         let controller = DictationController(
             audio: audio, keyboardBridge: bridge ?? KeyboardBridge(defaults: defaults), transcriber: transcriber,
             transcriberFactory: { onPrepare(); return transcriber }, now: now, autoPrepareOnInit: false,

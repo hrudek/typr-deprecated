@@ -64,6 +64,10 @@ nonisolated enum MicrophoneChoice: String, CaseIterable, Sendable {
         case .bluetooth: "AirPods and car mics, in call quality"
         }
     }
+
+    /// Whether a capture may record from a Bluetooth hands-free microphone, which needs
+    /// `.allowBluetoothHFP` in the session's category.
+    var allowsBluetooth: Bool { self == .bluetooth }
 }
 
 nonisolated enum KeyboardCommandKind: String, Codable, Sendable {
