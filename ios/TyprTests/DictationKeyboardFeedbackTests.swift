@@ -388,6 +388,36 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
         }
     }
 
+    func testFullKeyboardKeysReturnWhenTheBarTurnsOnDuringRecording() throws {
+        let model = KeyboardViewModel()
+        model.configureFixture(snapshot: .offline, now: 10_000)
+        let view = makeKeyboard(model: model, showsBar: false)
+        let t: TimeInterval = 10_000
+        func apply(_ state: KeyboardDictationState, at now: TimeInterval) {
+            model.applyBridgeState(
+                hasFullAccess: true,
+                snapshot: KeyboardSnapshot(state: state, heartbeat: now, expiresAt: now + 60, recordingStartedAt: state == .recording ? now - 1 : nil, jobID: state == .recording ? "j1" : nil),
+                isModelInstalled: true,
+                style: .polished,
+                now: now,
+                clearPending: state == .ready,
+                animated: false
+            )
+            pumpMainRunLoop()
+            view.layoutIfNeeded()
+        }
+        apply(.recording, at: t)
+        view.suggestionBarOverride = true
+        apply(.ready, at: t + 1)
+
+        let plane = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardKeyPlaneView }.first)
+        let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
+        XCTAssertFalse(plane.isHidden)
+        XCTAssertEqual(plane.alpha, 1)
+        XCTAssertFalse(key.isHidden)
+        XCTAssertEqual(key.alpha, 1)
+    }
+
     func testFullKeyboardKeysReturnWhenRecordingStartsOverTheFeedbackPanel() throws {
         let model = KeyboardViewModel()
         model.configureFixture(snapshot: .offline, now: 10_000)

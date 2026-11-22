@@ -885,7 +885,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             fade(in: [panel] + keys, out: covered)
         } else if let panel = recordingPanel {
             panel.scope.phase = .hidden
-            fade(in: engine.showsStrip ? [stripView] : keyViews, out: [panel]) { [weak self, weak panel] in
+            fade(in: keyViews, out: [panel]) { [weak self, weak panel] in
                 guard let self, !self.showsRecording, let panel, panel === self.recordingPanel else { return }
                 panel.tearDown()
                 panel.removeFromSuperview()
