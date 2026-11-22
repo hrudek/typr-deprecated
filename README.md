@@ -74,16 +74,22 @@ tried again when Typr returns.
   line by line: it removes hesitations (äh, ähm, öh, hm; English um, uh), a conjunction or
   preposition said twice (und und) and self-repairs of a day, month or number set off by a
   marker (am Dienstag, ich meine, Mittwoch). Anything less certain stays as said: eh,
-  pronoun, article and emphatic repeats, negated sentences, explanations and answers. Cleanup runs on-device with Apple Intelligence (iOS 26+,
+  pronoun, article and emphatic repeats, negated sentences, explanations and answers. Typr AI
+  cleanup runs on-device with Apple Intelligence (iOS 26+,
   default) or, with your own Anthropic API key (stored in the Keychain), with
   Claude in the cloud; the plain transcript is used whenever cleanup is
-  unavailable. Apple Intelligence cleanup is Hex's iOS cleaner at `d65b02d3` word for word
+  unavailable. Typr's Apple Intelligence provider uses Hex's iOS cleaner at `d65b02d3`
   (instructions, options, 2 s budget, answer check), with German words added to the
   check's reply, speaker and preamble rules; the share of the transcript a cleanup must keep
   is counted on the words as heard, as before; only a cleanup that keeps the words after
   one of Hex's English self-correction markers ("no wait", "I mean", "actually") may keep
   less; Claude gets Hex's dictation rewrite prompt word for
   word, with the host app and the text around the cursor as context.
+  Experimental › Hex experiments › **Clean up with Apple Intelligence** is off by default.
+  When on, app dictation uses Hex's on-device cleaner at `0c1c13d7` after spoken cleanup,
+  in every style except Verbatim. An unavailable model, unsupported language, late reply or
+  rejected answer keeps the text from that point in the pipeline. Turn the experiment off to
+  resume using the saved AI & vocabulary settings.
 - Formatting is Hex's shared `DictationPipeline`, the same in the app and in in-keyboard
   dictation: learned fixes, vocabulary and glossary, Clean up what I say, AI cleanup (app
   only), translation (app only), the style, the vocabulary's spellings again, Lowercase and

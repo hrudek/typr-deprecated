@@ -15,7 +15,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Hex experiments: Hex's own experiments, with Hex's names and
     /// defaults. Each is listed once its implementation works.
-    static let hexExperiments: [ExperimentalSwitch] = []
+    static let hexExperiments: [ExperimentalSwitch] = [.appleIntelligenceCleanup]
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
@@ -23,6 +23,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Every switch shown in Settings > Experimental.
     static let all = hexExperiments + typrVariants
+
+    static let appleIntelligenceCleanup = ExperimentalSwitch(
+        name: "appleIntelligenceCleanup",
+        title: "Clean up with Apple Intelligence",
+        detail: "Uses on-device Apple Intelligence instead of the AI cleanup engine in the Typr app. Requires iOS 26 and skips Verbatim."
+    )
 
     static let typrExclusiveAudioSession = ExperimentalSwitch(
         name: "variant.exclusiveAudioSession",

@@ -688,6 +688,15 @@ pronoun-contraction expansion. `ios/TyprTests/CleanupGuardHexTests.swift` is Hex
 `TranscriptCleanupTests.swift` guard tests from the same commit. MIT, © Christopher Langton, the same license as
 this repository ([LICENSE](LICENSE)).
 
+The **Clean up with Apple Intelligence** experiment
+(`ios/Typr/TranscriptCleanup.swift`, `ios/TyprTests/HexTranscriptCleanupTests.swift`) ports
+`ios/HEXMobile/TranscriptCleanup.swift` and the guard tests from
+`ios/HEXMobileTests/TranscriptCleanupTests.swift` in
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`0c1c13d71b853ac3113d9a622e4fd9af3755d068`. Typr connects model availability and the
+experiment switch to its existing dictation pipeline. MIT, © Christopher Langton, the same
+license as this repository ([LICENSE](LICENSE)).
+
 ## Hex spoken cleanup rules
 
 "Clean up what I say" (`ios/TyprShared/SpokenCleanup.swift`) is adapted from

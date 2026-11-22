@@ -454,3 +454,107 @@ final class TranscriptFormatterTyprFixTests: XCTestCase {
         XCTAssertEqual(polished("See you tomorrow\r\nBye", "en-US"), "See you tomorrow.\r\nBye.")
     }
 }
+
+@MainActor
+private final class StubAppleCleaner: TranscriptCleaning {
+    var isAvailable = true
+    var supportedLanguage: String? = "de"
+    var answer: String? = "Am Donnerstag"
+    private(set) var inputs: [String] = []
+
+    func supports(language: String) -> Bool { language == supportedLanguage }
+
+    func clean(_ text: String) async -> String? {
+        inputs.append(text)
+        return answer
+    }
+}
+
+@MainActor
+final class AppleIntelligenceDictationTests: XCTestCase {
+    private var suite = ""
+    private var defaults: UserDefaults!
+    private var settings: TyprSettings!
+
+    override func setUp() async throws {
+        suite = "apple.intelligence.dictation.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suite)
+        settings = TyprSettings(defaults: defaults)
+        settings.dictationLanguage = .german
+    }
+
+    override func tearDown() async throws {
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    private func deliver(using apple: StubAppleCleaner, typrModel: CleanupTestSession = CleanupTestSession(),
+                         style: DictationStyle = .polished) async throws -> String {
+        let settings = settings!
+        let cleanup = TranscriptCleanupDependencies(cleaner: CleanupTestCleaner(session: typrModel),
+            background: CleanupTestBackground(), isEnabled: { settings.aiCleanup })
+        let asr = SpokenASR()
+        let controller = DictationController(audio: SpokenAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
+            transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
+            customVocabularySettings: CustomVocabularySettings(defaults: defaults), cleanup: cleanup,
+            appleIntelligenceCleaner: apple, transcriptionBackground: CleanupTestBackground(), languageSettings: settings)
+        controller.prepareModel()
+        try await waitForState("model ready") { controller.phase == .ready }
+        controller.startRecording(keyboardJobID: "job", styleOverride: style, copyToPasteboard: false)
+        try await waitForState("recording") { controller.phase == .recording }
+        controller.finishRecording()
+        try await waitForState("delivered") { controller.isIdleForTest }
+        return controller.transcript
+    }
+
+    func testExperimentRunsAfterExistingSpokenCleanupAndSkipsVerbatim() async throws {
+        let apple = StubAppleCleaner()
+        let disabled = try await deliver(using: apple)
+        XCTAssertEqual(disabled, "Am Dienstag, ich meine, Mittwoch.")
+        XCTAssertTrue(apple.inputs.isEmpty)
+
+        settings[experiment: .appleIntelligenceCleanup] = true
+        settings[experiment: .cleanUpWhatISay] = true
+        let enabled = try await deliver(using: apple)
+        XCTAssertEqual(enabled, "Am Donnerstag.")
+        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+
+        let verbatim = try await deliver(using: apple, style: .verbatim)
+        XCTAssertEqual(verbatim, "Am Dienstag, äh, ich meine, Mittwoch")
+        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+    }
+
+    func testExperimentKeepsTheTextIfTheModelCannotCleanIt() async throws {
+        let apple = StubAppleCleaner()
+        let typrModel = CleanupTestSession()
+        settings[experiment: .appleIntelligenceCleanup] = true
+        settings[experiment: .cleanUpWhatISay] = true
+        settings.aiCleanup = true
+
+        apple.isAvailable = false
+        let unavailable = try await deliver(using: apple, typrModel: typrModel)
+        XCTAssertEqual(unavailable, "Am Mittwoch.")
+        XCTAssertTrue(apple.inputs.isEmpty)
+
+        apple.isAvailable = true
+        apple.supportedLanguage = "en"
+        let unsupported = try await deliver(using: apple, typrModel: typrModel)
+        XCTAssertEqual(unsupported, "Am Mittwoch.")
+        XCTAssertTrue(apple.inputs.isEmpty)
+
+        apple.supportedLanguage = "de"
+        apple.answer = nil
+        let noAnswer = try await deliver(using: apple, typrModel: typrModel)
+        XCTAssertEqual(noAnswer, "Am Mittwoch.")
+        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(typrModel.prepareCount, 0)
+        XCTAssertEqual(typrModel.cleanCount, 0)
+
+        settings[experiment: .appleIntelligenceCleanup] = false
+        typrModel.result = "Am Freitag"
+        let restored = try await deliver(using: apple, typrModel: typrModel)
+        XCTAssertEqual(restored, "Am Freitag.")
+        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(typrModel.cleanCount, 1)
+        XCTAssertTrue(settings.aiCleanup)
+    }
+}
