@@ -108,7 +108,6 @@ final class KeyboardPersonalLexiconLearningTests: XCTestCase {
         ac.loadLexiconEntries([("ina", "in a")])
         ac.loadProtectedLexicon(lexicon("Ina fuer teh O’Neil"))
         XCTAssertEqual(TyprAutocorrectEngine.currentToken(in: "O’Neil"), "O’Neil")
-        // An explicit text replacement wins over an imported name (#327), so "ina" still expands.
         for word in ["ina", "INA"] {
             XCTAssertTrue(ac.literalIsValid(word))
             XCTAssertEqual(ac.replacementOnSpace(beforeInput: word, field: .text, autocorrectionType: .default)?.replacement, "in a")
