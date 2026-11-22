@@ -41,6 +41,7 @@ No endorsement is implied. Retain CV/Tatoeba notices below. Owner R2 permission
 allows these sources with explicit open questions; it is not legal clearance.
 No upstream code/executables, GPL/AGPL/LGPL code, audio or personal data enter.
 
+
 Hex+'s own code and the adopted Hex iOS base are covered by the repository's
 [MIT license](LICENSE), whose original © Christopher Langton notice is retained.
 Base and adoption pins: Hex iOS base `anomalyco/hex` at
@@ -790,6 +791,7 @@ the hold timer in `KeyboardKeyPlaneView.swift`, and the tests in
 `ios/TyprTests/TrackpadCursorTests.swift` and the Apple-trackpad tests in
 `ios/TyprTests/FullKeyboardEngineTests.swift` follow `FullKeyboardEngine+Trackpad.swift`,
 `KeyboardKeyPlaneView.swift` and `FullKeyboardEngineTests.swift` there. MIT, © Christopher
+Langton, the same license as this repository ([LICENSE](LICENSE)).
 
 ## Hex undo dictation
 
