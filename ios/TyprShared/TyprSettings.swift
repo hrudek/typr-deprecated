@@ -166,12 +166,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "Removes “äh” and “um”, doubled words like “und und” and corrections like “Dienstag, ich meine, Mittwoch”, in every style except Verbatim. Anything less certain stays as said."
     )
 
-    /// Hex's delete slide (anomalyco/hex #2080, #2257). Off, a delete press that drifts left keeps
-    /// repeating letters.
+    /// Hex's delete slide (anomalyco/hex #2080, #2257), without Hex's hold-to-repeat: on, a held
+    /// delete key deletes only by sliding. Off, delete repeats while held, as before.
     static let deleteSlide = ExperimentalSwitch(
         name: "deleteSlide",
         title: "Slide delete to remove words",
-        detail: "Press delete and slide left: each key width removes one more word. Slide back to bring words back; lift to keep the rest deleted."
+        detail: "Press delete and slide left: each key width removes one more word. Slide back to bring words back; lift to keep the rest deleted. Holding delete without sliding removes only one letter."
     )
 
     /// Hex's learning from dictation edits (anomalyco/hex #2022, `DictationEditTracker`).

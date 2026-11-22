@@ -222,7 +222,7 @@ final class TyprKeyboardKeyPlaneView: UIView {
             engine.touchBegan(id: id, at: point, time: touch.timestamp)
             if let kind = engine.touches[id]?.key.kind {
                 onKeyDown?(kind)
-                if kind == .delete { startDeleteRepeat() }
+                if kind == .delete, engine.repeatsHeldDelete { startDeleteRepeat() }
                 if kind == .space, engine.followsTextOnTrackpad { armTrackpadHoldTimer(for: id) }
                 if case .character = kind { armAccentTimer(for: id) }
                 if case .layerSwitch = kind, engine.layout.layerKeyHoldSwitchesKeyboard { armNextKeyboardTimer(for: id) }
@@ -349,8 +349,7 @@ final class TyprKeyboardKeyPlaneView: UIView {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 let held = CACurrentMediaTime() - self.deleteStartedAt
-                guard held >= TyprFullKeyboardEngine.repeatDelay, !self.engine.isDeleteSliding else { return }
-                self.engine.repeatDelete(heldFor: held)
+                guard self.engine.holdDelete(heldFor: held) else { return }
                 self.onKeyDown?(.delete)
             }
         }

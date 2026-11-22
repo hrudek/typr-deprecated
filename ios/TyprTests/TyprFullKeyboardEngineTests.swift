@@ -765,21 +765,61 @@ final class TyprFullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.text, "Hallo 👋")
     }
 
-    func testWithTheDeleteSlideATapAndAStillHoldDeleteAsBefore() {
+    func testWithTheDeleteSlideAHeldDeleteRemovesOnlyOneLetter() {
         resetText("Hallo Welt")
         engine.slidesDeleteByWord = true
         tap(.delete)
         XCTAssertEqual(target.text, "Hallo Wel")
 
         down(1, .delete)
+        XCTAssertFalse(engine.repeatsHeldDelete)
         slideDelete(1, keyWidths: 0.4)
-        XCTAssertFalse(engine.isDeleteSliding, "a drifting hold keeps repeating")
-        engine.repeatDelete(heldFor: TyprFullKeyboardEngine.repeatDelay)
-        XCTAssertEqual(target.text, "Hallo W")
-        engine.repeatDelete(heldFor: TyprFullKeyboardEngine.wordDeleteAfter)
+        for held in [TyprFullKeyboardEngine.repeatDelay, TyprFullKeyboardEngine.fastRepeatAfter,
+                     TyprFullKeyboardEngine.wordDeleteAfter, 3] {
+            XCTAssertFalse(engine.holdDelete(heldFor: held), "held \(held) s")
+        }
+        XCTAssertEqual(target.text, "Hallo We", "only going down deleted, the hold did not repeat")
+        slideDelete(1, keyWidths: 1.2)
+        XCTAssertEqual(target.text, "Hallo ", "sliding after the hold still deletes words")
+        slideDelete(1, keyWidths: 0)
+        XCTAssertEqual(target.text, "Hallo We")
+        up(1, .delete)
+        XCTAssertEqual(target.text, "Hallo We")
+    }
+
+    func testWithoutTheDeleteSlideAHeldDeleteRepeatsAsBefore() {
+        resetText("Hallo Welt")
+        down(1, .delete)
+        XCTAssertTrue(engine.repeatsHeldDelete)
+        XCTAssertFalse(engine.holdDelete(heldFor: TyprFullKeyboardEngine.repeatDelay / 2), "before the repeat delay")
+        XCTAssertTrue(engine.holdDelete(heldFor: TyprFullKeyboardEngine.repeatDelay))
+        XCTAssertEqual(target.text, "Hallo We")
+        XCTAssertTrue(engine.holdDelete(heldFor: TyprFullKeyboardEngine.wordDeleteAfter))
         XCTAssertEqual(target.text, "Hallo ")
         up(1, .delete)
-        XCTAssertEqual(target.text, "Hallo ")
+    }
+
+    func testTheDeleteSlideWorksInSplitLandscapeAndWithTheNumberRow() {
+        for (width, orientation, numberRow) in [(CGFloat(951), TyprKeyboardOrientation.splitLandscape, false),
+                                                (951, .splitLandscape, true), (393, .portrait, true)] {
+            resetText("Wir sehen uns morgen")
+            engine.width = width
+            engine.orientation = orientation
+            engine.numberRow = numberRow
+            engine.slidesDeleteByWord = true
+            let name = "\(orientation) number row \(numberRow)"
+            XCTAssertNotNil(engine.layout.key(.delete), name)
+
+            down(1, .delete)
+            XCTAssertFalse(engine.holdDelete(heldFor: TyprFullKeyboardEngine.wordDeleteAfter), name)
+            XCTAssertEqual(target.text, "Wir sehen uns morge", name)
+            slideDelete(1, keyWidths: 2.2)
+            XCTAssertEqual(target.text, "Wir sehen ", name)
+            slideDelete(1, keyWidths: 1.2)
+            XCTAssertEqual(target.text, "Wir sehen uns ", name)
+            up(1, .delete)
+            XCTAssertEqual(target.text, "Wir sehen uns ", name)
+        }
     }
 
     func testWithoutTheExperimentSlidingLeftFromDeleteRemovesNoWords() {

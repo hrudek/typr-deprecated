@@ -115,7 +115,8 @@ final class TyprFullKeyboardEngine {
     var trackpadLineHeight: CGFloat = 20
     var trackpadCharacterWidth: (Character) -> CGFloat = { $0.isNewline ? 0 : 8.5 }
     /// Settings > Experimental: sliding left from delete deletes a word per key width, sliding
-    /// back types them back, lifting keeps what is deleted.
+    /// back types them back, lifting keeps what is deleted. A held delete key does not repeat:
+    /// past the letter it deletes going down, only the slide deletes.
     var slidesDeleteByWord = false
     /// A letter press becomes a swipe after travelling this many letter widths (iikb: 0.8):
     /// beyond a slipped tap, short of a deliberate slide.
@@ -1027,7 +1028,7 @@ final class TyprFullKeyboardEngine {
     static let fastRepeatAfter: TimeInterval = 0.85
     static let wordDeleteAfter: TimeInterval = 1.4
 
-    /// A delete press is sliding by words; hold-to-repeat stops for the rest of the press.
+    /// A delete press is sliding by words.
     var isDeleteSliding: Bool {
         touches.values.contains { $0.slideDeleted != nil }
     }
@@ -1070,6 +1071,17 @@ final class TyprFullKeyboardEngine {
         for (id, touch) in touches where touch.slideDeleted != nil {
             touches[id]?.committed = true
         }
+    }
+
+    /// Whether a held delete key repeats; with `slidesDeleteByWord` only sliding deletes more.
+    var repeatsHeldDelete: Bool { !slidesDeleteByWord }
+
+    /// The delete key's hold timer fired; false when the hold does not delete.
+    @discardableResult
+    func holdDelete(heldFor: TimeInterval) -> Bool {
+        guard repeatsHeldDelete, heldFor >= Self.repeatDelay else { return false }
+        repeatDelete(heldFor: heldFor)
+        return true
     }
 
     func repeatDelete(heldFor: TimeInterval) {
