@@ -854,3 +854,12 @@ The End with a period and Lowercase settings (`TranscriptFormatter.format(…end
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2147: `TranscriptFormatter.format(…endsWithPeriod:)`
 and `droppingFinalFullStop`; PR #2103: Lowercase in `DictationPipeline.format`).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Hex held space mid-sentence
+
+The held space in `ios/TyprShared/FullKeyboard/FullKeyboardEngine.swift` (a space or a picked
+word before text that already starts with a space or a closing mark types no second space; the
+next word, a strip pick or delete takes the held space; the closing-mark set) is adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2214: `FullKeyboardEngine+SmartSpace.swift`).
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).

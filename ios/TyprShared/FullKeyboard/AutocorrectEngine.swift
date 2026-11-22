@@ -110,6 +110,8 @@ final class AutocorrectEngine {
     struct AppliedCorrection: Equatable {
         let original: String
         let insertedText: String
+        /// The end of `insertedText` that is the boundary's separator; empty when the space is held.
+        var separator = ""
         var kind: CorrectionKind = .autoRule
         var context: String? = nil
         var keptWordWasNew: Bool? = nil
@@ -565,14 +567,15 @@ final class AutocorrectEngine {
         lastCorrection = nil
     }
 
-    func recordAppliedKeep(_ word: String, wasNew: Bool, at now: TimeInterval) {
-        record(AppliedCorrection(original: word, insertedText: word + " ", keptWordWasNew: wasNew), at: now)
+    func recordAppliedKeep(_ word: String, separator: String, wasNew: Bool, at now: TimeInterval) {
+        record(AppliedCorrection(original: word, insertedText: word + separator, separator: separator,
+                                 keptWordWasNew: wasNew), at: now)
     }
 
     /// `before`: the text before the cursor right after the correction went in.
     func recordAppliedCorrection(original: String, corrected: String, separator: String, before: String?) {
         let correction = AppliedCorrection(original: original, insertedText: corrected + separator,
-                                           kind: pendingFeedback?.kind ?? .autoRule, context: rejectionContext,
+                                           separator: separator, kind: pendingFeedback?.kind ?? .autoRule, context: rejectionContext,
                                            boundary: appliedBoundary)
         appliedBoundary = nil
         lastCorrection = nil
@@ -585,9 +588,9 @@ final class AutocorrectEngine {
     }
 
     func recordAppliedBoundary(_ candidate: KeyboardBoundaryDecoder.Candidate, replacement: String,
-                               at now: TimeInterval) {
-        record(AppliedCorrection(original: candidate.original, insertedText: replacement + " ",
-                                 boundary: candidate), at: now)
+                               separator: String, at now: TimeInterval) {
+        record(AppliedCorrection(original: candidate.original, insertedText: replacement + separator,
+                                 separator: separator, boundary: candidate), at: now)
     }
 
     private func record(_ correction: AppliedCorrection, at now: TimeInterval) {
@@ -782,13 +785,13 @@ final class AutocorrectEngine {
         case .autoSpelling: learning.increment(.undoSpelling)
         case .autoRule, .unchanged: learning.increment(.undoRule)
         }
-        if let pending, pending.literal == undo.original, pending.suffix == undo.insertedText,
+        let replacement = String(undo.insertedText.dropLast(undo.separator.count))
+        let matchesPending = undo.separator.isEmpty
+            ? pending?.finalText == replacement : pending?.suffix == undo.insertedText
+        if let pending, pending.literal == undo.original, matchesPending,
            pending.epoch == learning.feedbackEpoch, let evidence = pending.evidence {
             learnIdentity(evidence, literal: undo.original, source: .undo)
         }
-        // Current boundary corrections append one separator; keep other callers safe.
-        let hasSeparator = undo.insertedText.last.map { " .,?!".contains($0) } ?? false
-        let replacement = hasSeparator ? String(undo.insertedText.dropLast()) : undo.insertedText
         let pair = RejectedCorrection(typed: undo.original, replacement: replacement)
         let wasRejected = learning.model.state.rejected.contains(pair)
         if !PersonalTypingModel.State.validRejectedWord(pair.typed)
@@ -1068,7 +1071,7 @@ final class AutocorrectEngine {
         // Prefix matches from Contacts / lexicon terms.
         if lower.count >= 2 && pool.count < poolLimit {
             for term in lexiconTerms where term.lowercased().hasPrefix(lower) && term.lowercased() != lower {
-                let candidate = Self.matchCase(of: token, onto: term)
+                let candidate = Self.matchCase(of: token, onto: withoutStrayCapital(term))
                 if !pool.contains(where: { $0.caseInsensitiveCompare(candidate) == .orderedSame }) {
                     pool.append(candidate)
                     completions.insert(candidate)
@@ -1323,6 +1326,16 @@ final class AutocorrectEngine {
             : DecodeCache(evidence: evidence, languages: languages, context: context, generation: generation,
                           resources: spatialDecoder?.resourceRevision ?? -1, outcome: outcome)
         return outcome
+    }
+
+    private func withoutStrayCapital(_ term: String) -> String {
+        let lower = term.lowercased()
+        guard term != lower, term.dropFirst() == lower.dropFirst() else { return term }
+        if let german {
+            if german.isValid(lower) { return lower }
+            if german.isValid(term) { return term }
+        }
+        return englishEnabled && checker.isWordValid(lower) ? lower : term
     }
 
     /// A swiped lexicon word as written: FrequencyWords is lowercase, so German noun casing comes
