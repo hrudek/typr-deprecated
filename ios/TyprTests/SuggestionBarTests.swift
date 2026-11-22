@@ -117,6 +117,9 @@ final class SuggestionBarTests: XCTestCase {
             view.layoutIfNeeded()
             XCTAssertGreaterThan(view.engine.layout.metrics.splitGap, 0)
             let strip = try XCTUnwrap(view.subviews.first { $0 is TyprKeyboardStripView } as? TyprKeyboardStripView)
+            let keys = view.engine.layout.keys.map(\.frame)
+            XCTAssertEqual(view.preferredHeight, TyprKeyboardLayout.height(for: .splitLandscape))
+            XCTAssertEqual(strip.frame, view.engine.layout.stripFrame)
             for words in rows {
                 let suggestions = words.map { TyprKeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary) }
                 strip.update(suggestions: suggestions, statusText: nil)
@@ -133,6 +136,8 @@ final class SuggestionBarTests: XCTestCase {
                                                 "\(suggestion.displayText) is cut at \(width) pt")
                     XCTAssertEqual(strip.hitTest(CGPoint(x: slot.frame.midX, y: slot.frame.midY), with: nil), slot)
                 }
+                view.layoutIfNeeded()
+                XCTAssertEqual(view.engine.layout.keys.map(\.frame), keys, "The split keys stay where they are")
             }
         }
     }
