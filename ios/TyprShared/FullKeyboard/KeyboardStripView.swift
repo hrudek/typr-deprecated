@@ -28,7 +28,7 @@ final class KeyboardStripView: UIView {
 
     private let statusLabel = UILabel()
     private let slotButtons: [SlotButton] = [SlotButton(), SlotButton(), SlotButton()]
-    private var currentSuggestions: [KeyboardSuggestion] = []
+    private(set) var currentSuggestions: [KeyboardSuggestion] = []
     private var statusText: String?
     private var selection = KeyboardSuggestionSelection()
 

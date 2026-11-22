@@ -58,6 +58,11 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     private let typrKey = TyprKeyControl()
     private let globeButton = UIButton(type: .custom)
     private var recordingPanel: TyprKeyRecordingPanel?
+    /// Loaded on the first emoji key press or finished word; dropped on a memory warning while the panel is closed.
+    private var emojiIndex: EmojiIndex?
+    private(set) var emojiPanel: EmojiPanelView?
+    /// Where emoji use is kept; tests give their own.
+    var makeEmojiUsage: () -> EmojiUsageStore = { EmojiUsageStore() }
     private var feedbackPanel: TyprFeedbackPanel?
     /// What the feedback panel shows; `nil` while the keys are up.
     private var panelContent: TyprFeedbackPanel.Content?
@@ -76,6 +81,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     var hasAllocatedRecordingPanel: Bool { recordingPanel != nil }
     /// What the feedback panel shows, for tests; `nil` while the keys are up.
     var shownPanelContent: TyprFeedbackPanel.Content? { panelContent }
+    var shownSuggestions: [KeyboardSuggestion] { stripView.currentSuggestions }
     var shownReturnKey: (style: ReturnKeyStyle, isEnabled: Bool) { (plane.returnStyle, plane.returnIsEnabled) }
 
     init(model: KeyboardViewModel, target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil,
@@ -103,7 +109,11 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         stripView.onSelectSuggestion = { [weak self] suggestion in
             guard let self else { return }
             self.keyFeedback()
-            self.engine.acceptSuggestion(suggestion)
+            if suggestion.isEmoji {
+                self.insertEmoji(suggestion.replacement, typed: suggestion.replacement + " ")
+            } else {
+                self.engine.acceptSuggestion(suggestion)
+            }
         }
 
         globeButton.accessibilityLabel = "Next keyboard"
@@ -125,6 +135,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         plane.onNextKeyboard = { [weak self] in self?.model.onNextKeyboard?() }
         plane.onAccentMenuOpened = { [weak self] in self?.selectionFeedback() }
         engine.onSelectionStep = { [weak self] in self?.selectionFeedback() }
+        engine.onEmojiKey = { [weak self] in self?.openEmojiPanel() }
         engine.onChange = { [weak self] in self?.engineChanged() }
         engine.onEdit = { [weak self] in
             self?.model.dismissFeedback()
@@ -302,6 +313,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     func prepareForField() {
         cloudKeyStored = hasCloudKey()
         syncSettings()
+        closeEmojiPanel()
         plane.cancelAllTouches()
         engine.configureForField()
         if modelSource == .onDevice { onDeviceModel?.prewarm() }
@@ -347,6 +359,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         dismissStyleMenu()
         // The folded swipe tries rebuild on the next swipe; the mapped model weights cost no dirty memory.
         Task { await SwipeRecognizer.shared.releaseLexicons() }
+        if emojiPanel == nil { emojiIndex = nil }
         if !showsRecording, let panel = recordingPanel {
             panel.tearDown()
             panel.removeFromSuperview()
@@ -371,7 +384,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         let shows = suggestionBarOverride ?? !TyprSettings().hideSuggestionBar
         guard shows != engine.showsStrip else { return }
         engine.showsStrip = shows
-        let visible = shows && !showsRecording && panelContent == nil
+        let visible = shows && !showsRecording && panelContent == nil && emojiPanel == nil
         stripView.isHidden = !visible
         stripView.alpha = visible ? 1 : 0
         refreshStrip()
@@ -445,7 +458,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             typrKey.keycapFrame = key.frame.offsetBy(dx: -key.hitFrame.minX, dy: -key.hitFrame.minY)
         }
         if let globe = layout.key(.globe) {
-            globeButton.isHidden = false
+            globeButton.isHidden = emojiPanel != nil
             globeButton.frame = globe.hitFrame
         } else {
             globeButton.isHidden = true
@@ -456,6 +469,11 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             panel.horizontalInset = layout.horizontalInset
             panel.metrics = layout.metrics
             panel.sideKeyWidth = layout.letterWidth * KeyboardLayout.modifierWidthRatio
+        }
+        if let panel = emojiPanel {
+            panel.frame = bounds
+            panel.horizontalInset = layout.horizontalInset
+            panel.metrics = layout.metrics
         }
         if let panel = feedbackPanel {
             panel.frame = bounds
@@ -508,6 +526,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             engine.showsGlobe = model.needsGlobeKey
             engine.globeKey = model.globeKey
             engine.bottomRow = model.bottomRow
+            if !model.bottomRow.emojiKey { closeEmojiPanel() }
             engine.numberRow = model.numberRow
             engine.splitColumns = model.splitColumns
             engine.letters = model.letters
@@ -537,7 +556,76 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         } else {
             nil
         }
-        stripView.update(suggestions: engine.suggestions, statusText: status)
+        stripView.update(suggestions: status == nil ? withEmoji(engine.suggestions) : engine.suggestions, statusText: status)
+    }
+
+    /// The finished word's emoji beside the next-word predictions, so every slot fills; a lone emoji takes the centre.
+    private func withEmoji(_ suggestions: [KeyboardSuggestion]) -> [KeyboardSuggestion] {
+        guard engine.bottomRow.emojiKey, engine.showsStrip, engine.field == .text, emojiPanel == nil,
+              engine.target.autocorrectionType != .no,
+              let before = engine.target.documentContextBeforeInput,
+              AutocorrectEngine.currentToken(in: before) == nil else { return suggestions }
+        if emojiIndex == nil { emojiIndex = EmojiIndex.load(bundle: Bundle(for: FullKeyboardView.self)) }
+        return Self.merging(emoji: emojiIndex?.suggestions(before: before) ?? [], into: suggestions)
+    }
+
+    /// Up to three chips: a revert offer keeps the left slot, then the emoji, then the words.
+    static func merging(emoji: [String], into suggestions: [KeyboardSuggestion]) -> [KeyboardSuggestion] {
+        let revert = suggestions.prefix(1).filter { $0.kind == .revert }
+        let emoji = emoji.prefix(3 - revert.count).map {
+            var chip = KeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary)
+            chip.isEmoji = true
+            return chip
+        }
+        guard !emoji.isEmpty else { return suggestions }
+        let words = Array(suggestions.dropFirst(revert.count).prefix(3 - revert.count - emoji.count))
+        if revert.isEmpty, emoji.count == 1, words.count == 2 { return [words[0], emoji[0], words[1]] }
+        return revert + emoji + words
+    }
+
+    func openEmojiPanel() {
+        guard emojiPanel == nil, !showsRecording, panelContent == nil else { return }
+        if emojiIndex == nil { emojiIndex = EmojiIndex.load(bundle: Bundle(for: FullKeyboardView.self)) }
+        guard let index = emojiIndex else { return }
+        dismissStyleMenu()
+        plane.cancelAllTouches()
+        let layout = engine.layout
+        let capacity = EmojiPanelView.gridRows(for: layout.metrics) * 8
+        let frequent = EmojiPanelView.frequent(used: makeEmojiUsage().ranked(limit: capacity), index: index, capacity: capacity)
+        let panel = EmojiPanelView(index: index, frequent: frequent)
+        panel.palette = palette
+        panel.onKeyDown = { [weak self] in self?.keyFeedback() }
+        panel.onSelectionStep = { [weak self] in self?.selectionFeedback() }
+        panel.onInsert = { [weak self] emoji in self?.insertEmoji(emoji, typed: emoji) }
+        panel.onDelete = { [weak self] in self?.engine.deleteBackward() }
+        panel.onDeleteRepeat = { [weak self] held in self?.engine.repeatDelete(heldFor: held) }
+        panel.onLetters = { [weak self] in self?.closeEmojiPanel() }
+        insertSubview(panel, belowSubview: callout)
+        emojiPanel = panel
+        for view in [plane, stripView, typrKey, globeButton, accentCallout] as [UIView] { view.isHidden = true }
+        callout.show(nil, label: "")
+        setNeedsLayout()
+        layoutIfNeeded()
+    }
+
+    func closeEmojiPanel() {
+        guard let panel = emojiPanel else { return }
+        panel.tearDown()
+        panel.removeFromSuperview()
+        emojiPanel = nil
+        plane.isHidden = false
+        typrKey.isHidden = false
+        stripView.isHidden = !engine.showsStrip
+        engine.textDidChange()
+        refreshReturnKey()
+        refreshStrip()
+        setNeedsLayout()
+    }
+
+    /// `emoji` is what Frequently used counts; `typed` what goes into the field.
+    private func insertEmoji(_ emoji: String, typed: String) {
+        engine.insertEmoji(typed)
+        makeEmojiUsage().record(emoji)
     }
 
     // MARK: - Feedback panel
@@ -567,6 +655,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         let wasShown = panelContent != nil
         panelContent = next
         if let next {
+            closeEmojiPanel()
             let panel = feedbackPanel ?? makeFeedbackPanel()
             panel.palette = palette
             panel.content = next
@@ -643,6 +732,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     }
 
     private func setRecording(_ recording: Bool) {
+        if recording { closeEmojiPanel() }
         showsRecording = recording
         dismissStyleMenu()
         if recording {
@@ -818,6 +908,11 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     func dismissStyleMenu() {
         styleMenu?.removeFromSuperview()
         styleMenu = nil
+    }
+
+    /// Tests: tap a suggestion in the strip.
+    func debugPick(_ suggestion: KeyboardSuggestion) {
+        stripView.onSelectSuggestion?(suggestion)
     }
 
     /// Fixtures: open the menu without a long press.

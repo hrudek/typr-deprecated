@@ -1,0 +1,114 @@
+# Typr's own chat words for the suggestion bar: word, then its emoji, best first.
+# These come before Unicode's names and keywords. German first, then English.
+herz ❤️
+liebe ❤️ 😍 🥰
+lieb ❤️ 🥰
+verliebt 😍 🥰
+kuss 😘 💋
+küsschen 😘
+danke 🙏 😊
+dankeschön 🙏
+bitte 🙏
+haha 😂 😆
+hahaha 😂 🤣
+lol 😂 🤣
+lustig 😂 😆
+witzig 😂
+traurig 😢 😭
+weinen 😭 😢
+glücklich 😊 😄
+freude 😊 🥳
+freu 😊 🥳
+geburtstag 🎂 🎉 🥳
+party 🎉 🥳
+glückwunsch 🎉 🥳
+glückwünsche 🎉 🥳
+gratuliere 🎉 🥳
+prost 🍻 🥂
+bier 🍺 🍻
+wein 🍷 🥂
+sekt 🥂 🍾
+kaffee ☕
+tee 🍵
+kuchen 🍰 🎂
+essen 🍽️ 😋
+lecker 😋
+hunger 😋 🍽️
+sonne ☀️ 😎
+regen 🌧️ ☔
+schnee ❄️ ☃️
+feuer 🔥
+heiß 🔥 🥵
+kalt 🥶
+müde 😴
+schlafen 😴 🛌
+krank 🤒 🤧
+ok 👍 👌
+okay 👍 👌
+super 👍 💪
+toll 🤩 👍
+cool 😎
+klasse 👍
+perfekt 👌
+hallo 👋
+tschüss 👋
+ciao 👋
+nacht 🌙 😴
+auto 🚗
+zug 🚆
+flugzeug ✈️
+urlaub 🏖️ ✈️ 🌴
+strand 🏖️
+musik 🎵 🎶
+fußball ⚽
+geld 💰 💸
+arbeit 💼
+geschenk 🎁
+weihnachten 🎄 🎅
+ostern 🐣 🐰
+hund 🐶 🐕
+katze 🐱 🐈
+baby 👶
+wow 😮 🤩
+omg 😱
+angst 😨 😱
+wütend 😠 😡
+sauer 😠
+peinlich 😳
+sorry 😅 🙏
+entschuldigung 🙏
+stark 💪
+idee 💡
+blumen 💐 🌸
+heart ❤️
+love ❤️ 😍 🥰
+kiss 😘 💋
+thanks 🙏 😊
+thank 🙏
+sad 😢 😭
+cry 😭
+happy 😊 😄
+birthday 🎂 🎉 🥳
+congrats 🎉 🥳
+congratulations 🎉 🥳
+cheers 🍻 🥂
+coffee ☕
+hot 🥵 🔥
+cold 🥶
+tired 😴
+sleep 😴
+sick 🤒 🤧
+great 👍
+awesome 🤩 👍
+hello 👋
+hey 👋
+bye 👋
+dog 🐶 🐕
+cat 🐱 🐈
+money 💰 💸
+gift 🎁
+christmas 🎄 🎅
+music 🎵 🎶
+car 🚗
+strong 💪
+idea 💡

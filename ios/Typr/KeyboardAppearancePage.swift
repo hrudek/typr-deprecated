@@ -18,6 +18,7 @@ struct KeyboardAppearancePage: View {
 
     static let globeKeyFooter = "Only on iPhones with no globe under the keyboard. Spacer keeps 123 off the corner and does nothing when tapped."
     static let switchingKeyboardsHint = "With Spacer or Hidden, hold 123 in the full keyboard or space in the dictation bar to switch keyboards."
+    static let emojiKeyDetail = "Opens the emoji panel. The suggestion bar also offers emoji for the word you just typed."
     static let bottomRowFooter = "Drag to change the order around the space bar."
     static let splitKeyboardFooter = "Only when iPhone Duo is open and sideways."
     static let letterLayoutFooter = "The keyboard uses the layout of the first selected autocorrect language."
@@ -41,7 +42,8 @@ struct KeyboardAppearancePage: View {
             design: design,
             showsSuggestionBar: !hideSuggestionBar,
             globeKey: globeKey,
-            bottomRow: BottomRow(order: draggedOrder ?? bottomRow.order, periodKey: bottomRow.periodKey),
+            bottomRow: BottomRow(order: draggedOrder ?? bottomRow.order, periodKey: bottomRow.periodKey,
+                                 emojiKey: bottomRow.emojiKey),
             numberRow: numberRow,
             // The app is always dark; the keyboard follows the system like it does in most apps.
             isDark: Self.snapshotIsDark() ?? window?.systemIsDark ?? true,
@@ -212,6 +214,8 @@ struct KeyboardAppearancePage: View {
                 SettingsSection(title: "Bottom row") {
                     SettingsToggle(title: "Period key", detail: "Hold it for more punctuation.", isOn: $bottomRow.periodKey)
                     SettingsDivider()
+                    SettingsToggle(title: "Emoji key", detail: Self.emojiKeyDetail, isOn: $bottomRow.emojiKey)
+                    SettingsDivider()
                     SettingsOrderRows(items: $bottomRow.order, onShownOrder: { draggedOrder = $0 }) { key in
                         HStack {
                             Text(key.title).font(.body).foregroundStyle(TyprTheme.textBase)
@@ -346,6 +350,7 @@ struct KeyboardAppearancePreview: UIViewRepresentable {
             }
             return ["Full keyboard preview", design.title, globe,
                     "period \(bottomRow.periodKey ? "on" : "off")",
+                    bottomRow.emojiKey ? "emoji key" : nil,
                     "number row \(numberRow ? "on" : "off")",
                     orientation == .splitLandscape ? "split" : nil,
                     orientation == .splitLandscape && splitColumns ? "aligned columns" : nil,

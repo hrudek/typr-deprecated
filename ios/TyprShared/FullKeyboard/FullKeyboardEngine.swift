@@ -244,6 +244,8 @@ final class FullKeyboardEngine {
     var onEdit: (() -> Void)?
     /// Called when an accent cell or spacebar trackpad step ticks, for selection haptics.
     var onSelectionStep: (() -> Void)?
+    /// Called when the emoji key is let go.
+    var onEmojiKey: (() -> Void)?
 
     init(target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil,
          suggestionWorker: KeyboardSuggestionWorker? = nil,
@@ -560,6 +562,16 @@ final class FullKeyboardEngine {
         lastSpaceAt = clock()
     }
 
+    /// Types an emoji from the panel or the strip as it is, with no autocorrect or learning around it.
+    func insertEmoji(_ text: String) {
+        prepareStatisticsEdit()
+        statistics?.direct(text)
+        autocorrect.clearPendingUndo()
+        invalidateTouchEvidence()
+        endTypingLogWord("emoji")
+        insert(text)
+    }
+
     /// Host auto-capitalization for a next-word prediction: first letter after `. ! ?`, a line
     /// break or at the field start (sentences/words modes), every letter for all-characters.
     /// Never lowercases, so dictionary-cased German nouns and names keep their capitals.
@@ -641,7 +653,7 @@ final class FullKeyboardEngine {
             if next == .letters { shift.reset() }
             rebuildLayout()
             if next == .letters { refreshAutoCapitalization() }
-        case .character, .space, .returnKey, .typr, .globe, .globeSpacer:
+        case .character, .space, .returnKey, .typr, .globe, .globeSpacer, .emoji:
             break
         }
         touches[id] = touch
@@ -803,6 +815,8 @@ final class FullKeyboardEngine {
                 rebuildLayout()
                 refreshAutoCapitalization()
             }
+        case .emoji:
+            onEmojiKey?()
         case .delete, .typr, .globe, .globeSpacer:
             break
         }

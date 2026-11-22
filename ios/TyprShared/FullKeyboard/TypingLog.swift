@@ -78,6 +78,8 @@ nonisolated struct TypingLogLayout: Codable, Equatable, Sendable {
     var globeKey: String
     var bottomRow: [String]
     var periodKey: Bool
+    /// Only written when on, so logs from before the setting still decode and compare equal.
+    var emojiKey: Bool?
     var numberRow: Bool
     /// Only written when on, so logs from before the setting still decode and compare equal.
     var splitColumns: Bool?
@@ -101,6 +103,7 @@ nonisolated struct TypingLogLayout: Codable, Equatable, Sendable {
         globeKey = layout.globeKey.rawValue
         bottomRow = layout.bottomRow.order.map(\.rawValue)
         periodKey = layout.bottomRow.periodKey
+        emojiKey = layout.bottomRow.emojiKey ? true : nil
         numberRow = layout.numberRow
         splitColumns = layout.splitColumns ? true : nil
         letters = layout.letters == .qwerty ? nil : layout.letters.rawValue
@@ -133,7 +136,7 @@ nonisolated struct TypingLogLayout: Codable, Equatable, Sendable {
               let letters = letters.map(KeyboardLetterLayout.init(rawValue:)) ?? .qwerty else { return nil }
         return KeyboardLayout(width: width, orientation: orientation, layer: layer, field: field,
                               showsGlobe: showsGlobe, globeKey: globeKey,
-                              bottomRow: BottomRow(order: order, periodKey: periodKey),
+                              bottomRow: BottomRow(order: order, periodKey: periodKey, emojiKey: emojiKey ?? false),
                               numberRow: numberRow, splitColumns: splitColumns ?? false,
                               letters: letters, horizontalInset: horizontalInset, showsStrip: showsStrip)
     }

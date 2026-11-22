@@ -158,6 +158,11 @@ final class KeyboardKeyPlaneView: UIView {
                 context.fillKeycap(key.frame, palette: palette, fill: lit ? palette.keyPressedFill : palette.keyFill, radius: radius)
                 guard !hideGlyphs else { continue }
                 drawSymbol("globe", in: inkFrame(key.frame), color: palette.keyGlyph, pointSize: glyphs.symbol, weight: symbolWeight)
+            case .emoji:
+                let lit = pressed.contains(.emoji)
+                context.fillKeycap(key.frame, palette: palette, fill: lit ? palette.keyPressedFill : palette.keyFill, radius: radius)
+                guard !hideGlyphs else { continue }
+                drawSymbol("face.smiling", in: inkFrame(key.frame), color: palette.keyGlyph, pointSize: glyphs.symbol, weight: symbolWeight)
             case .globeSpacer:
                 context.fillKeycap(key.frame, palette: palette, fill: palette.keyFill, radius: radius)
                 guard !hideGlyphs else { continue }
