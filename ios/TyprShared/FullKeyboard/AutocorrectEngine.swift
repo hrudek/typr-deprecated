@@ -1502,9 +1502,6 @@ final class AutocorrectEngine {
         if token == "i", englishEnabled {
             return automatic("I", token: token, kind: .autoRule, counter: .autoRule)
         }
-        if let choice = contextChoice(for: token, previous: context?.previous, next: nil) {
-            return automatic(choice, token: token, kind: .autoRule, counter: .autoRule)
-        }
         let isAllCaps = token.count >= 2 && token == token.uppercased() && token != lower
         guard isAllCaps || !token.dropFirst().contains(where: \.isUppercase) else {
             return Decision(refusal: .refusedProtected)
@@ -1513,6 +1510,9 @@ final class AutocorrectEngine {
             return Decision()
         }
         guard !lexiconTermKeys.contains(lower) else { return Decision(refusal: .refusedProtected) }
+        if let choice = contextChoice(for: token, previous: context?.previous, next: nil) {
+            return automatic(choice, token: token, kind: .autoRule, counter: .autoRule)
+        }
         let literalValid = dictionaryAcceptsLiteral(token)
         if isAllCaps {
             guard !literalValid, let variant = spellingFallback(token, variantsOnly: true) else {

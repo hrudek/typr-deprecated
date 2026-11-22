@@ -102,10 +102,11 @@ final class BilingualRevisionTests: XCTestCase {
         for mark in [";", ":"] {
             XCTAssertEqual(typed("teh" + mark), "the" + mark)
             XCTAssertEqual(typed("shcon" + mark), "schon" + mark)
-            XCTAssertEqual(typed("teh " + mark), "the" + mark, "the space before it goes, as before . and ,")
         }
         XCTAssertEqual(typed("(teh)"), "(the)")
         XCTAssertEqual(typed("(shcon)"), "(schon)")
+        XCTAssertEqual(typed("see you ;)"), "see you ;)", "a space before an emoticon stays")
+        XCTAssertEqual(typed("ok :)"), "ok :)")
     }
 
     func testWordsFromContextIsOffByDefault() {
@@ -121,6 +122,7 @@ final class BilingualRevisionTests: XCTestCase {
         XCTAssertEqual(typed("id like ", german: false, contextWords: true), "I'd like ")
         XCTAssertEqual(typed("lets go ", german: false, contextWords: true), "let's go ")
         XCTAssertEqual(typed("more then that ", german: false, contextWords: true), "more than that ")
+        XCTAssertEqual(typed("ID ", german: false, contextWords: true), "ID ", "an abbreviation in capitals")
         XCTAssertEqual(typed("on its way ", german: false, contextWords: true), "on its way ")
         XCTAssertEqual(typed("well done ", german: false, contextWords: true), "well done ")
         XCTAssertEqual(typed("the dog wagged its tail ", german: false, contextWords: true), "the dog wagged its tail ")

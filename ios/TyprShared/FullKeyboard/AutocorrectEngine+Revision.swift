@@ -46,7 +46,8 @@ extension AutocorrectEngine {
     /// The word of `word`'s group that the words around it make clearly likelier, cased as
     /// typed, or nil. Also the German apostrophe contractions. Only with Words from context.
     func contextChoice(for word: String, previous: String?, next: String?) -> String? {
-        guard choosesWordsFromContext, isEnabled, !word.contains("'"), !word.contains("’") else { return nil }
+        guard choosesWordsFromContext, isEnabled, !word.contains("'"), !word.contains("’"),
+              !word.dropFirst().contains(where: \.isUppercase) else { return nil }
         let lower = word.lowercased()
         if german != nil, next == nil, let contraction = Self.germanContractions[lower] {
             return Self.matchCase(of: word, onto: contraction)
