@@ -166,46 +166,46 @@ final class DictationVocabularyTests: XCTestCase {
 
 final class TranscriptFormatterLanguageTests: XCTestCase {
     func testGermanKeepsUmAndEr() {
-        XCTAssertEqual(TyprTranscriptFormatter.format("Würde das ausreichen, um einen Schluss zu ziehen", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("Würde das ausreichen, um einen Schluss zu ziehen", style: .polished),
                        "Würde das ausreichen, um einen Schluss zu ziehen.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("Können wir uns um 13:00 Uhr treffen", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("Können wir uns um 13:00 Uhr treffen", style: .polished),
                        "Können wir uns um 13:00 Uhr treffen.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("Setze das bitte komplett um", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("Setze das bitte komplett um", style: .polished),
                        "Setze das bitte komplett um.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("ich sehe nicht, was er wirklich erkannt hat", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("ich sehe nicht, was er wirklich erkannt hat", style: .polished),
                        "Ich sehe nicht, was er wirklich erkannt hat.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("Er kommt um acht", style: .casual), "er kommt um acht")
+        XCTAssertEqual(TranscriptFormatter.typrRules("Er kommt um acht", style: .casual), "er kommt um acht")
     }
 
     func testGermanFillersAreStripped() {
-        XCTAssertEqual(TyprTranscriptFormatter.format("Äh ich wollte ähm fragen, öhm, ob das geht", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("Äh ich wollte ähm fragen, öhm, ob das geht", style: .polished),
                        "Ich wollte fragen, ob das geht.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("hm das ist gut", style: .polished), "Das ist gut.")
+        XCTAssertEqual(TranscriptFormatter.typrRules("hm das ist gut", style: .polished), "Das ist gut.")
     }
 
     func testEnglishFillersStillStrippedFromEnglish() {
-        XCTAssertEqual(TyprTranscriptFormatter.format("um let's ship the build, uh, tonight", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("um let's ship the build, uh, tonight", style: .polished),
                        "Let's ship the build, tonight.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("er I think that is fine", style: .polished), "I think that is fine.")
+        XCTAssertEqual(TranscriptFormatter.typrRules("er I think that is fine", style: .polished), "I think that is fine.")
         XCTAssertTrue(TyprTranscriptFormatter.readsAsEnglish("let's ship the build tonight"))
         XCTAssertFalse(TyprTranscriptFormatter.readsAsEnglish("Erstelle einen Pull Request und warte auf den Reviewer"))
         XCTAssertFalse(TyprTranscriptFormatter.readsAsEnglish("Grüße"))
     }
 
     func testNoCapitalAfterAbbreviations() {
-        XCTAssertEqual(TyprTranscriptFormatter.format("exportiert werden, bzw. in die Zwischenablage kopiert", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("exportiert werden, bzw. in die Zwischenablage kopiert", style: .polished),
                        "Exportiert werden, bzw. in die Zwischenablage kopiert.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("zum Beispiel z. B. die Logs, d. h. alle", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("zum Beispiel z. B. die Logs, d. h. alle", style: .polished),
                        "Zum Beispiel z. B. die Logs, d. h. alle.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("das dauert ca. zehn Minuten", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("das dauert ca. zehn Minuten", style: .polished),
                        "Das dauert ca. zehn Minuten.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("Logs, Daten usw. kommen später", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("Logs, Daten usw. kommen später", style: .polished),
                        "Logs, Daten usw. kommen später.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("z.B. die Logs", style: .polished), "Z.B. die Logs.")
+        XCTAssertEqual(TranscriptFormatter.typrRules("z.B. die Logs", style: .polished), "Z.B. die Logs.")
         // Real sentence ends still capitalize, and nothing is lowercased.
-        XCTAssertEqual(TyprTranscriptFormatter.format("das ist gut. danach weiter", style: .polished),
+        XCTAssertEqual(TranscriptFormatter.typrRules("das ist gut. danach weiter", style: .polished),
                        "Das ist gut. Danach weiter.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("am 13. Danach weiter", style: .polished), "Am 13. Danach weiter.")
-        XCTAssertEqual(TyprTranscriptFormatter.format("bzw. Das bleibt", style: .polished), "Bzw. Das bleibt.")
+        XCTAssertEqual(TranscriptFormatter.typrRules("am 13. Danach weiter", style: .polished), "Am 13. Danach weiter.")
+        XCTAssertEqual(TranscriptFormatter.typrRules("bzw. Das bleibt", style: .polished), "Bzw. Das bleibt.")
     }
 }

@@ -426,7 +426,7 @@ struct KeyboardBridge {
                   let parsed = DictationStyle(rawValue: raw) else {
                 return .polished
             }
-            return parsed.resolved(typrStyles: TyprSettings(defaults: defaults)[experiment: .typrDictationStyles])
+            return parsed
         }
         nonmutating set {
             defaults?.set(newValue.rawValue, forKey: Key.style)

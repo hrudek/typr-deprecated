@@ -221,26 +221,25 @@ final class DictationLogControllerTests: XCTestCase {
         try await f.dispose()
     }
 
-    /// Typr dictation styles' Very casual lowercases every word, so the restore pass has work.
-    func testVeryCasualFormattingRestorationHasSeparateReplacementEvidence() async throws {
+    /// Polished capitalizes the sentence start ("iPhone" -> "IPhone"), so the restore pass has work.
+    func testFormattingRestorationHasSeparateReplacementEvidence() async throws {
         let f = LogControllerFixture()
-        TyprSettings(defaults: f.env.defaults)[experiment: .typrDictationStyles] = true
         let vocabulary = CustomVocabularySettings(defaults: f.env.defaults)
         vocabulary.isEnabled = true
         vocabulary.terms = ["iPhone"]
-        f.controller.setStyle(.casual)
-        await f.asr.setOutput("my iphone works")
-        f.model.result = "my iPhone works"
+        f.controller.setStyle(.polished)
+        await f.asr.setOutput("iphone works")
+        f.model.result = "iPhone works"
         try await f.start()
         f.controller.finishRecording(); try await f.waitUntilFinished()
         let entry = try XCTUnwrap(f.env.store.entries.first)
         XCTAssertEqual(entry.firstSpellingPass?.totalChanges, 1)
         XCTAssertEqual(entry.secondSpellingPass?.totalChanges, 1)
-        XCTAssertEqual(entry.secondSpellingPass?.changes.first?.before.text, "iphone")
+        XCTAssertEqual(entry.secondSpellingPass?.changes.first?.before.text, "IPhone")
         XCTAssertEqual(entry.secondSpellingPass?.changes.first?.after.text, "iPhone")
-        XCTAssertEqual(entry.finalText?.text, "my iPhone works")
-        XCTAssertEqual(entry.cleanupOutput?.text, "my iPhone works")
-        XCTAssertEqual(entry.formattedText?.text, "my iphone works")
+        XCTAssertEqual(entry.finalText?.text, "iPhone works.")
+        XCTAssertEqual(entry.cleanupOutput?.text, "iPhone works")
+        XCTAssertEqual(entry.formattedText?.text, "IPhone works.")
         try await f.dispose()
     }
 

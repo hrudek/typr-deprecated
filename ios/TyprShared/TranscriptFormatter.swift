@@ -1,52 +1,27 @@
 import Foundation
 
-/// Hex's four styles, plus Typr's capitalized Casual for Settings › Experimental › Typr dictation
-/// styles. Stored raw values never change: Typr's old Very casual was stored as "casual", which
-/// is Hex's Casual (lowercase texting); Typr's Casual ("casualCapitalized") is a style only while
-/// that switch is on, else it reads as Polished (`KeyboardBridge.style`, `DictationPipeline`),
-/// with no stored-value migration.
+/// Hex's four styles. A stored raw value of an earlier Typr style ("casualCapitalized") no
+/// longer parses and reads as Polished (`KeyboardBridge.style`), with no migration.
 nonisolated enum DictationStyle: String, Codable, CaseIterable, Sendable {
     case polished
     case casual
     case notes
     case verbatim
-    case typrCasual = "casualCapitalized"
 
-    /// The styles to choose from, in menu order: Hex's four, or with Typr dictation styles on,
-    /// Typr's five (its Casual, then Hex's Casual as Very casual).
-    static var allCases: [DictationStyle] { choices(typrStyles: typrStylesEnabled) }
-
-    static func choices(typrStyles: Bool) -> [DictationStyle] {
-        typrStyles ? [.polished, .typrCasual, .casual, .notes, .verbatim] : [.polished, .casual, .notes, .verbatim]
-    }
-
-    static var typrStylesEnabled: Bool { TyprSettings()[experiment: .typrDictationStyles] }
-
-    /// This style, or Polished when it isn't on offer.
-    func resolved(typrStyles: Bool) -> DictationStyle {
-        Self.choices(typrStyles: typrStyles).contains(self) ? self : .polished
-    }
-
-    var label: String { label(typrStyles: Self.typrStylesEnabled) }
-
-    func label(typrStyles: Bool) -> String {
+    var label: String {
         switch self {
         case .polished: "Polished"
-        case .casual: typrStyles ? "Very casual" : "Casual"
-        case .typrCasual: "Casual"
+        case .casual: "Casual"
         case .notes: "Notes"
         case .verbatim: "Verbatim"
         }
     }
 
-    var shortHint: String { shortHint(typrStyles: Self.typrStylesEnabled) }
-
-    func shortHint(typrStyles: Bool) -> String {
+    var shortHint: String {
         switch self {
-        case .polished: typrStyles ? "Clean punctuation and filler trim" : "Full sentences, fillers trimmed"
-        case .casual: typrStyles ? "Lowercase texting, no trailing period" : "Texting: lowercase start, no final period"
-        case .typrCasual: "Natural capitalization, no trailing period"
-        case .notes: typrStyles ? "Spoken bullets and line breaks" : "Short lines, a list for several items"
+        case .polished: "Full sentences, fillers trimmed"
+        case .casual: "Texting: lowercase start, no final period"
+        case .notes: "Short lines, a list for several items"
         case .verbatim: "Exact words from the model"
         }
     }
@@ -130,7 +105,7 @@ nonisolated enum TranscriptFormatter {
         case .polished:
             return polishSentences(cleaned(), english: english, unspaced: unspaced, german: isGerman(language))
 
-        case .casual, .typrCasual:
+        case .casual:
             return casualMessage(cleaned(), english: english)
 
         case .notes:

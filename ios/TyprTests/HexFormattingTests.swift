@@ -180,7 +180,7 @@ final class HexSpokenListsTests: XCTestCase {
             XCTAssertEqual(lists(heard), heard)
         }
         XCTAssertEqual(
-            DictationStyle.choices(typrStyles: false).map { TranscriptFormatter.format("Test 1, 2, 3", style: $0, language: "en-US", lists: true) },
+            DictationStyle.allCases.map { TranscriptFormatter.format("Test 1, 2, 3", style: $0, language: "en-US", lists: true) },
             ["Test 1, 2, 3.", "test 1, 2, 3", "Test 1, 2, 3", "Test 1, 2, 3"]
         )
     }
@@ -188,7 +188,7 @@ final class HexSpokenListsTests: XCTestCase {
     /// Each style ends the lines its own way; Verbatim keeps the model's words.
     func testStylesEndTheLines() {
         let heard = "Um, so the plan is, first, um, call the bank, second, pay rent. Thanks!"
-        let formatted = DictationStyle.choices(typrStyles: false).map {
+        let formatted = DictationStyle.allCases.map {
             TranscriptFormatter.format(heard, style: $0, language: "en-US", lists: true)
         }
         XCTAssertEqual(formatted, [
@@ -211,7 +211,7 @@ final class HexSpokenListsTests: XCTestCase {
     /// End with a period off ends no list line with a full stop; "!" stays.
     func testListLinesWithoutAPeriod() {
         let heard = "Um, so the plan is, first, um, call the bank, second, pay rent. Thanks!"
-        let formatted = DictationStyle.choices(typrStyles: false).map {
+        let formatted = DictationStyle.allCases.map {
             TranscriptFormatter.format(heard, style: $0, language: "en-US", lists: true, endsWithPeriod: false)
         }
         XCTAssertEqual(formatted, [
@@ -717,7 +717,7 @@ final class HexSpokenPunctuationTests: XCTestCase {
     /// writes them only with the switch on (on by default).
     func testStylesAndPipeline() {
         let heard = "Okay comma so here is the plan colon we leave at noon period see you there exclamation point"
-        let formatted = DictationStyle.choices(typrStyles: false).map {
+        let formatted = DictationStyle.allCases.map {
             TranscriptFormatter.format(heard, style: $0, language: "en-US", punctuation: true)
         }
         XCTAssertEqual(formatted, [

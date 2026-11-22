@@ -173,8 +173,7 @@ struct DictationLogContext: Codable, Equatable, Sendable {
         context.copyToPasteboard = copyToPasteboard
         // Historic "Casual" entries used lowercase; never reuse that evidence label.
         context.style = switch style {
-        case .typrCasual: "Casual (natural case)"
-        case .casual: DictationStyle.typrStylesEnabled ? "Very casual" : "Casual (texting)"
+        case .casual: "Casual (texting)"
         default: style.label
         }
         context.speechEngine = engine

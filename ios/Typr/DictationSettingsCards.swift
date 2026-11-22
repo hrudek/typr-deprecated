@@ -1,22 +1,6 @@
 import SwiftUI
 @preconcurrency import Translation
 
-extension DictationStyle {
-    /// Hex's styles, or Typr's with Settings › Experimental › Typr dictation styles.
-    func settingsDescription(typrStyles: Bool) -> String {
-        switch self {
-        case .polished where typrStyles: "Sentence case, clean punctuation and fewer fillers. For messages and longer text."
-        case .polished: "Full sentences: fillers trimmed, each sentence capitalized and ended. For messages and longer text."
-        case .typrCasual: "Chat text with natural capitalization, like typing with iPhone autocorrect. Drops the final period, even after several sentences; keeps question and exclamation marks."
-        case .casual where typrStyles: "Lowercase chat text. Drops the final period, even after several sentences; keeps question and exclamation marks."
-        case .casual: "Texting: sentences may start lowercase, and a short message has no final period. Acronyms and names keep their capitals."
-        case .notes where typrStyles: "Turns spoken “bullet”, “new line” and “new paragraph” into bullets and line breaks. For lists and quick notes."
-        case .notes: "Concise lines: spoken bullets and line breaks, else several sentences become a list, without final periods."
-        case .verbatim: "Skips AI cleanup and style formatting. Vocabulary corrections, spaces instead of hyphens between words and basic spacing still apply."
-        }
-    }
-}
-
 /// A full-row selection target with enough room for decision copy and larger text.
 struct SettingsChoiceRow: View {
     let title: String
@@ -54,21 +38,18 @@ struct SettingsChoiceRow: View {
 @MainActor
 struct DictationStyleSettingsCard: View {
     @Bindable var dictation: DictationController
-    @State private var endsWithPeriod = TyprSettings().dictationEndsWithPeriod
     @State private var lowercase = TyprSettings().dictationLowercase
     @State private var formatLists = TyprSettings().dictationFormatLists
     @State private var spokenPunctuation = TyprSettings().dictationSpokenPunctuation
-    private let typrStyles = DictationStyle.typrStylesEnabled
+    @State private var endsWithPeriod = TyprSettings().dictationEndsWithPeriod
     private let typrFormattingRules = TyprSettings()[experiment: .typrGermanFormattingRules]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsSection {
-                let styles = DictationStyle.choices(typrStyles: typrStyles)
-                ForEach(styles, id: \.self) { style in
-                    if style != styles.first { SettingsDivider() }
-                    SettingsChoiceRow(title: style.label(typrStyles: typrStyles),
-                                      detail: style.settingsDescription(typrStyles: typrStyles),
+                ForEach(DictationStyle.allCases, id: \.self) { style in
+                    if style != DictationStyle.allCases.first { SettingsDivider() }
+                    SettingsChoiceRow(title: style.label, detail: style.shortHint,
                                       isSelected: dictation.style == style) {
                         dictation.setStyle(style)
                     }
@@ -78,28 +59,25 @@ struct DictationStyleSettingsCard: View {
                 .font(.footnote).foregroundStyle(TyprTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
+            // Hex's style settings, in Hex's order and wording (`SettingsPages.swift` at 0c1c13d7).
             SettingsSection {
+                SettingsToggle(title: "Lowercase", detail: "No capital letters", isOn: $lowercase)
+                    .onChange(of: lowercase) { _, isOn in TyprSettings().dictationLowercase = isOn }
+                SettingsDivider()
                 if !typrFormattingRules {
                     SettingsToggle(title: "Format lists",
-                                   detail: "Say “first, second” or “bullet” for a list. English and Spanish.",
+                                   detail: "Say “first, second” or “bullet” for a list",
                                    isOn: $formatLists)
                         .onChange(of: formatLists) { _, isOn in TyprSettings().dictationFormatLists = isOn }
                     SettingsDivider()
                     SettingsToggle(title: "Spoken punctuation",
-                                   detail: "Say “Komma” or “question mark” for the mark.",
+                                   detail: "Say “comma” or “question mark”",
                                    isOn: $spokenPunctuation)
                         .onChange(of: spokenPunctuation) { _, isOn in TyprSettings().dictationSpokenPunctuation = isOn }
                     SettingsDivider()
                 }
-                SettingsToggle(title: "End with a period",
-                               detail: "Off: no line ends with a period. Question and exclamation marks stay.",
-                               isOn: $endsWithPeriod)
+                SettingsToggle(title: "End with a period", detail: "Off still keeps ? and !", isOn: $endsWithPeriod)
                     .onChange(of: endsWithPeriod) { _, isOn in TyprSettings().dictationEndsWithPeriod = isOn }
-                SettingsDivider()
-                SettingsToggle(title: "Lowercase",
-                               detail: "Lowercases everything, nouns and vocabulary included.",
-                               isOn: $lowercase)
-                    .onChange(of: lowercase) { _, isOn in TyprSettings().dictationLowercase = isOn }
             }
             Text("Lists, punctuation and the period apply to every style except Verbatim, from your next dictation.")
                 .font(.footnote).foregroundStyle(TyprTheme.textMuted)

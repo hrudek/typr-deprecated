@@ -101,8 +101,7 @@ tried again when Typr returns.
   Portuguese, with Hex's guards so "ein wichtiger Punkt" or "zwei Komma fünf" stay as said.
   Both skip Verbatim. Style › End with a period (on by default) off drops every line's final
   period, and Style › Lowercase (off by default) lowercases everything, Verbatim too, as in
-  Hex. Experimental › **Typr dictation styles** brings back Typr's five styles (Casual with
-  capitals, Very casual lowercase); a saved Typr Casual dictates as Polished while it is off.
+  Hex. A style saved by an earlier Typr build that Hex doesn't have dictates as Polished.
   Experimental › **Typr German formatting rules** uses Typr's German and English list and
   punctuation rules ("erstens … zweitens …", "Punkt eins …", "Spiegelstrich", "neue Zeile",
   "Klammer auf/zu"), switched by Experimental › Format lists and Spoken punctuation instead

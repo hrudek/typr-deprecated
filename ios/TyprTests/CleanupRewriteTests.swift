@@ -128,16 +128,15 @@ final class CleanupRewriteTests: XCTestCase {
 
     /// The radical pass runs on the speech engine's text in every style: with AI cleanup off, in
     /// Verbatim and when cleanup falls back. An accepted answer is used as written (Hex runs no
-    /// pass over it), and the model gets the spaced text. Typr's styles and formatting rules, whose
-    /// output this pins.
+    /// pass over it), and the model gets the spaced text. Hex's styles with Typr German formatting
+    /// rules, whose output this pins.
     func testSpaceCompoundsRunsBeforeCleanupInEveryStyle() async throws {
         let raw = "Das Feedback-Menü hat Know-how für PR-Feedback, 5-10 testflight-e-mails und das Open-Source-Build"
         let spaced = "Das Feedback Menü hat Know how für PR Feedback, 5-10 testflight e-mails und das Open Source Build"
         let answer = "Das Feedback-Menü hat Know-how für PR-Feedback, 5-10 TestFlight E-Mails und den Open-Source-Build."
         let cases: [(DictationStyle, Bool, Bool, String)] = [
             (.polished, false, false, spaced + "."),
-            (.typrCasual, false, false, spaced),
-            (.casual, false, false, spaced.lowercased()),
+            (.casual, false, false, "das" + spaced.dropFirst(3)),
             (.notes, false, false, spaced),
             (.verbatim, false, false, spaced),
             (.verbatim, true, false, spaced),
@@ -148,7 +147,6 @@ final class CleanupRewriteTests: XCTestCase {
             let suite = "cleanup.hyphens.\(UUID().uuidString)"
             let defaults = UserDefaults(suiteName: suite)!
             defer { defaults.removePersistentDomain(forName: suite) }
-            TyprSettings(defaults: defaults)[experiment: .typrDictationStyles] = true
             TyprSettings(defaults: defaults)[experiment: .typrGermanFormattingRules] = true
             let session = ContextSession(), bg = CleanupTestBackground(), clock = CleanupTestSleeper()
             session.result = answer

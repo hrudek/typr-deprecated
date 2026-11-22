@@ -920,14 +920,10 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 
 ## Hex iOS End with a period and Lowercase
 
-The End with a period setting in Typr dictation styles (`TyprTranscriptFormatter.format(…endsWithPeriod:)`
-and `TyprTranscriptFormatter.droppingFinalFullStop`) is adapted from
-[anomalyco/hex](https://github.com/anomalyco/hex) at
-`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2147: `TranscriptFormatter.format(…endsWithPeriod:)`
-and `droppingFinalFullStop`; PR #2103: Lowercase in `DictationPipeline.format`).
-MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)). Hex's
-own `TranscriptFormatter`, `SpokenLists`, `SpokenPunctuation`, `FrenchSpacing` and
-`DictationPipeline` (`ios/TyprShared/`, the default since D2) come from the Hex iOS base pin
+End with a period and Lowercase are Hex's (`TranscriptFormatter.format(…endsWithPeriod:)`,
+Lowercase in `DictationPipeline`). Hex's own `TranscriptFormatter`, `SpokenLists`,
+`SpokenPunctuation`, `FrenchSpacing` and `DictationPipeline` (`ios/TyprShared/`, the default
+since D2) come from the Hex iOS base pin
 above; `ios/TyprTests/HexFormattingTests.swift` is Hex's formatting tests from
 `ios/HEXMobileTests/TranscriptCleanupTests.swift` at the same pin.
 
