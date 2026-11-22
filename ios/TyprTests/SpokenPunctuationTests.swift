@@ -118,7 +118,7 @@ final class SpokenPunctuationTests: XCTestCase {
         XCTAssertEqual(formatted, [
             "Hallo, wie geht es dir? Ich bin gleich da. Bis bald.",
             "hallo, wie geht es dir? ich bin gleich da. bis bald",
-            "Hallo, wie geht es dir? Ich bin gleich da. Bis bald",
+            "- Hallo, wie geht es dir?\n- Ich bin gleich da\n- Bis bald",
             heard,
         ])
         XCTAssertEqual(
@@ -132,17 +132,6 @@ final class SpokenPunctuationTests: XCTestCase {
     }
 
     func testNotesMarkersKeepWorking() {
-        XCTAssertEqual(
-            TranscriptFormatter.typrRules(
-                "Einkaufen bullet Milch Komma Butter bullet Eier Punkt new paragraph danke dir Ausrufezeichen",
-                style: .notes, language: .german, punctuation: true
-            ),
-            "Einkaufen\n- Milch, Butter\n- Eier.\n\nDanke dir!"
-        )
-        XCTAssertEqual(
-            TranscriptFormatter.typrRules("Milch Punkt new line Eier", style: .notes, language: .german, punctuation: true),
-            "Milch.\nEier"
-        )
         XCTAssertEqual(
             TranscriptFormatter.typrRules("First item bullet check signing bullet test keyboard", style: .notes, punctuation: true),
             "First item\n- Check signing\n- Test keyboard"

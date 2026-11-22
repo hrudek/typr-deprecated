@@ -70,11 +70,11 @@ final class SpokenListsTests: XCTestCase {
     func testNotesBulletsKeepWorking() {
         XCTAssertEqual(
             TranscriptFormatter.typrRules("First item bullet check signing bullet test keyboard", style: .notes, lists: true),
-            "First item\n- Check signing\n- Test keyboard"
+            "First item:\n- Check signing\n- Test keyboard"
         )
         XCTAssertEqual(
             TranscriptFormatter.typrRules("Einkaufen bullet Milch bullet Eier", style: .notes, language: .german, lists: true),
-            "Einkaufen\n- Milch\n- Eier"
+            "Einkaufen:\n- Milch\n- Eier"
         )
     }
 
@@ -88,43 +88,43 @@ final class SpokenListsTests: XCTestCase {
     }
 
     private static let germanLists: [(String, [String])] = [
-        ("Einkaufsliste: erstens Milch, zweitens Eier, drittens Brot.", ["Einkaufsliste:\n1. Milch.\n2. Eier.\n3. Brot.", "einkaufsliste:\n1. milch\n2. eier\n3. brot", "Einkaufsliste:\n1. Milch\n2. Eier\n3. Brot"]),
-        ("Erstens Milch zweitens Eier drittens Brot", ["1. Milch.\n2. Eier.\n3. Brot.", "1. milch\n2. eier\n3. brot", "1. Milch\n2. Eier\n3. Brot"]),
-        ("Erstens habe ich keine Zeit und zweitens keine Lust.", ["1. Habe ich keine Zeit.\n2. Keine Lust.", "1. habe ich keine zeit\n2. keine lust", "1. Habe ich keine Zeit\n2. Keine Lust"]),
-        ("Erstens mal Milch, zweitens mal Eier.", ["1. Milch.\n2. Eier.", "1. milch\n2. eier", "1. Milch\n2. Eier"]),
-        ("Punkt eins Budget. Punkt zwei Personal. Punkt drei Sonstiges.", ["1. Budget.\n2. Personal.\n3. Sonstiges.", "1. budget\n2. personal\n3. sonstiges", "1. Budget\n2. Personal\n3. Sonstiges"]),
-        ("Punkt 1 Budget, Punkt 2 Personal.", ["1. Budget.\n2. Personal.", "1. budget\n2. personal", "1. Budget\n2. Personal"]),
-        ("Nummer eins, die Bank anrufen. Nummer zwei, Miete zahlen.", ["1. Die Bank anrufen.\n2. Miete zahlen.", "1. die bank anrufen\n2. miete zahlen", "1. Die Bank anrufen\n2. Miete zahlen"]),
-        ("Schritt eins Ofen vorheizen, Schritt zwei Teig rühren.", ["1. Ofen vorheizen.\n2. Teig rühren.", "1. ofen vorheizen\n2. teig rühren", "1. Ofen vorheizen\n2. Teig rühren"]),
-        ("Eins, Tickets kaufen. Zwei, Hotel buchen.", ["1. Tickets kaufen.\n2. Hotel buchen.", "1. tickets kaufen\n2. hotel buchen", "1. Tickets kaufen\n2. Hotel buchen"]),
-        ("Erstens Milch, zweitens Eier und zu guter Letzt Brot. Danke!", ["1. Milch.\n2. Eier.\n3. Brot.\nDanke!", "1. milch\n2. eier\n3. brot\ndanke!", "1. Milch\n2. Eier\n3. Brot\nDanke!"]),
-        ("Der Plan: erstens anrufen, zweitens zahlen. Bis morgen.", ["Der Plan:\n1. Anrufen.\n2. Zahlen.\nBis morgen.", "der plan:\n1. anrufen\n2. zahlen\nbis morgen", "Der Plan:\n1. Anrufen\n2. Zahlen\nBis morgen."]),
-        ("Hallo Anna, neue Zeile, danke für alles, neuer Absatz, bis bald.", ["Hallo Anna,\nDanke für alles\n\nBis bald.", "hallo anna,\ndanke für alles\n\nbis bald", "Hallo Anna,\nDanke für alles\n\nBis bald."]),
-        ("Spiegelstrich Milch Spiegelstrich Eier Spiegelstrich Brot", ["- Milch.\n- Eier.\n- Brot.", "- milch\n- eier\n- brot", "- Milch\n- Eier\n- Brot"]),
-        ("Aufzählungspunkt Milch, Aufzählungspunkt Eier.", ["- Milch.\n- Eier.", "- milch\n- eier", "- Milch\n- Eier"]),
-        ("Äh, erstens, ähm, Milch, zweitens Eier.", ["1. Milch.\n2. Eier.", "1. milch\n2. eier", "1. Milch\n2. Eier"]),
-        ("Erstens Zeit, zweitens Geld.", ["1. Zeit.\n2. Geld.", "1. zeit\n2. geld", "1. Zeit\n2. Geld"]),
+        ("Einkaufsliste: erstens Milch, zweitens Eier, drittens Brot.", ["Einkaufsliste:\n1. Milch.\n2. Eier.\n3. Brot.", "einkaufsliste:\n1. Milch\n2. Eier\n3. Brot", "Einkaufsliste:\n1. Milch\n2. Eier\n3. Brot"]),
+        ("Erstens Milch zweitens Eier drittens Brot", ["1. Milch.\n2. Eier.\n3. Brot.", "1. Milch\n2. Eier\n3. Brot", "1. Milch\n2. Eier\n3. Brot"]),
+        ("Erstens habe ich keine Zeit und zweitens keine Lust.", ["1. Habe ich keine Zeit.\n2. Keine Lust.", "1. Habe ich keine Zeit\n2. Keine Lust", "1. Habe ich keine Zeit\n2. Keine Lust"]),
+        ("Erstens mal Milch, zweitens mal Eier.", ["1. Milch.\n2. Eier.", "1. Milch\n2. Eier", "1. Milch\n2. Eier"]),
+        ("Punkt eins Budget. Punkt zwei Personal. Punkt drei Sonstiges.", ["1. Budget.\n2. Personal.\n3. Sonstiges.", "1. Budget\n2. Personal\n3. Sonstiges", "1. Budget\n2. Personal\n3. Sonstiges"]),
+        ("Punkt 1 Budget, Punkt 2 Personal.", ["1. Budget.\n2. Personal.", "1. Budget\n2. Personal", "1. Budget\n2. Personal"]),
+        ("Nummer eins, die Bank anrufen. Nummer zwei, Miete zahlen.", ["1. Die Bank anrufen.\n2. Miete zahlen.", "1. Die Bank anrufen\n2. Miete zahlen", "1. Die Bank anrufen\n2. Miete zahlen"]),
+        ("Schritt eins Ofen vorheizen, Schritt zwei Teig rühren.", ["1. Ofen vorheizen.\n2. Teig rühren.", "1. Ofen vorheizen\n2. Teig rühren", "1. Ofen vorheizen\n2. Teig rühren"]),
+        ("Eins, Tickets kaufen. Zwei, Hotel buchen.", ["1. Tickets kaufen.\n2. Hotel buchen.", "1. Tickets kaufen\n2. Hotel buchen", "1. Tickets kaufen\n2. Hotel buchen"]),
+        ("Erstens Milch, zweitens Eier und zu guter Letzt Brot. Danke!", ["1. Milch.\n2. Eier.\n3. Brot.\nDanke!", "1. Milch\n2. Eier\n3. Brot\ndanke!", "1. Milch\n2. Eier\n3. Brot\nDanke!"]),
+        ("Der Plan: erstens anrufen, zweitens zahlen. Bis morgen.", ["Der Plan:\n1. Anrufen.\n2. Zahlen.\nBis morgen.", "der Plan:\n1. Anrufen\n2. Zahlen\nbis morgen.", "Der Plan:\n1. Anrufen\n2. Zahlen\nBis morgen"]),
+        ("Hallo Anna, neue Zeile, danke für alles, neuer Absatz, bis bald.", ["Hallo Anna,\nDanke für alles.\n\nBis bald.", "hallo Anna,\ndanke für alles\n\nbis bald.", "Hallo Anna,\nDanke für alles\n\nBis bald"]),
+        ("Spiegelstrich Milch Spiegelstrich Eier Spiegelstrich Brot", ["- Milch.\n- Eier.\n- Brot.", "- Milch\n- Eier\n- Brot", "- Milch\n- Eier\n- Brot"]),
+        ("Aufzählungspunkt Milch, Aufzählungspunkt Eier.", ["- Milch.\n- Eier.", "- Milch\n- Eier", "- Milch\n- Eier"]),
+        ("Äh, erstens, ähm, Milch, zweitens Eier.", ["1. Milch.\n2. Eier.", "1. Milch\n2. Eier", "1. Milch\n2. Eier"]),
+        ("Erstens Zeit, zweitens Geld.", ["1. Zeit.\n2. Geld.", "1. Zeit\n2. Geld", "1. Zeit\n2. Geld"]),
     ]
 
     private static let germanListsWithSpokenPunctuation: [(String, [String])] = [
-        ("Erstens Milch Komma zweitens Eier Komma drittens Brot Punkt", ["1. Milch.\n2. Eier.\n3. Brot.", "1. milch\n2. eier\n3. brot", "1. Milch\n2. Eier\n3. Brot"]),
-        ("Einkaufsliste Doppelpunkt erstens Milch zweitens Eier", ["Einkaufsliste:\n1. Milch.\n2. Eier.", "einkaufsliste:\n1. milch\n2. eier", "Einkaufsliste:\n1. Milch\n2. Eier"]),
-        ("Hallo Anna Komma neue Zeile wie geht es dir Fragezeichen", ["Hallo Anna,\nWie geht es dir?", "hallo anna,\nwie geht es dir?", "Hallo Anna,\nWie geht es dir?"]),
-        ("Punkt eins Budget Punkt zwei Personal", ["Punkt eins Budget Punkt zwei Personal.", "punkt eins budget punkt zwei personal", "Punkt eins Budget Punkt zwei Personal"]),
-        ("Erstens Milch Punkt zweitens Eier Punkt", ["1. Milch.\n2. Eier.", "1. milch\n2. eier", "1. Milch\n2. Eier"]),
-        ("Das ist ein wichtiger Punkt Punkt erstens Milch zweitens Eier", ["Das ist ein wichtiger Punkt.\n1. Milch.\n2. Eier.", "das ist ein wichtiger punkt.\n1. milch\n2. eier", "Das ist ein wichtiger Punkt.\n1. Milch\n2. Eier"]),
+        ("Erstens Milch Komma zweitens Eier Komma drittens Brot Punkt", ["1. Milch.\n2. Eier.\n3. Brot.", "1. Milch\n2. Eier\n3. Brot", "1. Milch\n2. Eier\n3. Brot"]),
+        ("Einkaufsliste Doppelpunkt erstens Milch zweitens Eier", ["Einkaufsliste:\n1. Milch.\n2. Eier.", "einkaufsliste:\n1. Milch\n2. Eier", "Einkaufsliste:\n1. Milch\n2. Eier"]),
+        ("Hallo Anna Komma neue Zeile wie geht es dir Fragezeichen", ["Hallo Anna,\nWie geht es dir?", "hallo Anna,\nwie geht es dir?", "Hallo Anna,\nWie geht es dir?"]),
+        ("Punkt eins Budget Punkt zwei Personal", ["Punkt eins Budget Punkt zwei Personal.", "punkt eins Budget Punkt zwei Personal", "Punkt eins Budget Punkt zwei Personal"]),
+        ("Erstens Milch Punkt zweitens Eier Punkt", ["1. Milch.\n2. Eier.", "1. Milch\n2. Eier", "1. Milch\n2. Eier"]),
+        ("Das ist ein wichtiger Punkt Punkt erstens Milch zweitens Eier", ["Das ist ein wichtiger Punkt.\n1. Milch.\n2. Eier.", "das ist ein wichtiger Punkt.\n1. Milch\n2. Eier", "Das ist ein wichtiger Punkt\n1. Milch\n2. Eier"]),
     ]
 
     private static let englishLists: [(String, [String])] = [
-        ("Here is my shopping list. First, eggs. Second, milk, third, bread.", ["Here is my shopping list.\n1. Eggs.\n2. Milk.\n3. Bread.", "here is my shopping list.\n1. eggs\n2. milk\n3. bread", "Here is my shopping list.\n1. Eggs\n2. Milk\n3. Bread"]),
-        ("Number one, call the bank. Number two, pay rent.", ["1. Call the bank.\n2. Pay rent.", "1. call the bank\n2. pay rent", "1. Call the bank\n2. Pay rent"]),
-        ("Dear Sam, new line, thanks for the help, new paragraph see you soon.", ["Dear Sam\nThanks for the help\n\nSee you soon.", "dear sam\nthanks for the help\n\nsee you soon", "Dear Sam,\nThanks for the help,\n\nSee you soon."]),
-        ("Groceries, bullet, eggs, bullet, milk, bullet bread.", ["Groceries:\n- Eggs.\n- Milk.\n- Bread.", "groceries:\n- eggs\n- milk\n- bread", "Groceries,\n- Eggs,\n- Milk,\n- Bread."]),
-        ("Um, so the plan is, first, um, call the bank, second, pay rent. Thanks!", ["So the plan is:\n1. Call the bank.\n2. Pay rent.\nThanks!", "so the plan is:\n1. call the bank\n2. pay rent\nthanks!", "So the plan is:\n1. Call the bank\n2. Pay rent\nThanks!"]),
+        ("Here is my shopping list. First, eggs. Second, milk, third, bread.", ["Here is my shopping list.\n1. Eggs.\n2. Milk.\n3. Bread.", "here is my shopping list.\n1. Eggs\n2. Milk\n3. Bread", "Here is my shopping list\n1. Eggs\n2. Milk\n3. Bread"]),
+        ("Number one, call the bank. Number two, pay rent.", ["1. Call the bank.\n2. Pay rent.", "1. Call the bank\n2. Pay rent", "1. Call the bank\n2. Pay rent"]),
+        ("Dear Sam, new line, thanks for the help, new paragraph see you soon.", ["Dear Sam.\nThanks for the help.\n\nSee you soon.", "dear Sam\nthanks for the help\n\nsee you soon.", "Dear Sam\nThanks for the help\n\nSee you soon"]),
+        ("Groceries, bullet, eggs, bullet, milk, bullet bread.", ["Groceries:\n- Eggs.\n- Milk.\n- Bread.", "groceries:\n- Eggs\n- Milk\n- Bread", "Groceries:\n- Eggs\n- Milk\n- Bread"]),
+        ("Um, so the plan is, first, um, call the bank, second, pay rent. Thanks!", ["So the plan is:\n1. Call the bank.\n2. Pay rent.\nThanks!", "so the plan is:\n1. Call the bank\n2. Pay rent\nthanks!", "So the plan is:\n1. Call the bank\n2. Pay rent\nThanks!"]),
     ]
 
     private static let englishListsWithSpokenPunctuation: [(String, [String])] = [
-        ("First eggs comma second milk period", ["1. Eggs.\n2. Milk.", "1. eggs\n2. milk", "1. Eggs\n2. Milk"]),
+        ("First eggs comma second milk period", ["1. Eggs.\n2. Milk.", "1. Eggs\n2. Milk", "1. Eggs\n2. Milk"]),
     ]
 
     private static let germanProse = [
