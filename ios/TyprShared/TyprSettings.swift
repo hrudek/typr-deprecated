@@ -19,7 +19,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrDictationStyles, .typrGermanFormattingRules, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrDictationStyles, .typrGermanFormattingRules, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
 
     /// Every switch shown in Settings > Experimental.
     static let all = hexExperiments + typrVariants
@@ -46,6 +46,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
         name: "variant.fixedDictationLanguage",
         title: "Typr fixed dictation language",
         detail: "Dictation uses Typr's Automatic, German or English choice instead of following the keyboard and iPhone languages."
+    )
+
+    static let typrStrictDictationLanguage = ExperimentalSwitch(
+        name: "variant.strictDictationLanguage",
+        title: "Typr strict dictation language",
+        detail: "German or English chosen as the dictation language never falls back to another language when Apple's speech recognition doesn't have it."
     )
 
     static let typrDictationStyles = ExperimentalSwitch(
@@ -106,7 +112,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     /// `typrVariants` when its area switches to Hex.
     static let typrOverrides: [ExperimentalSwitch] = [
         .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
-        .typrFixedDictationLanguage, .typrDictationStyles, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
+        .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrDictationStyles, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
         .typrAlwaysDictateInApp, .typrAutomaticHostReturn,
     ]

@@ -117,12 +117,12 @@ final class HexSpeechEngineTests: XCTestCase {
         let choice = device(setAside: nextLaunch.lastLoadWasInterrupted)
         XCTAssertEqual(choice.engine(for: "en-US", appleSpeechPicks: false), .onDeviceRecognizer)
         let transcriber = DictationController.transcriberBeforeAppleSpeech(
-            policy: choice, explicit: nil, suite: suiteName, resolve: { _, _ in "en-US" }
+            policy: choice, explicit: nil, suite: suiteName, resolve: { _, _, _ in "en-US" }
         )
         XCTAssertTrue(transcriber is OnDeviceSpeechTranscriber)
         XCTAssertTrue(DictationController.transcriberBeforeAppleSpeech(policy: device(), explicit: "en-US", suite: suiteName) is ParakeetTranscriber)
         XCTAssertTrue(DictationController.transcriberBeforeAppleSpeech(policy: device(), explicit: "de-DE", suite: suiteName,
-                                                                       resolve: { _, _ in "de-DE" }) is OnDeviceSpeechTranscriber,
+                                                                       resolve: { _, _, _ in "de-DE" }) is OnDeviceSpeechTranscriber,
                       "German never goes to English-only Parakeet")
 
         // A load that returned clears what came before.
@@ -153,7 +153,7 @@ final class HexSpeechEngineTests: XCTestCase {
             explicit: nil,
             suite: suiteName,
             access: access.access,
-            resolve: { _, _ in "zh-CN" }
+            resolve: { _, _, _ in "zh-CN" }
         )
         XCTAssertEqual(access.requests, 0, "picking the engine asks nothing")
         let details = DetailLog()
@@ -193,8 +193,8 @@ final class HexSpeechEngineTests: XCTestCase {
 
         let languages = LanguageSettings(defaults: defaults)
         let onDevice: (String) -> Bool = { $0 != "fr-CA" }
-        func resolve(_ explicit: String?, _ preferred: [String]) -> String? {
-            OnDeviceSpeechLanguages.resolve(explicit: explicit, settings: languages, preferred: preferred,
+        func resolve(_ explicit: String?, _ preferred: [String], strict: Bool = false) -> String? {
+            OnDeviceSpeechLanguages.resolve(explicit: explicit, strict: strict, settings: languages, preferred: preferred,
                                             supported: supported, onDevice: onDevice)
         }
         XCTAssertEqual(resolve(nil, ["zh-Hans-CN", "en-CN"]), "zh-CN")
@@ -203,7 +203,40 @@ final class HexSpeechEngineTests: XCTestCase {
         languages.markUnavailable("zh-CN")
         XCTAssertEqual(resolve(nil, ["zh-Hans-CN", "en-CN"]), "en-US", "Automatic passes over a language set aside")
         XCTAssertEqual(resolve("de-DE", ["en-US"]), "de-DE", "a choice made by hand is tried as it is")
-        XCTAssertNil(resolve("he-IL", ["en-US"]), "Typr: a language picked by hand is never another one")
+        XCTAssertEqual(resolve("he-IL", ["en-US"]), "en-US", "a choice the recognizer doesn't have falls through to Automatic")
+        XCTAssertEqual(resolve("de-DE", ["en-US"], strict: true), "de-DE")
+        XCTAssertNil(resolve("he-IL", ["en-US"], strict: true), "Typr strict dictation language: never another language")
+    }
+
+    /// Hex: an explicit language Apple Speech doesn't have falls through to Automatic's pick.
+    /// Typr strict dictation language passes no candidates, so it stays unpicked.
+    func testAnExplicitLanguageAppleLacksFallsThroughUnlessStrict() async {
+        let english = Locale(identifier: "en-US")
+        func pick(strict: Bool) async -> SpeechLanguage? {
+            await SpeechLanguagePicker.pick(
+                explicit: "de-DE",
+                candidates: strict ? [] : ["en-US"],
+                speech: { $0.language.languageCode == english.language.languageCode ? english : nil },
+                dictation: { _ in nil }
+            )
+        }
+        let fallback = await pick(strict: false)
+        XCTAssertEqual(fallback?.identifier, "en-US")
+        let strict = await pick(strict: true)
+        XCTAssertNil(strict)
+    }
+
+    func testTheStrictSwitchReachesTheRecognizerChoice() {
+        var seen: [Bool] = []
+        for strict in [false, true] {
+            _ = DictationController.transcriberBeforeAppleSpeech(
+                policy: device(), explicit: "de-DE", strict: strict, suite: suiteName,
+                resolve: { _, strict, _ in seen.append(strict); return "de-DE" }
+            )
+        }
+        XCTAssertEqual(seen, [false, true])
+        XCTAssertFalse(TyprSettings(defaults: defaults)[experiment: .typrStrictDictationLanguage], "off by default: Hex")
+        XCTAssertTrue(ExperimentalSwitch.typrVariants.contains(.typrStrictDictationLanguage))
     }
 
     func testTyprsLanguageChoiceIsTheExplicitLanguage() {

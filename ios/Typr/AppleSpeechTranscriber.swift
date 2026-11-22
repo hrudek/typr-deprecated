@@ -134,14 +134,14 @@ actor AppleSpeechTranscriber: LocalTranscribing {
     }
 
     /// `explicit` (`LanguageSettings.explicitDictationLanguage`), else the first preferred
-    /// language either module has.
-    static func preferredLanguage(explicit: String?) async -> SpeechLanguage? {
-        await AppleSpeechLanguages.resolve(explicit: explicit)
+    /// language either module has (`strict`: only `explicit`).
+    static func preferredLanguage(explicit: String?, strict: Bool) async -> SpeechLanguage? {
+        await AppleSpeechLanguages.resolve(explicit: explicit, strict: strict)
     }
 
     /// Typr's settings row: language and asset status, never reserving or downloading.
-    static func availability(explicit: String?, label: String) async -> SpeechEngineAvailability {
-        guard let language = await AppleSpeechLanguages.resolve(explicit: explicit) else {
+    static func availability(explicit: String?, strict: Bool, label: String) async -> SpeechEngineAvailability {
+        guard let language = await AppleSpeechLanguages.resolve(explicit: explicit, strict: strict) else {
             return .languageUnsupported(explicit == nil
                 ? "Not available for your preferred languages on this iPhone"
                 : "Not available for \(label) on this iPhone")

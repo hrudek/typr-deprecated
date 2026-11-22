@@ -6,9 +6,7 @@ import Foundation
 protocol HexDescribedError: LocalizedError {}
 
 extension Locale {
-    /// The language Typr's own words are in: the app's when the iPhone's language is one Typr
-    /// is translated into, else English. The keyboard shares the app's String Catalog, so it
-    /// follows the same language.
+    /// The language Typr's own words are in: the app's localization, else English.
     static var typrInterface: Locale {
         Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
     }

@@ -388,9 +388,10 @@ final class DictationController {
             return
         }
         let launchGeneration = modelPrepGeneration
+        let strict = languageSettings[experiment: .typrStrictDictationLanguage]
         Task { [weak self] in
             let speech = await Self.appleSpeechLanguage(
-                picked: AppleSpeechTranscriber.preferredLanguage(explicit: explicit),
+                picked: AppleSpeechTranscriber.preferredLanguage(explicit: explicit, strict: strict),
                 wanted: Self.wantedLanguage(explicit: explicit),
                 parakeetFits: policy.parakeetFitsBesideAppleSpeech
             )

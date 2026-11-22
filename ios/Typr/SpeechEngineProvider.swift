@@ -101,7 +101,8 @@ final class ProductionSpeechEngineProvider: SpeechEngineProviding {
         case .appleSpeech:
             guard #available(iOS 26.0, *) else { throw SpeechEngineError.requiresNewerOS(engine) }
             let explicit = LanguageSettings().explicitDictationLanguage(typr: language)
-            guard let speech = await AppleSpeechTranscriber.preferredLanguage(explicit: explicit) else {
+            let strict = TyprSettings()[experiment: .typrStrictDictationLanguage]
+            guard let speech = await AppleSpeechTranscriber.preferredLanguage(explicit: explicit, strict: strict) else {
                 throw SpeechEngineError.languageUnsupported(engine, language)
             }
             guard await AssetInventory.status(forModules: [AppleSpeechModule(speech).module]) != .unsupported else {
@@ -142,6 +143,7 @@ final class ProductionSpeechEngineProvider: SpeechEngineProviding {
             guard #available(iOS 26.0, *) else { return .requiresNewerOS("Requires iOS 26 or later") }
             return await AppleSpeechTranscriber.availability(
                 explicit: LanguageSettings().explicitDictationLanguage(typr: language),
+                strict: TyprSettings()[experiment: .typrStrictDictationLanguage],
                 label: language.label
             )
         case .parakeetV2:

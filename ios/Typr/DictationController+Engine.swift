@@ -16,17 +16,19 @@ extension DictationController {
     /// Hex's `defaultTranscriber`: from iOS 26 Apple Speech where it has the language (English
     /// stays on Parakeet V2 only where `AppleSpeechTranscriber.shouldUse` says so), before it
     /// Parakeet V2 for English where it has room, else Apple's on-device recognizer.
+    /// `strict`: Typr strict dictation language.
     static func defaultTranscriber(
         language: DictationLanguage,
         settings: LanguageSettings = LanguageSettings(),
-        policy: HexSpeechEnginePolicy = .current
+        policy: HexSpeechEnginePolicy = .current,
+        strict: Bool = TyprSettings()[experiment: .typrStrictDictationLanguage]
     ) async -> any LocalTranscribing {
         let explicit = settings.explicitDictationLanguage(typr: language)
         guard #available(iOS 26.0, *) else {
-            return transcriberBeforeAppleSpeech(policy: policy, explicit: explicit)
+            return transcriberBeforeAppleSpeech(policy: policy, explicit: explicit, strict: strict)
         }
         if let speech = await appleSpeechLanguage(
-            picked: AppleSpeechTranscriber.preferredLanguage(explicit: explicit),
+            picked: AppleSpeechTranscriber.preferredLanguage(explicit: explicit, strict: strict),
             wanted: wantedLanguage(explicit: explicit),
             parakeetFits: policy.parakeetFitsBesideAppleSpeech
         ) {
@@ -41,16 +43,19 @@ extension DictationController {
     nonisolated static func transcriberBeforeAppleSpeech(
         policy: HexSpeechEnginePolicy,
         explicit: String?,
+        strict: Bool = false,
         suite: String = KeyboardBridge.appGroup,
         access: SpeechRecognitionAccess = .system,
-        resolve: (String?, LanguageSettings) -> String? = { OnDeviceSpeechLanguages.resolve(explicit: $0, settings: $1) }
+        resolve: (String?, Bool, LanguageSettings) -> String? = {
+            OnDeviceSpeechLanguages.resolve(explicit: $0, strict: $1, settings: $2)
+        }
     ) -> any LocalTranscribing {
         let settings = LanguageSettings(defaults: UserDefaults(suiteName: suite))
         let wanted = wantedLanguage(explicit: explicit)
         guard policy.engine(for: wanted, appleSpeechPicks: false) == .onDeviceRecognizer else {
             return ParakeetTranscriber()
         }
-        let language = resolve(explicit, settings) ?? wanted ?? "en-US"
+        let language = resolve(explicit, strict, settings) ?? wanted ?? "en-US"
         return OnDeviceSpeechTranscriber(language: language, automatic: explicit == nil, access: access, suite: suite)
     }
 

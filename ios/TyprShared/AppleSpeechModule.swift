@@ -8,10 +8,14 @@ import Speech
 nonisolated enum AppleSpeechLanguages {
     /// The language dictation uses: `explicit` (`LanguageSettings.explicitDictationLanguage`),
     /// else Automatic. Records the result in the App Group for the keyboard layout and
-    /// translation. Typr: an explicit language is strict, never another one (Hex falls through
-    /// to Automatic's candidates), until the language-follow cutover.
-    static func resolve(explicit: String?, settings: LanguageSettings = LanguageSettings()) async -> SpeechLanguage? {
-        let picked = await pick(explicit: explicit, settings: settings)
+    /// translation. `strict` (Typr strict dictation language): an explicit language neither
+    /// module has is nil instead of Automatic's pick.
+    static func resolve(
+        explicit: String?,
+        strict: Bool = false,
+        settings: LanguageSettings = LanguageSettings()
+    ) async -> SpeechLanguage? {
+        let picked = await pick(explicit: explicit, strict: strict, settings: settings)
         if let picked, settings.resolvedDictationLanguage != picked.identifier {
             settings.resolvedDictationLanguage = picked.identifier
         }
@@ -24,17 +28,17 @@ nonisolated enum AppleSpeechLanguages {
     /// What Automatic picks on this iPhone, whatever the setting says. Records it for the
     /// keyboard's language switch.
     static func automatic(settings: LanguageSettings = LanguageSettings()) async -> SpeechLanguage? {
-        let picked = await pick(explicit: nil, settings: settings)
+        let picked = await pick(explicit: nil, strict: false, settings: settings)
         if let picked, settings.automaticDictationLanguage != picked.identifier {
             settings.automaticDictationLanguage = picked.identifier
         }
         return picked
     }
 
-    private static func pick(explicit: String?, settings: LanguageSettings) async -> SpeechLanguage? {
+    private static func pick(explicit: String?, strict: Bool, settings: LanguageSettings) async -> SpeechLanguage? {
         await SpeechLanguagePicker.pick(
             explicit: explicit,
-            candidates: explicit != nil ? [] : SpeechLanguagePicker.automaticCandidates(
+            candidates: strict && explicit != nil ? [] : SpeechLanguagePicker.automaticCandidates(
                 preferred: Locale.preferredLanguages,
                 current: Locale.current.identifier
             ),

@@ -53,19 +53,21 @@ nonisolated enum OnDeviceSpeechLanguages {
 
     /// The language to dictate in, as `SFSpeechRecognizer` names it, or nil when it has none
     /// of the candidates on this iPhone. `explicit` (`LanguageSettings.explicitDictationLanguage`)
-    /// is tried as it is and, in Typr, only it (Hex falls through to Automatic) until the
-    /// language-follow cutover; Automatic passes over a language set aside
-    /// (`LanguageSettings.isUnavailable`).
+    /// is tried as it is, then Automatic, which passes over a language set aside
+    /// (`LanguageSettings.isUnavailable`). `strict` (Typr strict dictation language): only
+    /// `explicit`.
     static func resolve(
         explicit: String?,
+        strict: Bool = false,
         settings: LanguageSettings = LanguageSettings(),
         preferred: [String] = Locale.preferredLanguages,
         supported: [String] = supportedIdentifiers(),
         onDevice: (String) -> Bool = supportsOnDevice
     ) -> String? {
-        if let explicit {
-            return match(explicit, in: supported)
+        if let explicit, let found = match(explicit, in: supported) {
+            return found
         }
+        if strict, explicit != nil { return nil }
         return automatic(settings: settings, preferred: preferred, supported: supported, onDevice: onDevice)
     }
 

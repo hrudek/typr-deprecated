@@ -74,7 +74,7 @@ final class ExperimentalSettingsTests: XCTestCase {
     func testExistingTyprSwitchesAreTyprVariantsWithTheirKeys() {
         XCTAssertEqual(ExperimentalSwitch.typrVariants.map(\.key), [
             "typr.experimental.variant.exclusiveAudioSession", "typr.experimental.variant.keepSelectedWarmMicrophone",
-            "typr.experimental.variant.audioActivationRetries",
+            "typr.experimental.variant.audioActivationRetries", "typr.experimental.variant.strictDictationLanguage",
             "typr.experimental.variant.dictationStyles", "typr.experimental.variant.germanFormattingRules",
             "typr.experimental.spokenPunctuation", "typr.experimental.spaceTrackpad",
             "typr.experimental.formatLists", "typr.experimental.cleanUpWhatISay",
@@ -90,7 +90,7 @@ final class ExperimentalSettingsTests: XCTestCase {
         XCTAssertEqual(Set(overrides.map(\.key)).count, overrides.count)
         let audio: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries]
         let formatting: [ExperimentalSwitch] = [.typrDictationStyles, .typrGermanFormattingRules]
-        XCTAssertEqual(overrides.filter { ExperimentalSwitch.all.contains($0) }, audio + formatting)
+        XCTAssertEqual(overrides.filter { ExperimentalSwitch.all.contains($0) }, audio + [.typrStrictDictationLanguage] + formatting)
         XCTAssertFalse(ExperimentalSwitch.all.contains(.warmMicOnIPhone), "retired by Typr keep selected warm microphone")
         XCTAssertFalse(ExperimentalSwitch.all.contains(.mixWithOtherAudio), "retired by Typr exclusive audio session")
         let settings = TyprSettings(defaults: defaults)
