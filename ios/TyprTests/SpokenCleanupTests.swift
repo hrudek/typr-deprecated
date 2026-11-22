@@ -277,6 +277,8 @@ final class SpokenCleanupPipelineTests: XCTestCase {
         }
     }
 
+    // Observed Hex output. The ",.", "“." and "\r." entries record known formatter defects;
+    // update them with the fix.
     static let hexPolishedWithoutCleanup: [String] = [
         "Das ist eh egal.",
         "Ich habe Hunger.",
