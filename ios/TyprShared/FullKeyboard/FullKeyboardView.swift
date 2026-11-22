@@ -141,7 +141,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
 
         typrKey.onHighlightChanged = { [weak self] highlighted in self?.plane.typrPressed = highlighted }
         typrKey.onArm = { [weak self] in
-            guard let self, self.typrKey.isWarm, !self.showsRecording else { return }
+            guard let self, self.typrKey.isWarm || self.model.armsWhenCold, !self.showsRecording else { return }
             self.model.onArmDictation?()
         }
         typrKey.onDisarm = { [weak self] in self?.model.onDisarmDictation?() }

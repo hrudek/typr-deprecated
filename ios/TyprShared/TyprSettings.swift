@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -83,6 +83,13 @@ struct ExperimentalSwitch: Hashable {
         name: "wordsFromContext",
         title: "Words from context",
         detail: "Autocorrect picks its or it's, your or you're, then or than by the words around them, and writes geht's and gibt's with an apostrophe."
+    )
+
+    /// Hex's in-keyboard dictation (anomalyco/hex #1999, #2089, #2045): off, the Typr app dictates.
+    static let keyboardDictation = ExperimentalSwitch(
+        name: "keyboardDictationAppleSpeech",
+        title: "Keyboard dictation: Apple Speech in the keyboard",
+        detail: "Off: the Typr key dictates in the Typr app with your selected engine, such as Orukeet. On: without a warm mic, the keyboard records itself and transcribes with Apple Speech, not Orukeet, without opening Typr. A warm mic still uses your selected engine. Needs iOS 26; Typr opens as before when memory, the microphone or Apple Speech's language isn't available."
     )
 }
 

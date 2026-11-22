@@ -889,6 +889,25 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.text.count, 2, "a cancelled touch types nothing")
     }
 
+    func testColdTyprKeyArmsOnlyForInKeyboardDictation() throws {
+        let model = KeyboardViewModel()
+        var events: [String] = []
+        model.onArmDictation = { events.append("arm") }
+        model.onDisarmDictation = { events.append("disarm") }
+        let view = FullKeyboardView(model: model, target: target)
+        view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
+        view.layoutIfNeeded()
+        let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
+        XCTAssertFalse(key.isWarm)
+
+        model.armsWhenCold = true
+        _ = key.beginTracking(UITouch(), with: nil)
+        XCTAssertEqual(events, ["arm"], "in-keyboard dictation arms a cold key on touch-down")
+        key.endTracking(UITouch(), with: nil)
+        XCTAssertEqual(events, ["arm", "disarm"], "the tap drops it")
+        XCTAssertEqual(target.text, " ", "and types its space")
+    }
+
     func testHoldingTheEmptyStripDictatesUntilReleasedAndATapDoesNothing() throws {
         let model = KeyboardViewModel()
         var events: [String] = []

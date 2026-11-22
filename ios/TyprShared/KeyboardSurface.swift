@@ -124,6 +124,8 @@ final class KeyboardViewModel: ObservableObject {
     /// Typr key touch-down and its end without a hold (`TyprKeyControl.onArm`/`onDisarm`).
     var onArmDictation: (() -> Void)?
     var onDisarmDictation: (() -> Void)?
+    /// A cold Typr key also arms: in-keyboard dictation (Settings > Experimental) would take it.
+    var armsWhenCold = false
     var onStopTap: (() -> Void)?
     var onCancelTap: (() -> Void)?
     var onStyleSelected: ((DictationStyle) -> Void)?
