@@ -103,7 +103,11 @@ targets:
     type: app-extension
     platform: iOS
     sources:
-      - TyprKeyboard
+      - path: TyprKeyboard
+        excludes: [TypingModel]
+      # Hex's typing models, in the keyboard only: the app finds them inside the embedded keyboard.
+      - path: TyprKeyboard/TypingModel
+        buildPhase: resources
       - path: TyprShared
         excludes: [FullKeyboard/WordData, FullKeyboard/SwipeModel]
       - path: TyprShared/FullKeyboard/WordData
