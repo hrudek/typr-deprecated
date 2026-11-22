@@ -77,6 +77,12 @@ struct KeyboardLocalCapture {
         }
     }
 
+    /// Audio for `jobID` still goes to transcription: the page's last chunks arrive after Done.
+    func acceptsAudio(_ jobID: String) -> Bool {
+        if case .transcribing(let current) = phase { return current == jobID }
+        return isCapturing(jobID)
+    }
+
     mutating func arm(jobID: String, at now: TimeInterval) -> Bool {
         guard !isActive, !hasUndeliveredResult else { return false }
         phase = .armed(jobID: jobID, at: now)

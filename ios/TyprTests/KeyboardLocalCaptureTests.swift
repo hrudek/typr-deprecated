@@ -59,6 +59,8 @@ final class KeyboardLocalCaptureTests: XCTestCase {
         XCTAssertEqual(capture.snapshot(now: 101, loudnessDB: -30)?.recordingStartedAt, 100, "audio from touch-down")
 
         XCTAssertEqual(capture.stop(), "a")
+        XCTAssertTrue(capture.acceptsAudio("a"), "the page's last chunks after Done still count")
+        XCTAssertFalse(capture.acceptsAudio("b"))
         XCTAssertEqual(capture.snapshot(now: 102, loudnessDB: -30)?.state, .transcribing)
         capture.finish(jobID: "a", transcript: "Hallo, wie geht es dir?", resultID: "r")
         let result = capture.snapshot(now: 103, loudnessDB: -30)

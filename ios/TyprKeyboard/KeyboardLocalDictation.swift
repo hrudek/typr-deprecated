@@ -16,7 +16,9 @@ final class KeyboardLocalDictation {
     private var capture: KeyboardWebCapture?
     private var speech: AnyObject?
     private var prepared: (language: DictationLanguage, locale: Locale, format: AVAudioFormat)?
-    private var preparing = false
+    /// The language whose Apple Speech model was checked (and, if missing, downloaded) in
+    /// this keyboard process: checked once, not on every appearance.
+    private var checkedLanguage: DictationLanguage?
     /// A capture that could not start (microphone refused, no Apple Speech): Typr dictates
     /// for the rest of this keyboard's life.
     private var unavailable = false
@@ -60,12 +62,11 @@ final class KeyboardLocalDictation {
             self.capture = capture
         }
         let language = TyprSettings().dictationLanguage
-        guard #available(iOS 26.0, *), prepared?.language != language, !preparing else { return }
-        preparing = true
+        guard #available(iOS 26.0, *), checkedLanguage != language else { return }
+        checkedLanguage = language
         Task { [weak self] in
             let ready = await KeyboardSpeechStream.prepare(language: language)
             guard let self else { return }
-            self.preparing = false
             self.prepared = ready.map { (language, $0.locale, $0.format) }
         }
     }
@@ -121,8 +122,10 @@ final class KeyboardLocalDictation {
         endCapture()
     }
 
+    /// Also drops a finished result not yet inserted, so it never lands in the next field.
     func keyboardWillHide() {
-        cancel()
+        state.cancel()
+        endCapture()
     }
 
     func snapshot(now: TimeInterval) -> KeyboardSnapshot? {
@@ -153,7 +156,7 @@ final class KeyboardLocalDictation {
             // A start that ends after its job was dropped closes its microphone at once.
             if !state.isCapturing(jobID) { capture?.stop() }
         case .samples(let data, let rate, let peak):
-            guard state.isCapturing(jobID), #available(iOS 26.0, *) else { return }
+            guard state.acceptsAudio(jobID), #available(iOS 26.0, *) else { return }
             (speech as? KeyboardSpeechStream)?.append(data, sampleRate: rate)
             loudness = peak > 0 ? max(-62, 20 * log10(peak)) : -62
         case .stopped:
