@@ -1014,8 +1014,8 @@ final class AutocorrectEngine {
         boundaryRetrieval: KeyboardBoundaryDecoder.Retrieval? = nil
     ) -> [KeyboardSuggestion] {
         let evidence = touchInput.evidence(beforeInput: beforeInput)
-        guard field == .text, autocorrectionType != .no else { return [] }
         stripInput = beforeInput
+        guard field == .text, autocorrectionType != .no else { return [] }
         let activeToken = Self.currentToken(in: beforeInput)
         let sentence = sentenceContext(before: beforeInput, token: activeToken)
         let contextModel = sentence?.model
