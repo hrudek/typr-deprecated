@@ -109,6 +109,7 @@ final class DictationController {
     private var returnHost: String?
 
     private let cleanup: TranscriptCleanupDependencies?
+    private let transcriptionBackground: any BackgroundTaskStarting
     private let cleanupCoordinator = CleanupCoordinator()
     private let statistics: UsageDictationRecorder?
     private let languageSettings: TyprSettings
@@ -248,6 +249,7 @@ final class DictationController {
         hostReturner: HostReturner? = nil,
         customVocabularySettings: CustomVocabularySettings = CustomVocabularySettings(),
         cleanup: TranscriptCleanupDependencies? = nil,
+        transcriptionBackground: (any BackgroundTaskStarting)? = nil,
         dictationLog: DictationLogStore? = nil,
         statistics: UsageDictationRecorder? = nil,
         liveActivity: LiveActivityCoordinator? = nil,
@@ -265,6 +267,7 @@ final class DictationController {
         let preferred = languageSettings.preferredSpeechEngine
 
         self.cleanup = cleanup
+        self.transcriptionBackground = transcriptionBackground ?? SystemBackgroundTasks(name: "Transcription")
         self.dictationLog = dictationLog
         self.statistics = statistics
         self.liveActivity = liveActivity
@@ -1257,6 +1260,10 @@ final class DictationController {
         }
         transcribingLog = recording
         phase = .transcribing
+        // The microphone closes below, and with it the audio background mode: without background
+        // time iOS can suspend Typr mid-transcription (One shot, back in the host app), so the
+        // keyboard never gets the text (Hex #2163).
+        let backgroundTime = BackgroundLease(transcriptionBackground)
         session.cleanupJob?.begin()
         transcriptionHeartbeat = Task { [weak self] in
             while !Task.isCancelled {
@@ -1280,6 +1287,7 @@ final class DictationController {
                 recording?.finishIfOpen(.cancelled) // Also outside the generation fence: stale tasks terminate their own entry.
                 try? FileManager.default.removeItem(at: captureURL)
                 session.cleanupJob?.finish()
+                backgroundTime.end()
                 if let self, self.jobGeneration == captureGeneration {
                     self.transcribingLog = nil
                     self.endCleanupJob()

@@ -10,7 +10,7 @@ enum TranscriptCleanupProduction {
     static func dependencies() -> TranscriptCleanupDependencies {
         // The prompt editor is gone (Hex has none): a saved custom prompt is deleted, so the default applies.
         UserDefaults.standard.removeObject(forKey: "typr.cleanupPrompt")
-        return TranscriptCleanupDependencies(cleaner: cleaner, background: CleanupBackgroundTasks(),
+        return TranscriptCleanupDependencies(cleaner: cleaner, background: SystemBackgroundTasks(name: "AI cleanup"),
                                              isEnabled: { TyprSettings().aiCleanup },
                                              observer: CleanupObservers(observers: [CleanupLogger(), diagnostics]))
     }
@@ -38,9 +38,15 @@ enum TranscriptCleanupProduction {
 }
 
 @MainActor
-private final class CleanupBackgroundTasks: BackgroundTaskStarting {
+final class SystemBackgroundTasks: BackgroundTaskStarting {
+    let name: String
+
+    init(name: String) {
+        self.name = name
+    }
+
     func begin(expiration: @escaping @MainActor () -> Void) -> Int? {
-        let token = UIApplication.shared.beginBackgroundTask(withName: "AI cleanup") {
+        let token = UIApplication.shared.beginBackgroundTask(withName: name) {
             // UIKit delivers background expiration on the main thread.
             MainActor.assumeIsolated { expiration() }
         }
