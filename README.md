@@ -19,6 +19,13 @@ progress for 120 s, ends with Try again; a language Apple can't install here or
 Parakeet without room moves on to the next pick, and a failed new pick keeps the
 engine that worked, with a note on home. A download cut off in the background is
 tried again when Typr returns.
+Experimental › Hex experiments › **Multilingual model (Parakeet)** (off by default,
+6 GB iPhones) downloads Parakeet Ultra (632 MB, 25 languages, also mixed in one
+sentence) with progress, automatic retries and Try again, and loads it beside the
+engine that dictates; only once it loaded does it dictate, and only with no engine
+chosen. A failed or interrupted load keeps the working engine. Once it is ready,
+keyboard dictation opens Typr. Turning it off deletes the model after any running
+load of it has returned.
 
 ## How it works
 

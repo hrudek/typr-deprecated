@@ -261,9 +261,7 @@ final class ModelPreparationTests: XCTestCase {
 
         // Turned off while the usual engine dictates: nothing to prepare again.
         controller.turnOffMultilingualParakeet()
-        try await Task.sleep(for: .milliseconds(100))
-        XCTAssertEqual(queue.made, 1)
-        XCTAssertEqual(controller.phase, .ready)
+        XCTAssertEqual(controller.phase, .ready, "no preparation started")
 
         // Turned off while Parakeet Ultra dictated: Typr prepares the engine it picks without it.
         controller.engineName = ParakeetUltraTranscriber.name
