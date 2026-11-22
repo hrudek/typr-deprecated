@@ -350,8 +350,12 @@ nonisolated enum TranscriptFormatter {
         guard let fillers else { return collapseHorizontalSpaces(in: text) }
         let pattern = #"(?i)(?:^|(?<=[\s,]))(?:"# + fillers + #")(?=(?:[\s,.!?]|$)),?\s*"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
-        let range = NSRange(text.startIndex..<text.endIndex, in: text)
-        let stripped = regex.stringByReplacingMatches(in: text, range: range, withTemplate: " ")
+        // Typr fix on the Hex base: a filler that ends a sentence takes the comma before it
+        // along ("Danke, äh. Bis dann." -> "Danke. Bis dann.", not "Danke,. Bis dann.").
+        let unpunctuated = text.replacingOccurrences(
+            of: #"(?im),\s*(?:"# + fillers + #")(?=[.!?…]|\s*$)"#, with: "", options: .regularExpression)
+        let range = NSRange(unpunctuated.startIndex..<unpunctuated.endIndex, in: unpunctuated)
+        let stripped = regex.stringByReplacingMatches(in: unpunctuated, range: range, withTemplate: " ")
         return collapseHorizontalSpaces(in: stripped)
     }
 
@@ -377,7 +381,15 @@ nonisolated enum TranscriptFormatter {
     /// Chinese or Japanese line takes "。" even when it ends in a Latin word or a number
     /// ("我用的是iPhone。"), in a dictation in that language (`unspaced`).
     private static func endingSentence(_ line: String, unspaced: Bool = false) -> String {
+        // Typr fix on the Hex base: a "\r\n" line break splits as "\r" + "\n"; the "\r" stays
+        // after the line, not before a new full stop.
+        if line.hasSuffix("\r") { return endingSentence(String(line.dropLast()), unspaced: unspaced) + "\r" }
         guard let last = line.last, !sentenceClosers.contains(last) else { return line }
+        // Typr fix on the Hex base: a sentence mark before German or French closing quotes
+        // („…Dienstag.“, «…» ) ends the sentence too.
+        if let mark = line.reversed().first(where: { !"“‘»«’\"”".contains($0) }), ".!?…".contains(mark) {
+            return line
+        }
         if line.contains("@"), !line.contains(where: \.isWhitespace) { return line }
         let ideographic = usesIdeographicFullStop(last) || (unspaced && line.contains(where: usesIdeographicFullStop))
         return line + (ideographic ? "。" : ".")
