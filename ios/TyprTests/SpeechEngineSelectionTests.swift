@@ -623,11 +623,11 @@ final class SpeechEngineSelectionTests: XCTestCase {
 
     func testNoChoiceStaysNilThroughLaunchPrepareAndDictationAndUsesTheAutomaticPath() async throws {
         let f = fixture(autoPrepare: true)
-        // Launch without a choice either prepares (cached Parakeet), asks Apple Speech for a locale
-        // in a task, or does nothing. Wait for that decision instead of a fixed delay.
-        var appleSpeechAvailable = false
-        if #available(iOS 26.0, *) { appleSpeechAvailable = AppleSpeechTranscriber.isAvailable }
-        if ParakeetTranscriber.hasCachedModel || appleSpeechAvailable {
+        // Launch without a choice either prepares (cached Parakeet), asks Apple Speech for a
+        // language in a task (iOS 26), or does nothing. Wait for that decision instead of a fixed delay.
+        var launchDecides = ParakeetTranscriber.hasCachedModel
+        if #available(iOS 26.0, *) { launchDecides = true }
+        if launchDecides {
             try await waitForState("launch engine decision") {
                 f.controller.phase != .preparingModel
                     && (f.controller.phase != .modelRequired || f.controller.engineName == "Parakeet V2")
