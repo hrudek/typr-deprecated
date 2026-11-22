@@ -61,6 +61,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     /// Loaded on the first emoji key press or finished word; dropped on a memory warning while the panel is closed.
     private var emojiIndex: EmojiIndex?
     private(set) var emojiPanel: EmojiPanelView?
+    /// Whether Apple's keyboard is among the user's keyboards; tests give their own.
+    var hasAppleKeyboard: () -> Bool = { KeyboardInputModes.hasAppleKeyboard() }
     /// Where emoji use is kept; tests give their own.
     var makeEmojiUsage: () -> EmojiUsageStore = { EmojiUsageStore() }
     private var feedbackPanel: TyprFeedbackPanel?
@@ -82,6 +84,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     /// What the feedback panel shows, for tests; `nil` while the keys are up.
     var shownPanelContent: TyprFeedbackPanel.Content? { panelContent }
     var shownSuggestions: [KeyboardSuggestion] { stripView.currentSuggestions }
+    var showsCodeFromMessages: Bool { stripView.showsCodeChip }
     var shownReturnKey: (style: ReturnKeyStyle, isEnabled: Bool) { (plane.returnStyle, plane.returnIsEnabled) }
 
     init(model: KeyboardViewModel, target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil,
@@ -114,6 +117,11 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             } else {
                 self.engine.acceptSuggestion(suggestion)
             }
+        }
+
+        stripView.onCodeFromMessages = { [weak self] in
+            self?.keyFeedback()
+            self?.model.onNextKeyboard?()
         }
 
         globeButton.accessibilityLabel = "Next keyboard"
@@ -556,7 +564,15 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         } else {
             nil
         }
-        stripView.update(suggestions: status == nil ? withEmoji(engine.suggestions) : engine.suggestions, statusText: status)
+        let code = KeyboardInputModes.offersCodeFromMessages(
+            textContentType: engine.target.textContentType,
+            hasAppleKeyboard: hasAppleKeyboard
+        )
+        stripView.update(
+            suggestions: status == nil && !code ? withEmoji(engine.suggestions) : engine.suggestions,
+            statusText: status,
+            showsCodeChip: code
+        )
     }
 
     /// The finished word's emoji beside the next-word predictions, so every slot fills; a lone emoji takes the centre.
@@ -913,6 +929,11 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     /// Tests: tap a suggestion in the strip.
     func debugPick(_ suggestion: KeyboardSuggestion) {
         stripView.onSelectSuggestion?(suggestion)
+    }
+
+    /// Tests: tap Code from Messages.
+    func debugTapCodeFromMessages() {
+        stripView.onCodeFromMessages?()
     }
 
     /// Fixtures: open the menu without a long press.

@@ -805,6 +805,16 @@ word endings, and the finished-word strip emoji placement
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (#2051, #2142, #2189).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
+## Hex iOS Code from Messages chip
+
+The Code from Messages chip in one-time-code fields and the check for Apple's keyboard among
+the user's keyboards (`ios/TyprShared/FullKeyboard/KeyboardInputModes.swift`,
+`KeyboardStripView.swift`, `FullKeyboardView.swift`) are adapted from `KeyboardClipboard.swift`
+and `KeyboardStripView.swift` in `ios/HEXShared/FullKeyboard/` of
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (#2187).
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
 ## Unicode emoji data and CLDR annotations
 
 `ios/TyprShared/FullKeyboard/WordData/emoji-index.txt` is built by `ios/tools/emoji/build.py`
