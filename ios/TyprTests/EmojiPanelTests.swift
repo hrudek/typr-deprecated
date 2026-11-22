@@ -173,6 +173,21 @@ final class EmojiPanelTests: XCTestCase {
         XCTAssertEqual(EmojiUsageStore(defaults: defaults).ranked(limit: 1), ["❤️"])
     }
 
+    func testEmojiNeverPushOutTheRevertOffer() {
+        let revert = KeyboardSuggestion(displayText: "Lieve", replacement: "Lieve", kind: .revert)
+        let words = ["ist", "und", "war"].map { KeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary) }
+
+        let afterCorrection = FullKeyboardView.merging(emoji: ["❤️", "😍", "🥰"], into: [revert] + words)
+        XCTAssertEqual(afterCorrection.map(\.replacement), ["Lieve", "❤️", "😍"])
+        XCTAssertEqual(afterCorrection.first?.kind, .revert)
+        XCTAssertEqual(FullKeyboardView.merging(emoji: ["❤️"], into: [revert, words[0]]).map(\.replacement),
+                       ["Lieve", "❤️", "ist"])
+
+        XCTAssertEqual(FullKeyboardView.merging(emoji: ["❤️"], into: words).map(\.replacement), ["ist", "❤️", "und"])
+        XCTAssertEqual(FullKeyboardView.merging(emoji: ["❤️", "😍"], into: words).map(\.replacement), ["❤️", "😍", "ist"])
+        XCTAssertEqual(FullKeyboardView.merging(emoji: [], into: [revert] + words), [revert] + words)
+    }
+
     func testStripShowsNoEmojiWithTheKeyOff() {
         let (view, _) = keyboard(emojiKey: false, text: "Ein Herz ")
         view.textDidChange()

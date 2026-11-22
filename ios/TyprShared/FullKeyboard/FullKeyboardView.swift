@@ -384,7 +384,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         let shows = suggestionBarOverride ?? !TyprSettings().hideSuggestionBar
         guard shows != engine.showsStrip else { return }
         engine.showsStrip = shows
-        let visible = shows && !showsRecording && panelContent == nil
+        let visible = shows && !showsRecording && panelContent == nil && emojiPanel == nil
         stripView.isHidden = !visible
         stripView.alpha = visible ? 1 : 0
         refreshStrip()
@@ -458,7 +458,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             typrKey.keycapFrame = key.frame.offsetBy(dx: -key.hitFrame.minX, dy: -key.hitFrame.minY)
         }
         if let globe = layout.key(.globe) {
-            globeButton.isHidden = false
+            globeButton.isHidden = emojiPanel != nil
             globeButton.frame = globe.hitFrame
         } else {
             globeButton.isHidden = true
@@ -566,14 +566,21 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
               let before = engine.target.documentContextBeforeInput,
               AutocorrectEngine.currentToken(in: before) == nil else { return suggestions }
         if emojiIndex == nil { emojiIndex = EmojiIndex.load(bundle: Bundle(for: FullKeyboardView.self)) }
-        let emoji = (emojiIndex?.suggestions(before: before) ?? []).map {
+        return Self.merging(emoji: emojiIndex?.suggestions(before: before) ?? [], into: suggestions)
+    }
+
+    /// Up to three chips: a revert offer keeps the left slot, then the emoji, then the words.
+    static func merging(emoji: [String], into suggestions: [KeyboardSuggestion]) -> [KeyboardSuggestion] {
+        let revert = suggestions.prefix(1).filter { $0.kind == .revert }
+        let emoji = emoji.prefix(3 - revert.count).map {
             var chip = KeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary)
             chip.isEmoji = true
             return chip
         }
         guard !emoji.isEmpty else { return suggestions }
-        let words = Array(suggestions.prefix(max(0, 3 - emoji.count)))
-        return emoji.count == 1 && words.count == 2 ? [words[0], emoji[0], words[1]] : emoji + words
+        let words = Array(suggestions.dropFirst(revert.count).prefix(3 - revert.count - emoji.count))
+        if revert.isEmpty, emoji.count == 1, words.count == 2 { return [words[0], emoji[0], words[1]] }
+        return revert + emoji + words
     }
 
     // MARK: - Emoji panel
