@@ -103,12 +103,16 @@ final class KeyboardPersonalLexiconLearningTests: XCTestCase {
         XCTAssertNotNil(defaults.string(forKey: ProtectedPersonalLexicon.resetKey))
     }
 
-    func testImportedNamesVetoRulesShortcutsAndSpellingWhileOtherRulesRemain() {
+    func testImportedNamesVetoRulesAndSpellingButNotExplicitShortcutsWhileOtherRulesRemain() {
         let ac = engine()
         ac.loadLexiconEntries([("ina", "in a")])
         ac.loadProtectedLexicon(lexicon("Ina fuer teh O’Neil"))
         XCTAssertEqual(TyprAutocorrectEngine.currentToken(in: "O’Neil"), "O’Neil")
-        for word in ["ina", "INA", "fuer", "teh", "O’Neil", "O'Neil"] {
+        for word in ["ina", "INA"] {
+            XCTAssertTrue(ac.literalIsValid(word))
+            XCTAssertEqual(ac.replacementOnSpace(beforeInput: word, field: .text, autocorrectionType: .default)?.replacement, "in a")
+        }
+        for word in ["fuer", "teh", "O’Neil", "O'Neil"] {
             XCTAssertTrue(ac.literalIsValid(word))
             XCTAssertNil(ac.replacementOnSpace(beforeInput: word, field: .text, autocorrectionType: .default))
         }
