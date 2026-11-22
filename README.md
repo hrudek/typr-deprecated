@@ -69,7 +69,7 @@ An explicit engine or language choice never silently falls back to another.
   (on by default) off drops every line's final period, and Style › Lowercase (off by default)
   lowercases everything, nouns and vocabulary included, as in Hex; neither touches Verbatim. The full keyboard adds German/English autocorrect and adaptive
   suggestions. Suggestions, autocorrect, swipe and predictions never offer slurs, and offer
-  swear words only once Typr learned them or with Keyboard › Suggest swear words (LDNOOBW list as curated by Hex). Unless a keyboard Anthropic key is stored (then Claude predicts), on iOS 26+
+  swear words only once Typr learned them or with Keyboard › Suggest swear words (LDNOOBW list as curated by Hex). Your iOS text replacements expand on space and punctuation also with Autocorrect off, take a capital you typed on the shortcut ("Mfg") and expand again after a revert kept the shortcut once. Unless a keyboard Anthropic key is stored (then Claude predicts), on iOS 26+
   with Apple Intelligence available for every enabled language, the on-device model adds up to three next-word predictions from the current paragraph before the
   cursor (1 s budget; on failure the count-based predictions stay).
 - While learning is on, the keyboard keeps a typing log on the iPhone: taps,

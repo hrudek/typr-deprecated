@@ -206,7 +206,7 @@ final class GermanAutocorrectTests: XCTestCase {
         engine.loadLexiconEntries([(userInput: "omw", documentText: "On my way!")])
         XCTAssertEqual(fix(engine, "omw"), "On my way!")
         engine.isEnabled = false
-        XCTAssertNil(fix(engine, "omw"))
+        XCTAssertEqual(fix(engine, "omw"), "On my way!")
     }
 
     func testProductNameIsKeptInGermanAndEnglish() {
