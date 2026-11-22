@@ -807,3 +807,11 @@ annotations at tag `release-47` (`adbaf76bf62572cbfe2044564c40ed44beb00f8a`; has
 Typr keeps the emoji order and groups (no skin tone variants) and one-word names and
 keywords that name at most three emoji, folded, beside its own alias list
 (`ios/tools/emoji/aliases.txt`).
+
+## Hex spoken lists
+
+Typr's list formatting (`ios/TyprShared/SpokenLists.swift`) is adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb`: `SpokenLists` in
+`ios/HEXShared/SpokenLists.swift` (#2131), keeping the English table and adding a German one.
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).

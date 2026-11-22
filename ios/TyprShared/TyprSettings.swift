@@ -55,6 +55,7 @@ struct TyprSettings {
     private enum Key {
         static let aiCleanup = "typr.aiCleanup"
         static let dictationLog = "typr.dictationLog"
+        static let formatLists = "typr.formatLists"
         static let autocorrectGerman = "typr.autocorrectGerman"
         static let autocorrectEnglish = "typr.autocorrectEnglish"
         static let autocorrectLanguageOrder = "typr.autocorrectLanguageOrder"
@@ -80,6 +81,13 @@ struct TyprSettings {
     var dictationLog: Bool {
         get { defaults?.object(forKey: Key.dictationLog) as? Bool ?? true }
         nonmutating set { defaults?.set(newValue, forKey: Key.dictationLog) }
+    }
+
+    /// Spoken lists and line breaks written as lines (`SpokenLists`) in every style but
+    /// Verbatim. On by default, as Hex's Format lists.
+    var formatLists: Bool {
+        get { defaults?.object(forKey: Key.formatLists) as? Bool ?? true }
+        nonmutating set { defaults?.set(newValue, forKey: Key.formatLists) }
     }
 
     /// Quick feedback for this keyboard instance's newly inserted dictation. Off keeps existing UI.
