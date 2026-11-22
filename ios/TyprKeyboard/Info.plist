@@ -38,5 +38,9 @@
 		<key>NSExtensionPrincipalClass</key>
 		<string>$(PRODUCT_MODULE_NAME).KeyboardViewController</string>
 	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>With in-keyboard dictation on, the Typr keyboard records only while you dictate and transcribes on this iPhone.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>With in-keyboard dictation on, the Typr keyboard uses Apple Speech on this iPhone to turn your recording into text.</string>
 </dict>
 </plist>

@@ -127,6 +127,8 @@ targets:
             RequestsOpenAccess: true
           NSExtensionPointIdentifier: com.apple.keyboard-service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+        NSMicrophoneUsageDescription: With in-keyboard dictation on, the Typr keyboard records only while you dictate and transcribes on this iPhone.
+        NSSpeechRecognitionUsageDescription: With in-keyboard dictation on, the Typr keyboard uses Apple Speech on this iPhone to turn your recording into text.
     settings:
       base:
         APPLICATION_EXTENSION_API_ONLY: YES

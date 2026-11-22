@@ -10,7 +10,12 @@ An explicit engine or language choice never silently falls back to another.
 
 - The app records and transcribes; the keyboard sends commands and inserts text
   through an App Group. The keyboard needs Full Access but never accesses the
-  microphone or speech model.
+  microphone or speech model, except with Experimental › **Keyboard dictation: Apple
+  Speech in the keyboard** (off by default, iOS 26): without a warm mic, the keyboard
+  records through a hidden web view (Hex's approach) and transcribes with Apple Speech,
+  not Orukeet, streaming the audio into Apple Speech without storing it. A warm mic keeps
+  the selected engine; low memory, a refused microphone or no Apple Speech model for the
+  dictation language opens Typr as before.
 - From a cold start, Dictate opens Typr to record, then returns to the host app.
   Host detection and return use private APIs with fallbacks. Transient surfaces
   such as share sheets require **Keep mic warm** instead.

@@ -918,3 +918,14 @@ Learn from my edits (`ios/TyprShared/DictationEditInference.swift`,
 words and pair kinds other than replacements, with Undo dictation never paired with the
 next dictation and German-aware case for learned words.
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Hex iOS in-keyboard dictation
+
+Typr's in-keyboard dictation (`ios/TyprKeyboard/KeyboardLocalDictation.swift`,
+`ios/TyprShared/KeyboardLocalCapture.swift`) is adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PRs #1999, #2089, #2045:
+`HEXKeyboard/KeyboardLocalDictation.swift`): the hidden `WKWebView` getUserMedia capture page
+and its stale-start guard, touch-down arming with its 3 s timeout, the 32/24 MiB memory gates
+and disposing terminated web views. MIT, © Christopher Langton, the same license as this
+repository ([LICENSE](LICENSE)).

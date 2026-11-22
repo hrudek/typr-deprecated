@@ -13,6 +13,7 @@ final class KeyboardViewController: UIInputViewController {
     private var pollTimer: Timer?
     private var coldStartJobID = UUID().uuidString
     private var armedJobID: String?
+    private let localDictation = KeyboardLocalDictation()
     private var lastRemountBucket: Int = 0
     private var lastFullAccessNote: TimeInterval = 0
     private var surface: UIView?
@@ -57,6 +58,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         warmFullKeyboardLexiconIfNeeded()
+        if hasFullAccess, TyprSettings()[experiment: .keyboardDictation] { localDictation.prepare(in: view) }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -69,6 +71,7 @@ final class KeyboardViewController: UIInputViewController {
         pollTimer?.invalidate()
         pollTimer = nil
         disarmWarmDictation()
+        localDictation.keyboardWillHide()
         viewModel.dismissFeedback()
     }
 
@@ -96,6 +99,7 @@ final class KeyboardViewController: UIInputViewController {
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         fullKeyboard?.handleMemoryWarning()
+        localDictation.releaseIfIdle()
     }
 
     override func viewWillLayoutSubviews() {
@@ -180,6 +184,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         viewModel.onColdStart = { [weak self] in self?.coldStart() }
+        localDictation.onHandOff = { [weak self] in self?.coldStart() }
         viewModel.onFeedbackRating = { [weak self] rating, issues in self?.queueFeedback(rating: rating, issues: issues) }
         viewModel.onSpace = { [weak self] in self?.viewModel.dismissFeedback(); self?.textDocumentProxy.insertText(" ") }
         viewModel.onDelete = { [weak self] in self?.viewModel.dismissFeedback(); self?.textDocumentProxy.deleteBackward() }
@@ -312,7 +317,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func schedulePoll(force: Bool) {
         let busy = viewModel.stagePhase == .recording || viewModel.stagePhase == .transcribing
-            || viewModel.pendingCommand != nil || armedJobID != nil
+            || viewModel.pendingCommand != nil || armedJobID != nil || localDictation.isActive
         let interval: TimeInterval = fullKeyboard == nil ? 0.04 : (busy ? 1.0 / 30 : 0.25)
         guard force || (pollTimer != nil && interval != pollInterval) else { return }
         pollInterval = interval
@@ -390,7 +395,7 @@ final class KeyboardViewController: UIInputViewController {
             bridge.fullAccessSeenAt = now
         }
 
-        let snap = bridge.snapshot()
+        var snap = localDictation.snapshot(now: now) ?? bridge.snapshot()
         let permission = feedbackBridge.permission
         if !feedbackBridge.switchesEnabled || permission?.enabled != true || snap.state == .recording || snap.state == .transcribing
             || (viewModel.feedback.map { $0.offer.expiresAt < Date() || $0.offer.generation != permission?.generation } ?? false) {
@@ -421,7 +426,10 @@ final class KeyboardViewController: UIInputViewController {
                     permission: permission, now: Date(timeIntervalSince1970: now))
             }
             coldStartJobID = UUID().uuidString
+            localDictation.delivered(resultID: resultID)
+            snap = localDictation.snapshot(now: now) ?? bridge.snapshot()
         }
+        viewModel.armsWhenCold = localDictationRoute == .keyboard
 
         viewModel.applyBridgeState(
             hasFullAccess: true,
@@ -450,6 +458,11 @@ final class KeyboardViewController: UIInputViewController {
     /// A share sheet, a notification's reply or Spotlight closes once left, taking its text
     /// with it, so from there Typr is not opened; dictation needs a warm mic instead.
     private func coldStart() {
+        if localDictation.isArmed || localDictationRoute == .keyboard, localDictation.start(in: view) {
+            viewModel.hostNotice = nil
+            schedulePoll(force: false)
+            return
+        }
         let host = KeyboardHost.app(of: self)
         guard KeyboardHost.canReturn(to: host) else {
             viewModel.hostNotice = "Turn on Keep mic warm in Typr first"
@@ -464,6 +477,14 @@ final class KeyboardViewController: UIInputViewController {
         }
         bridge.ownFeedbackJob(coldStartJobID)
         ContainingAppOpener.open(request.url, from: self)
+    }
+
+    private var localDictationRoute: KeyboardDictationRoute {
+        let app = bridge.snapshot()
+        return localDictation.route(
+            enabled: hasFullAccess && TyprSettings()[experiment: .keyboardDictation],
+            warm: app.state == .ready && app.isAvailable(at: Date().timeIntervalSince1970)
+        )
     }
 
     private func updateKeyboardTraits() {
@@ -490,8 +511,14 @@ final class KeyboardViewController: UIInputViewController {
         disarmWarmDictation()
         let now = Date().timeIntervalSince1970
         let snapshot = viewModel.currentSnapshot
-        guard viewModel.hasFullAccess, viewModel.stagePhase == .idle, viewModel.pendingCommand == nil,
-              snapshot.state == .ready, snapshot.isAvailable(at: now) else { return }
+        guard viewModel.hasFullAccess, viewModel.stagePhase == .idle, viewModel.pendingCommand == nil else { return }
+        guard snapshot.state == .ready, snapshot.isAvailable(at: now) else {
+            if localDictationRoute == .keyboard {
+                localDictation.arm(in: view)
+                schedulePoll(force: false)
+            }
+            return
+        }
         let jobID = UUID().uuidString
         armedJobID = jobID
         bridge.send(.arm, jobID: jobID, style: viewModel.style, sentAt: now)
@@ -499,6 +526,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func disarmWarmDictation() {
+        localDictation.discard()
         guard let jobID = armedJobID else { return }
         armedJobID = nil
         bridge.send(.cancel, jobID: jobID, style: viewModel.style, sentAt: Date().timeIntervalSince1970)
@@ -531,6 +559,10 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func stopWarmDictation() {
+        if localDictation.isActive {
+            localDictation.stop()
+            return
+        }
         let now = Date().timeIntervalSince1970
         guard let jobID = viewModel.currentSnapshot.jobID ?? viewModel.pendingCommand?.jobID else { return }
         viewModel.setPendingCommand(
@@ -542,6 +574,10 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func cancelWarmDictation() {
+        if localDictation.isActive {
+            localDictation.cancel()
+            return
+        }
         let now = Date().timeIntervalSince1970
         guard let jobID = viewModel.currentSnapshot.jobID ?? viewModel.pendingCommand?.jobID else { return }
         viewModel.setPendingCommand(
