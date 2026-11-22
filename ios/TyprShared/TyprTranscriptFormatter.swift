@@ -262,7 +262,7 @@ nonisolated enum TyprTranscriptFormatter {
     /// Whether the period at `index` closes a known abbreviation, or the lowercase first
     /// letter of a spaced one ("d." in "d. h."). Only suppresses capitalization; text the
     /// speaker or model already capitalized is never lowercased.
-    private static func endsAbbreviation(_ chars: [Character], periodAt index: Int) -> Bool {
+    static func endsAbbreviation(_ chars: [Character], periodAt index: Int) -> Bool {
         func token(endingAt end: Int) -> (text: String, start: Int)? {
             var start = end
             while start > 0, chars[start - 1].isLetter || chars[start - 1] == "." { start -= 1 }

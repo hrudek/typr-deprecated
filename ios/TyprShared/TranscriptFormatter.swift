@@ -389,7 +389,9 @@ nonisolated enum TranscriptFormatter {
             let word = String(chars[start..<stop]).lowercased()
             let initials = word.split(separator: ".", omittingEmptySubsequences: false)
             let isInitialism = initials.count >= 2 && initials.allSatisfy { $0.count == 1 && $0.first!.isLetter }
-            if word.hasSuffix(".") || isInitialism || abbreviations.contains(word) {
+            // Typr addition: German abbreviations ("ca.", "bzw.", "z. B.") keep their period.
+            if word.hasSuffix(".") || isInitialism || abbreviations.contains(word)
+                || TyprTranscriptFormatter.endsAbbreviation(chars, periodAt: stop) {
                 return line
             }
         }
@@ -790,7 +792,8 @@ nonisolated enum TranscriptFormatter {
                 capitalizeNext = true
                 endedSentence = false
             } else if ".!?".contains(ch) {
-                endedSentence = true
+                // Typr addition: an abbreviation's period ("ca. zehn", "z. B. die") ends no sentence.
+                endedSentence = ch != "." || !TyprTranscriptFormatter.endsAbbreviation(chars, periodAt: index)
                 capitalizeNext = false
             } else if ch.isWhitespace {
                 if endedSentence {

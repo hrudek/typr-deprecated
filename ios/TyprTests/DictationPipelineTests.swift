@@ -119,4 +119,30 @@ final class DictationPipelineTests: XCTestCase {
                        TyprTranscriptFormatter.format("Ich komme. Du auch.", style: .casual, language: .german,
                                                       lists: true, punctuation: false))
     }
+
+    /// Typr fix on the Hex base: German abbreviations end no sentence, on the default path.
+    func testGermanAbbreviationsOnTheDefaultPath() {
+        let suite = "pipeline.abbreviations.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = TyprSettings(defaults: defaults)
+        func format(_ text: String) -> String {
+            DictationPipeline(style: .polished, language: .german, vocabulary: DictationVocabulary(userTerms: []),
+                              settings: settings).format(text, language: "de")
+        }
+        XCTAssertEqual(format("das dauert ca. zehn Minuten"), "Das dauert ca. zehn Minuten.")
+        XCTAssertEqual(format("exportiert werden, bzw. in die Zwischenablage kopiert"),
+                       "Exportiert werden, bzw. in die Zwischenablage kopiert.")
+        XCTAssertEqual(format("zum Beispiel z. B. die Logs, d. h. alle"), "Zum Beispiel z. B. die Logs, d. h. alle.")
+        XCTAssertEqual(format("Logs, Daten usw. kommen später"), "Logs, Daten usw. kommen später.")
+        // Real sentence ends still capitalize, and nothing is lowercased.
+        XCTAssertEqual(format("das ist gut. danach weiter"), "Das ist gut. Danach weiter.")
+        XCTAssertEqual(format("bzw. Das bleibt"), "Bzw. Das bleibt.")
+
+        settings.dictationEndsWithPeriod = false
+        for text in ["Das dauert ca.", "Das ist z. B.", "Bring Brot usw.", "Heute bzw."] {
+            XCTAssertEqual(format(text), text)
+        }
+        XCTAssertEqual(format("Das ist gut."), "Das ist gut")
+    }
 }

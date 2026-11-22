@@ -334,25 +334,29 @@ final class AIOffSnapshotTests: XCTestCase {
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
 
-        var delivered: [String] = []
         let runs: [(DictationStyle, Bool, Bool)] = [
             (.polished, true, false), (.polished, false, false), (.polished, false, true), (.verbatim, false, true),
         ]
-        for (style, endsWithPeriod, lowercase) in runs {
-            settings.dictationEndsWithPeriod = endsWithPeriod
-            settings.dictationLowercase = lowercase
-            controller.startRecording(styleOverride: style)
-            try await waitForState("recording \(style)") { controller.phase == .recording }
-            controller.finishRecording()
-            try await waitForState("finished \(style)") { controller.isIdleForTest }
-            delivered.append(controller.transcript)
+        let sentences = "Ich lade den Bericht auf GitHub hoch. Danach rufe ich Anna an"
+        // Typr dictation styles keeps Verbatim as the model wrote it; Hex lowercases it too.
+        let expected: [Bool: [String]] = [
+            true: [sentences + ".", sentences, sentences.lowercased(), sentences + "."],
+            false: [sentences + ".", sentences, sentences.lowercased(), sentences.lowercased() + "."],
+        ]
+        for typrStyles in [true, false] {
+            settings[experiment: .typrDictationStyles] = typrStyles
+            var delivered: [String] = []
+            for (style, endsWithPeriod, lowercase) in runs {
+                settings.dictationEndsWithPeriod = endsWithPeriod
+                settings.dictationLowercase = lowercase
+                controller.startRecording(styleOverride: style)
+                try await waitForState("recording \(style) \(typrStyles)") { controller.phase == .recording }
+                controller.finishRecording()
+                try await waitForState("finished \(style) \(typrStyles)") { controller.isIdleForTest }
+                delivered.append(controller.transcript)
+            }
+            XCTAssertEqual(delivered, expected[typrStyles], "Typr dictation styles \(typrStyles)")
         }
-        XCTAssertEqual(delivered, [
-            "Ich lade den Bericht auf GitHub hoch. Danach rufe ich Anna an.",
-            "Ich lade den Bericht auf GitHub hoch. Danach rufe ich Anna an",
-            "ich lade den bericht auf github hoch. danach rufe ich anna an",
-            "Ich lade den Bericht auf GitHub hoch. Danach rufe ich Anna an.",
-        ])
         controller.cancelCurrentJob()
         try await waitForState("controller idle") { controller.isIdleForTest }
         clock.fire()
