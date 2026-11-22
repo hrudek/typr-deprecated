@@ -278,6 +278,7 @@ final class DictationTranslationPipelineTests: XCTestCase {
         XCTAssertEqual(f.controller.transcript, "See you tomorrow at the office.")
         XCTAssertEqual(f.bridge.snapshot().transcript, "See you tomorrow at the office.")
         XCTAssertNil(f.bridge.snapshot().resultNote)
+        XCTAssertEqual(f.bridge.snapshot().translated, true, "Learn from my edits must skip a translation")
         XCTAssertNil(f.controller.translationFailure)
         XCTAssertNil(f.settings.translationFailure)
         try await drain(f)
@@ -293,6 +294,7 @@ final class DictationTranslationPipelineTests: XCTestCase {
         let snapshot = f.bridge.snapshot()
         XCTAssertEqual(snapshot.transcript, "Wir sehen uns morgen im Büro.")
         XCTAssertEqual(snapshot.resultNote, TranslationFailure.notDownloaded.note)
+        XCTAssertNotEqual(snapshot.translated, true)
         XCTAssertTrue(snapshot.resultNote?.contains("Pasted as spoken") == true)
         XCTAssertEqual(f.controller.translationFailure, .notDownloaded)
         XCTAssertEqual(f.settings.translationFailure, .notDownloaded)
@@ -349,6 +351,7 @@ final class DictationTranslationPipelineTests: XCTestCase {
         XCTAssertTrue(apple.calls.isEmpty)
         XCTAssertEqual(f.controller.transcript, "Wir sehen uns morgen im Büro.")
         XCTAssertNil(f.bridge.snapshot().resultNote)
+        XCTAssertNotEqual(f.bridge.snapshot().translated, true)
         try await drain(f)
     }
 
@@ -374,5 +377,14 @@ final class KeyboardResultNoteTests: XCTestCase {
         model.resultNote = TranslationFailure.failed.note
         XCTAssertEqual(model.resultNote, "Couldn't translate, pasted as spoken")
         try await waitForState("note hidden") { model.resultNote == nil }
+    }
+}
+
+final class KeyboardSnapshotTranslatedTests: XCTestCase {
+    func testSnapshotsWithoutTheFlagDecodeAsNotTranslated() throws {
+        let old = #"{"state":"ready","heartbeat":1,"expiresAt":2,"audioLevel":0,"resultID":"r","transcript":"Hallo"}"#
+        let snapshot = try JSONDecoder().decode(KeyboardSnapshot.self, from: Data(old.utf8))
+        XCTAssertNil(snapshot.translated)
+        XCTAssertEqual(snapshot.transcript, "Hallo")
     }
 }

@@ -169,6 +169,7 @@ final class DictationController {
     private var keyboardResultExpiresAt: TimeInterval?
     private var keyboardResult: String?
     private var keyboardResultNote: String?
+    private var keyboardResultTranslated = false
     private var keyboardMessage: String?
     private var pendingHandoff: PendingKeyboardHandoff?
     private var keyboardSessionExpiresAt: TimeInterval = 0
@@ -1403,13 +1404,15 @@ final class DictationController {
                 let cleaned = text
                 var outputLanguage = session.language
                 var translationFailure: TranslationFailure?
+                var translated = false
                 if let target = session.translationTarget, let translator = self.translator {
                     let outcome = await translator.translate(cleaned, from: session.language, to: target)
                     guard let outcome, self.jobGeneration == captureGeneration, !Task.isCancelled else { return }
                     switch outcome {
-                    case .translated(let translated):
-                        text = translated
+                    case .translated(let translation):
+                        text = translation
                         outputLanguage = target
+                        translated = true
                         self.languageSettings.translationFailure = nil
                     case .failed(let failure):
                         translationFailure = failure
@@ -1460,6 +1463,7 @@ final class DictationController {
                     self.keyboardResultID = UUID().uuidString
                     self.keyboardResult = formatted
                     self.keyboardResultNote = translationFailure?.note
+                    self.keyboardResultTranslated = translated
                     self.keyboardResultExpiresAt = self.now() + Self.resultDeliveryTTL
                     if let recording, let resultID = self.keyboardResultID, let keyboardJobID {
                         self.keyboardFeedbackOffer = self.dictationLog?.makeKeyboardFeedbackOffer(
@@ -1727,6 +1731,7 @@ final class DictationController {
             keyboardFeedbackOffer = nil
             keyboardResult = nil
             keyboardResultNote = nil
+            keyboardResultTranslated = false
             keyboardResultExpiresAt = nil
         }
 
@@ -1785,6 +1790,7 @@ final class DictationController {
                 resultExpiresAt: keyboardResultExpiresAt,
                 transcript: keyboardResult,
                 resultNote: keyboardResultNote,
+                translated: keyboardResultTranslated,
                 message: failureMessage,
                 feedbackOffer: keyboardFeedbackOffer?.resultID == keyboardResultID ? keyboardFeedbackOffer : nil
             )

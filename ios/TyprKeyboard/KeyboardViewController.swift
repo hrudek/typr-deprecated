@@ -411,7 +411,7 @@ final class KeyboardViewController: UIInputViewController {
             )
             textDocumentProxy.insertText(insertion)
             fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "",
-                                             learns: TyprSettings()[experiment: .learnFromEdits])
+                                             learns: TyprSettings()[experiment: .learnFromEdits] && snap.translated != true)
             bridge.lastInsertedResultID = resultID
             viewModel.resultNote = snap.resultNote
             insertedResult = true
