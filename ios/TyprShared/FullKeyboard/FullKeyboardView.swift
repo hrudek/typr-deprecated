@@ -607,6 +607,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             "Allow Full Access to dictate with Typr"
         } else if model.stagePhase == .failed {
             model.statusMessage
+        } else if let note = model.resultNote {
+            note
         } else if !model.isWarmAvailable, let notice = model.hostNotice {
             notice
         } else {
@@ -765,6 +767,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     private var hiddenBarNotice: String? {
         guard !engine.showsStrip, model.hasFullAccess else { return nil }
         if model.stagePhase == .failed { return model.statusMessage }
+        if let note = model.resultNote { return note }
         return model.isWarmAvailable ? nil : model.hostNotice
     }
 
@@ -838,6 +841,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         } else if case .notice(let notice)? = panelContent {
             if model.hostNotice == notice {
                 model.hostNotice = nil
+            } else if model.resultNote == notice {
+                model.resultNote = nil
             } else {
                 dismissedNotice = notice
             }

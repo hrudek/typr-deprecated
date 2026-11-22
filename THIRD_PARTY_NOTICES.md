@@ -697,6 +697,18 @@ in `SpokenCleanupRules.swift`, and the comma and capital repair of `CleanupRecon
 Typr adds English rules, stutter removal and stricter repair conditions.
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
+## Hex iOS dictation translation
+
+Translate what I say (`ios/Typr/DictationTranslation.swift`, `TranslateDictationSettingsCard` in
+`ios/Typr/DictationSettingsCards.swift`) is adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PRs #2015, #2176: `HEXShared/DictationTranslation.swift`
+and `HEXMobile/TranslateDictationRow.swift`): the translation seam, a new
+`TranslationSession(installedSource:target:)` per attempt with one retry, the pack status
+and download through `translationTask`, and the "pasted as spoken" note. Typr limits it to
+German and English and adds a deadline. MIT, © Christopher Langton, the same license as this
+repository ([LICENSE](LICENSE)).
+
 ## Hex iOS return key style
 
 The return key's symbol, blue action style, off state and accessibility label per

@@ -73,8 +73,14 @@ An explicit engine or language choice never silently falls back to another.
   A word you replace with a similar one ("Wal" → "Wahl"), by editing or dictating again, is
   stored as that word pair only (up to three words a side, at most 200 pairs, never the
   dictation); fixed the same way twice, never contradicted and never fixed another way,
-  later dictations write it so, before Custom vocabulary. Undo dictation teaches nothing.
-  AI & vocabulary lists the learned fixes to delete.
+  later dictations write it so, before Custom vocabulary. Undo dictation and translated
+  dictations teach nothing.
+  AI & vocabulary lists the learned fixes to delete. Language › **Translate what
+  I say** (off by default, iOS 26+) inserts German dictations in English or English ones in
+  German with Apple's on-device Translation, after cleanup and before formatting in the
+  output language. The languages are downloaded once from that page; a failed attempt is
+  retried once in a new session, and both together get 5 s. Without the languages, on
+  failure or timeout the dictation goes in as spoken and the keyboard says so for 8 s.
   The full keyboard adds German/English autocorrect and adaptive suggestions. With both
   languages on, a word only English knows takes the German umlauts or ß once the next word
   is German ("fur dich" → "für dich", Hex); one Delete takes it back.

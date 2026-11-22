@@ -492,6 +492,9 @@ struct ContentView: View {
                 .foregroundStyle(TyprTheme.textBase)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            if let failure = dictation.translationFailure {
+                Text(failure.note).font(.footnote).foregroundStyle(TyprTheme.textMuted)
+            }
 
             HStack(spacing: 6) {
                 Spacer()
