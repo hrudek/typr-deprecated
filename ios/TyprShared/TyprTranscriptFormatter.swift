@@ -251,6 +251,30 @@ nonisolated enum TyprTranscriptFormatter {
         return String(chars)
     }
 
+    /// For Hex's formatter in German: whether the period at `index` closes a word of
+    /// `abbreviations` or either part of a two-part one ("z. B.", "d. h."). Unlike
+    /// `endsAbbreviation`, no other single letter counts.
+    static func endsGermanAbbreviation(_ chars: [Character], periodAt index: Int) -> Bool {
+        func token(endingAt end: Int) -> (text: String, start: Int)? {
+            var start = end
+            while start > 0, chars[start - 1].isLetter || chars[start - 1] == "." { start -= 1 }
+            guard start < end else { return nil }
+            return (String(chars[start...end]), start)
+        }
+        guard index < chars.count, chars[index] == ".", let last = token(endingAt: index) else { return false }
+        if abbreviations.contains(last.text.lowercased()) { return true }
+        if last.start >= 2, chars[last.start - 1] == " ", let previous = token(endingAt: last.start - 2),
+           previous.text.hasSuffix("."), abbreviations.contains((previous.text + last.text).lowercased()) {
+            return true
+        }
+        let next = index + 2
+        guard next < chars.count, chars[index + 1] == " " else { return false }
+        var end = next
+        while end < chars.count, chars[end].isLetter { end += 1 }
+        guard end > next, end < chars.count, chars[end] == "." else { return false }
+        return abbreviations.contains((last.text + String(chars[next...end])).lowercased())
+    }
+
     /// Common German and English abbreviations whose period is not a sentence end,
     /// written without inner spaces and lowercased ("z. B." is checked as "z.b.").
     private static let abbreviations: Set<String> = [
@@ -262,7 +286,7 @@ nonisolated enum TyprTranscriptFormatter {
     /// Whether the period at `index` closes a known abbreviation, or the lowercase first
     /// letter of a spaced one ("d." in "d. h."). Only suppresses capitalization; text the
     /// speaker or model already capitalized is never lowercased.
-    static func endsAbbreviation(_ chars: [Character], periodAt index: Int) -> Bool {
+    private static func endsAbbreviation(_ chars: [Character], periodAt index: Int) -> Bool {
         func token(endingAt end: Int) -> (text: String, start: Int)? {
             var start = end
             while start > 0, chars[start - 1].isLetter || chars[start - 1] == "." { start -= 1 }

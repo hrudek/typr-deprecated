@@ -144,5 +144,16 @@ final class DictationPipelineTests: XCTestCase {
             XCTAssertEqual(format(text), text)
         }
         XCTAssertEqual(format("Das ist gut."), "Das ist gut")
+        XCTAssertEqual(format("Nimm x."), "Nimm x", "a single letter is no abbreviation")
+        settings.dictationEndsWithPeriod = true
+        XCTAssertEqual(format("nimm x. dann weiter"), "Nimm x. Dann weiter.")
+    }
+
+    /// The abbreviation fix is German only: English keeps Hex's behavior.
+    func testEnglishKeepsHexSentenceStarts() {
+        var pipeline = DictationPipeline(style: .polished, language: "en-US")
+        XCTAssertEqual(pipeline.format("pick x. then go", language: "en-US"), "Pick x. Then go.")
+        pipeline.endsWithPeriod = false
+        XCTAssertEqual(pipeline.format("Pick x.", language: "en-US"), "Pick x")
     }
 }

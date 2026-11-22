@@ -99,7 +99,14 @@ nonisolated enum TranscriptFormatter {
     ) -> String {
         let styled = formatted(raw, style: style, language: language, lists: lists, punctuation: punctuation, rules: rules)
         guard !endsWithPeriod, style != .verbatim else { return styled }
-        return styled.components(separatedBy: "\n").map(droppingFinalFullStop).joined(separator: "\n")
+        let german = isGerman(language)
+        return styled.components(separatedBy: "\n").map { droppingFinalFullStop($0, german: german) }
+            .joined(separator: "\n")
+    }
+
+    /// Typr addition: whether Typr's German abbreviations apply (`TyprTranscriptFormatter.endsGermanAbbreviation`).
+    private static func isGerman(_ language: String?) -> Bool {
+        language.map { Locale(identifier: $0).language.languageCode?.identifier == "de" } ?? false
     }
 
     private static func formatted(
@@ -121,7 +128,7 @@ nonisolated enum TranscriptFormatter {
             return collapseHorizontalSpaces(in: trimmed)
 
         case .polished:
-            return polishSentences(cleaned(), english: english, unspaced: unspaced)
+            return polishSentences(cleaned(), english: english, unspaced: unspaced, german: isGerman(language))
 
         case .casual, .typrCasual:
             return casualMessage(cleaned(), english: english)
@@ -348,13 +355,13 @@ nonisolated enum TranscriptFormatter {
         return collapseHorizontalSpaces(in: stripped)
     }
 
-    private static func polishSentences(_ text: String, english: Bool, unspaced: Bool) -> String {
+    private static func polishSentences(_ text: String, english: Bool, unspaced: Bool, german: Bool) -> String {
         guard !text.isEmpty else { return "" }
         var normalized = fixSpacingBeforePunctuation(in: collapseHorizontalSpaces(in: text))
         if english {
             normalized = expandingInformalContractions(in: normalized)
         }
-        normalized = capitalizeSentenceStarts(in: normalized)
+        normalized = capitalizeSentenceStarts(in: normalized, german: german)
         if english {
             normalized = capitalizingPronounI(in: normalized)
         }
@@ -378,7 +385,7 @@ nonisolated enum TranscriptFormatter {
 
     /// `line` without the full stop that ends it ("." "。" "．" "｡", before any closing quotes or
     /// brackets). An ellipsis, an abbreviation's ("etc.") or an initialism's ("U.S.") stays.
-    static func droppingFinalFullStop(_ line: String) -> String {
+    static func droppingFinalFullStop(_ line: String, german: Bool = false) -> String {
         var chars = Array(line)
         var stop = chars.count - 1
         while stop >= 0, "\"”’')]」』）".contains(chars[stop]) { stop -= 1 }
@@ -391,7 +398,7 @@ nonisolated enum TranscriptFormatter {
             let isInitialism = initials.count >= 2 && initials.allSatisfy { $0.count == 1 && $0.first!.isLetter }
             // Typr addition: German abbreviations ("ca.", "bzw.", "z. B.") keep their period.
             if word.hasSuffix(".") || isInitialism || abbreviations.contains(word)
-                || TyprTranscriptFormatter.endsAbbreviation(chars, periodAt: stop) {
+                || german && TyprTranscriptFormatter.endsGermanAbbreviation(chars, periodAt: stop) {
                 return line
             }
         }
@@ -774,7 +781,7 @@ nonisolated enum TranscriptFormatter {
     /// Capitalizes the first letter of each sentence: at the start, after a line break, or
     /// after ".", "!" or "?" and a space. A full stop inside a word ("gmail.com", "e.g.")
     /// starts nothing, and an address keeps its case.
-    private static func capitalizeSentenceStarts(in text: String) -> String {
+    private static func capitalizeSentenceStarts(in text: String, german: Bool) -> String {
         var chars = Array(text)
         var capitalizeNext = true
         var endedSentence = false
@@ -793,7 +800,8 @@ nonisolated enum TranscriptFormatter {
                 endedSentence = false
             } else if ".!?".contains(ch) {
                 // Typr addition: an abbreviation's period ("ca. zehn", "z. B. die") ends no sentence.
-                endedSentence = ch != "." || !TyprTranscriptFormatter.endsAbbreviation(chars, periodAt: index)
+                endedSentence = ch != "." || !german
+                    || !TyprTranscriptFormatter.endsGermanAbbreviation(chars, periodAt: index)
                 capitalizeNext = false
             } else if ch.isWhitespace {
                 if endedSentence {
