@@ -229,7 +229,9 @@ final class ModelPreparationTests: XCTestCase {
         controller.multilingualLoads.insert(99)
 
         controller.turnOffMultilingualParakeet()
-        try await waitForState("deletion waits") { controller.deletionWaitsForTesting == 1 }
+        try await waitForState("deletion waits") {
+            controller.deletionWaitsForTesting >= 1 && controller.phase == .ready
+        }
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path), "the load still reads its files")
 
         controller.multilingualLoads.remove(99)
