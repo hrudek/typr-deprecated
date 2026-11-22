@@ -180,31 +180,26 @@ final class TyprKeyControl: UIControl {
     }
 }
 
-/// While recording, this replaces the strip and keys at the same height: the clock and
-/// style, a wide Dot Scope well, then ✕ and Done where the bottom row was.
+/// While recording, this replaces the suggestion strip only, so the keys stay put: a Dot
+/// Scope well that takes the rest of the strip, then ✕ and ✓, which turns into a spinner
+/// while the recording is transcribed.
 @MainActor
 final class TyprKeyRecordingPanel: UIView {
     var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { applyPalette() } } }
     var onDone: (() -> Void)?
     var onCancel: (() -> Void)?
-    var onCycleStyle: (() -> Void)?
 
     let scope: DotScopeHostView
-    private let dot = UIView()
-    private let clockLabel = UILabel()
-    private let styleButton = UIButton(type: .custom)
     private let well = UIView()
     private let cancelButton = PanelKeyButton()
     private let doneButton = PanelKeyButton()
-    private var isTranscribing = false
-    /// Width of one modifier key, so ✕ lines up with 123 + space's start.
-    var sideKeyWidth: CGFloat = 50 { didSet { setNeedsLayout() } }
+    private let doneSpinner = UIActivityIndicatorView(style: .medium)
     var horizontalInset: CGFloat = 0 { didSet { setNeedsLayout() } }
     var metrics = KeyboardMetrics.portrait { didSet { setNeedsLayout() } }
 
     init(loudness: @escaping () -> Float) {
-        var tuning = DotScopeTuning.bar(leadingInset: 0, trailingInset: 0, fade: 36, spacing: 6.5)
-        tuning.height = 120
+        var tuning = DotScopeTuning.bar(leadingInset: 0, trailingInset: 0, fade: 24, spacing: 5)
+        tuning.height = Float(KeyboardMetrics.stripPillHeight)
         // Cap drawables at 2 inside the keyboard extension to save ~2.2 MB of IOSurface RAM.
         scope = DotScopeHostView(tuning: tuning, maximumDrawableCount: 2)
         super.init(frame: .zero)
@@ -212,13 +207,6 @@ final class TyprKeyRecordingPanel: UIView {
         scope.loudnessProvider = loudness
         scope.reduceMotion = UIAccessibility.isReduceMotionEnabled
         scope.useDemoVoice = ProcessInfo.processInfo.arguments.contains("--snap-state")
-
-        dot.layer.cornerRadius = 3.5
-        clockLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
-        styleButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .medium)
-        styleButton.semanticContentAttribute = .forceRightToLeft
-        styleButton.addTarget(self, action: #selector(cycleStyle), for: .touchUpInside)
-        styleButton.accessibilityHint = "Changes the dictation style"
 
         well.layer.cornerRadius = 20
         well.layer.cornerCurve = .continuous
@@ -228,11 +216,13 @@ final class TyprKeyRecordingPanel: UIView {
         cancelButton.symbol = "xmark"
         cancelButton.accessibilityLabel = "Cancel dictation"
         cancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
-        doneButton.title = "Done"
+        doneButton.symbol = "checkmark"
         doneButton.accessibilityLabel = "Done"
         doneButton.addTarget(self, action: #selector(done), for: .touchUpInside)
 
-        for view in [dot, clockLabel, styleButton, well, cancelButton, doneButton] {
+        doneSpinner.hidesWhenStopped = true
+        doneSpinner.isUserInteractionEnabled = false
+        for view in [well, cancelButton, doneButton, doneSpinner] {
             addSubview(view)
         }
         applyPalette()
@@ -246,74 +236,41 @@ final class TyprKeyRecordingPanel: UIView {
         scope.tearDown()
     }
 
-    func update(phase: DotScopePhase, clock: String, style: DictationStyle) {
-        isTranscribing = phase == .processing
+    func update(phase: DotScopePhase) {
+        let isTranscribing = phase == .processing
         scope.phase = phase
-        dot.isHidden = isTranscribing
-        clockLabel.text = isTranscribing ? "Transcribing" : clock
-        clockLabel.textColor = isTranscribing ? palette.textMuted : palette.textBase
-        doneButton.title = isTranscribing ? "Inserting…" : "Done"
+        doneButton.symbol = isTranscribing ? nil : "checkmark"
         doneButton.isEnabled = !isTranscribing
-        let config = UIImage.SymbolConfiguration(pointSize: 9, weight: .semibold)
-        styleButton.setImage(
-            UIImage(systemName: "chevron.down", withConfiguration: config)?
-                .withTintColor(palette.textMuted, renderingMode: .alwaysOriginal),
-            for: .normal
-        )
-        styleButton.setTitle(style.label + " ", for: .normal)
-        styleButton.accessibilityLabel = "Style: \(style.label)"
-        setNeedsLayout()
+        doneButton.accessibilityLabel = isTranscribing ? "Transcribing" : "Done"
+        if isTranscribing { doneSpinner.startAnimating() } else { doneSpinner.stopAnimating() }
     }
 
     private func applyPalette() {
-        dot.backgroundColor = palette.recordingDot
-        clockLabel.textColor = isTranscribing ? palette.textMuted : palette.textBase
-        styleButton.setTitleColor(palette.textMuted, for: .normal)
         well.backgroundColor = palette.wellFill
         scope.isDark = palette.isDark
         cancelButton.palette = palette
         doneButton.palette = palette
+        doneSpinner.color = palette.textBase
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         let innerLeft = horizontalInset + metrics.side
         let innerRight = bounds.width - horizontalInset - metrics.side
-        let innerW = max(120, innerRight - innerLeft)
-        let headerTop = metrics.stripTop
-        let headerH = KeyboardMetrics.headerHeight
-        var x = innerLeft + 8
-        if !dot.isHidden {
-            dot.frame = CGRect(x: x, y: headerTop + headerH / 2 - 3.5, width: 7, height: 7)
-            x += 7 + 6
-        }
-        clockLabel.sizeToFit()
-        clockLabel.frame = CGRect(x: x, y: headerTop, width: clockLabel.bounds.width, height: headerH)
-        styleButton.sizeToFit()
-        let styleW = styleButton.bounds.width + 12
-        styleButton.frame = CGRect(x: innerRight - styleW, y: headerTop, width: styleW, height: headerH)
+        let rowH = KeyboardMetrics.stripPillHeight
+        let rowY = KeyboardMetrics.stripInset
 
-        let keyH = metrics.keyHeight
-        let bottomY = bounds.height - metrics.keysBottom - keyH
-        let cancelW = sideKeyWidth * 2 + metrics.gap
-        cancelButton.cornerRadius = metrics.cornerRadius
-        doneButton.cornerRadius = metrics.cornerRadius
-        cancelButton.frame = CGRect(x: innerLeft, y: bottomY, width: cancelW, height: keyH)
-        doneButton.frame = CGRect(
-            x: innerLeft + cancelW + metrics.gap,
-            y: bottomY,
-            width: innerW - cancelW - metrics.gap,
-            height: keyH
-        )
-
-        let wellTop = headerTop + headerH + 6
-        well.frame = CGRect(x: innerLeft, y: wellTop, width: innerW, height: max(24, bottomY - 8 - wellTop))
+        doneButton.cornerRadius = rowH / 2
+        cancelButton.cornerRadius = rowH / 2
+        doneButton.frame = CGRect(x: innerRight - rowH, y: rowY, width: rowH, height: rowH)
+        cancelButton.frame = CGRect(x: doneButton.frame.minX - 6 - rowH, y: rowY, width: rowH, height: rowH)
+        doneSpinner.center = CGPoint(x: doneButton.frame.midX, y: doneButton.frame.midY)
+        well.frame = CGRect(x: innerLeft, y: rowY, width: max(24, cancelButton.frame.minX - 6 - innerLeft), height: rowH)
         scope.frame = well.bounds
     }
 
     @objc private func done() { onDone?() }
     @objc private func cancel() { onCancel?() }
-    @objc private func cycleStyle() { onCycleStyle?() }
 }
 
 /// A keycap-styled button for the recording panel.

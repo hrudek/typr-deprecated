@@ -2,7 +2,7 @@ import Combine
 import UIKit
 
 /// The full keyboard: a 3-slot suggestion strip (Typr: optional), QWERTY keys with
-/// the Typr key right of space, long-press accents, the recording panel that replaces both while
+/// the Typr key right of space, long-press accents, the recording panel that replaces the suggestion bar while
 /// Typr records, and the feedback panel that replaces them after a dictation.
 /// Dictation state comes from the same `KeyboardViewModel` the dictation bar uses.
 @MainActor
@@ -174,10 +174,6 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         model.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.refreshFromModel() }
-            .store(in: &subscriptions)
-        model.clock.$recordingText
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.refreshRecordingPanel() }
             .store(in: &subscriptions)
 
         registerForTraitChanges([UITraitUserInterfaceStyle.self, UITraitVerticalSizeClass.self]) { (view: FullKeyboardView, _) in
@@ -531,10 +527,9 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         }
 
         if let panel = recordingPanel {
-            panel.frame = bounds
+            panel.frame = recordingPanelFrame
             panel.horizontalInset = layout.horizontalInset
             panel.metrics = layout.metrics
-            panel.sideKeyWidth = layout.letterWidth * KeyboardLayout.modifierWidthRatio
         }
         if let panel = emojiPanel {
             panel.frame = bounds
@@ -869,11 +864,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
 
     private func refreshRecordingPanel() {
         guard let panel = recordingPanel, showsRecording else { return }
-        panel.update(
-            phase: model.stagePhase == .transcribing ? .processing : .recording,
-            clock: model.clock.recordingText,
-            style: model.style
-        )
+        panel.update(phase: model.stagePhase == .transcribing ? .processing : .recording)
     }
 
     private func setRecording(_ recording: Bool) {
@@ -885,22 +876,27 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             hideUndo()
             let panel = recordingPanel ?? makeRecordingPanel()
             panel.palette = palette
-            panel.frame = bounds
+            panel.frame = recordingPanelFrame
             refreshRecordingPanel()
             panel.isHidden = false
-            var covered = keyViews
-            covered.append(accentCallout)
+            var covered: [UIView] = engine.showsStrip ? [stripView] : keyViews + [accentCallout]
             if let feedbackPanel { covered.append(feedbackPanel) }
             fade(in: [panel], out: covered)
         } else if let panel = recordingPanel {
             panel.scope.phase = .hidden
-            fade(in: keyViews, out: [panel]) { [weak self, weak panel] in
+            fade(in: engine.showsStrip ? [stripView] : keyViews, out: [panel]) { [weak self, weak panel] in
                 guard let self, !self.showsRecording, let panel, panel === self.recordingPanel else { return }
                 panel.tearDown()
                 panel.removeFromSuperview()
                 self.recordingPanel = nil
             }
         }
+    }
+
+    /// The suggestion strip's frame, so the keys neither move nor hide. Without the suggestion bar
+    /// there is no strip: the panel takes a row over the top of the keys, which fade out.
+    private var recordingPanelFrame: CGRect {
+        CGRect(x: 0, y: engine.layout.metrics.stripTop, width: bounds.width, height: KeyboardMetrics.headerHeight)
     }
 
     private func fade(in shown: [UIView], out hidden: [UIView], after: (() -> Void)? = nil) {
@@ -937,10 +933,6 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         panel.alpha = 0
         panel.onDone = { [weak self] in self?.model.onStopTap?() }
         panel.onCancel = { [weak self] in self?.model.onCancelTap?() }
-        panel.onCycleStyle = { [weak self] in
-            guard let self else { return }
-            self.model.onStyleSelected?(self.model.style.next)
-        }
         insertSubview(panel, belowSubview: callout)
         recordingPanel = panel
         setNeedsLayout()

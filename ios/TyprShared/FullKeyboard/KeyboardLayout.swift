@@ -289,6 +289,9 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
 
     /// Height of a panel's header row (recording, feedback), with or without the suggestion bar.
     static let headerHeight: CGFloat = 33
+    /// The suggestion strip's pills, and the recording panel's controls, in a `headerHeight` row.
+    static let stripPillHeight: CGFloat = 26
+    static let stripInset: CGFloat = (headerHeight - stripPillHeight) / 2
 
     /// Typr: `showsStrip: false` drops the suggestion bar; the keys move up to a small top margin.
     /// `numberRow` adds a row of short keys, 0.8 of a key high like iikb's, above the letters.

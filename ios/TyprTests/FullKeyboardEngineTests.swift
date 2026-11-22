@@ -844,6 +844,41 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertFalse(view.hasAllocatedRecordingPanel, "Metal scope torn down once recording ends")
     }
 
+    func testRecordingPanelSitsInTheStripAndTheKeysStay() throws {
+        let model = KeyboardViewModel()
+        let view = FullKeyboardView(model: model, target: target)
+        view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
+        view.layoutIfNeeded()
+        let strip = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardStripView }.first)
+        let plane = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardKeyPlaneView }.first)
+        let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
+        let keysFrame = plane.frame
+        let stripFrame = strip.frame
+
+        let t: TimeInterval = 1_000
+        model.applyBridgeState(
+            hasFullAccess: true,
+            snapshot: KeyboardSnapshot(state: .recording, heartbeat: t, expiresAt: t + 60, recordingStartedAt: t - 1, jobID: "j1"),
+            isModelInstalled: true,
+            style: .polished,
+            now: t,
+            clearPending: false,
+            animated: false
+        )
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        view.layoutIfNeeded()
+
+        let panel = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyRecordingPanel }.first)
+        XCTAssertEqual(panel.frame, CGRect(x: 0, y: stripFrame.minY, width: view.bounds.width, height: stripFrame.height))
+        XCTAssertEqual(panel.alpha, 1)
+        XCTAssertTrue(strip.isHidden, "the panel replaces the suggestion strip")
+        XCTAssertFalse(plane.isHidden)
+        XCTAssertEqual(plane.alpha, 1, "the keys stay visible")
+        XCTAssertEqual(plane.frame, keysFrame, "and where they were")
+        XCTAssertFalse(key.isHidden)
+        XCTAssertEqual(key.alpha, 1)
+    }
+
     func testTyprKeyTouchDownArmsOnlyWhileWarmAndATapStillTypesASpace() throws {
         let model = KeyboardViewModel()
         var events: [String] = []
