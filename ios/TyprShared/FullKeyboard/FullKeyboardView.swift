@@ -76,6 +76,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     private(set) var design = KeyboardDesign.standard
     private var subscriptions: Set<AnyCancellable> = []
     private var showsRecording = false
+    private var lastDictation: DictationUndo?
+    private var undoHideWork: DispatchWorkItem?
     private let haptics = UIImpactFeedbackGenerator(style: .light)
     private let selectionHaptics = UISelectionFeedbackGenerator()
 
@@ -118,6 +120,10 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
                 self.engine.acceptSuggestion(suggestion)
             }
         }
+        stripView.onUndoDictation = { [weak self] in
+            self?.keyFeedback()
+            self?.undoDictation()
+        }
 
         stripView.onCodeFromMessages = { [weak self] in
             self?.keyFeedback()
@@ -144,8 +150,10 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         plane.onAccentMenuOpened = { [weak self] in self?.selectionFeedback() }
         engine.onSelectionStep = { [weak self] in self?.selectionFeedback() }
         engine.onEmojiKey = { [weak self] in self?.openEmojiPanel() }
+        engine.onCursorMove = { [weak self] in self?.revalidateUndo() }
         engine.onChange = { [weak self] in self?.engineChanged() }
         engine.onEdit = { [weak self] in
+            self?.hideUndo()
             self?.model.dismissFeedback()
             self?.refreshReturnKey()
             self?.refreshStrip()
@@ -313,12 +321,14 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         } else {
             engine.textDidChange()
         }
+        revalidateUndo()
         refreshReturnKey()
         refreshStrip()
     }
 
     /// The keyboard came on screen for a (possibly new) field.
     func prepareForField() {
+        hideUndo()
         cloudKeyStored = hasCloudKey()
         syncSettings()
         closeEmojiPanel()
@@ -353,6 +363,12 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         engine.resumeSuggestions()
     }
 
+    /// The cursor or selection moved outside these keys.
+    func selectionDidChange() {
+        discardTouchEvidence()
+        revalidateUndo()
+    }
+
     /// Selection changes and keyboard dismissal must not retain current-word taps.
     func discardTouchEvidence() {
         engine.endTypingLogWord("external")
@@ -375,9 +391,16 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         }
     }
 
-    /// Typr inserted a dictation.
-    func didInsertDictation() {
+    /// Typr inserted a dictation between `before` and `after`; offer to take it back until the
+    /// next edit, for 12 seconds, or until it can't be found from the cursor.
+    func didInsertDictation(_ text: String, before: String, after: String) {
+        lastDictation = DictationUndo(text: text, before: before, after: after)
+        undoHideWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.hideUndo() }
+        undoHideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12, execute: work)
         engine.textDidChange()
+        refreshStrip()
         refreshReturnKey()
     }
 
@@ -571,7 +594,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         stripView.update(
             suggestions: status == nil && !code ? withEmoji(engine.suggestions) : engine.suggestions,
             statusText: status,
-            showsCodeChip: code
+            showsCodeChip: code,
+            showsUndo: lastDictation != nil
         )
     }
 
@@ -642,6 +666,43 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     private func insertEmoji(_ emoji: String, typed: String) {
         engine.insertEmoji(typed)
         makeEmojiUsage().record(emoji)
+    }
+
+    private func undoPlan(_ undo: DictationUndo) -> DictationUndo.Plan? {
+        let target = engine.target
+        return undo.plan(before: target.documentContextBeforeInput ?? "",
+                         after: target.documentContextAfterInput ?? "",
+                         selected: target.selectedText)
+    }
+
+    private func undoDictation() {
+        guard let undo = lastDictation else { return }
+        if let plan = undoPlan(undo) {
+            // Moves stay inside the text the host showed, so it doesn't drop them.
+            if plan.toEnd != 0 { engine.target.adjustTextPosition(byCharacterOffset: plan.toEnd) }
+            for _ in 0..<plan.delete {
+                engine.target.deleteBackward()
+            }
+            if plan.back != 0 { engine.target.adjustTextPosition(byCharacterOffset: plan.back) }
+        }
+        hideUndo()
+        engine.textDidChange()
+        refreshReturnKey()
+    }
+
+    private func revalidateUndo() {
+        if let undo = lastDictation, undoPlan(undo) == nil {
+            hideUndo()
+        }
+    }
+
+    private func hideUndo() {
+        undoHideWork?.cancel()
+        undoHideWork = nil
+        if lastDictation != nil {
+            lastDictation = nil
+            refreshStrip()
+        }
     }
 
     // MARK: - Feedback panel
@@ -753,6 +814,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         dismissStyleMenu()
         if recording {
             plane.cancelAllTouches()
+            hideUndo()
             let panel = recordingPanel ?? makeRecordingPanel()
             panel.palette = palette
             panel.frame = bounds

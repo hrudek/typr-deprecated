@@ -115,7 +115,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
-        fullKeyboard?.discardTouchEvidence()
+        fullKeyboard?.selectionDidChange()
         KeyboardHost.harvest()
     }
 
@@ -393,13 +393,15 @@ final class KeyboardViewController: UIInputViewController {
            let resultID = snap.resultID,
            let rawTranscript = snap.transcript,
            bridge.lastInsertedResultID != resultID {
+            let before = textDocumentProxy.documentContextBeforeInput
+            let after = textDocumentProxy.documentContextAfterInput
             let insertion = TranscriptFormatter.insertionText(
                 for: rawTranscript,
-                beforeContext: textDocumentProxy.documentContextBeforeInput,
-                afterContext: textDocumentProxy.documentContextAfterInput
+                beforeContext: before,
+                afterContext: after
             )
             textDocumentProxy.insertText(insertion)
-            fullKeyboard?.didInsertDictation()
+            fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "")
             bridge.lastInsertedResultID = resultID
             insertedResult = true
             if feedbackBridge.switchesEnabled, snap.state != .recording, snap.state != .transcribing {

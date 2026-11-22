@@ -1,8 +1,9 @@
 import UIKit
 
 /// The 3-slot top bar above the keys, matching Apple's iOS 26 suggestion strip:
-/// two 1 pt vertical hairlines between the slots when idle or suggesting, replaced by
-/// a status message when needed. Dictation feedback has its own panel (`TyprFeedbackPanel`).
+/// two 1 pt vertical hairlines between the slots when idle or suggesting, replaced by the
+/// centred `Undo dictation` chip or a status message when needed. Dictation feedback has its
+/// own panel (`TyprFeedbackPanel`).
 @MainActor
 final class KeyboardStripView: UIView {
     var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { applyPalette() } } }
@@ -18,6 +19,7 @@ final class KeyboardStripView: UIView {
     }
     var onSelectSuggestion: ((KeyboardSuggestion) -> Void)?
     var onCodeFromMessages: (() -> Void)?
+    var onUndoDictation: (() -> Void)?
     /// Where the three slots sit; nil spreads them over the whole strip.
     var slotsFrame: CGRect? {
         didSet {
@@ -28,11 +30,13 @@ final class KeyboardStripView: UIView {
     }
 
     private let statusLabel = UILabel()
+    private let undoChip = UIButton(type: .custom)
     private let slotButtons: [SlotButton] = [SlotButton(), SlotButton(), SlotButton()]
     private let codeChip = UIButton(type: .custom)
     private(set) var currentSuggestions: [KeyboardSuggestion] = []
     private var statusText: String?
     private(set) var showsCodeChip = false
+    private var showsUndo = false
     private var selection = KeyboardSuggestionSelection()
 
     override init(frame: CGRect) {
@@ -63,6 +67,20 @@ final class KeyboardStripView: UIView {
         codeChip.addTarget(self, action: #selector(handleCodeChip), for: .touchUpInside)
         addSubview(codeChip)
 
+        var chip = UIButton.Configuration.plain()
+        chip.image = UIImage(
+            systemName: "arrow.uturn.backward",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 12.5, weight: .medium)
+        )
+        chip.imagePadding = 6
+        chip.title = "Undo dictation"
+        chip.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 13, bottom: 0, trailing: 13)
+        chip.background.cornerRadius = 15
+        undoChip.configuration = chip
+        undoChip.isHidden = true
+        undoChip.addTarget(self, action: #selector(handleUndo), for: .touchUpInside)
+        addSubview(undoChip)
+
         for (index, button) in slotButtons.enumerated() {
             button.tag = index
             button.addTarget(self, action: #selector(handleSlotDown(_:)), for: .touchDown)
@@ -78,17 +96,21 @@ final class KeyboardStripView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    /// The Code from Messages chip replaces the suggestions; a status message wins over it.
-    func update(suggestions: [KeyboardSuggestion], statusText: String?, showsCodeChip: Bool = false) {
-        let showsCodeChip = showsCodeChip && statusText == nil
-        guard suggestions != currentSuggestions || statusText != self.statusText || showsCodeChip != self.showsCodeChip else { return }
+    /// `showsUndo` puts the `Undo dictation` chip in place of the slots and any status. Otherwise
+    /// the Code from Messages chip replaces the suggestions; a status message wins over it.
+    func update(suggestions: [KeyboardSuggestion], statusText: String?, showsCodeChip: Bool = false, showsUndo: Bool = false) {
+        let showsCodeChip = showsCodeChip && statusText == nil && !showsUndo
+        guard suggestions != currentSuggestions || statusText != self.statusText || showsCodeChip != self.showsCodeChip
+            || showsUndo != self.showsUndo else { return }
         currentSuggestions = suggestions
         if suggestions.isEmpty { selection = KeyboardSuggestionSelection() }
         self.statusText = statusText
         self.showsCodeChip = showsCodeChip
+        self.showsUndo = showsUndo
         codeChip.isHidden = !showsCodeChip
+        undoChip.isHidden = !showsUndo
 
-        if showsCodeChip {
+        if showsUndo || showsCodeChip {
             statusLabel.isHidden = true
             slotButtons.forEach { $0.isHidden = true }
         } else if let statusText, suggestions.isEmpty {
@@ -116,6 +138,10 @@ final class KeyboardStripView: UIView {
         code?.baseForegroundColor = palette.textMuted
         code?.background.backgroundColor = palette.chipFill
         codeChip.configuration = code
+        var chip = undoChip.configuration
+        chip?.baseForegroundColor = palette.textMuted
+        chip?.background.backgroundColor = palette.chipFill
+        undoChip.configuration = chip
         for (idx, button) in slotButtons.enumerated() where idx < currentSuggestions.count {
             button.configure(with: currentSuggestions[idx], palette: palette)
         }
@@ -130,6 +156,9 @@ final class KeyboardStripView: UIView {
         super.layoutSubviews()
         let midY = contentCenterY
         statusLabel.frame = CGRect(x: 16, y: max(0, midY - 12), width: max(0, bounds.width - 32), height: 24)
+        let undoH = min(30, max(18, bounds.height - 6))
+        let undoW = min(bounds.width, undoChip.sizeThatFits(CGSize(width: bounds.width, height: undoH)).width)
+        undoChip.frame = CGRect(x: (bounds.width - undoW) / 2, y: max(0, midY - undoH / 2), width: undoW, height: undoH)
         let slots = slotsRect
         let slotW = slots.width / 3
         for (idx, button) in slotButtons.enumerated() {
@@ -152,7 +181,7 @@ final class KeyboardStripView: UIView {
 
     override func draw(_ rect: CGRect) {
         let slots = slotsRect
-        guard statusLabel.isHidden, !showsCodeChip, slots.width > 60 else { return }
+        guard !showsUndo, statusLabel.isHidden, !showsCodeChip, slots.width > 60 else { return }
         let scale = max(1, traitCollection.displayScale)
         let hairline = 1 / scale
         // 18.5 pt dividers, as in the owner's 2026-11-11 reference.
@@ -167,6 +196,10 @@ final class KeyboardStripView: UIView {
 
     @objc private func handleCodeChip() {
         onCodeFromMessages?()
+    }
+
+    @objc private func handleUndo() {
+        onUndoDictation?()
     }
 
     @objc private func handleSlotDown(_ sender: SlotButton) {
