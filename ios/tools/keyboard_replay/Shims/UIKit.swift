@@ -1,4 +1,5 @@
 @_exported import Foundation
+@_exported import CoreGraphics
 
 // The UIKit names the shared keyboard sources mention; the replay never reaches UIKit behavior.
 
@@ -40,6 +41,7 @@ public final class UITextChecker {
 @MainActor
 public protocol UITextDocumentProxy {
     var documentContextBeforeInput: String? { get }
+    var documentContextAfterInput: String? { get }
     var hasText: Bool { get }
     var autocapitalizationType: UITextAutocapitalizationType { get }
     var autocorrectionType: UITextAutocorrectionType { get }

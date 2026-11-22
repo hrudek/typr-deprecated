@@ -770,3 +770,15 @@ Typr's spoken punctuation (`ios/TyprShared/SpokenPunctuation.swift`) is adapted 
 `ios/HEXShared/SpokenPunctuation.swift`, keeping the German and English tables and adding
 English "at sign". MIT, © Christopher Langton, the same license as this repository
 ([LICENSE](LICENSE)).
+
+## Hex space-bar trackpad
+
+`ios/TyprShared/FullKeyboard/TrackpadCursor.swift` is `TrackpadCursor.swift` from
+[anomalyco/hex](https://github.com/anomalyco/hex) at `d65b02d36efbaf1ff771420e89c0632dea4706cb`
+(PRs #2219 and #2192) without its text-target extensions. The trackpad code in
+`FullKeyboardEngine.swift` (`holdSpace`, `trackpadStep`, `trackpadFieldChanged`, `liftTrackpad`),
+the hold timer in `KeyboardKeyPlaneView.swift`, and the tests in
+`ios/TyprTests/TrackpadCursorTests.swift` and the Apple-trackpad tests in
+`ios/TyprTests/FullKeyboardEngineTests.swift` follow `FullKeyboardEngine+Trackpad.swift`,
+`KeyboardKeyPlaneView.swift` and `FullKeyboardEngineTests.swift` there. MIT, © Christopher
+Langton, the same license as this repository ([LICENSE](LICENSE)).

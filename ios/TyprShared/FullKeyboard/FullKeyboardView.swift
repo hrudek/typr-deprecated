@@ -192,6 +192,22 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
     var enableInputClicksWhenVisible: Bool { true }
 
     private var cachedGerman: GermanAutocorrect? // Typr
+    private var trackpadFont: UIFont?
+
+    /// Most fields show the body font (17 pt, larger with Dynamic Type).
+    private func applyTrackpadFont() {
+        let font = UIFont.preferredFont(forTextStyle: .body)
+        guard font != trackpadFont else { return }
+        trackpadFont = font
+        var widths: [Character: CGFloat] = [:]
+        engine.trackpadLineHeight = font.lineHeight
+        engine.trackpadCharacterWidth = { character in
+            if let width = widths[character] { return width }
+            let width = character.isNewline ? 0 : (String(character) as NSString).size(withAttributes: [.font: font]).width
+            widths[character] = width
+            return width
+        }
+    }
 
     func warmUpTextCheckerAsync() {
         if engine.autocorrect.isEnabled { engine.autocorrect.spatialDecoder?.prepareResources() }
@@ -236,6 +252,8 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         }
         if wantsAutocorrect { engine.autocorrect.spatialDecoder?.prepareResources() }
         engine.swipeTypingEnabled = FullKeyboardSettings().swipeTyping
+        engine.followsTextOnTrackpad = TyprSettings()[experiment: .spaceTrackpad]
+        applyTrackpadFont()
         let wantsEnglish = TyprSettings().autocorrectEnglish
         if engine.autocorrect.englishEnabled != wantsEnglish {
             engine.autocorrect.englishEnabled = wantsEnglish

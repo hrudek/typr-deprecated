@@ -48,7 +48,7 @@ sources=(
   FullKeyboard/PersonalCompletionIndex FullKeyboard/PersonalTypingModel FullKeyboard/ProtectedPersonalLexicon
   FullKeyboard/ShiftStateMachine FullKeyboard/SpatialPrefixSearch FullKeyboard/SpatialWordDecoder
   FullKeyboard/SpatialWordRanking FullKeyboard/SwipeDecoder FullKeyboard/SwipeEncoder
-  FullKeyboard/TypingLog FullKeyboard/TypingModelTypes Statistics/UsageStatistics
+  FullKeyboard/TrackpadCursor FullKeyboard/TypingLog FullKeyboard/TypingModelTypes Statistics/UsageStatistics
   Statistics/UsageStatisticsSession Statistics/UsageStatisticsStore DictationFeedback DictationFeedbackBridge
   DictationLanguage SpeechEngineChoice TyprSettings FullKeyboard/FullKeyboardSettings FullKeyboard/ReturnKeyStyle
 )

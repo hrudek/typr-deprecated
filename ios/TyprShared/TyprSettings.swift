@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -38,6 +38,12 @@ struct ExperimentalSwitch: Hashable {
         name: "spokenPunctuation",
         title: "Spoken punctuation",
         detail: "Say “Komma”, “Fragezeichen” or “Klammer auf” for the mark, in every style except Verbatim. Some commands stay words when they could be part of a noun phrase."
+    )
+
+    static let spaceTrackpad = ExperimentalSwitch(
+        name: "spaceTrackpad",
+        title: "Space bar trackpad like Apple's",
+        detail: "Hold the space bar to move the cursor, also up and down through lines. Faster slides move it further."
     )
 }
 
