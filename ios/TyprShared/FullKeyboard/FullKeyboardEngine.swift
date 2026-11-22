@@ -83,6 +83,8 @@ final class FullKeyboardEngine {
         var trackpadPath: [TrackpadCursor.Sample] = []
         /// A delete press slid left (`slidesDeleteByWord`): the words it deleted, oldest first.
         var slideDeleted: [String]?
+        /// The text before the cursor when the slide started; hosts can report context late.
+        var slideBefore = ""
         /// Samples of a letter press that may still become a swipe; nil once it cannot.
         var swipePath: [SwipePoint]?
         /// Crossed `swipeActivation`: no key, preview or accent menu any more; a word on release.
@@ -1036,12 +1038,14 @@ final class FullKeyboardEngine {
             autocorrect.discardFeedback()
             autocorrect.clearPendingUndo()
             typingLog?.discard()
+            touch.slideBefore = target.documentContextBeforeInput ?? ""
         }
         var deleted = touch.slideDeleted ?? []
         var changed = false
-        while deleted.count < wanted, let before = target.documentContextBeforeInput,
-              let length = DeleteWordSlide.wordLength(before: before) {
+        var before = String(touch.slideBefore.dropLast(deleted.reduce(0) { $0 + $1.count }))
+        while deleted.count < wanted, let length = DeleteWordSlide.wordLength(before: before) {
             deleted.append(String(before.suffix(length)))
+            before.removeLast(length)
             for _ in 0..<length { target.deleteBackward() }
             statistics?.deletion(wholeWord: true)
             changed = true

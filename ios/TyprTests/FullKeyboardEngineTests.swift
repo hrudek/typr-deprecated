@@ -706,6 +706,25 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.text, "Schöne Grüß")
     }
 
+    func testTheDeleteSlideWorksFromItsStartingTextWhenTheHostReportsContextLate() {
+        let host = LateContextTarget(text: "Hallo schöne Welt")
+        engine = FullKeyboardEngine(target: host, autocorrect: AutocorrectEngine(
+            learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil))
+        engine.width = 393
+        engine.clock = { [unowned self] in self.now }
+        engine.configureForField()
+        engine.slidesDeleteByWord = true
+
+        down(1, .delete)
+        host.freezesContext = true
+        slideDelete(1, keyWidths: 2.2)
+        XCTAssertEqual(host.text, "Hallo ")
+        slideDelete(1, keyWidths: 0)
+        XCTAssertEqual(host.text, "Hallo schöne Wel")
+        up(1, .delete)
+        XCTAssertEqual(host.text, "Hallo schöne Wel")
+    }
+
     func testWithTheDeleteSlideATapAndAStillHoldDeleteAsBefore() {
         resetText("Hallo Welt")
         engine.slidesDeleteByWord = true
@@ -843,4 +862,30 @@ final class FullKeyboardEngineTests: XCTestCase {
         engine.configureForField()
         XCTAssertEqual(engine.layout.layer, .numbers)
     }
+}
+
+/// A host whose `documentContextBeforeInput` stops following edits, as some apps report it late.
+@MainActor
+private final class LateContextTarget: KeyboardTextTarget {
+    private let field: FixtureTextTarget
+    private var frozenBefore: String?
+    var freezesContext = false {
+        didSet { frozenBefore = freezesContext ? field.documentContextBeforeInput : nil }
+    }
+
+    init(text: String) {
+        field = FixtureTextTarget(text: text)
+        field.autocapitalizationType = UITextAutocapitalizationType.none
+    }
+
+    var text: String { field.text }
+    var documentContextBeforeInput: String? { frozenBefore ?? field.documentContextBeforeInput }
+    var documentContextAfterInput: String? { field.documentContextAfterInput }
+    var hasText: Bool { field.hasText }
+    var autocapitalizationType: UITextAutocapitalizationType? { field.autocapitalizationType }
+    var keyboardType: UIKeyboardType? { field.keyboardType }
+    var returnKeyType: UIReturnKeyType? { field.returnKeyType }
+    var keyboardAppearance: UIKeyboardAppearance? { field.keyboardAppearance }
+    func insertText(_ text: String) { field.insertText(text) }
+    func deleteBackward() { field.deleteBackward() }
 }
