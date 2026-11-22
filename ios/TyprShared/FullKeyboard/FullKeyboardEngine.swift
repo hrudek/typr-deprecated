@@ -5,6 +5,7 @@ import UIKit
 @MainActor
 protocol KeyboardTextTarget: AnyObject {
     var documentContextBeforeInput: String? { get }
+    var documentContextAfterInput: String? { get }
     var hasText: Bool { get }
     var autocapitalizationType: UITextAutocapitalizationType? { get }
     var autocorrectionType: UITextAutocorrectionType? { get }
@@ -20,6 +21,7 @@ protocol KeyboardTextTarget: AnyObject {
 }
 
 extension KeyboardTextTarget {
+    var documentContextAfterInput: String? { nil }
     var autocorrectionType: UITextAutocorrectionType? { .default }
     var isSecureTextEntry: Bool? { false }
     var inlinePredictionType: UITextInlinePredictionType? { .default }
@@ -36,6 +38,7 @@ final class DocumentProxyTextTarget: KeyboardTextTarget {
     }
 
     var documentContextBeforeInput: String? { proxy().documentContextBeforeInput }
+    var documentContextAfterInput: String? { proxy().documentContextAfterInput }
     var hasText: Bool { proxy().hasText }
     var autocapitalizationType: UITextAutocapitalizationType? { proxy().autocapitalizationType }
     var autocorrectionType: UITextAutocorrectionType? { proxy().autocorrectionType }
@@ -70,6 +73,8 @@ final class FullKeyboardEngine {
         var returnLayer: KeyboardLayer?
         var isTrackpad = false
         var trackpadAnchorX: CGFloat = 0
+        var trackpad: TrackpadCursor.State?
+        var trackpadPath: [TrackpadCursor.Sample] = []
         /// Samples of a letter press that may still become a swipe; nil once it cannot.
         var swipePath: [SwipePoint]?
         /// Crossed `swipeActivation`: no key, preview or accent menu any more; a word on release.
@@ -93,6 +98,12 @@ final class FullKeyboardEngine {
     /// space, as on Apple's (its trackpad starts 330 to 365 ms after touch-down; Hex #2233).
     static let trackpadDelay: TimeInterval = 0.35
     static let trackpadPointsPerCharacter: CGFloat = 7.5
+    /// Settings > Experimental: the space bar moves the cursor as Apple's does (`TrackpadCursor`),
+    /// also when held still; off, a held slide moves it `trackpadPointsPerCharacter` along.
+    var followsTextOnTrackpad = false
+    /// The field's body font, which `TrackpadCursor` lays the text out in.
+    var trackpadLineHeight: CGFloat = 20
+    var trackpadCharacterWidth: (Character) -> CGFloat = { $0.isNewline ? 0 : 8.5 }
     /// A letter press becomes a swipe after travelling this many letter widths (iikb: 0.8):
     /// beyond a slipped tap, short of a deliberate slide.
     static let swipeActivation: CGFloat = 0.8
@@ -318,6 +329,7 @@ final class FullKeyboardEngine {
         refreshDeleteUndo()
         refreshAutoCapitalization()
         refreshSuggestions()
+        trackpadFieldChanged()
     }
 
     /// Invalidates in-flight taps too: a late release must not recreate evidence after a cursor/field change.
@@ -690,17 +702,13 @@ final class FullKeyboardEngine {
         if touch.key.kind == .space, !touch.committed {
             if !touch.isTrackpad, clock() - touch.startTime >= Self.trackpadDelay,
                abs(point.x - touch.startPoint.x) >= Self.trackpadActivationDistance {
-                discardTouchEvidence()
-                endTypingLogWord("cursor")
-                touch.isTrackpad = true
-                touch.trackpadAnchorX = point.x
-                endStatisticsSession()
-                lastSpaceAt = nil
-                autocorrect.clearPendingUndo()
+                startTrackpad(&touch, id: id, time: samples.last?.time)
+                return
+            }
+            if touch.trackpad != nil {
+                let offset = trackpadStep(&touch, to: point, time: samples.last?.time ?? clock())
                 touches[id] = touch
-                refreshDeleteUndo()
-                onSelectionStep?()
-                onChange?()
+                trackpadMovedCursor(by: offset)
                 return
             }
             if touch.isTrackpad {
@@ -766,7 +774,9 @@ final class FullKeyboardEngine {
         case .shift:
             shift.shiftUp()
         case .space:
-            if !touch.isTrackpad, !touch.committed {
+            if touch.trackpad != nil {
+                liftTrackpad(&touch)
+            } else if !touch.isTrackpad, !touch.committed {
                 let sample: KeyboardTouchWord.Sample? = touch.hasUnambiguousPoint && touch.evidenceLayout == layout
                     ? .init(text: " ", point: touch.point, key: touch.key) : nil
                 typeSpace(sample: sample)
@@ -875,6 +885,86 @@ final class FullKeyboardEngine {
         autocorrect.touchInput.deletedBackward(before: nil, after: target.documentContextBeforeInput)
         lastSpaceAt = nil
         didEdit()
+    }
+
+    /// The space bar held `trackpadDelay` without sliding: with `followsTextOnTrackpad` the
+    /// trackpad starts where the finger is, as Apple's does, so letting go types no space.
+    func holdSpace(forTouch id: Int) {
+        guard followsTextOnTrackpad, var touch = touches[id], touch.key.kind == .space,
+              !touch.committed, !touch.isTrackpad else { return }
+        startTrackpad(&touch, id: id, time: nil)
+    }
+
+    private func startTrackpad(_ touch: inout ActiveTouch, id: Int, time: TimeInterval?) {
+        discardTouchEvidence()
+        endTypingLogWord("cursor")
+        touch.isTrackpad = true
+        touch.trackpadAnchorX = touch.point.x
+        if followsTextOnTrackpad {
+            touch.trackpadPath = [TrackpadCursor.Sample(time: time ?? clock(), point: touch.point)]
+            touch.trackpad = TrackpadCursor.State(
+                before: target.documentContextBeforeInput ?? "",
+                after: target.documentContextAfterInput ?? "",
+                wrapWidth: TrackpadCursor.wrapWidth(forWidth: width),
+                lineHeight: trackpadLineHeight,
+                width: trackpadCharacterWidth
+            )
+        }
+        endStatisticsSession()
+        lastSpaceAt = nil
+        autocorrect.clearPendingUndo()
+        touches[id] = touch
+        refreshDeleteUndo()
+        // Apple's trackpad asks for no feedback after the space bar's own.
+        if !followsTextOnTrackpad { onSelectionStep?() }
+        onChange?()
+    }
+
+    /// The finger moved to `point` at `time`: the UTF-16 offset to move the cursor by. The
+    /// finger's speed sets how far the point goes (`TrackpadCursor.gain(speed:)`).
+    private func trackpadStep(_ touch: inout ActiveTouch, to point: CGPoint, time: TimeInterval) -> Int {
+        guard var state = touch.trackpad else { return 0 }
+        let last = touch.trackpadPath.last ?? TrackpadCursor.Sample(time: time, point: point)
+        let sample = TrackpadCursor.Sample(time: time, point: point)
+        touch.trackpadPath = time > last.time ? touch.trackpadPath.suffix(7) + [sample] : [sample]
+        let gain = TrackpadCursor.gain(speed: TrackpadCursor.speed(along: touch.trackpadPath))
+        let dx = point.x - last.point.x, dy = point.y - last.point.y
+        let vertical = touch.trackpadPath.count > 1 ? TrackpadCursor.isVertical(touch.trackpadPath) : abs(dy) > abs(dx)
+        var offset = state.move(by: CGVector(dx: dx * gain, dy: dy * gain), at: time, vertical: vertical)
+        if state.nearsEdge, catchUp(&state) { offset += state.settle(at: time) }
+        touch.trackpad = state
+        return offset
+    }
+
+    private func catchUp(_ state: inout TrackpadCursor.State) -> Bool {
+        state.catchUp(before: target.documentContextBeforeInput ?? "", after: target.documentContextAfterInput ?? "",
+                      width: trackpadCharacterWidth)
+    }
+
+    /// The host answers cursor moves late and may then show more text or the text's start or end.
+    private func trackpadFieldChanged() {
+        guard let (id, found) = touches.first(where: { $0.value.trackpad != nil }), var state = found.trackpad
+        else { return }
+        var touch = found
+        if state.nearsEdge { _ = catchUp(&state) }
+        let offset = state.settle(at: clock())
+        touch.trackpad = state
+        touches[id] = touch
+        trackpadMovedCursor(by: offset)
+    }
+
+    private func liftTrackpad(_ touch: inout ActiveTouch) {
+        guard var state = touch.trackpad else { return }
+        let offset = state.settle(at: clock(), lifting: true)
+        touch.trackpad = state
+        trackpadMovedCursor(by: offset)
+    }
+
+    private func trackpadMovedCursor(by offset: Int) {
+        guard offset != 0 else { return }
+        target.adjustTextPosition(byCharacterOffset: offset)
+        refreshAutoCapitalization()
+        refreshSuggestions()
     }
 
     // MARK: - Delete

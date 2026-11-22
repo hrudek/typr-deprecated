@@ -540,6 +540,122 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.cursorIndex, 3)
     }
 
+    private func useAppleTrackpad(text: String) {
+        engine.followsTextOnTrackpad = true
+        engine.trackpadLineHeight = 20
+        engine.trackpadCharacterWidth = { $0.isNewline ? 0 : 10 }
+        target.insertText(text)
+        engine.textDidChange()
+    }
+
+    private func slideSpace(id: Int, from start: CGPoint, by dx: CGFloat, steps: Int, interval: TimeInterval) -> CGPoint {
+        var at = start
+        for step in 1...steps {
+            now += interval
+            at = CGPoint(x: start.x + dx * CGFloat(step) / CGFloat(steps), y: start.y)
+            engine.touchMoved(id: id, to: at)
+        }
+        return at
+    }
+
+    func testTheAppleTrackpadMovesTheCursorUpAndDownThroughLines() {
+        useAppleTrackpad(text: "Hallo Welt\nwie geht es dir")
+        let space = point(.space)
+        engine.touchBegan(id: 1, at: space)
+        engine.holdSpace(forTouch: 1)
+        engine.touchMoved(id: 1, to: CGPoint(x: space.x, y: space.y - 20))
+        XCTAssertEqual(target.cursorIndex, 10, "up a line, at the end of the shorter \"Hallo Welt\"")
+        engine.touchMoved(id: 1, to: CGPoint(x: space.x, y: space.y))
+        XCTAssertEqual(target.cursorIndex, 26, "down again, at its x")
+        engine.touchMoved(id: 1, to: CGPoint(x: space.x - 50, y: space.y))
+        engine.touchEnded(id: 1, at: CGPoint(x: space.x - 50, y: space.y))
+        XCTAssertEqual(target.cursorIndex, 21)
+        XCTAssertEqual(target.text, "Hallo Welt\nwie geht es dir")
+    }
+
+    func testTheAppleTrackpadMovesFurtherOnAFastDragThanOnASlowOne() {
+        useAppleTrackpad(text: "Das ist ein ziemlich langer Satz")
+        let space = point(.space)
+        engine.touchBegan(id: 1, at: space)
+        engine.holdSpace(forTouch: 1)
+        engine.touchEnded(id: 1, at: slideSpace(id: 1, from: space, by: -80, steps: 8, interval: 0.1))
+        let slow = 32 - target.cursorIndex
+        XCTAssertEqual(slow, 9, "80 pt at 100 pt/s goes 1.06 times as far: 8.5 characters")
+
+        target.adjustTextPosition(byCharacterOffset: slow)
+        engine.textDidChange()
+        now += 1
+        engine.touchBegan(id: 2, at: space)
+        engine.holdSpace(forTouch: 2)
+        engine.touchEnded(id: 2, at: slideSpace(id: 2, from: space, by: -80, steps: 8, interval: 0.005))
+        let fast = 32 - target.cursorIndex
+        XCTAssertGreaterThan(fast, 2 * slow, "80 pt at 2,000 pt/s goes about 2.6 times as far")
+        XCTAssertEqual(target.text, "Das ist ein ziemlich langer Satz")
+    }
+
+    /// Holding the space bar still starts the trackpad, as Apple's does, so letting go types
+    /// nothing; sliding after the hold moves the cursor and never ticks (Apple's asks for no
+    /// feedback after the space bar's own).
+    func testHoldingSpaceStillStartsTheAppleTrackpadAndTypesNoSpace() {
+        useAppleTrackpad(text: "hallo ")
+        var ticks = 0
+        engine.onSelectionStep = { ticks += 1 }
+        let space = point(.space)
+        engine.touchBegan(id: 1, at: space)
+        engine.holdSpace(forTouch: 1)
+        XCTAssertTrue(engine.isTrackpadActive)
+        engine.touchEnded(id: 1, at: space)
+        XCTAssertEqual(target.text, "hallo ")
+
+        engine.touchBegan(id: 2, at: space)
+        engine.holdSpace(forTouch: 2)
+        let left = CGPoint(x: space.x - 21, y: space.y)
+        engine.touchMoved(id: 2, to: left)
+        engine.touchEnded(id: 2, at: left)
+        XCTAssertEqual(target.text, "hallo ")
+        XCTAssertEqual(target.cursorIndex, 4)
+        XCTAssertEqual(ticks, 0)
+    }
+
+    func testWithTheAppleTrackpadAQuickSpaceTapThatDriftsStillTypesASpace() {
+        useAppleTrackpad(text: "")
+        let start = point(.space)
+        for (id, ms, dx) in [(1, 60.0, CGFloat(12)), (2, 150, 24), (3, 150, -40)] {
+            type("a")
+            engine.touchBegan(id: id, at: start)
+            now += ms / 2000
+            engine.touchMoved(id: id, to: CGPoint(x: start.x + dx / 2, y: start.y))
+            now += ms / 2000
+            engine.touchMoved(id: id, to: CGPoint(x: start.x + dx, y: start.y))
+            XCTAssertFalse(engine.isTrackpadActive, "\(ms) ms, \(dx) pt")
+            engine.touchEnded(id: id, at: CGPoint(x: start.x + dx, y: start.y))
+            now += 0.5
+        }
+        XCTAssertEqual(target.text, "a a a ")
+    }
+
+    func testTheAppleTrackpadAlsoStartsBySlidingOnceHeld() {
+        useAppleTrackpad(text: "hallo")
+        let space = point(.space)
+        engine.touchBegan(id: 1, at: space)
+        let end = slideSpace(id: 1, from: space, by: -40, steps: 10, interval: 0.06)
+        XCTAssertTrue(engine.isTrackpadActive)
+        engine.touchEnded(id: 1, at: end)
+        XCTAssertEqual(target.text, "hallo")
+        XCTAssertEqual(target.cursorIndex, 3, "started 24 pt in, the last 16 pt move it")
+    }
+
+    func testWithoutTheExperimentHoldingSpaceStillTypesASpace() {
+        type("hallo")
+        let space = point(.space)
+        engine.touchBegan(id: 1, at: space)
+        now += FullKeyboardEngine.trackpadDelay + 0.1
+        engine.holdSpace(forTouch: 1)
+        XCTAssertFalse(engine.isTrackpadActive)
+        engine.touchEnded(id: 1, at: space)
+        XCTAssertEqual(target.text, "hallo ")
+    }
+
     func testEnablesReturnKeyAutomaticallyBlocksEmptyField() {
         target.enablesReturnKeyAutomatically = true
         tap(.returnKey)

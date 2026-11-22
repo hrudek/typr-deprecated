@@ -218,6 +218,7 @@ final class KeyboardKeyPlaneView: UIView {
             if let kind = engine.touches[id]?.key.kind {
                 onKeyDown?(kind)
                 if kind == .delete { startDeleteRepeat() }
+                if kind == .space, engine.followsTextOnTrackpad { armTrackpadHoldTimer(for: id) }
                 if case .character = kind { armAccentTimer(for: id) }
                 if case .layerSwitch = kind, engine.layout.layerKeyHoldSwitchesKeyboard { armNextKeyboardTimer(for: id) }
             }
@@ -317,6 +318,19 @@ final class KeyboardKeyPlaneView: UIView {
         }
         holdWork[id] = work
         DispatchQueue.main.asyncAfter(deadline: .now() + FullKeyboardEngine.nextKeyboardHoldDelay, execute: work)
+    }
+
+    private func armTrackpadHoldTimer(for id: Int) {
+        cancelHoldTimer(for: id)
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.holdWork.removeValue(forKey: id)
+                self.engine.holdSpace(forTouch: id)
+            }
+        }
+        holdWork[id] = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + FullKeyboardEngine.trackpadDelay, execute: work)
     }
 
     private func cancelHoldTimer(for id: Int) {
