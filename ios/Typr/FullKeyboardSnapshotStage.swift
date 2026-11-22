@@ -197,6 +197,7 @@ final class FixtureTextTarget: KeyboardTextTarget {
     var inlinePredictionType: UITextInlinePredictionType? = .default
     var returnKeyType: UIReturnKeyType? = .default
     var enablesReturnKeyAutomatically: Bool? = false
+    var textContentType: UITextContentType?
 
     init(text: String = "", appearance: UIKeyboardAppearance? = nil) {
         self.text = text

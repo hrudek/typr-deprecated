@@ -14,6 +14,10 @@ public enum UIReturnKeyType: Sendable {
     case `default`, go, google, join, next, route, search, send, yahoo, done, emergencyCall, `continue`
 }
 public enum UIKeyboardAppearance: Sendable { case `default`, dark, light }
+public struct UITextContentType: Hashable, Sendable {
+    public let rawValue: String
+    public static let oneTimeCode = UITextContentType(rawValue: "one-time-code")
+}
 
 public struct UILexiconEntry {
     public let userInput: String
@@ -51,6 +55,7 @@ public protocol UITextDocumentProxy {
     var returnKeyType: UIReturnKeyType { get }
     var enablesReturnKeyAutomatically: Bool { get }
     var keyboardAppearance: UIKeyboardAppearance { get }
+    var textContentType: UITextContentType? { get }
     func insertText(_ text: String)
     func deleteBackward()
     func adjustTextPosition(byCharacterOffset offset: Int)

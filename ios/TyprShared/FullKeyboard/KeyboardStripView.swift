@@ -17,6 +17,7 @@ final class KeyboardStripView: UIView {
         }
     }
     var onSelectSuggestion: ((KeyboardSuggestion) -> Void)?
+    var onCodeFromMessages: (() -> Void)?
     /// Where the three slots sit; nil spreads them over the whole strip.
     var slotsFrame: CGRect? {
         didSet {
@@ -28,8 +29,10 @@ final class KeyboardStripView: UIView {
 
     private let statusLabel = UILabel()
     private let slotButtons: [SlotButton] = [SlotButton(), SlotButton(), SlotButton()]
+    private let codeChip = UIButton(type: .custom)
     private(set) var currentSuggestions: [KeyboardSuggestion] = []
     private var statusText: String?
+    private(set) var showsCodeChip = false
     private var selection = KeyboardSuggestionSelection()
 
     override init(frame: CGRect) {
@@ -44,6 +47,21 @@ final class KeyboardStripView: UIView {
         statusLabel.minimumScaleFactor = 0.8
         statusLabel.isHidden = true
         addSubview(statusLabel)
+
+        var code = UIButton.Configuration.plain()
+        code.image = UIImage(
+            systemName: "keyboard",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 12.5, weight: .medium)
+        )
+        code.imagePadding = 6
+        code.title = "Code from Messages"
+        code.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 13, bottom: 0, trailing: 13)
+        code.background.cornerRadius = 15
+        codeChip.configuration = code
+        codeChip.accessibilityHint = "Switches to Apple's keyboard, where iOS offers codes from Messages and Mail"
+        codeChip.isHidden = true
+        codeChip.addTarget(self, action: #selector(handleCodeChip), for: .touchUpInside)
+        addSubview(codeChip)
 
         for (index, button) in slotButtons.enumerated() {
             button.tag = index
@@ -60,13 +78,20 @@ final class KeyboardStripView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    func update(suggestions: [KeyboardSuggestion], statusText: String?) {
-        guard suggestions != currentSuggestions || statusText != self.statusText else { return }
+    /// The Code from Messages chip replaces the suggestions; a status message wins over it.
+    func update(suggestions: [KeyboardSuggestion], statusText: String?, showsCodeChip: Bool = false) {
+        let showsCodeChip = showsCodeChip && statusText == nil
+        guard suggestions != currentSuggestions || statusText != self.statusText || showsCodeChip != self.showsCodeChip else { return }
         currentSuggestions = suggestions
         if suggestions.isEmpty { selection = KeyboardSuggestionSelection() }
         self.statusText = statusText
+        self.showsCodeChip = showsCodeChip
+        codeChip.isHidden = !showsCodeChip
 
-        if let statusText, suggestions.isEmpty {
+        if showsCodeChip {
+            statusLabel.isHidden = true
+            slotButtons.forEach { $0.isHidden = true }
+        } else if let statusText, suggestions.isEmpty {
             statusLabel.text = statusText
             statusLabel.isHidden = false
             slotButtons.forEach { $0.isHidden = true }
@@ -87,6 +112,10 @@ final class KeyboardStripView: UIView {
 
     private func applyPalette() {
         statusLabel.textColor = palette.textMuted
+        var code = codeChip.configuration
+        code?.baseForegroundColor = palette.textMuted
+        code?.background.backgroundColor = palette.chipFill
+        codeChip.configuration = code
         for (idx, button) in slotButtons.enumerated() where idx < currentSuggestions.count {
             button.configure(with: currentSuggestions[idx], palette: palette)
         }
@@ -107,6 +136,14 @@ final class KeyboardStripView: UIView {
             button.inSystemPlatter = inSystemPlatter
             button.frame = CGRect(x: slots.minX + CGFloat(idx) * slotW, y: 0, width: slotW, height: bounds.height)
         }
+        let chipH = min(30, max(22, bounds.height - 6))
+        let chipW = min(bounds.width, codeChip.sizeThatFits(CGSize(width: bounds.width, height: chipH)).width)
+        codeChip.frame = CGRect(
+            x: max(0, min(bounds.width - chipW, slots.midX - chipW / 2)),
+            y: max(0, midY - chipH / 2),
+            width: chipW,
+            height: chipH
+        )
     }
 
     private var slotsRect: CGRect {
@@ -115,7 +152,7 @@ final class KeyboardStripView: UIView {
 
     override func draw(_ rect: CGRect) {
         let slots = slotsRect
-        guard statusLabel.isHidden, slots.width > 60 else { return }
+        guard statusLabel.isHidden, !showsCodeChip, slots.width > 60 else { return }
         let scale = max(1, traitCollection.displayScale)
         let hairline = 1 / scale
         // 18.5 pt dividers, as in the owner's 2026-11-11 reference.
@@ -126,6 +163,10 @@ final class KeyboardStripView: UIView {
         palette.separator.setFill()
         UIRectFill(CGRect(x: (slots.minX + slotW).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
         UIRectFill(CGRect(x: (slots.minX + slotW * 2).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
+    }
+
+    @objc private func handleCodeChip() {
+        onCodeFromMessages?()
     }
 
     @objc private func handleSlotDown(_ sender: SlotButton) {
