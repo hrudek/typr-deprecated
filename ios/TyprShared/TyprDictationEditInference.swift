@@ -419,14 +419,3 @@ nonisolated enum TyprDictationEditClassifier {
         return runs
     }
 }
-
-extension Array where Element == String {
-    /// Whether `run` appears in order, without gaps, inside this array.
-    nonisolated func containsRun(_ run: [String]) -> Bool {
-        guard !run.isEmpty, run.count <= count else { return false }
-        for start in 0...(count - run.count) where Array(self[start..<(start + run.count)]) == run {
-            return true
-        }
-        return false
-    }
-}
