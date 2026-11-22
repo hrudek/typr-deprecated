@@ -13,6 +13,8 @@ nonisolated enum AudioSystemEvent: Equatable, Sendable {
 protocol ActiveAudioCapture: AnyObject {
     var url: URL { get }
     var isRecording: Bool { get }
+    /// After `stop()`: some audio never reached the file, so it must not be transcribed.
+    var didFailWriting: Bool { get }
     var currentTime: TimeInterval { get }
     func normalizedPowerLevel() -> Float
     func averagePowerDB() -> Float
@@ -20,6 +22,8 @@ protocol ActiveAudioCapture: AnyObject {
 }
 
 extension ActiveAudioCapture {
+    var didFailWriting: Bool { false }
+
     func averagePowerDB() -> Float {
         DotScopeSimulation.loudness(fromNormalized: normalizedPowerLevel())
     }
@@ -44,6 +48,17 @@ protocol AudioManaging: AnyObject {
     func stopKeepalive()
     func deactivateSession()
     func beginCapture(at url: URL, maxDuration: TimeInterval, microphone: MicrophoneChoice) throws -> any ActiveAudioCapture
+    /// Like `beginCapture`, but the audio stays in memory until `commit(to:)`.
+    func beginArmedCapture(maxDuration: TimeInterval, microphone: MicrophoneChoice) throws -> any ArmedAudioCapture
+}
+
+/// Audio from the running input held in memory only (at most `TapFileWriter.heldLimit`).
+/// `commit(to:)` writes it as the start of a capture that keeps recording there; `stop()` drops it.
+@MainActor
+protocol ArmedAudioCapture: AnyObject {
+    var isRecording: Bool { get }
+    func commit(to url: URL) throws -> any ActiveAudioCapture
+    func stop()
 }
 
 extension AudioManaging {
@@ -55,7 +70,21 @@ extension AudioManaging {
     }
 
     func keepaliveFollows(_ microphone: MicrophoneChoice) -> Bool { isKeepaliveRunning }
+
+    func beginArmedCapture(maxDuration: TimeInterval, microphone: MicrophoneChoice) throws -> any ArmedAudioCapture {
+        throw CocoaError(.featureUnsupported)
+    }
 }
+
+nonisolated private struct HeldBuffers: @unchecked Sendable {
+    let buffers: [AVAudioPCMBuffer]
+}
+
+protocol CaptureFileSink: AnyObject {
+    func write(from buffer: AVAudioPCMBuffer) throws
+}
+
+extension AVAudioFile: CaptureFileSink {}
 
 /// Writes the running input tap into a 16 kHz mono 16-bit WAV (the format the recorder used to
 /// write). Called on the tap's thread; everything is guarded by `lock`.
@@ -75,6 +104,8 @@ nonisolated final class TapFileWriter: @unchecked Sendable {
     /// duration limit, `false` when writing failed.
     var onEnd: (@Sendable (Bool) -> Void)?
 
+    static let heldLimit: TimeInterval = 3
+
     private let lock = NSLock()
     private let outputFormat: AVAudioFormat
     private let maxFrames: AVAudioFramePosition
@@ -83,8 +114,26 @@ nonisolated final class TapFileWriter: @unchecked Sendable {
     private var framesWritten: AVAudioFramePosition = 0
     private var powerDB: Float = -160
     private var isOpen = true
+    private var held: [AVAudioPCMBuffer] = []
+    private let queue: DispatchQueue
+    private var committed = false
+    private var committedFile: (any CaptureFileSink)?
+    private let openSink: @Sendable (URL) throws -> any CaptureFileSink
+    private var writeFailed = false
 
-    init(url: URL, maxDuration: TimeInterval) throws {
+    convenience init(url: URL, maxDuration: TimeInterval) throws {
+        try self.init(maxDuration: maxDuration)
+        file = try Self.openFile(at: url)
+    }
+
+    /// Holds the newest `heldLimit` of audio in memory and writes nothing until `persist(to:onEnd:)`.
+    init(
+        maxDuration: TimeInterval,
+        queue: DispatchQueue = DispatchQueue(label: "dev.rudek.typr.armed-writer"),
+        openSink: @escaping @Sendable (URL) throws -> any CaptureFileSink = { try TapFileWriter.openFile(at: $0) }
+    ) throws {
+        self.queue = queue
+        self.openSink = openSink
         guard let format = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: 16_000,
@@ -95,18 +144,72 @@ nonisolated final class TapFileWriter: @unchecked Sendable {
         }
         outputFormat = format
         maxFrames = AVAudioFramePosition(maxDuration * format.sampleRate)
-        file = try AVAudioFile(
-            forWriting: url,
-            settings: Self.fileSettings,
-            commonFormat: .pcmFormatFloat32,
-            interleaved: false
-        )
+    }
+
+    static func openFile(at url: URL) throws -> AVAudioFile {
+        try AVAudioFile(forWriting: url, settings: fileSettings, commonFormat: .pcmFormatFloat32, interleaved: false)
+    }
+
+    /// Hands the held audio to `queue`, which writes it to a new file at `url`, then every later
+    /// buffer in order. The tap never waits for file I/O. A failed write ends with `onEnd(false)`.
+    func persist(to url: URL, onEnd: @escaping @Sendable (Bool) -> Void) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard isOpen, file == nil, !committed else { throw CocoaError(.fileWriteUnknown) }
+        let audio = HeldBuffers(buffers: held)
+        held = []
+        committed = true
+        self.onEnd = onEnd
+        queue.async { self.openCommitted(at: url, writing: audio) }
+    }
+
+    private func openCommitted(at url: URL, writing audio: HeldBuffers) {
+        do {
+            let file = try openSink(url)
+            committedFile = file
+            for buffer in audio.buffers {
+                try file.write(from: buffer)
+            }
+        } catch {
+            failCommitted()
+        }
+    }
+
+    private func writeCommitted(_ audio: HeldBuffers) {
+        guard let committedFile else { return }
+        do {
+            for buffer in audio.buffers {
+                try committedFile.write(from: buffer)
+            }
+        } catch {
+            failCommitted()
+        }
+    }
+
+    private func failCommitted() {
+        committedFile = nil
+        lock.lock()
+        writeFailed = true
+        let wasOpen = isOpen
+        closeLocked()
+        let onEnd = self.onEnd
+        lock.unlock()
+        if wasOpen {
+            onEnd?(false)
+        }
     }
 
     var isRecording: Bool {
         lock.lock()
         defer { lock.unlock() }
         return isOpen
+    }
+
+    /// Complete only after `close()`, which waits for queued writes.
+    var didFailWriting: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return writeFailed
     }
 
     var currentTime: TimeInterval {
@@ -124,7 +227,7 @@ nonisolated final class TapFileWriter: @unchecked Sendable {
     func append(_ buffer: AVAudioPCMBuffer) {
         var ended: Bool?
         lock.lock()
-        if isOpen, let file {
+        if isOpen {
             do {
                 if let converted = try convert(buffer) {
                     let remaining = max(0, maxFrames - framesWritten)
@@ -132,9 +235,20 @@ nonisolated final class TapFileWriter: @unchecked Sendable {
                         converted.frameLength = AVAudioFrameCount(remaining)
                     }
                     if converted.frameLength > 0 {
-                        try file.write(from: converted)
+                        if let file {
+                            try file.write(from: converted)
+                        } else if committed {
+                            let audio = HeldBuffers(buffers: [converted])
+                            queue.async { self.writeCommitted(audio) }
+                        } else {
+                            held.append(converted)
+                        }
                         framesWritten += AVAudioFramePosition(converted.frameLength)
                         powerDB = Self.powerDB(of: converted)
+                        let heldFrames = AVAudioFramePosition(Self.heldLimit * outputFormat.sampleRate)
+                        while file == nil, !committed, framesWritten > heldFrames, held.count > 1 {
+                            framesWritten -= AVAudioFramePosition(held.removeFirst().frameLength)
+                        }
                     }
                 }
                 if framesWritten >= maxFrames {
@@ -142,6 +256,7 @@ nonisolated final class TapFileWriter: @unchecked Sendable {
                     ended = true
                 }
             } catch {
+                writeFailed = true
                 closeLocked()
                 ended = false
             }
@@ -153,17 +268,25 @@ nonisolated final class TapFileWriter: @unchecked Sendable {
         }
     }
 
-    /// Closing releases the file, which finishes its WAV header.
+    /// Closing releases the file, which finishes its WAV header. Waits for queued writes.
     func close() {
         lock.lock()
         closeLocked()
+        let committed = self.committed
         lock.unlock()
+        if committed {
+            queue.sync {}
+        }
     }
 
     private func closeLocked() {
         isOpen = false
         file = nil
+        held = []
         converter = nil
+        if committed {
+            queue.async { self.committedFile = nil }
+        }
     }
 
     private func convert(_ buffer: AVAudioPCMBuffer) throws -> AVAudioPCMBuffer? {
@@ -270,6 +393,10 @@ private final class TapCaptureAdapter: ActiveAudioCapture {
         writer.currentTime
     }
 
+    var didFailWriting: Bool {
+        writer.didFailWriting
+    }
+
     func averagePowerDB() -> Float {
         writer.averagePowerDB
     }
@@ -285,11 +412,53 @@ private final class TapCaptureAdapter: ActiveAudioCapture {
         writer.close()
     }
 
+    nonisolated var onWriterEnd: @Sendable (Bool) -> Void {
+        { [weak self] succeeded in
+            Task { @MainActor in
+                self?.writerEnded(succeeded: succeeded)
+            }
+        }
+    }
+
     func writerEnded(succeeded: Bool) {
         guard !stopped else { return }
         stopped = true
         router.detach(writer)
-        onFinish(url, succeeded)
+        writer.close()
+        onFinish(url, succeeded && !writer.didFailWriting)
+    }
+}
+
+@MainActor
+private final class TapArmedCapture: ArmedAudioCapture {
+    private let writer: TapFileWriter
+    private let router: TapRouter
+    private let makeCapture: (URL) -> TapCaptureAdapter
+    private var stopped = false
+
+    init(writer: TapFileWriter, router: TapRouter, makeCapture: @escaping (URL) -> TapCaptureAdapter) {
+        self.writer = writer
+        self.router = router
+        self.makeCapture = makeCapture
+    }
+
+    var isRecording: Bool {
+        !stopped && writer.isRecording
+    }
+
+    func commit(to url: URL) throws -> any ActiveAudioCapture {
+        guard !stopped else { throw CocoaError(.fileWriteUnknown) }
+        let capture = makeCapture(url)
+        try writer.persist(to: url, onEnd: capture.onWriterEnd)
+        stopped = true
+        return capture
+    }
+
+    func stop() {
+        guard !stopped else { return }
+        stopped = true
+        router.detach(writer)
+        writer.close()
     }
 }
 
@@ -381,16 +550,25 @@ final class SystemAudioManager: AudioManaging {
         try ensureKeepalive(microphone: microphone)
 
         let writer = try TapFileWriter(url: url, maxDuration: maxDuration)
-        let capture = TapCaptureAdapter(url: url, writer: writer, router: tapRouter) { [weak self] finishedURL, ok in
-            self?.onUnexpectedCaptureEnd?(finishedURL, ok)
-        }
-        writer.onEnd = { [weak capture] succeeded in
-            Task { @MainActor in
-                capture?.writerEnded(succeeded: succeeded)
-            }
-        }
+        let capture = adapter(for: writer, at: url)
+        writer.onEnd = capture.onWriterEnd
         tapRouter.attach(writer)
         return capture
+    }
+
+    func beginArmedCapture(maxDuration: TimeInterval, microphone: MicrophoneChoice) throws -> any ArmedAudioCapture {
+        try ensureKeepalive(microphone: microphone)
+        let writer = try TapFileWriter(maxDuration: maxDuration)
+        tapRouter.attach(writer)
+        return TapArmedCapture(writer: writer, router: tapRouter) { [unowned self] url in
+            self.adapter(for: writer, at: url)
+        }
+    }
+
+    private func adapter(for writer: TapFileWriter, at url: URL) -> TapCaptureAdapter {
+        TapCaptureAdapter(url: url, writer: writer, router: tapRouter) { [weak self] finishedURL, ok in
+            self?.onUnexpectedCaptureEnd?(finishedURL, ok)
+        }
     }
 
     /// Built outside the main actor so the tap thread never runs a main-actor closure.

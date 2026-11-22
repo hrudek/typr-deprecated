@@ -7,6 +7,7 @@ private final class FakeAudioCapture: ActiveAudioCapture {
     var isRecording = true
     var currentTime: TimeInterval
     var power: Float = 0.6
+    var didFailWriting = false
 
     init(url: URL, initialDuration: TimeInterval = 1.2) {
         self.url = url
@@ -16,6 +17,31 @@ private final class FakeAudioCapture: ActiveAudioCapture {
 
     func normalizedPowerLevel() -> Float {
         power
+    }
+
+    func stop() {
+        isRecording = false
+    }
+}
+
+@MainActor
+private final class FakeArmedCapture: ArmedAudioCapture {
+    var isRecording = true
+    var committedTo: URL?
+    let duration: TimeInterval
+    let onCommit: (FakeAudioCapture) -> Void
+
+    init(duration: TimeInterval, onCommit: @escaping (FakeAudioCapture) -> Void) {
+        self.duration = duration
+        self.onCommit = onCommit
+    }
+
+    func commit(to url: URL) throws -> any ActiveAudioCapture {
+        committedTo = url
+        isRecording = false
+        let capture = FakeAudioCapture(url: url, initialDuration: duration)
+        onCommit(capture)
+        return capture
     }
 
     func stop() {
@@ -41,6 +67,7 @@ private final class FakeAudioManager: AudioManaging {
     var nextCaptureIsRecording = true
     var deactivateCount = 0
     var createdCaptures: [FakeAudioCapture] = []
+    var armedCaptures: [FakeArmedCapture] = []
     var keepaliveMicrophones: [MicrophoneChoice] = []
     var captureMicrophones: [MicrophoneChoice] = []
     var keepaliveInputIsStale = false
@@ -105,6 +132,13 @@ private final class FakeAudioManager: AudioManaging {
         capture.isRecording = nextCaptureIsRecording
         createdCaptures.append(capture)
         return capture
+    }
+
+    func beginArmedCapture(maxDuration: TimeInterval, microphone: MicrophoneChoice) throws -> any ArmedAudioCapture {
+        try ensureKeepalive(microphone: microphone)
+        let armed = FakeArmedCapture(duration: nextCaptureDuration) { [weak self] in self?.createdCaptures.append($0) }
+        armedCaptures.append(armed)
+        return armed
     }
 }
 
@@ -1186,6 +1220,243 @@ final class DictationControllerTests: XCTestCase {
         try await waitForState("a keepalive that ran a while restarts at once") {
             audio.startKeepaliveCount == steady + 1
         }
+    }
+
+    func testHoldCommitsTheCaptureArmedOnTouchDownAndTranscribesIt() async throws {
+        let now = 60_000.0
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        await transcriber.setCannedOutput("Wir sehen uns morgen um zehn")
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now })
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        let keepaliveStarts = audio.startKeepaliveCount
+
+        bridge.send(.arm, jobID: "diktat", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        let armed = try XCTUnwrap(audio.armedCaptures.first)
+        XCTAssertTrue(armed.isRecording, "holds audio from the touch-down on")
+        XCTAssertTrue(audio.createdCaptures.isEmpty, "nothing is written before the hold")
+        XCTAssertEqual(controller.phase, .ready, "an armed capture is not a dictation yet")
+        XCTAssertEqual(bridge.snapshot().state, .ready)
+        XCTAssertNil(bridge.snapshot().jobID)
+
+        bridge.send(.start, jobID: "diktat", sentAt: now + 0.35)
+        controller.processPendingKeyboardCommandForTesting()
+        XCTAssertEqual(controller.phase, .recording, "the hold starts at once, without a new activation")
+        let capture = try XCTUnwrap(audio.createdCaptures.first)
+        XCTAssertEqual(armed.committedTo, capture.url, "the held audio starts the dictation's capture")
+        XCTAssertEqual(audio.createdCaptures.count, 1)
+        XCTAssertEqual(bridge.snapshot().state, .recording)
+        XCTAssertEqual(bridge.snapshot().jobID, "diktat")
+        XCTAssertEqual(bridge.snapshot().recordingStartedAt, now)
+        XCTAssertEqual(audio.startKeepaliveCount, keepaliveStarts)
+
+        controller.finishRecording()
+        try await transcribed(controller)
+        let transcribedURLs = await transcriber.transcribedURLs
+        XCTAssertEqual(transcribedURLs, [capture.url])
+        XCTAssertTrue(bridge.snapshot().hasDeliverableResult(at: now + 1))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: capture.url.path))
+        XCTAssertTrue(controller.keyboardSessionEnabled)
+    }
+
+    func testAnArmedStartKeepsEveryPerCaptureSettingOfANormalStart() async throws {
+        let now = 60_200.0
+        let settings = TyprSettings(defaults: defaults)
+        settings[experiment: .spokenPunctuation] = true
+        settings[experiment: .formatLists] = true
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        await transcriber.setCannedOutput("Erstens Milch Komma Brot zweitens Käse Punkt Hallo Anna")
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now },
+                                                   settings: settings)
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+
+        func dictate(_ job: String, armed: Bool) async throws -> String {
+            if armed {
+                bridge.send(.arm, jobID: job, sentAt: now)
+                controller.processPendingKeyboardCommandForTesting()
+            }
+            bridge.send(.start, jobID: job, style: .polished, sentAt: now)
+            controller.processPendingKeyboardCommandForTesting()
+            try await activationSettled(controller)
+            XCTAssertEqual(controller.phase, .recording, job)
+            controller.finishRecording()
+            try await transcribed(controller)
+            return controller.transcript
+        }
+
+        var outputs: [String] = []
+        for (endsWithPeriod, lowercase) in [(true, false), (false, true)] {
+            settings.dictationEndsWithPeriod = endsWithPeriod
+            settings.dictationLowercase = lowercase
+            let normal = try await dictate("normal-\(lowercase)", armed: false)
+            let armedCaptures = audio.armedCaptures.count
+            let armed = try await dictate("armed-\(lowercase)", armed: true)
+            XCTAssertEqual(audio.armedCaptures.count, armedCaptures + 1, "the second start was armed")
+            XCTAssertEqual(armed, normal, "period \(endsWithPeriod), lowercase \(lowercase)")
+            outputs.append(armed)
+        }
+        XCTAssertNotEqual(outputs[0], outputs[1], "the settings change the text, so equal results are not vacuous")
+        XCTAssertEqual(outputs[1], outputs[1].lowercased())
+    }
+
+    func testAWriteFailureAfterTheCommitFailsTheDictationInsteadOfTranscribingPartialAudio() async throws {
+        let now = 60_500.0
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now })
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+
+        bridge.send(.arm, jobID: "voll", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        bridge.send(.start, jobID: "voll", sentAt: now + 0.35)
+        controller.processPendingKeyboardCommandForTesting()
+        let capture = try XCTUnwrap(audio.createdCaptures.first)
+        capture.didFailWriting = true
+
+        controller.finishRecording()
+        XCTAssertEqual(controller.phase, .failed("Recording stopped unexpectedly."))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: capture.url.path))
+        XCTAssertEqual(bridge.snapshot().state, .failed)
+        XCTAssertNil(bridge.snapshot().resultID)
+        let transcribedURLs = await transcriber.transcribedURLs
+        XCTAssertTrue(transcribedURLs.isEmpty)
+        XCTAssertTrue(controller.keyboardSessionEnabled)
+    }
+
+    func testATapOrSlideDropsTheArmedAudioWithoutWritingAFile() async throws {
+        let now = 61_000.0
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await readyController(audio: audio, bridge: bridge, now: { now })
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        let keepaliveStarts = audio.startKeepaliveCount
+        let temporaryFiles = try FileManager.default.contentsOfDirectory(atPath: FileManager.default.temporaryDirectory.path)
+
+        for (index, job) in ["leertaste", "wischen", "abbruch"].enumerated() {
+            bridge.send(.arm, jobID: job, sentAt: now)
+            controller.processPendingKeyboardCommandForTesting()
+            bridge.send(.cancel, jobID: job, sentAt: now)
+            controller.processPendingKeyboardCommandForTesting()
+            let armed = audio.armedCaptures[index]
+            XCTAssertFalse(armed.isRecording, job)
+            XCTAssertNil(armed.committedTo, job)
+        }
+        XCTAssertTrue(audio.createdCaptures.isEmpty)
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: FileManager.default.temporaryDirectory.path).sorted(),
+            temporaryFiles.sorted(),
+            "a discarded arm writes no file"
+        )
+        XCTAssertEqual(controller.phase, .ready)
+        XCTAssertEqual(bridge.snapshot().state, .ready)
+        XCTAssertNil(bridge.snapshot().resultID)
+        XCTAssertTrue(controller.keyboardSessionEnabled)
+        XCTAssertTrue(audio.isKeepaliveRunning, "the warm input keeps running")
+        XCTAssertEqual(audio.startKeepaliveCount, keepaliveStarts)
+        XCTAssertEqual(audio.deactivateCount, 0)
+    }
+
+    func testAnArmedCaptureNobodyCommitsEndsAtItsDeadlineAndALateHoldStartsAfresh() async throws {
+        var now = 62_000.0
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await readyController(audio: audio, bridge: bridge, now: { now })
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+
+        bridge.send(.arm, jobID: "vergessen", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        let armed = try XCTUnwrap(audio.armedCaptures.first)
+        now += DictationController.armedCaptureLifetime + 0.1
+        try await waitForState("the warm loop drops the armed capture") { !armed.isRecording }
+        XCTAssertNil(armed.committedTo)
+
+        bridge.send(.start, jobID: "vergessen", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording, "a late hold is an ordinary start")
+        XCTAssertEqual(audio.createdCaptures.count, 1)
+        XCTAssertTrue(audio.createdCaptures[0].isRecording)
+        XCTAssertNil(armed.committedTo)
+    }
+
+    func testAStartForAnotherJobDiscardsTheArmedCapture() async throws {
+        let now = 63_000.0
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        let controller = try await readyController(audio: audio, bridge: bridge, now: { now })
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+
+        bridge.send(.arm, jobID: "alt", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        bridge.send(.arm, jobID: "neu", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        XCTAssertFalse(audio.armedCaptures[0].isRecording, "a new touch-down replaces the old arming")
+        XCTAssertTrue(audio.armedCaptures[1].isRecording)
+
+        bridge.send(.start, jobID: "andere", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        try await activationSettled(controller)
+        XCTAssertFalse(audio.armedCaptures[1].isRecording)
+        XCTAssertNil(audio.armedCaptures[1].committedTo)
+        XCTAssertEqual(audio.createdCaptures.count, 1)
+        XCTAssertEqual(bridge.snapshot().jobID, "andere")
+
+        bridge.send(.cancel, jobID: "neu", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        XCTAssertEqual(controller.phase, .recording, "a cancel for a job that was only armed leaves the dictation")
+    }
+
+    func testArmingOnlyUsesARunningWarmInputThatAlreadyFollowsTheMicrophone() async throws {
+        let now = 64_000.0
+        let settings = TyprSettings(defaults: defaults)
+        settings[experiment: .warmMicOnIPhone] = true
+        let audio = FakeAudioManager()
+        let bridge = KeyboardBridge(defaults: defaults)
+        bridge.microphone = .bluetooth
+        let controller = try await readyController(audio: audio, bridge: bridge, now: { now }, settings: settings)
+
+        bridge.send(.arm, jobID: "kalt", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        XCTAssertTrue(audio.armedCaptures.isEmpty, "no warm session: never opens the microphone")
+
+        controller.selectWarmDuration(.fifteenMinutes)
+        try await activationSettled(controller)
+        let keepalives = audio.keepaliveMicrophones
+        bridge.send(.arm, jobID: "umweg", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        XCTAssertTrue(audio.armedCaptures.isEmpty, "the iPhone warm input would have to move to Bluetooth")
+        XCTAssertEqual(audio.keepaliveMicrophones, keepalives)
+
+        settings[experiment: .warmMicOnIPhone] = false
+        controller.setMicrophone(.iPhone)
+        bridge.send(.arm, jobID: "alt", sentAt: now - DictationController.armedCaptureLifetime - 1)
+        controller.processPendingKeyboardCommandForTesting()
+        XCTAssertTrue(audio.armedCaptures.isEmpty, "a stale touch-down arms nothing")
+
+        bridge.send(.arm, jobID: "anruf", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        let armed = try XCTUnwrap(audio.armedCaptures.first)
+        controller.handleAudioSystemEvent(.routeNewDeviceAvailable)
+        XCTAssertFalse(armed.isRecording, "a route change drops the arming")
+
+        bridge.send(.arm, jobID: "neustart", sentAt: now)
+        controller.processPendingKeyboardCommandForTesting()
+        let rearmed = try XCTUnwrap(audio.armedCaptures.last)
+        XCTAssertTrue(rearmed.isRecording)
+        controller.setMicrophone(.automatic)
+        XCTAssertFalse(rearmed.isRecording, "restarting the warm input drops the arming")
+        XCTAssertTrue(audio.createdCaptures.isEmpty)
     }
 
     func testOnlyEngineFailuresRequireReloadingTheModel() {

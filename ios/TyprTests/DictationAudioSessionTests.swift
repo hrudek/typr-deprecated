@@ -152,6 +152,119 @@ final class DictationAudioSessionTests: XCTestCase {
         }
     }
 
+    func testArmedWriterHoldsAudioInMemoryUntilPersisted() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("armed-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let writer = try TapFileWriter(maxDuration: 30)
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1))
+        func appendSeconds(_ seconds: Int, to writer: TapFileWriter) throws {
+            for _ in 0..<(seconds * 10) {
+                let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4_800))
+                buffer.frameLength = 4_800
+                for frame in 0..<4_800 { buffer.floatChannelData![0][frame] = 0.2 }
+                writer.append(buffer)
+            }
+        }
+
+        try appendSeconds(5, to: writer)
+        XCTAssertEqual(writer.currentTime, TapFileWriter.heldLimit, accuracy: 0.1, "keeps only the newest audio")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+
+        try writer.persist(to: url, onEnd: { _ in })
+        try appendSeconds(1, to: writer)
+        writer.close()
+        let file = try AVAudioFile(forReading: url)
+        XCTAssertEqual(Double(file.length), (TapFileWriter.heldLimit + 1) * 16_000, accuracy: 1_600)
+
+        let dropped = try TapFileWriter(maxDuration: 30)
+        try appendSeconds(1, to: dropped)
+        dropped.close()
+        XCTAssertThrowsError(try dropped.persist(to: url, onEnd: { _ in }), "a dropped arming cannot be written later")
+    }
+
+    func testCommitWhileTheTapAppendsNeverWaitsForTheFileAndKeepsTheOrder() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("armed-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let queue = DispatchQueue(label: "armed-writer-test")
+        let writer = try TapFileWriter(maxDuration: 30, queue: queue)
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1))
+        let chunks = 30
+        var buffers: [AVAudioPCMBuffer] = []
+        for index in 0..<chunks {
+            let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4_800))
+            buffer.frameLength = 4_800
+            for frame in 0..<4_800 { buffer.floatChannelData![0][frame] = Float(index + 1) / 40 }
+            buffers.append(buffer)
+        }
+        let audio = HeldTestBuffers(buffers: buffers)
+
+        queue.suspend()
+        let half = DispatchSemaphore(value: 0)
+        let done = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            for (index, buffer) in audio.buffers.enumerated() {
+                writer.append(buffer)
+                if index == chunks / 3 { half.signal() }
+            }
+            done.signal()
+        }
+        XCTAssertEqual(half.wait(timeout: .now() + 5), .success)
+        try writer.persist(to: url, onEnd: { _ in })
+        XCTAssertEqual(done.wait(timeout: .now() + 5), .success, "appends never wait for the file")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path), "commit and appends did no file I/O")
+
+        queue.resume()
+        writer.close()
+        let file = try AVAudioFile(forReading: url)
+        XCTAssertEqual(Double(file.length), 3 * 16_000, accuracy: 1_600)
+        let read = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)))
+        try file.read(into: read)
+        let samples = read.floatChannelData![0]
+        var previous: Float = 0
+        for chunk in 0..<Int(read.frameLength) / 1_600 {
+            let middle = samples[chunk * 1_600 + 800]
+            XCTAssertGreaterThan(middle, previous, "chunk \(chunk) out of order")
+            previous = middle
+        }
+    }
+
+    func testAFullDiskAfterTheCommitFailsTheCaptureOnStopAndAtItsLimit() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("armed-\(UUID().uuidString).wav")
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1))
+        func appendSeconds(_ seconds: Double, to writer: TapFileWriter) throws {
+            for _ in 0..<Int(seconds * 10) {
+                let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4_800))
+                buffer.frameLength = 4_800
+                for frame in 0..<4_800 { buffer.floatChannelData![0][frame] = 0.2 }
+                writer.append(buffer)
+            }
+        }
+
+        for space in [0, 8_000, 64_000] {
+            let disk = FullDisk(capacity: space)
+            let writer = try TapFileWriter(maxDuration: 30, openSink: { _ in disk })
+            try appendSeconds(1, to: writer)
+            try writer.persist(to: url, onEnd: { _ in })
+            try appendSeconds(1, to: writer)
+            writer.close()
+            XCTAssertEqual(writer.didFailWriting, space < 32_000, "\(space) frames free")
+            XCTAssertFalse(writer.isRecording)
+        }
+
+        let disk = FullDisk(capacity: 8_000)
+        let ends = EndRecorder()
+        let queue = DispatchQueue(label: "full-disk-test")
+        let limited = try TapFileWriter(maxDuration: 1, queue: queue, openSink: { _ in disk })
+        queue.suspend()
+        try appendSeconds(0.5, to: limited)
+        try limited.persist(to: url, onEnd: { ends.record($0) })
+        try appendSeconds(1, to: limited)
+        queue.resume()
+        limited.close()
+        XCTAssertEqual(ends.values.first, true, "the limit is reached before the queued write fails")
+        XCTAssertTrue(limited.didFailWriting, "so the drained writer reports the lost audio")
+    }
+
     func testConfigurationFailureDoesNotActivateAnUnknownSession() {
         let spy = SessionSpy()
         let session = spy.makeSession()
@@ -174,5 +287,42 @@ final class DictationAudioSessionTests: XCTestCase {
             }
         }
         XCTAssertNil(MicrophoneRoute.input(for: .iPhone, from: [Self.car]))
+    }
+}
+
+private struct HeldTestBuffers: @unchecked Sendable {
+    let buffers: [AVAudioPCMBuffer]
+}
+
+private final class FullDisk: CaptureFileSink, @unchecked Sendable {
+    private let lock = NSLock()
+    private var free: Int
+
+    init(capacity: Int) {
+        free = capacity
+    }
+
+    func write(from buffer: AVAudioPCMBuffer) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard Int(buffer.frameLength) <= free else { throw POSIXError(.ENOSPC) }
+        free -= Int(buffer.frameLength)
+    }
+}
+
+private final class EndRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [Bool] = []
+
+    var values: [Bool] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded
+    }
+
+    func record(_ value: Bool) {
+        lock.lock()
+        recorded.append(value)
+        lock.unlock()
     }
 }

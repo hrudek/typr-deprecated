@@ -67,6 +67,9 @@ nonisolated enum MicrophoneChoice: String, CaseIterable, Sendable {
 }
 
 nonisolated enum KeyboardCommandKind: String, Codable, Sendable {
+    /// Touch-down on the Typr key while warm: Typr starts an unpublished capture that `start`
+    /// with the same job ID commits and `cancel` discards (Hex #2089).
+    case arm
     case start
     case stop
     case cancel
