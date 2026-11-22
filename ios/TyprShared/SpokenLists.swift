@@ -2,7 +2,7 @@ import Foundation
 
 /// Dictated lists and line breaks as lines, with string rules and no model, in German and
 /// English. With Settings › Style › Format lists on, runs inside every style but Verbatim, after
-/// its fillers and before spoken punctuation and the style's own capitalization and final
+/// its fillers and spoken punctuation and before the style's own capitalization and final
 /// period (`TranscriptFormatter.format(_:style:language:lists:punctuation:)`).
 /// Ported from Hex (anomalyco/hex `ios/HEXShared/SpokenLists.swift` at d65b02d3, MIT), English
 /// table unchanged, German table added; see THIRD_PARTY_NOTICES.md.
