@@ -245,9 +245,9 @@ final class SettingsPresentationTests: XCTestCase {
         }
         XCTAssertTrue(DictationStyle.notes.settingsDescription.contains("new line"))
         XCTAssertTrue(DictationStyle.notes.settingsDescription.contains("new paragraph"))
-        XCTAssertEqual(TranscriptFormatter.format("first new line second", style: .notes), "First\nSecond")
-        XCTAssertEqual(TranscriptFormatter.format("first new paragraph second", style: .notes), "First\n\nSecond")
-        XCTAssertEqual(TranscriptFormatter.format("bullet first bullet second", style: .notes), "- First\n- Second")
+        XCTAssertEqual(TyprTranscriptFormatter.format("first new line second", style: .notes), "First\nSecond")
+        XCTAssertEqual(TyprTranscriptFormatter.format("first new paragraph second", style: .notes), "First\n\nSecond")
+        XCTAssertEqual(TyprTranscriptFormatter.format("bullet first bullet second", style: .notes), "- First\n- Second")
         XCTAssertTrue(DictationStyle.verbatim.settingsDescription.contains("Skips AI cleanup"))
         XCTAssertTrue(DictationStyle.verbatim.settingsDescription.contains("Vocabulary corrections"))
     }

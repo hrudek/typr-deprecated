@@ -32,12 +32,12 @@ nonisolated enum SpokenCleanup {
     }
 
     /// `text` with hesitations, stutters and explicit self-repairs removed; `text` itself when
-    /// nothing goes. Automatic reads the text as English only when `TranscriptFormatter` does.
+    /// nothing goes. Automatic reads the text as English only when `TyprTranscriptFormatter` does.
     static func clean(_ text: String, language: DictationLanguage) -> String {
         let english = switch language {
         case .english: true
         case .german: false
-        case .automatic: TranscriptFormatter.readsAsEnglish(text)
+        case .automatic: TyprTranscriptFormatter.readsAsEnglish(text)
         }
         let rules = english ? Self.english : german
         var result = ""

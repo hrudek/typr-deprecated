@@ -3,7 +3,7 @@ import Foundation
 /// Punctuation said by name written as the mark, with string rules and no model, in German and
 /// English. With Experimental › Spoken punctuation on, runs inside every style but Verbatim, after
 /// fillers (and Notes' spoken line breaks) and before the style's own capitalization and final
-/// period (`TranscriptFormatter.format(_:style:language:punctuation:)`). A mark the speech model
+/// period (`TyprTranscriptFormatter.format(_:style:language:punctuation:)`). A mark the speech model
 /// or AI cleanup already wrote beside a name is replaced, never doubled, and text without names
 /// stays as it is.
 /// Ported from Hex (anomalyco/hex `ios/HEXShared/SpokenPunctuation.swift` at d65b02d3, MIT),
@@ -29,9 +29,9 @@ import Foundation
 ///   mark", "dash") need command-like placement as well: the end of the line, a mark after
 ///   them, or a next word that starts a clause ("ich", "bis", "I", "see"). A colon needs words
 ///   after it.
-nonisolated enum SpokenPunctuation {
+nonisolated enum TyprSpokenPunctuation {
     /// `language` picks the word table; Automatic uses English only for text that reads as
-    /// English (`TranscriptFormatter.readsAsEnglish`), else German. `starters` are further words
+    /// English (`TyprTranscriptFormatter.readsAsEnglish`), else German. `starters` are further words
     /// that start a clause after a name ("Milch Punkt zweitens"), lowercased and unaccented.
     static func format(_ text: String, language: DictationLanguage, starters: Set<String> = []) -> String {
         guard !text.isEmpty else { return text }
@@ -564,7 +564,7 @@ nonisolated enum SpokenPunctuation {
             conjunctions: [String],
             phraseBreakers: [String] = []
         ) {
-            let fold = SpokenPunctuation.fold
+            let fold = TyprSpokenPunctuation.fold
             self.commands = commands
                 .map { phrase, mark, family, placement in
                     Command(
@@ -596,7 +596,7 @@ nonisolated enum SpokenPunctuation {
             switch language {
             case .german: german
             case .english: english
-            case .automatic: TranscriptFormatter.readsAsEnglish(text) ? english : german
+            case .automatic: TyprTranscriptFormatter.readsAsEnglish(text) ? english : german
             }
         }
     }

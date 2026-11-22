@@ -409,7 +409,7 @@ final class KeyboardViewController: UIInputViewController {
            bridge.lastInsertedResultID != resultID {
             let before = textDocumentProxy.documentContextBeforeInput
             let after = textDocumentProxy.documentContextAfterInput
-            let insertion = TranscriptFormatter.insertionText(
+            let insertion = TyprTranscriptFormatter.insertionText(
                 for: rawTranscript,
                 beforeContext: before,
                 afterContext: after

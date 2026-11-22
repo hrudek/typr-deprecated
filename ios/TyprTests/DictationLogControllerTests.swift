@@ -174,7 +174,7 @@ final class DictationLogControllerTests: XCTestCase {
         XCTAssertNil(entry.context.vocabularyTerms)
         XCTAssertNil(entry.context.vocabularySnapshot)
         XCTAssertEqual(entry.cleanupOutput?.text, "iPhone works")
-        XCTAssertEqual(entry.formattedText?.text, TranscriptFormatter.format("iPhone works", style: .polished))
+        XCTAssertEqual(entry.formattedText?.text, TyprTranscriptFormatter.format("iPhone works", style: .polished))
         try await f.dispose()
     }
 

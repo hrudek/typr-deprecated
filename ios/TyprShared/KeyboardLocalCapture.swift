@@ -177,7 +177,7 @@ struct KeyboardLocalCapture {
     static func text(from heard: String, style: DictationStyle, settings: TyprSettings) -> String {
         let trimmed = heard.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        let formatted = TranscriptFormatter.format(
+        let formatted = TyprTranscriptFormatter.format(
             trimmed,
             style: style,
             language: settings.dictationLanguage,
@@ -185,7 +185,7 @@ struct KeyboardLocalCapture {
             punctuation: settings[experiment: .spokenPunctuation],
             endsWithPeriod: settings.dictationEndsWithPeriod
         )
-        return settings.dictationLowercase ? TranscriptFormatter.lowercased(formatted, style: style) : formatted
+        return settings.dictationLowercase ? TyprTranscriptFormatter.lowercased(formatted, style: style) : formatted
     }
 }
 

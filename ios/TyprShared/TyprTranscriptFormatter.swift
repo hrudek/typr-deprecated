@@ -38,10 +38,10 @@ nonisolated enum DictationStyle: String, Codable, CaseIterable, Sendable {
     }
 }
 
-nonisolated enum TranscriptFormatter {
+nonisolated enum TyprTranscriptFormatter {
     /// With `lists` (Settings › Experimental › Format lists), every style but Verbatim writes spoken
-    /// lists and line breaks as lines (`SpokenLists`); with `punctuation` (Settings › Experimental ›
-    /// Spoken punctuation), punctuation said by name as the mark (`SpokenPunctuation`). Both
+    /// lists and line breaks as lines (`TyprSpokenLists`); with `punctuation` (Settings › Experimental ›
+    /// Spoken punctuation), punctuation said by name as the mark (`TyprSpokenPunctuation`). Both
     /// German or English by `language`, after removing fillers and before the style's own
     /// capitalization and final period. Punctuation first, so a spoken "Komma" or "Doppelpunkt"
     /// separates list items as a written one does.
@@ -99,10 +99,10 @@ nonisolated enum TranscriptFormatter {
         lists: Bool,
         punctuation: Bool
     ) -> String {
-        let listed = { (text: String) in lists ? SpokenLists.format(text, language: language) : text }
-        let starters = lists ? SpokenLists.clauseStarters : []
+        let listed = { (text: String) in lists ? TyprSpokenLists.format(text, language: language) : text }
+        let starters = lists ? TyprSpokenLists.clauseStarters : []
         let spoken = { (text: String) in
-            punctuation ? SpokenPunctuation.format(text, language: language, starters: starters) : text
+            punctuation ? TyprSpokenPunctuation.format(text, language: language, starters: starters) : text
         }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }

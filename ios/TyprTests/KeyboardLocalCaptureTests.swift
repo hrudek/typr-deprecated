@@ -129,7 +129,7 @@ final class KeyboardLocalCaptureTests: XCTestCase {
         let heard = " Hallo Komma wie geht es dir Fragezeichen ich bin gleich da Punkt bis bald "
 
         XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings),
-                       TranscriptFormatter.format(heard.trimmingCharacters(in: .whitespaces), style: .polished, language: .german))
+                       TyprTranscriptFormatter.format(heard.trimmingCharacters(in: .whitespaces), style: .polished, language: .german))
         settings[experiment: .spokenPunctuation] = true
         XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings),
                        "Hallo, wie geht es dir? Ich bin gleich da. Bis bald.")
@@ -138,9 +138,9 @@ final class KeyboardLocalCaptureTests: XCTestCase {
                        "Hallo, wie geht es dir? Ich bin gleich da. Bis bald")
         settings.dictationLowercase = true
         XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings),
-                       TranscriptFormatter.lowercased("Hallo, wie geht es dir? Ich bin gleich da. Bis bald", style: .polished))
+                       TyprTranscriptFormatter.lowercased("Hallo, wie geht es dir? Ich bin gleich da. Bis bald", style: .polished))
         XCTAssertEqual(KeyboardLocalCapture.text(from: heard, style: .verbatim, settings: settings),
-                       TranscriptFormatter.lowercased(heard.trimmingCharacters(in: .whitespaces), style: .verbatim))
+                       TyprTranscriptFormatter.lowercased(heard.trimmingCharacters(in: .whitespaces), style: .verbatim))
         XCTAssertEqual(KeyboardLocalCapture.text(from: "  ", style: .polished, settings: settings), "")
     }
 

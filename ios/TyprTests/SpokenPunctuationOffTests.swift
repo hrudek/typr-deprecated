@@ -7,7 +7,7 @@ final class SpokenPunctuationOffTests: XCTestCase {
         for (heard, expected) in Self.outputsBeforeSpokenPunctuation {
             for language in DictationLanguage.allCases {
                 XCTAssertEqual(
-                    DictationStyle.allCases.map { TranscriptFormatter.format(heard, style: $0, language: language, punctuation: false) },
+                    DictationStyle.allCases.map { TyprTranscriptFormatter.format(heard, style: $0, language: language, punctuation: false) },
                     expected,
                     "\(language) \(heard)"
                 )

@@ -1427,7 +1427,7 @@ final class DictationController {
                         break
                     }
                 }
-                let beforeSpelling = TranscriptFormatter.format(text, style: session.style, language: outputLanguage,
+                let beforeSpelling = TyprTranscriptFormatter.format(text, style: session.style, language: outputLanguage,
                                                                 lists: session.formatLists,
                                                                 punctuation: session.spokenPunctuation,
                                                                 endsWithPeriod: session.endsWithPeriod)
@@ -1438,7 +1438,7 @@ final class DictationController {
                 }
                 let respelled = session.vocabulary.afterFormatting(beforeSpelling, onReplacement: observeSecond)
                 let formatted = session.lowercase
-                    ? TranscriptFormatter.lowercased(respelled, style: session.style) : respelled
+                    ? TyprTranscriptFormatter.lowercased(respelled, style: session.style) : respelled
                 if keyboardJobID != nil, recording != nil {
                     // An offer omitted while the archive loads cannot be added after insertion:
                     // the keyboard deliberately consumes each result exactly once.

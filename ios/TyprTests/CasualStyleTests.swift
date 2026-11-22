@@ -15,8 +15,8 @@ final class CasualStyleTests: XCTestCase {
             ("", "", ""),
         ]
         for (raw, casual, veryCasual) in cases {
-            XCTAssertEqual(TranscriptFormatter.format(raw, style: .casual), casual, raw)
-            XCTAssertEqual(TranscriptFormatter.format(raw, style: .veryCasual), veryCasual, raw)
+            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: .casual), casual, raw)
+            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: .veryCasual), veryCasual, raw)
         }
     }
 

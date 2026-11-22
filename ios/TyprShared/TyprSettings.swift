@@ -130,7 +130,7 @@ struct ExperimentalSwitch: Hashable {
         detail: "Music and videos keep playing while you dictate, and the warm mic stays on while they play. Applies from the next dictation."
     )
 
-    /// Hex's spoken punctuation (anomalyco/hex #2198, `SpokenPunctuation`), German and English.
+    /// Hex's spoken punctuation (anomalyco/hex #2198, `TyprSpokenPunctuation`), German and English.
     static let spokenPunctuation = ExperimentalSwitch(
         name: "spokenPunctuation",
         title: "Spoken punctuation",
@@ -143,7 +143,7 @@ struct ExperimentalSwitch: Hashable {
         detail: "Hold the space bar to move the cursor, also up and down through lines. Faster slides move it further."
     )
 
-    /// Hex's Format lists (anomalyco/hex #2131, `SpokenLists`), German and English.
+    /// Hex's Format lists (anomalyco/hex #2131, `TyprSpokenLists`), German and English.
     static let formatLists = ExperimentalSwitch(
         name: "formatLists",
         title: "Format lists",
@@ -297,7 +297,7 @@ struct TyprSettings {
     }
 
     /// On by default: each style ends its text as before. Off, no dictated line ends with a full
-    /// stop (`TranscriptFormatter.format(_:style:language:lists:punctuation:endsWithPeriod:)`).
+    /// stop (`TyprTranscriptFormatter.format(_:style:language:lists:punctuation:endsWithPeriod:)`).
     var dictationEndsWithPeriod: Bool {
         get { defaults?.object(forKey: Key.dictationEndsWithPeriod) as? Bool ?? true }
         nonmutating set { defaults?.set(newValue, forKey: Key.dictationEndsWithPeriod) }

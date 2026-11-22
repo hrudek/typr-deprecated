@@ -3,7 +3,7 @@ import Foundation
 /// Dictated lists and line breaks as lines, with string rules and no model, in German and
 /// English. With Settings › Experimental › Format lists on, runs inside every style but
 /// Verbatim, after its fillers and spoken punctuation and before the style's own capitalization
-/// and final period (`TranscriptFormatter.format(_:style:language:lists:punctuation:)`).
+/// and final period (`TyprTranscriptFormatter.format(_:style:language:lists:punctuation:)`).
 /// Ported from Hex (anomalyco/hex `ios/HEXShared/SpokenLists.swift` at d65b02d3, MIT), English
 /// table unchanged, German table added; see THIRD_PARTY_NOTICES.md.
 ///
@@ -30,13 +30,13 @@ import Foundation
 /// - Text before the first marker is its own line, given a colon unless it ends a sentence;
 ///   a last item ends at its first sentence, and what follows is its own line. Items start
 ///   with a capital and lose a trailing comma, period, "und", "oder", "and" or "or".
-nonisolated enum SpokenLists {
+nonisolated enum TyprSpokenLists {
     /// German ordinals ("zweitens"), lowercased and unaccented: after a spoken "Punkt" they start
-    /// a clause (`SpokenPunctuation.format(_:language:starters:)`).
+    /// a clause (`TyprSpokenPunctuation.format(_:language:starters:)`).
     static let clauseStarters = Set(Table.german.ordinals.keys)
 
     /// `language` picks the word table; Automatic uses English only for text that reads as
-    /// English (`TranscriptFormatter.readsAsEnglish`), else German.
+    /// English (`TyprTranscriptFormatter.readsAsEnglish`), else German.
     static func format(_ text: String, language: DictationLanguage) -> String {
         guard !text.isEmpty else { return text }
         let table = Table.forLanguage(language, text: text)
@@ -447,20 +447,20 @@ nonisolated enum SpokenLists {
             modifierEndings: [String] = [], keepsCommaBeforeBreak: Bool = false, laterMarkersFollowWords: Bool = false,
             mentionWords: Set<String>, capitalizedNouns: Bool = false
         ) {
-            let words = { (phrase: [String]) in phrase.map(SpokenLists.fold) }
-            let set = { (words: Set<String>) in Set(words.map(SpokenLists.fold)) }
+            let words = { (phrase: [String]) in phrase.map(TyprSpokenLists.fold) }
+            let set = { (words: Set<String>) in Set(words.map(TyprSpokenLists.fold)) }
             self.breaks = breaks.map { (words($0.0), $0.1) }
             self.determiners = set(determiners)
             self.breakFollowers = set(breakFollowers)
             self.connectors = set(connectors)
             self.alternatives = set(alternatives)
-            self.ordinals = Dictionary(uniqueKeysWithValues: ordinals.map { (SpokenLists.fold($0.key), $0.value) })
+            self.ordinals = Dictionary(uniqueKeysWithValues: ordinals.map { (TyprSpokenLists.fold($0.key), $0.value) })
             self.digitOrdinalSuffixes = digitOrdinalSuffixes
             self.ordinalPhrases = ordinalPhrases.map { (words($0.0), $0.1) }
             self.ordinalFollowers = set(ordinalFollowers)
             self.ofAll = words(ofAll)
             self.finals = finals.map { (words($0.0), $0.1) }
-            self.cardinals = Dictionary(uniqueKeysWithValues: cardinals.map { (SpokenLists.fold($0.key), $0.value) })
+            self.cardinals = Dictionary(uniqueKeysWithValues: cardinals.map { (TyprSpokenLists.fold($0.key), $0.value) })
             self.cardinalMarks = cardinalMarks
             self.keywords = set(keywords)
             self.bullets = bullets.map { (words($0.0), $0.1) }
@@ -489,7 +489,7 @@ nonisolated enum SpokenLists {
             switch language {
             case .german: german
             case .english: english
-            case .automatic: TranscriptFormatter.readsAsEnglish(text) ? english : german
+            case .automatic: TyprTranscriptFormatter.readsAsEnglish(text) ? english : german
             }
         }
 

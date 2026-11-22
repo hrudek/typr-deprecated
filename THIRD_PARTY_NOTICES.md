@@ -690,7 +690,7 @@ this repository ([LICENSE](LICENSE)).
 
 ## Hex spoken cleanup rules
 
-"Clean up what I say" (`ios/Typr/SpokenCleanup.swift`) is adapted from
+"Clean up what I say" (`ios/TyprShared/SpokenCleanup.swift`) is adapted from
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PRs #2023, #2132): the German hesitation
 pattern in `TranscriptFormatter.fillerPattern`, the German word rules and correction search
@@ -809,7 +809,7 @@ medical and search-only terms, and added common slurs, inflections and spelling 
 
 ## Hex spoken punctuation
 
-Typr's spoken punctuation (`ios/TyprShared/SpokenPunctuation.swift`) is adapted from
+Typr's spoken punctuation (`ios/TyprShared/TyprSpokenPunctuation.swift`) is adapted from
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb`: `SpokenPunctuation` in
 `ios/HEXShared/SpokenPunctuation.swift`, keeping the German and English tables and adding
@@ -874,7 +874,7 @@ keywords that name at most three emoji, folded, beside its own alias list
 
 ## Hex spoken lists
 
-Typr's list formatting (`ios/TyprShared/SpokenLists.swift`) is adapted from
+Typr's list formatting (`ios/TyprShared/TyprSpokenLists.swift`) is adapted from
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb`: `SpokenLists` in
 `ios/HEXShared/SpokenLists.swift` (#2131), keeping the English table and adding a German one.
