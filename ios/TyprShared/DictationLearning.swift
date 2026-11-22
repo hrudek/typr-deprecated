@@ -84,8 +84,6 @@ nonisolated enum DictationCorrections {
         return true
     }
 
-    /// Not part of a longer token: no joiner right before, and none right after except a
-    /// sentence-ending period.
     private static func isBounded(_ range: Range<String.Index>, in text: String) -> Bool {
         if range.lowerBound > text.startIndex, joiners.contains(text[text.index(before: range.lowerBound)]) {
             return false
@@ -164,7 +162,9 @@ nonisolated struct DictationFixRecord: Codable, Equatable, Sendable {
             let fixLetters = DictationText.letters(fix.meant)
             let extended = pairLetters.count > fixLetters.count && pairLetters.hasPrefix(fixLetters)
             let changedFix = pairInserted == meantKey && pairMeant != meantKey && !extended
-            let reversed = pairMeant == heardKey && pairInserted == meantKey
+            let reversed = heardKey == meantKey
+                ? pair.inserted == fix.meant && pair.meant == fix.heard
+                : pairMeant == heardKey && pairInserted == meantKey
             if changedFix || reversed { return true }
         }
         return false

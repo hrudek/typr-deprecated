@@ -19,14 +19,12 @@ final class DictationEditTracker {
         let insertion: DictationInsertion
         let insertedAt: TimeInterval
         var latest: DictationSpan
-        /// True once the dictation was seen in place; nothing is reported before that.
         var located = false
         var emptiedAt: TimeInterval?
         var undone = false
     }
 
     private var tracked: Tracked?
-    /// A dictation you removed, held for the redictation window in case you dictate again.
     private var removed: (tracked: Tracked, at: TimeInterval)?
     private let now: () -> TimeInterval
     var onResult: ((DictationEditResult) -> Void)?

@@ -377,7 +377,6 @@ nonisolated enum DictationEditClassifier {
         }
     }
 
-    /// How many of the new words replace the old ones; the rest is new writing.
     private static func bestLength(old: ArraySlice<String>, new: ArraySlice<String>, fromEnd: Bool) -> Int {
         let target = DictationText.letters(old.joined())
         var best = 1
@@ -393,7 +392,6 @@ nonisolated enum DictationEditClassifier {
         return best
     }
 
-    /// A capital that only marks a sentence start isn't part of how you spell the word.
     private static func normalizedMeant(_ meant: String, sentenceStart: Bool) -> String {
         guard sentenceStart, let first = meant.first, first.isUppercase,
               !meant.dropFirst().contains(where: \.isUppercase) else { return meant }
@@ -402,7 +400,6 @@ nonisolated enum DictationEditClassifier {
         return first.lowercased() + meant.dropFirst()
     }
 
-    /// Runs of word keys untouched by the edit.
     private static func keptRuns(_ words: [String], excluding hunks: [DictationWordDiff.Hunk]) -> [[String]] {
         var touched = Array(repeating: false, count: words.count)
         for hunk in hunks {

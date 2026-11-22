@@ -200,6 +200,23 @@ final class DictationLearningTests: XCTestCase {
         XCTAssertTrue(store.learnedFixes.allSatisfy { $0.heard != "wal" })
     }
 
+    func testCapitalOnlyFixesAreLearned() {
+        let store = store()
+        for _ in 0..<2 {
+            store.record(edited("typr", "Typr"))
+            store.record(edited("haus", "Haus"))
+        }
+        XCTAssertEqual(Set(store.corrections.map(\.meant)), ["Typr", "Haus"])
+    }
+
+    func testLoweringALearnedCapitalContradictsIt() {
+        let store = store()
+        store.record(edited("typr", "Typr"))
+        store.record(edited("typr", "Typr"))
+        store.record(edited("Typr", "typr"))
+        XCTAssertTrue(store.corrections.isEmpty)
+    }
+
     func testUndoneAndKeptDictationsStoreNothing() {
         let store = store()
         store.record(DictationEditResult(outcome: .undone))
