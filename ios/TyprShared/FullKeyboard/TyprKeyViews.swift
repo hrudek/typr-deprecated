@@ -208,7 +208,6 @@ final class TyprKeyRecordingPanel: UIView {
         scope.reduceMotion = UIAccessibility.isReduceMotionEnabled
         scope.useDemoVoice = ProcessInfo.processInfo.arguments.contains("--snap-state")
 
-        well.layer.cornerRadius = 20
         well.layer.cornerCurve = .continuous
         well.clipsToBounds = true
         well.addSubview(scope)
@@ -266,6 +265,7 @@ final class TyprKeyRecordingPanel: UIView {
         cancelButton.frame = CGRect(x: doneButton.frame.minX - 6 - rowH, y: rowY, width: rowH, height: rowH)
         doneSpinner.center = CGPoint(x: doneButton.frame.midX, y: doneButton.frame.midY)
         well.frame = CGRect(x: innerLeft, y: rowY, width: max(24, cancelButton.frame.minX - 6 - innerLeft), height: rowH)
+        well.layer.cornerRadius = rowH / 2
         scope.frame = well.bounds
     }
 

@@ -390,6 +390,36 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
 
     /// On a device the full keyboard is mounted first and the feedback arrives with the inserted
     /// result. The panel must cover the keys then, not only when present at construction.
+    func testFullKeyboardKeysReturnWhenRecordingStartsOverTheFeedbackPanel() throws {
+        let model = KeyboardViewModel()
+        model.configureFixture(snapshot: .offline, now: 10_000)
+        let view = makeKeyboard(model: model)
+        view.didInsertDictation("Synthetic result.", before: "", after: "")
+        model.feedback = .snapshotFixture()
+        pumpMainRunLoop()
+        view.layoutIfNeeded()
+        XCTAssertEqual(view.shownPanelContent, .ask)
+
+        let t: TimeInterval = 10_000
+        model.applyBridgeState(
+            hasFullAccess: true,
+            snapshot: KeyboardSnapshot(state: .recording, heartbeat: t, expiresAt: t + 60, recordingStartedAt: t - 1, jobID: "j1"),
+            isModelInstalled: true,
+            style: .polished,
+            now: t,
+            clearPending: false,
+            animated: false
+        )
+        pumpMainRunLoop()
+        view.layoutIfNeeded()
+        let plane = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardKeyPlaneView }.first)
+        let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
+        XCTAssertFalse(plane.isHidden)
+        XCTAssertEqual(plane.alpha, 1, "the keys show under the recording panel")
+        XCTAssertFalse(key.isHidden)
+        XCTAssertEqual(key.alpha, 1)
+    }
+
     func testFullKeyboardShowsFeedbackPanelThatArrivesAfterMount() {
         let model = KeyboardViewModel()
         model.configureFixture(snapshot: .offline, now: 10_000)
