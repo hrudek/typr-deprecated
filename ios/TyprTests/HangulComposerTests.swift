@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 @testable import Typr
 
@@ -126,5 +127,201 @@ final class KoreanKeyboardGatingTests: XCTestCase {
     func testKoreanAppearsWhileTheExperimentIsOn() {
         XCTAssertEqual(KeyboardLanguage.matching("ko-KR", koreanEnabled: true), KeyboardLanguage.korean)
         XCTAssertTrue(KeyboardLanguage.selectable(koreanEnabled: true).contains(.korean))
+    }
+}
+
+/// The keyboard typing through the composer: the field is updated through `deleteBackward` and
+/// `insertText`, and space, delete and pages commit.
+@MainActor
+final class HangulKeyboardTests: XCTestCase {
+    private var target: HexFixtureTextTarget!
+    private var engine: FullKeyboardEngine!
+    private var nextID = 1
+
+    override func setUp() async throws {
+        configure()
+    }
+
+    /// A field with `text` before the cursor (at its end) and the Korean keyboard on it.
+    private func configure(text: String = "") {
+        configure(HexFixtureTextTarget(text: text))
+    }
+
+    private func configure(_ field: HexFixtureTextTarget) {
+        target = field
+        target.autocapitalizationType = UITextAutocapitalizationType.none
+        engine = FullKeyboardEngine(target: target)
+        engine.width = 393
+        engine.korean.isEnabled = true
+        engine.language = .korean
+        engine.configureForField()
+    }
+
+    private func tap(_ kind: KeyKind) {
+        guard let key = engine.layout.key(kind) else { return XCTFail("no \(kind)") }
+        let point = CGPoint(x: key.frame.midX, y: key.frame.midY)
+        engine.touchBegan(id: nextID, at: point)
+        engine.touchEnded(id: nextID, at: point)
+        nextID += 1
+    }
+
+    private func tap(_ character: String) {
+        tap(.character(character))
+    }
+
+    /// ㅎ ㅏ ㄴ shows 한 in the host, and delete steps it back to 하 without the field seeing a
+    /// whole syllable removed.
+    func testKeysComposeAndDeleteStepsBack() {
+        tap("ㅎ")
+        XCTAssertEqual(target.text, "ㅎ")
+        tap("ㅏ")
+        XCTAssertEqual(target.text, "하")
+        tap("ㄴ")
+        XCTAssertEqual(target.text, "한")
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "하")
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "ㅎ")
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "")
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "", "delete with nothing composing does nothing in an empty field")
+    }
+
+    /// Shift is one-shot for Hangul: ㄲ gives 까, then shift is off again and ㅏ types a plain
+    /// vowel, never an uppercased one.
+    func testShiftIsOneShot() {
+        tap(.shift)
+        tap("ㄱ")
+        XCTAssertEqual(target.text, "ㄲ")
+        XCTAssertEqual(engine.shift.state, .off)
+        tap("ㅏ")
+        XCTAssertEqual(target.text, "까")
+    }
+
+    /// Space commits the run: space types as usual, and the next jamo starts a new syllable.
+    func testSpaceCommits() {
+        tap("ㅎ")
+        tap("ㅏ")
+        tap("ㄴ")
+        tap(.space)
+        XCTAssertEqual(target.text, "한 ")
+        tap("ㅏ")
+        XCTAssertEqual(target.text, "한 ㅏ", "a lone vowel after the space, not one syllable with 한")
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "한 ", "delete takes the composing jamo, not the space")
+    }
+
+    /// A cursor move to text whose end reads like the run commits it: the jamo starts a new
+    /// run where the cursor is now, and the old run stays as it was.
+    func testCursorMoveWithTheSameLastSyllableStartsANewRun() {
+        configure(text: "같이")
+        tap("ㅇ")
+        tap("ㅣ")
+        XCTAssertEqual(target.text, "같이이")
+        engine.target.adjustTextPosition(byCharacterOffset: -1)
+        tap("ㄴ")
+        XCTAssertEqual(target.text, "같이ㄴ이", "the run at the old cursor is untouched")
+    }
+
+    /// Delete after such a move takes the character at the cursor, never steps the old run
+    /// back (which would turn its 이 into ㅇ).
+    func testCursorMoveCommitsBeforeDelete() {
+        configure(text: "같이")
+        tap("ㅇ")
+        tap("ㅣ")
+        XCTAssertEqual(target.text, "같이이")
+        engine.target.adjustTextPosition(byCharacterOffset: -1)
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "같이", "delete takes the character before the cursor, not the old run")
+    }
+
+    /// A selection commits the run too: delete then acts on the host, not on the run.
+    func testSelectionCommitsBeforeDelete() {
+        tap("ㅇ")
+        tap("ㅣ")
+        XCTAssertEqual(target.text, "이")
+        target.selectedText = "이"
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "", "the host's delete, not deleteHangulBackward's stepping")
+    }
+
+    /// A host with no text after the cursor still tells two lines ending alike apart from the
+    /// tail before the run: delete at the second line's end takes its last character, not the
+    /// run at the first line's end.
+    func testANilAfterTextHostStillCommitsOnACursorMove() {
+        let field = HexFixtureTextTarget(text: "같이\n같이")
+        field.hidesAfterText = true
+        configure(field)
+        engine.target.adjustTextPosition(byCharacterOffset: -3)
+        tap("ㅇ")
+        tap("ㅣ")
+        XCTAssertEqual(target.text, "같이이\n같이")
+        engine.target.adjustTextPosition(byCharacterOffset: 3)
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "같이이\n같", "the first line stays; the second loses its last character")
+    }
+
+    /// The same host still composes normally: the tail of an empty field is empty.
+    func testANilAfterTextHostComposes() {
+        let field = HexFixtureTextTarget()
+        field.hidesAfterText = true
+        configure(field)
+        tap("ㅎ")
+        tap("ㅏ")
+        tap("ㄴ")
+        XCTAssertEqual(target.text, "한")
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "하")
+    }
+
+    /// A lagging host reports the text from before its last insert (after the space, without
+    /// it): the engine's own record keeps the space, so ㅎ ㅏ makes one syllable.
+    func testALaggingHostKeepsTheSpaceBeforeTheNextJamo() {
+        let field = LaggingField()
+        field.lag = .behind
+        configure(field)
+        engine.clock = { 100 }
+        tap("ㄱ")
+        tap("ㅏ")
+        tap(.space)
+        tap("ㅎ")
+        tap("ㅏ")
+        XCTAssertEqual(target.text, "가 하")
+    }
+
+    /// A jamo ends the space pair: space, a jamo, delete, space types two spaces, not ". ".
+    func testAJamoEndsTheDoubleSpacePair() {
+        engine.clock = { 100 }
+        tap("ㄱ")
+        tap("ㅏ")
+        XCTAssertEqual(target.text, "가")
+        tap(.space)
+        XCTAssertEqual(target.text, "가 ")
+        tap("ㅎ")
+        engine.deleteBackward()
+        XCTAssertEqual(target.text, "가 ")
+        tap(.space)
+        XCTAssertEqual(target.text, "가  ", "not '가. '")
+    }
+
+    /// A page switch commits; punctuation then types as usual.
+    func testPageSwitchCommits() {
+        tap("ㅎ")
+        tap("ㅏ")
+        tap(.layerSwitch(.numbers))
+        tap(".")
+        XCTAssertEqual(target.text, "하.")
+        tap(.layerSwitch(.letters))
+        XCTAssertEqual(engine.layout.layer, .letters)
+    }
+
+    /// Auto-capitalization doesn't shift Hangul: at a sentence's start ㅂ types ㅂ, not ㅃ.
+    func testAutoCapitalizationDoesNotShiftHangul() {
+        target.autocapitalizationType = UITextAutocapitalizationType.sentences
+        engine.configureForField()
+        tap("ㅂ")
+        XCTAssertEqual(target.text, "ㅂ")
+        XCTAssertFalse(engine.isUppercase)
     }
 }
