@@ -235,6 +235,13 @@ struct ContentView: View {
                         .transition(.opacity.combined(with: .scale(scale: 0.98)))
                 }
 
+                if let notice = dictation.languageNotice {
+                    Label(notice, systemImage: "info.circle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                }
+
                 VStack(alignment: .leading, spacing: 8) {
                     SettingsSection(title: "Dictation") {
                         settingsCard
