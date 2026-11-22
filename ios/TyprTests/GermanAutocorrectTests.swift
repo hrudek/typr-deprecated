@@ -77,9 +77,9 @@ final class GermanAutocorrectTests: XCTestCase {
 
     func testMissingUmlautCostsLessThanASubstitution() throws {
         let german = GermanAutocorrect(checker: FakeTextChecker())
-        let substitution = try XCTUnwrap(AutocorrectEngine.singleEditKeyboardCost(from: "fur", to: "fir"))
-        XCTAssertLessThan(try XCTUnwrap(german.costAdjustedForUmlauts(from: "fur", to: "für")), substitution)
-        XCTAssertNotNil(german.costAdjustedForUmlauts(from: "brucke", to: "brücke"))
+        let substitution = try XCTUnwrap(AutocorrectEngine.singleEditKeyboardCost(from: "fur", to: "fir", on: .qwerty))
+        XCTAssertLessThan(try XCTUnwrap(german.costAdjustedForUmlauts(from: "fur", to: "für", on: .qwerty)), substitution)
+        XCTAssertNotNil(german.costAdjustedForUmlauts(from: "brucke", to: "brücke", on: .qwerty))
     }
 
     func testSpellingFallbackDoesNotSwapYAndZ() {

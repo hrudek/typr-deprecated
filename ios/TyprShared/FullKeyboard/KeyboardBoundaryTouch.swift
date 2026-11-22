@@ -52,11 +52,16 @@ nonisolated struct KeyboardBoundaryTouch: Equatable, Sendable {
         return true
     }
 
+    private static let lettersOverLayerKeys = 2
+
     /// Only bottom-row letters whose horizontal span actually meets this layout's Space.
     /// Geometry is checked before density: a broad prior can never license a distant key.
     static func adjacentLetters(in layout: KeyboardLayout) -> [KeyboardKey] {
-        guard let space = layout.key(.space) else { return [] }
-        return ["c", "v", "b", "n", "m"].compactMap { letter in
+        guard let space = layout.key(.space), let shift = layout.key(.shift) else { return [] }
+        var seen = Set<String>()
+        let bottomLetters = layout.keys.filter { $0.row == shift.row }.compactMap(\.character)
+            .filter { $0.first?.isLetter == true && seen.insert($0).inserted }
+        return bottomLetters.dropFirst(lettersOverLayerKeys).compactMap { letter in
             guard let key = layout.key(.character(letter)),
                   key.frame.maxX >= space.frame.minX, key.frame.minX <= space.frame.maxX,
                   abs(space.frame.minY - key.frame.maxY) <= layout.metrics.rowGap + 1 else { return nil }

@@ -199,6 +199,11 @@ final class FullKeyboardEngine {
     var bottomRow = BottomRow() { didSet { if bottomRow != oldValue { rebuildLayout() } } }
     var numberRow = false { didSet { if numberRow != oldValue { rebuildLayout() } } }
     var splitColumns = false { didSet { if splitColumns != oldValue { rebuildLayout() } } }
+    var letters = KeyboardLetterLayout.qwerty { didSet {
+        guard letters != oldValue else { return }
+        autocorrect.letters = letters
+        rebuildLayout()
+    } }
     var horizontalInset: CGFloat = 0 { didSet { if horizontalInset != oldValue { rebuildLayout() } } }
     /// Typr: without the suggestion bar the keys move up and no suggestions are computed.
     var showsStrip = true {
@@ -1437,6 +1442,7 @@ final class FullKeyboardEngine {
             bottomRow: bottomRow,
             numberRow: numberRow,
             splitColumns: splitColumns,
+            letters: letters,
             horizontalInset: horizontalInset,
             showsStrip: showsStrip
         )

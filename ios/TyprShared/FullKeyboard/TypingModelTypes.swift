@@ -10,6 +10,8 @@ nonisolated struct KeyboardLayoutSignature: Hashable, Codable, Sendable {
     /// Aligned split columns. Encoded and part of `id` only when true, so staggered and
     /// non-split data saved before this field keeps its keys.
     let splitColumns: Bool
+    /// Encoded and part of `id` only off QWERTY, so data saved before this field keeps its keys.
+    let letters: KeyboardLetterLayout
 
     init(_ layout: KeyboardLayout) {
         orientation = layout.orientation.rawValue
@@ -17,10 +19,11 @@ nonisolated struct KeyboardLayoutSignature: Hashable, Codable, Sendable {
         showsStrip = layout.showsStrip
         showsGlobe = layout.showsGlobe
         splitColumns = layout.splitColumns
+        letters = layout.letters
     }
 
     private enum CodingKeys: String, CodingKey {
-        case orientation, widthBucket, showsStrip, showsGlobe, splitColumns
+        case orientation, widthBucket, showsStrip, showsGlobe, splitColumns, letters
     }
 
     init(from decoder: Decoder) throws {
@@ -30,6 +33,7 @@ nonisolated struct KeyboardLayoutSignature: Hashable, Codable, Sendable {
         showsStrip = try container.decode(Bool.self, forKey: .showsStrip)
         showsGlobe = try container.decode(Bool.self, forKey: .showsGlobe)
         splitColumns = try container.decodeIfPresent(Bool.self, forKey: .splitColumns) ?? false
+        letters = try container.decodeIfPresent(KeyboardLetterLayout.self, forKey: .letters) ?? .qwerty
     }
 
     func encode(to encoder: Encoder) throws {
@@ -39,11 +43,12 @@ nonisolated struct KeyboardLayoutSignature: Hashable, Codable, Sendable {
         try container.encode(showsStrip, forKey: .showsStrip)
         try container.encode(showsGlobe, forKey: .showsGlobe)
         if splitColumns { try container.encode(true, forKey: .splitColumns) }
+        if letters != .qwerty { try container.encode(letters, forKey: .letters) }
     }
 
     var id: String {
         "\(orientation)-\(widthBucket)-\(showsStrip ? "strip" : "no-strip")-\(showsGlobe ? "globe" : "no-globe")"
-            + (splitColumns ? "-aligned" : "")
+            + (splitColumns ? "-aligned" : "") + (letters == .qwerty ? "" : "-\(letters.rawValue)")
     }
 
     var isValid: Bool {

@@ -727,6 +727,15 @@ text) and the small chip around an autocorrection (`KeyboardStripView.swift`) ar
 `AutocorrectEngine.AppliedCorrection.isAtEnd`; PR #2207: the autocorrection chip).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
+## Hex iOS letter layouts
+
+The QWERTZ, AZERTY and Dvorak letter rows and the Dvorak key geometry (delete ending row 1,
+row 3 as shift and nine narrower letters) in `ios/TyprShared/FullKeyboard/KeyboardLayout.swift`
+are adapted from [anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2172: `KeyboardLanguage.letterRows(_:)` and
+`dvorakLetterWidth` in `KeyboardLayout.swift`).
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
 ## Hex iOS audio mixing and keepalive backoff
 
 The Keep other audio playing session in `ios/Typr/DictationAudioSession.swift` (category,

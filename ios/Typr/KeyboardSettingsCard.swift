@@ -222,7 +222,7 @@ struct AutocorrectLanguageSettingsCard: View {
     }
 }
 
-private extension SpatialWordDecoder.Language {
+extension SpatialWordDecoder.Language {
     var title: String {
         switch self {
         case .german: "Deutsch"

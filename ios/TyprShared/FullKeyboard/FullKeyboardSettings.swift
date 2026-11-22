@@ -19,6 +19,9 @@ struct FullKeyboardSettings {
         static let splitKeyboard = "settings.keyboardSplit"
         static let splitColumns = "settings.keyboardSplitColumns"
         static let design = "settings.keyboardDesign"
+        static func letters(_ language: SpatialWordDecoder.Language) -> String {
+            "settings.keyboardLetters.\(language.rawValue)"
+        }
     }
 
     private let defaults: UserDefaults?
@@ -83,6 +86,22 @@ struct FullKeyboardSettings {
         get { defaults?.object(forKey: Key.splitColumns) as? Bool ?? false }
         nonmutating set { defaults?.set(newValue, forKey: Key.splitColumns) }
     }
+
+    func letters(for language: SpatialWordDecoder.Language) -> KeyboardLetterLayout {
+        defaults?.string(forKey: Key.letters(language)).flatMap(KeyboardLetterLayout.init(rawValue:)) ?? .qwerty
+    }
+
+    func setLetters(_ letters: KeyboardLetterLayout, for language: SpatialWordDecoder.Language) {
+        defaults?.set(letters.rawValue, forKey: Key.letters(language))
+    }
+
+    var lettersLanguage: SpatialWordDecoder.Language {
+        let typr = TyprSettings(defaults: defaults)
+        let order = typr.autocorrectLanguageOrder
+        return order.first { $0 == .german ? typr.autocorrectGerman : typr.autocorrectEnglish } ?? order[0]
+    }
+
+    var letters: KeyboardLetterLayout { letters(for: lettersLanguage) }
 
     var design: KeyboardDesign {
         get { defaults?.string(forKey: Key.design).flatMap(KeyboardDesign.init(rawValue:)) ?? .standard }

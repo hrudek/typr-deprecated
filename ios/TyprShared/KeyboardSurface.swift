@@ -54,6 +54,7 @@ final class KeyboardViewModel: ObservableObject {
     @Published var numberRow = false
     @Published var splitKeyboard = false
     @Published var splitColumns = false
+    @Published var letters = KeyboardLetterLayout.qwerty
     @Published var keyDesign = KeyboardDesign.standard
     @Published var returnKey = ReturnKeyStyle(.default)
     @Published var returnKeyEnabled = true

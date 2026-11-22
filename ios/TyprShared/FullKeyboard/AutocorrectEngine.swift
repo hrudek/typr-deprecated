@@ -213,6 +213,7 @@ final class AutocorrectEngine {
     /// The language that wins ties while both are on: first in displayed spelling guesses, and
     /// ranked ahead of the other language's spatial candidates.
     var preferredLanguage = SpatialWordDecoder.Language.german
+    var letters = KeyboardLetterLayout.qwerty
     private(set) var lexiconShortcuts: [String: String] = [:]
     private(set) var protectedLexicon: ProtectedPersonalLexicon = .empty
 
@@ -1540,12 +1541,12 @@ final class AutocorrectEngine {
         }
         if englishEnabled, !variantsOnly {
             for guess in checker.guesses(for: token) {
-                offer(guess, letters(guess).flatMap { Self.singleEditKeyboardCost(from: lower, to: $0) })
+                offer(guess, letters(guess).flatMap { Self.singleEditKeyboardCost(from: lower, to: $0, on: self.letters) })
             }
         }
         if let german, !variantsOnly {
             for guess in germanGuesses(for: token) {
-                offer(guess, letters(guess).flatMap { german.costAdjustedForUmlauts(from: lower, to: $0) })
+                offer(guess, letters(guess).flatMap { german.costAdjustedForUmlauts(from: lower, to: $0, on: self.letters) })
             }
         }
         return costs.min { $0.value == $1.value ? $0.key < $1.key : $0.value < $1.value }?.key
@@ -1566,7 +1567,7 @@ final class AutocorrectEngine {
             let normalized: String = guess.replacingOccurrences(of: "'", with: "").lowercased()
             let lengthGap: Double = Double(abs(guess.count - tokenCount))
             let fallback: Double = 2.0 + lengthGap * 0.3
-            let cost: Double = Self.singleEditKeyboardCost(from: lower, to: normalized) ?? fallback
+            let cost: Double = Self.singleEditKeyboardCost(from: lower, to: normalized, on: self.letters) ?? fallback
             return cost + Double(offset) * 0.08
         }
         let candidates: [(offset: Int, element: String)] = Array(checker.guesses(for: token).prefix(8).enumerated())
@@ -1597,7 +1598,7 @@ final class AutocorrectEngine {
     }
 
     /// Returns a weighted cost if `source` and `target` are within 1 Damerau-Levenshtein edit; `nil` otherwise.
-    static func singleEditKeyboardCost(from source: String, to target: String) -> Double? {
+    static func singleEditKeyboardCost(from source: String, to target: String, on letters: KeyboardLetterLayout) -> Double? {
         if source == target { return 0 }
         let s = Array(source)
         let t = Array(target)
@@ -1612,7 +1613,7 @@ final class AutocorrectEngine {
             }
             if diffs.count == 1 {
                 let i = diffs[0]
-                return areAdjacentKeys(s[i], t[i]) ? 0.65 : 1.15
+                return areAdjacentKeys(s[i], t[i], on: letters) ? 0.65 : 1.15
             }
             if diffs.count == 2, diffs[1] == diffs[0] + 1,
                s[diffs[0]] == t[diffs[1]], s[diffs[1]] == t[diffs[0]] {
@@ -1639,21 +1640,26 @@ final class AutocorrectEngine {
         }
         let extraIdx = skippedIndex ?? (longer.count - 1)
         let extraChar = longer[extraIdx]
-        let leftAdj = extraIdx > 0 && areAdjacentKeys(extraChar, longer[extraIdx - 1])
-        let rightAdj = extraIdx + 1 < longer.count && areAdjacentKeys(extraChar, longer[extraIdx + 1])
+        let leftAdj = extraIdx > 0 && areAdjacentKeys(extraChar, longer[extraIdx - 1], on: letters)
+        let rightAdj = extraIdx + 1 < longer.count && areAdjacentKeys(extraChar, longer[extraIdx + 1], on: letters)
         return (leftAdj || rightAdj) ? 0.70 : 0.90
     }
 
-    private static let keyCoordinates: [Character: (Double, Double)] = {
-        var map: [Character: (Double, Double)] = [:]
-        for (col, ch) in "qwertyuiop".enumerated() { map[ch] = (0, Double(col)) }
-        for (col, ch) in "asdfghjkl".enumerated() { map[ch] = (1, Double(col) + 0.5) }
-        for (col, ch) in "zxcvbnm".enumerated() { map[ch] = (2, Double(col) + 1.5) }
-        return map
+    private static let keyCoordinates: [KeyboardLetterLayout: [Character: (row: Double, column: Double)]] = {
+        Dictionary(uniqueKeysWithValues: KeyboardLetterLayout.allCases.map { letters in
+            let layout = KeyboardLayout(width: 375, letters: letters)
+            let pitch = layout.key(.character("a"))!.frame.width + layout.metrics.gap
+            var map: [Character: (row: Double, column: Double)] = [:]
+            for key in layout.keys where key.row < layout.bottomRowIndex {
+                guard let letter = key.character?.first else { continue }
+                map[letter] = (Double(key.row), Double((key.frame.minX - layout.metrics.side) / pitch))
+            }
+            return (letters, map)
+        })
     }()
 
-    static func areAdjacentKeys(_ a: Character, _ b: Character) -> Bool {
-        guard let pa = keyCoordinates[a], let pb = keyCoordinates[b] else { return false }
+    static func areAdjacentKeys(_ a: Character, _ b: Character, on letters: KeyboardLetterLayout) -> Bool {
+        guard let pa = keyCoordinates[letters]?[a], let pb = keyCoordinates[letters]?[b] else { return false }
         let dx = pa.1 - pb.1
         let dy = pa.0 - pb.0
         return (dx * dx + dy * dy).squareRoot() <= 1.6
