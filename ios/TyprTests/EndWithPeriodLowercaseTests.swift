@@ -105,6 +105,34 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
         }
     }
 
+    func testOffKeepsAbbreviationsAndInitialismsInsideQuotesAndBrackets() {
+        let kept = [
+            "Wir waren in den (U.S.)", "Wir waren in den \"U.S.\"", "Er sagte „U.S.“", "Sie schrieb «U.S.»",
+            "Er sagte ‚z.B.‘", "Das ist ein Beispiel (z.B.)", "Das heißt „d.h.“", "Das heißt [d.h.]",
+            "Brot, Milch (usw.)", "Brot, Milch „usw.“", "Morgen oder übermorgen (bzw.)", "Frag bitte „Dr.“",
+            "We met in the (U.S.)", "She wrote \"e.g.\"", "Bring pens ('etc.')",
+        ]
+        let dropped: [(String, String)] = [
+            ("Er sagte „Hallo.“", "Er sagte „Hallo“"),
+            ("Sie schrieb «Bis morgen.»", "Sie schrieb «Bis morgen»"),
+            ("Ich komme (wahrscheinlich.)", "Ich komme (wahrscheinlich)"),
+            ("She said \"see you.\"", "She said \"see you\""),
+        ]
+        for style in [DictationStyle.polished, .casual, .notes] {
+            for text in kept {
+                XCTAssertEqual(TranscriptFormatter.format(text, style: style, endsWithPeriod: false), text, "\(style) \(text)")
+            }
+            for (text, expected) in dropped {
+                XCTAssertEqual(TranscriptFormatter.format(text, style: style, endsWithPeriod: false), expected, "\(style) \(text)")
+            }
+        }
+        for style in [DictationStyle.polished, .notes] {
+            for text in ["Das ist z.B.", "Das ist d.h.", "Bring Brot usw.", "Heute bzw.", "Frag Dr."] {
+                XCTAssertEqual(TranscriptFormatter.format(text, style: style, endsWithPeriod: false), text, "\(style) \(text)")
+            }
+        }
+    }
+
     func testOffAppliesToEveryListLine() {
         XCTAssertEqual(
             TranscriptFormatter.format("Einkaufsliste: erstens Milch, zweitens Eier.", style: .polished,
