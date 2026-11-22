@@ -146,7 +146,7 @@ final class DictationLearningTests: XCTestCase {
     private func edited(_ inserted: String, _ meant: String, caseIsKnown: Bool = true,
                         kept: [[String]] = []) -> DictationEditResult {
         DictationEditResult(outcome: .edited, pairs: [DictationEditPair(inserted: inserted, meant: meant, caseIsKnown: caseIsKnown)],
-                            wordCount: 6, changedWordCount: 1, keptWords: kept)
+                            keptWords: kept)
     }
 
     private func store() -> DictationLearningStore {
@@ -189,8 +189,8 @@ final class DictationLearningTests: XCTestCase {
 
     func testUndoneAndKeptDictationsStoreNothing() {
         let store = store()
-        store.record(DictationEditResult(outcome: .undone, wordCount: 4, changedWordCount: 4))
-        store.record(DictationEditResult(outcome: .kept, wordCount: 4))
+        store.record(DictationEditResult(outcome: .undone))
+        store.record(DictationEditResult(outcome: .kept))
         XCTAssertTrue(store.records.isEmpty)
     }
 

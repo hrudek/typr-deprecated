@@ -206,7 +206,7 @@ nonisolated enum DictationWordDiff {
     }
 }
 
-nonisolated enum DictationOutcome: String, Codable, CaseIterable, Sendable {
+nonisolated enum DictationOutcome: Sendable {
     /// Sent or left as Typr inserted it.
     case kept
     /// Some words fixed.
@@ -235,8 +235,6 @@ nonisolated struct DictationEditPair: Equatable, Sendable {
 nonisolated struct DictationEditResult: Equatable, Sendable {
     var outcome: DictationOutcome
     var pairs: [DictationEditPair] = []
-    var wordCount: Int
-    var changedWordCount: Int = 0
     /// Runs of word keys left exactly as inserted in a dictation you corrected elsewhere, so you
     /// saw them and kept them. Never stored; used to contradict learned fixes.
     var keptWords: [[String]] = []
@@ -253,11 +251,7 @@ nonisolated enum DictationEditClassifier {
         guard !insertedWords.isEmpty, insertedWords.count <= maxWords else { return nil }
         let finalWords = DictationText.words(in: span.text)
         if finalWords.isEmpty {
-            return DictationEditResult(
-                outcome: undone ? .undone : .deleted,
-                wordCount: insertedWords.count,
-                changedWordCount: insertedWords.count
-            )
+            return DictationEditResult(outcome: undone ? .undone : .deleted)
         }
         guard finalWords.count <= maxWords * 2 else { return nil }
 
@@ -266,12 +260,12 @@ nonisolated enum DictationEditClassifier {
         let allHunks = DictationWordDiff.hunks(ins, fin)
         let hunks = trimEdges(allHunks, old: ins, new: fin, span: span)
         guard !hunks.isEmpty else {
-            return DictationEditResult(outcome: .kept, wordCount: ins.count)
+            return DictationEditResult(outcome: .kept)
         }
 
         let changed = hunks.reduce(0) { $0 + max($1.old.count, $1.new.count) }
         guard Double(changed) <= max(1, Double(ins.count) / 2) else {
-            return DictationEditResult(outcome: .rewritten, wordCount: ins.count, changedWordCount: changed)
+            return DictationEditResult(outcome: .rewritten)
         }
 
         let startsSentence = ins.first?.first?.isUppercase ?? false
@@ -288,8 +282,6 @@ nonisolated enum DictationEditClassifier {
         return DictationEditResult(
             outcome: .edited,
             pairs: pairs,
-            wordCount: ins.count,
-            changedWordCount: changed,
             keptWords: keptRuns(ins, excluding: allHunks)
         )
     }
@@ -302,12 +294,11 @@ nonisolated enum DictationEditClassifier {
         let newWords = DictationText.words(in: nextInserted)
         let old = oldWords.map(\.text)
         let new = newWords.map(\.text)
-        var result = DictationEditResult(outcome: .redictated, wordCount: old.count, changedWordCount: old.count)
+        var result = DictationEditResult(outcome: .redictated)
         guard !new.isEmpty, new.count <= maxWords * 2 else { return result }
 
         let hunks = DictationWordDiff.hunks(old.map(DictationText.key), new.map(DictationText.key))
         let changed = hunks.reduce(0) { $0 + max($1.old.count, $1.new.count) }
-        result.changedWordCount = changed
         guard Double(changed) <= max(1, Double(old.count) / 2) else { return result }
 
         let startsSentence = new.first?.first?.isUppercase ?? false

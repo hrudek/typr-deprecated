@@ -128,7 +128,6 @@ final class DictationEditTracker {
     private func update(_ current: inout Tracked, with context: Context, fromKeys: Bool) -> Bool {
         guard context.hasText else {
             guard current.located else { return true }
-            // Typr's delete key emptied the field: a deletion. The host emptying it is a send.
             guard fromKeys || !current.latest.hasWords else { return false }
             current.latest.text = ""
             current.emptiedAt = current.emptiedAt ?? now()

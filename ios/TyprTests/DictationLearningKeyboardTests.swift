@@ -122,7 +122,7 @@ final class DictationLearningPipelineTests: XCTestCase {
             let store = DictationLearningStore(defaults: defaults)
             for _ in 0..<2 {
                 store.record(DictationEditResult(outcome: .edited,
-                    pairs: [DictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)], wordCount: 5))
+                    pairs: [DictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)]))
             }
             let asr = LearningASR()
             let controller = DictationController(audio: LearningAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),

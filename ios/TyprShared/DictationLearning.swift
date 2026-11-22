@@ -123,7 +123,6 @@ nonisolated struct DictationFixRecord: Codable, Equatable, Sendable {
         var records = records
         for pair in result.pairs {
             let heardKey = DictationText.phraseKey(pair.inserted)
-            // Only a capital you added teaches anything when the words stay the same.
             guard heardKey != DictationText.phraseKey(pair.meant) || pair.meant.contains(where: \.isUppercase)
             else { continue }
             if let index = records.firstIndex(where: {
