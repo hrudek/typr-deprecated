@@ -149,6 +149,20 @@ final class UndoDictationTests: XCTestCase {
         XCTAssertEqual(edited.text, "Hallo Jörg. uns um zwölf.")
         XCTAssertNil(undoChip(view))
     }
+    func testNoOfferWhenTheDictationIsAmbiguousRightAfterInsertion() {
+        let field = FixtureTextTarget(text: " Ja. Ja.")
+        let view = dictate(" Ja.", into: field, at: 4)
+        XCTAssertEqual(field.text, " Ja. Ja. Ja.")
+        XCTAssertNil(undoChip(view))
+    }
+
+    func testNoOfferWhenASentenceOnlyHostShowsPartOfTheDictation() {
+        let field = FixtureTextTarget(text: "Hallo.")
+        let (view, _) = dictateInSentenceHost(" Satz eins. Satz zwei.", into: field)
+        XCTAssertEqual(field.text, "Hallo. Satz eins. Satz zwei.")
+        XCTAssertNil(undoChip(view))
+    }
+
     func testSelectingTextHidesTheChip() {
         let field = FixtureTextTarget(text: "Hallo Jörg.")
         let (view, target) = dictateInSentenceHost(dictation, into: field)

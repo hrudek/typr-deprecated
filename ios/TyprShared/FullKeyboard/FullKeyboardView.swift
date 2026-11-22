@@ -595,7 +595,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
             suggestions: status == nil && !code ? withEmoji(engine.suggestions) : engine.suggestions,
             statusText: status,
             showsCodeChip: code,
-            showsUndo: lastDictation != nil
+            showsUndo: offersUndo
         )
     }
 
@@ -688,6 +688,11 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
         hideUndo()
         engine.textDidChange()
         refreshReturnKey()
+    }
+
+    /// The chip shows only while Undo would take back exactly the dictation.
+    private var offersUndo: Bool {
+        lastDictation.map { undoPlan($0) != nil } ?? false
     }
 
     private func revalidateUndo() {
