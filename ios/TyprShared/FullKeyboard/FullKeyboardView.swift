@@ -985,6 +985,7 @@ final class FullKeyboardView: UIView, UIInputViewAudioFeedback {
 
     /// A still hold on the Typr key: dictate, or open Typr.
     private func typrKeyHeld() {
+        guard !showsRecording else { return }
         if allowsHaptics() { haptics.impactOccurred() }
         dismissStyleMenu()
         if typrKey.isWarm {

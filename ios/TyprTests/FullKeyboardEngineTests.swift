@@ -877,6 +877,12 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(plane.frame, keysFrame, "and where they were")
         XCTAssertFalse(key.isHidden)
         XCTAssertEqual(key.alpha, 1)
+
+        var events: [String] = []
+        model.onDictateTap = { events.append("start") }
+        model.onColdStart = { events.append("cold") }
+        key.onHold?()
+        XCTAssertEqual(events, [], "holding the visible Typr key does not start a second dictation")
     }
 
     func testTyprKeyTouchDownArmsOnlyWhileWarmAndATapStillTypesASpace() throws {
