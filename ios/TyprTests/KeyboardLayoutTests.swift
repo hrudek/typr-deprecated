@@ -1022,6 +1022,7 @@ final class FullKeyboardSettingsTests: XCTestCase {
 
         XCTAssertTrue(settings.autocorrect)
         XCTAssertTrue(settings.swipeTyping)
+        XCTAssertFalse(settings.suggestSwearWords)
         XCTAssertFalse(settings.numberRow)
         XCTAssertFalse(settings.splitKeyboard)
         XCTAssertFalse(settings.splitColumns)
@@ -1030,6 +1031,7 @@ final class FullKeyboardSettingsTests: XCTestCase {
 
         settings.autocorrect = false
         settings.swipeTyping = false
+        settings.suggestSwearWords = true
         settings.numberRow = true
         settings.splitKeyboard = true
         settings.splitColumns = true
@@ -1038,6 +1040,7 @@ final class FullKeyboardSettingsTests: XCTestCase {
         settings.bottomRow = arranged
         XCTAssertFalse(fresh().autocorrect)
         XCTAssertFalse(fresh().swipeTyping)
+        XCTAssertTrue(fresh().suggestSwearWords)
         XCTAssertTrue(fresh().numberRow)
         XCTAssertTrue(fresh().splitKeyboard)
         XCTAssertTrue(fresh().splitColumns)

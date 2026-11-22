@@ -290,7 +290,8 @@ nonisolated struct KeyboardContextModel: Sendable {
     /// which reproduces the corpus-only ranking exactly.
     func suggestions(after context: String?, weightDE: Double, german: Bool = true, english: Bool = true,
                      suppress: Set<String> = Self.suppressed,
-                     personal: PersonalBigramModel = .init(), earlier: String? = nil) -> [Suggestion] {
+                     personal: PersonalBigramModel = .init(), earlier: String? = nil,
+                     allows: (String) -> Bool = { _ in true }) -> [Suggestion] {
         guard supports(german: german, english: english) else { return [] }
         let d = german ? de : nil, e = english ? en : nil
         let a = german ? (english ? min(1, max(0, weightDE.isFinite ? weightDE : 0.5)) : 1) : 0
@@ -304,7 +305,7 @@ nonisolated struct KeyboardContextModel: Sendable {
             // follower (OOV, other language's word or a suppressed name) needs repeated trust.
             let corpusWord = !suppress.contains(key) && (d?.id(key) != nil || e?.id(key) != nil)
             guard corpusWord || (row[key] ?? 0) >= PersonalBigramModel.novelFollowerMinimum,
-                  seen.insert(key).inserted else { return }
+                  seen.insert(key).inserted, allows(key) else { return }
             let dp = a * (d?.probability(key, distribution: dd) ?? 0)
             let ep = (1 - a) * (e?.probability(key, distribution: ed) ?? 0)
             let pack = dp >= ep && d?.id(key) != nil ? d : e

@@ -297,6 +297,20 @@ final class SwipeTypingTests: XCTestCase {
         XCTAssertEqual(target.text, "o hello")
     }
 
+    func testSwipeNeverInsertsSlursOrSwearWordsUnlessAsked() async {
+        results = [.init(word: "schwuchtel", score: 0, language: .german), .init(word: "nigger", score: -1, language: .english),
+                   .init(word: "scheiße", score: -2, language: .german), .init(word: "schlucht", score: -3, language: .german)]
+        await swipe("schuchtel")
+        XCTAssertEqual(target.text, "schlucht")
+        XCTAssertFalse(engine.suggestions.contains { ["schwuchtel", "nigger", "scheiße"].contains($0.replacement) })
+
+        reset()
+        engine.autocorrect.allowsSwearing = true
+        results = candidates("nigger", "fuck", "bigger")
+        await swipe("nigger")
+        XCTAssertEqual(target.text, "fuck")
+    }
+
     func testHeldLetterStillOpensAccentsAndSwipeDoesNot() {
         engine.autocorrect.german = GermanAutocorrect(checker: nil)
         let start = center("a")

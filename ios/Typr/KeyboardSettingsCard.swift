@@ -7,6 +7,7 @@ struct KeyboardSettingsCard: View {
     private let defaults: UserDefaults?
     @State private var autocorrect: Bool
     @State private var swipeTyping: Bool
+    @State private var suggestSwearWords: Bool
     @State private var autocorrectGerman: Bool
     @State private var autocorrectEnglish: Bool
     @State private var autocorrectLanguageOrder: [SpatialWordDecoder.Language]
@@ -19,6 +20,7 @@ struct KeyboardSettingsCard: View {
         let typr = TyprSettings(defaults: defaults)
         _autocorrect = State(initialValue: keyboard.autocorrect)
         _swipeTyping = State(initialValue: keyboard.swipeTyping)
+        _suggestSwearWords = State(initialValue: keyboard.suggestSwearWords)
         _autocorrectGerman = State(initialValue: typr.autocorrectGerman)
         _autocorrectEnglish = State(initialValue: typr.autocorrectEnglish)
         _autocorrectLanguageOrder = State(initialValue: typr.autocorrectLanguageOrder)
@@ -49,6 +51,9 @@ struct KeyboardSettingsCard: View {
                     }
                     .buttonStyle(.plain)
                     .enabled(autocorrect)
+                    SettingsDivider()
+                    SettingsToggle(title: "Suggest swear words", detail: "Slurs are never suggested.", isOn: $suggestSwearWords)
+                        .onChange(of: suggestSwearWords) { _, enabled in keyboardSettings.suggestSwearWords = enabled }
                     SettingsDivider()
                     SettingsToggle(title: "Swipe typing", detail: "Slide across the letters to type a word.", isOn: $swipeTyping)
                         .onChange(of: swipeTyping) { _, enabled in keyboardSettings.swipeTyping = enabled }
@@ -83,6 +88,7 @@ struct KeyboardSettingsCard: View {
     private func refresh() {
         autocorrect = keyboardSettings.autocorrect
         swipeTyping = keyboardSettings.swipeTyping
+        suggestSwearWords = keyboardSettings.suggestSwearWords
         autocorrectGerman = typrSettings.autocorrectGerman
         autocorrectEnglish = typrSettings.autocorrectEnglish
         autocorrectLanguageOrder = typrSettings.autocorrectLanguageOrder

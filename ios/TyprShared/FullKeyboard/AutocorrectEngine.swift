@@ -199,6 +199,8 @@ final class AutocorrectEngine {
     let checker: TextChecking
     let learning: KeyboardLearningSession
     var isEnabled = true { didSet { invalidateDecode() } }
+    /// Keyboard › Suggest swear words: every swear word may be offered; slurs never are.
+    var allowsSwearing = false { didSet { if oldValue != allowsSwearing { invalidateDecode() } } }
     var englishEnabled = true { didSet {
         if oldValue != englishEnabled { discardFeedback() }
         invalidateDecode()
@@ -213,6 +215,29 @@ final class AutocorrectEngine {
     var preferredLanguage = SpatialWordDecoder.Language.german
     private(set) var lexiconShortcuts: [String: String] = [:]
     private(set) var protectedLexicon: ProtectedPersonalLexicon = .empty
+
+    /// Whether `candidate` may be suggested, autocorrected to or swiped after `beforeInput`:
+    /// never a slur, a swear word only with `allowsSwearing`, once Typr learned it (kept or typed
+    /// twice) or when it is one of your imported words or text replacements.
+    func mayOffer(_ candidate: String, before beforeInput: String?) -> Bool {
+        mayOffer(candidate, after: Self.lastWord(of: RejectedCorrection.context(before: beforeInput, token: "")))
+    }
+
+    private func mayOffer(_ candidate: String, after previous: String?) -> Bool {
+        !NeverSuggestWords.blocks(candidate, after: previous, allowsSwearing: allowsSwearing) { word in
+            learning.protections.knows(word) || protectedLexicon.contains(word)
+                || lexiconTermKeys.contains(word.lowercased())
+                || lexiconShortcuts.values.contains { $0.lowercased() == word.lowercased() }
+        }
+    }
+
+    private func mayReplace(_ token: String, with candidate: String) -> Bool {
+        candidate.lowercased() == token.lowercased() || mayOffer(candidate, after: Self.lastWord(of: rejectionContext))
+    }
+
+    private static func lastWord(of context: String?) -> String? {
+        context?.split(separator: " ").last.map(String.init)
+    }
 
     func loadProtectedLexicon(_ lexicon: ProtectedPersonalLexicon) {
         guard protectedLexicon != lexicon else { return }
@@ -401,12 +426,17 @@ final class AutocorrectEngine {
         if candidate.kind == .split && literalIsValid(token) { return nil }
         if candidate.kind == .join && parts.allSatisfy({ literalIsValid($0) })
             && (!candidate.spatial || !candidate.betterThanSeparateTap) { return nil }
-        guard candidate.kind == .split else { return personalSpelling(candidate.replacement, token: parts[0]) }
-        let words = candidate.replacement.split(separator: " ").map(String.init)
-        return words.enumerated().map { index, word in
-            let cased = word == "i" && englishEnabled ? "I" : personalSpelling(word, token: word)
-            return index == 0 ? Self.matchCase(of: token, onto: cased) : cased
-        }.joined(separator: " ")
+        let replacement: String
+        if candidate.kind == .split {
+            let words = candidate.replacement.split(separator: " ").map(String.init)
+            replacement = words.enumerated().map { index, word in
+                let cased = word == "i" && englishEnabled ? "I" : personalSpelling(word, token: word)
+                return index == 0 ? Self.matchCase(of: token, onto: cased) : cased
+            }.joined(separator: " ")
+        } else {
+            replacement = personalSpelling(candidate.replacement, token: parts[0])
+        }
+        return mayReplace(token, with: replacement) ? replacement : nil
     }
 
     private func automaticBoundary(in retrieval: KeyboardBoundaryDecoder.Retrieval, beforeInput: String?)
@@ -923,9 +953,11 @@ final class AutocorrectEngine {
         guard let token = activeToken else {
             guard canPredictNextWord(after: beforeInput), let context, context.canPredict,
                   let model = contextModel else { return [] }
+            let previous = Self.lastWord(of: RejectedCorrection.context(before: beforeInput, token: ""))
             let words = model.suggestions(after: context.previous, weightDE: context.state.weightDE,
                                           german: german != nil, english: englishEnabled,
-                                          personal: learning.personalBigrams, earlier: context.earlier)
+                                          personal: learning.personalBigrams, earlier: context.earlier,
+                                          allows: { self.mayOffer($0, after: previous) })
             // Most likely word in the centre slot, like the current-word strip; never automatic.
             return KeyboardContextModel.stripOrder(words).map { word in
                 let selected = learning.personalBigrams.select(after: context.previous, earlier: context.earlier).context
@@ -979,7 +1011,8 @@ final class AutocorrectEngine {
         }
         if let autoFix {
             if !pool.contains(autoFix) { pool.append(autoFix) }
-        } else if isEnabled, let suggested = orthographySuggestion(token, context: context) {
+        } else if isEnabled, let suggested = orthographySuggestion(token, context: context),
+                  mayReplace(token, with: suggested) {
             pool.append(suggested)
         }
         // Explicit revert, automatic choice and manual orthography keep their slots.
@@ -1118,6 +1151,8 @@ final class AutocorrectEngine {
                 }
             }
         }
+
+        pool = Array(pool.prefix(pinnedCount)) + pool.dropFirst(pinnedCount).filter { mayReplace(token, with: $0) }
 
         // Context only reorders display alternatives. The automatic choice or explicit revert
         // stays first (Space and its highlight must still describe the unchanged decision).
@@ -1392,6 +1427,11 @@ final class AutocorrectEngine {
     private func automatic(_ text: String, token: String, kind: CorrectionKind,
                            counter: KeyboardDiagnostics.Counter, alignment: [Int?]? = nil) -> Decision {
         guard text != token else { return Decision() }
+        let previous = Self.lastWord(of: rejectionContext)
+        if kind != .autoRule, text.lowercased() != token.lowercased(),
+           !mayOffer(text, after: previous) || !mayOffer(token, after: previous) {
+            return Decision(refusal: .refusedProtected)
+        }
         // An inferred suffix is a manual completion, never an automatic boundary edit.
         // Explicit text replacements and deterministic rules keep their existing authority.
         if (kind == .autoSpatial || kind == .autoSpelling), Self.isPrefixExtension(text, of: token) {

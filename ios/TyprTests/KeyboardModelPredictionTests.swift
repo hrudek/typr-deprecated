@@ -104,6 +104,21 @@ final class KeyboardModelPredictionTests: XCTestCase {
         XCTAssertEqual(contexts, [sentence], "The same context is not requested twice")
     }
 
+    func testModelNeverPredictsSlursOrSwearWordsUnlessAsked() async throws {
+        let (engine, target) = try keyboard(FakeModel(["fuck", "neger", "go"]))
+        await type(sentence, engine, target)
+        await settle(engine)
+        XCTAssertTrue(bar(engine).contains("go"))
+        XCTAssertTrue(Set(bar(engine)).isDisjoint(with: ["fuck", "neger"]))
+
+        let (asked, askedTarget) = try keyboard(FakeModel(["scheiße", "nigger", "go"]))
+        asked.autocorrect.allowsSwearing = true
+        await type(sentence, asked, askedTarget)
+        await settle(asked)
+        XCTAssertTrue(bar(asked).contains("scheiße"))
+        XCTAssertFalse(bar(asked).contains("nigger"))
+    }
+
     func testPickedModelWordIsInsertedWithSentenceCase() async throws {
         let (engine, target) = try keyboard(FakeModel(["hello"]))
         await type("Done. ", engine, target)
