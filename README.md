@@ -136,6 +136,9 @@ tried again when Typr returns.
   swear words only once Typr learned them or with Keyboard › Suggest swear words (LDNOOBW list as curated by Hex). Your iOS text replacements expand on space and punctuation also with Autocorrect off, take a capital you typed on the shortcut ("Mfg") and expand again after a revert kept the shortcut once. Unless a keyboard Anthropic key is stored (then Claude predicts), on iOS 26+
   with Apple Intelligence available for every enabled language, the on-device model adds up to three next-word predictions from the current paragraph before the
   cursor (1 s budget; on failure the count-based predictions stay).
+  With Experimental › **Slide delete to remove words** on, pressing Delete removes
+  one letter in ordinary text and holding it does not repeat. Slide left to delete
+  words and back right to restore them. This also works in the split layout.
 - While learning is on, the keyboard keeps a typing log on the iPhone: taps,
   corrections and the final word of the most recent 10,000 to 20,000 words, never
   from secure, URL or email fields. Keyboard › Words and privacy exports it as

@@ -39,7 +39,7 @@ final class SwipeTypingTests: XCTestCase {
     }
 
     private func reset(text: String = "", keyboardType: UIKeyboardType = .default,
-                       decoder: SwipeDecoding? = nil) {
+                       decoder: SwipeDecoding? = nil, useBundledDecoder: Bool = false) {
         target = FixtureTextTarget(text: text)
         target.autocapitalizationType = UITextAutocapitalizationType.none
         target.keyboardType = keyboardType
@@ -52,7 +52,9 @@ final class SwipeTypingTests: XCTestCase {
                 return script.results
             }
         }
-        engine = TyprFullKeyboardEngine(target: target, autocorrect: ac, swipeDecoder: decoder ?? scripted)
+        engine = TyprFullKeyboardEngine(
+            target: target, autocorrect: ac, swipeDecoder: useBundledDecoder ? nil : decoder ?? scripted
+        )
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.configureForField()
@@ -338,6 +340,21 @@ final class SwipeTypingTests: XCTestCase {
     }
 
     // MARK: - Recognition (bundled model and word lists)
+
+    func testBundledTyprSwipeFollowsTheLegacyKeyboardSetting() async {
+        reset(useBundledDecoder: true)
+        let settings = TyprFullKeyboardSettings(defaults: defaults)
+        settings.swipeTyping = true
+        engine.swipeTypingEnabled = settings.swipeTyping
+        await swipe("hello")
+        XCTAssertEqual(target.text, "hello")
+
+        settings.swipeTyping = false
+        reset(useBundledDecoder: true)
+        engine.swipeTypingEnabled = settings.swipeTyping
+        await swipe("world")
+        XCTAssertEqual(target.text, "d")
+    }
 
     func testBundledModelRecognizesGermanAndEnglishOnQwerty() async throws {
         let layout = try XCTUnwrap(SwipeLayout(layout: engine.layout))
