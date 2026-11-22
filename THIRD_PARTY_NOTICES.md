@@ -793,6 +793,15 @@ the hold timer in `KeyboardKeyPlaneView.swift`, and the tests in
 `KeyboardKeyPlaneView.swift` and `FullKeyboardEngineTests.swift` there. MIT, © Christopher
 Langton, the same license as this repository ([LICENSE](LICENSE)).
 
+## Hex undo dictation
+
+Typr's Undo dictation (`ios/TyprShared/FullKeyboard/DictationUndo.swift`, the strip chip in
+`KeyboardStripView.swift` and the undo plan in `FullKeyboardView.swift`) is taken from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb`: `DictationUndo` word for word except one
+private doc comment, the chip and `undoPlan`/`undoDictation` adapted. MIT, © Christopher
+Langton, the same license as this repository ([LICENSE](LICENSE)).
+
 ## Hex iOS emoji panel
 
 The emoji panel, its category bar that scrubs the grid, the decaying Frequently used count,

@@ -400,7 +400,7 @@ final class DictationKeyboardFeedbackTests: XCTestCase {
         XCTAssertNil(visibleButton("Good", in: view))
         XCTAssertNotNil(view.engine.layout.key(.character("q")))
 
-        view.didInsertDictation()
+        view.didInsertDictation("Synthetic result.", before: "", after: "")
         model.feedback = .snapshotFixture()
         pumpMainRunLoop()
         view.layoutIfNeeded()

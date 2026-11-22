@@ -6,6 +6,7 @@ import UIKit
 protocol KeyboardTextTarget: AnyObject {
     var documentContextBeforeInput: String? { get }
     var documentContextAfterInput: String? { get }
+    var selectedText: String? { get }
     var hasText: Bool { get }
     var autocapitalizationType: UITextAutocapitalizationType? { get }
     var autocorrectionType: UITextAutocorrectionType? { get }
@@ -23,6 +24,7 @@ protocol KeyboardTextTarget: AnyObject {
 
 extension KeyboardTextTarget {
     var documentContextAfterInput: String? { nil }
+    var selectedText: String? { nil }
     var autocorrectionType: UITextAutocorrectionType? { .default }
     var isSecureTextEntry: Bool? { false }
     var inlinePredictionType: UITextInlinePredictionType? { .default }
@@ -41,6 +43,7 @@ final class DocumentProxyTextTarget: KeyboardTextTarget {
 
     var documentContextBeforeInput: String? { proxy().documentContextBeforeInput }
     var documentContextAfterInput: String? { proxy().documentContextAfterInput }
+    var selectedText: String? { proxy().selectedText }
     var hasText: Bool { proxy().hasText }
     var autocapitalizationType: UITextAutocapitalizationType? { proxy().autocapitalizationType }
     var autocorrectionType: UITextAutocorrectionType? { proxy().autocorrectionType }
@@ -249,6 +252,8 @@ final class FullKeyboardEngine {
     var onSelectionStep: (() -> Void)?
     /// Called when the emoji key is let go.
     var onEmojiKey: (() -> Void)?
+    /// Called after the spacebar trackpad moved the cursor.
+    var onCursorMove: (() -> Void)?
 
     init(target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil,
          suggestionWorker: KeyboardSuggestionWorker? = nil,
@@ -734,6 +739,7 @@ final class FullKeyboardEngine {
                     touches[id] = touch
                     target.adjustTextPosition(byCharacterOffset: rawSteps)
                     onSelectionStep?()
+                    onCursorMove?()
                     refreshAutoCapitalization()
                     refreshSuggestions()
                     return
@@ -980,6 +986,7 @@ final class FullKeyboardEngine {
     private func trackpadMovedCursor(by offset: Int) {
         guard offset != 0 else { return }
         target.adjustTextPosition(byCharacterOffset: offset)
+        onCursorMove?()
         refreshAutoCapitalization()
         refreshSuggestions()
     }

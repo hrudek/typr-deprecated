@@ -46,6 +46,7 @@ public final class UITextChecker {
 public protocol UITextDocumentProxy {
     var documentContextBeforeInput: String? { get }
     var documentContextAfterInput: String? { get }
+    var selectedText: String? { get }
     var hasText: Bool { get }
     var autocapitalizationType: UITextAutocapitalizationType { get }
     var autocorrectionType: UITextAutocorrectionType { get }

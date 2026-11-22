@@ -162,11 +162,11 @@ private struct FullKeyboardFixture: UIViewRepresentable {
                 view.engine.touchBegan(id: 903, at: center(of: .shift, in: view))
                 view.engine.touchEnded(id: 903, at: center(of: .shift, in: view))
             case "feedback", "feedback-problem":
-                view.didInsertDictation()
+                view.didInsertDictation(context.coordinator.target.text, before: "", after: "")
                 view.problemPanelDuration = 600
                 model.feedback = .snapshotFixture(problem: state == "feedback-problem")
             case "inserted":
-                view.didInsertDictation()
+                view.didInsertDictation(context.coordinator.target.text, before: "", after: "")
             case "style":
                 view.debugShowStyleMenu()
             default:
