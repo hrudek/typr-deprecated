@@ -687,6 +687,16 @@ pronoun-contraction expansion. `ios/TyprTests/CleanupGuardHexTests.swift` is Hex
 `TranscriptCleanupTests.swift` guard tests from the same commit. MIT, © Christopher Langton, the same license as
 this repository ([LICENSE](LICENSE)).
 
+## Hex spoken cleanup rules
+
+"Clean up what I say" (`ios/Typr/SpokenCleanup.swift`) is adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PRs #2023, #2132): the German hesitation
+pattern in `TranscriptFormatter.fillerPattern`, the German word rules and correction search
+in `SpokenCleanupRules.swift`, and the comma and capital repair of `CleanupReconstruction.swift`.
+Typr adds English rules, stutter removal and stricter repair conditions.
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
 ## Hex iOS return key style
 
 The return key's symbol, blue action style, off state and accessibility label per

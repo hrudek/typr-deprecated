@@ -70,6 +70,8 @@ final class DictationController {
         let vocabulary: DictationVocabulary
         let vocabularyEnabled: Bool
         let typrCleanupEnabled: Bool
+        /// "Clean up what I say" word rules, frozen at start; never in Verbatim.
+        let spokenCleanup: Bool
         let copyToPasteboard: Bool
         let cleanupJob: CleanupJob?
         let cleanupSkipReason: CleanupSkipReason?
@@ -1106,6 +1108,7 @@ final class DictationController {
         let logCleanupPath: DictationLogCleanupPath = effectiveStyle == .verbatim ? .none
             : (enabled ? .typr : .none)
         let cleanupEnabled = enabled && effectiveStyle != .verbatim
+        let spokenCleanup = languageSettings[experiment: .cleanUpWhatISay] && effectiveStyle != .verbatim
         let disabledCleanupReason: CleanupSkipReason? = !enabled ? .off : (effectiveStyle == .verbatim ? .verbatim : nil)
         // The keyboard's caret text and host app; a cold start knows only the app it came from.
         var cleanupContext = keyboardContext ?? CleanupContext(application: attemptAutoReturnOnStart ? returnHost : nil)
@@ -1182,6 +1185,7 @@ final class DictationController {
                     vocabulary: vocabulary,
                     vocabularyEnabled: vocabularyEnabled,
                     typrCleanupEnabled: enabled,
+                    spokenCleanup: spokenCleanup,
                     copyToPasteboard: copyToPasteboard,
                     cleanupJob: cleanupJob,
                     cleanupSkipReason: cleanupSkipReason,
@@ -1322,14 +1326,15 @@ final class DictationController {
                                                                 onReplacement: observeFirst)
                 let spelled = prepared.text
                 recording?.recognized(rawText, spelled: spelled, asrMilliseconds: asrMilliseconds, spellingPass: firstPass)
-                var text = spelled
+                let spoken = session.spokenCleanup ? SpokenCleanup.clean(spelled, language: session.language) : spelled
+                var text = spoken
                 if let cleanup = self.cleanup, session.cleanupSkipReason != .off {
                     // Typr AI cleanup is on.
                     if session.cleanupSkipReason == .verbatim {
                         // Verbatim remains synchronous: no prepare, model call, lease or await.
                         self.cleanupCoordinator.recordSkip(.verbatim, dependencies: cleanup, diagnostics: recording)
                     } else {
-                        text = await self.cleanupCoordinator.clean(spelled, job: session.cleanupJob,
+                        text = await self.cleanupCoordinator.clean(spoken, job: session.cleanupJob,
                             dependencies: cleanup, skipReason: session.cleanupSkipReason,
                             vocabulary: prepared.cleanupTerms, context: session.cleanupContext, diagnostics: recording)
                         guard self.jobGeneration == captureGeneration, !Task.isCancelled else { return }
@@ -1339,7 +1344,6 @@ final class DictationController {
                         // Off remains synchronous: no prepare, model call, lease or await.
                         self.cleanupCoordinator.recordSkip(.off, dependencies: cleanup, diagnostics: recording)
                     }
-                    text = spelled
                 }
                 let beforeSpelling = TranscriptFormatter.format(text, style: session.style, language: session.language,
                                                                 lists: session.formatLists,
