@@ -6,9 +6,9 @@ import XCTest
 final class DictationLearningKeyboardTests: XCTestCase {
     private var results: [DictationEditResult] = []
 
-    private func keyboard(_ field: FixtureTextTarget) -> FullKeyboardView {
-        let view = FullKeyboardView(model: KeyboardViewModel(), target: field,
-            autocorrect: AutocorrectEngine(spatialDecoder: nil))
+    private func keyboard(_ field: FixtureTextTarget) -> TyprFullKeyboardView {
+        let view = TyprFullKeyboardView(model: KeyboardViewModel(), target: field,
+            autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
         view.suggestionBarOverride = true
         view.orientationOverride = .portrait
         view.frame = CGRect(x: 0, y: 0, width: 393, height: view.preferredHeight)
@@ -17,7 +17,7 @@ final class DictationLearningKeyboardTests: XCTestCase {
         return view
     }
 
-    private func dictate(_ text: String, into field: FixtureTextTarget, view: FullKeyboardView, learns: Bool = true) {
+    private func dictate(_ text: String, into field: FixtureTextTarget, view: TyprFullKeyboardView, learns: Bool = true) {
         let before = field.documentContextBeforeInput ?? "", after = field.documentContextAfterInput ?? ""
         field.insertText(text)
         view.didInsertDictation(text, before: before, after: after, learns: learns)
@@ -30,7 +30,7 @@ final class DictationLearningKeyboardTests: XCTestCase {
         return view.subviews.lazy.compactMap(undoChip).first
     }
 
-    private func replaceWal(in field: FixtureTextTarget, view: FullKeyboardView) {
+    private func replaceWal(in field: FixtureTextTarget, view: TyprFullKeyboardView) {
         field.adjustTextPosition(byCharacterOffset: -" getroffen.".count)
         view.selectionDidChange()
         for _ in 0..<3 { view.engine.deleteBackward() }

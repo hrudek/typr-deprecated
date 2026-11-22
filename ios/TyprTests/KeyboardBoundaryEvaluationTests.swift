@@ -237,7 +237,7 @@ extension KeyboardBoundaryDecoderTests {
             Gate(name: "w1e4_r1e3", whole: log(10_000), runner: log(1_000), noiseOnly: false),
             Gate(name: "noise_w100_r10", whole: log(100), runner: log(10), noiseOnly: true)
         ]
-        func proposed(_ ac: AutocorrectEngine, _ token: String) -> [String?] {
+        func proposed(_ ac: TyprAutocorrectEngine, _ token: String) -> [String?] {
             guard token == token.lowercased(), !ac.checker.isWordValid(token),
                   ac.german?.isValid(token) != true else { return gates.map { _ in nil } }
             let candidates = strip(ac, token).compactMap(\.boundary).filter { $0.kind == .split }
@@ -361,7 +361,7 @@ extension KeyboardBoundaryDecoderTests {
                 XCTAssertEqual(result.candidates, Boundary.retrieve(result.job, lexicons: sources, model: model).candidates)
             }
         }
-        let pairBytes = AutocorrectEngine.boundaryRejectionLimit * (MemoryLayout<RejectedCorrection>.stride + 130)
+        let pairBytes = TyprAutocorrectEngine.boundaryRejectionLimit * (MemoryLayout<RejectedCorrection>.stride + 130)
         XCTAssertLessThan(Boundary.shortWordPayloadBytes, 1_024)
         XCTAssertLessThan(Boundary.maximumCandidatePayloadBytes, 2_048)
         XCTAssertLessThan(pairBytes, 16_384)

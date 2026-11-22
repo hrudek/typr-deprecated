@@ -14,7 +14,7 @@ extension KeyboardBoundaryDecoderTests {
         return KeyboardBoundaryTouch(current: KeyboardTouchWord(layout: grid, samples: samples))
     }
 
-    func installMultipart(_ touch: KeyboardBoundaryTouch, in ac: AutocorrectEngine) {
+    func installMultipart(_ touch: KeyboardBoundaryTouch, in ac: TyprAutocorrectEngine) {
         ac.touchInput.clear()
         var before = ""
         for sample in touch.current.samples {
@@ -126,7 +126,7 @@ extension KeyboardBoundaryDecoderTests {
         let touch = try multipartTouch("gutemmorgemheutr", aimed: "gutenmorgenheute")
         let ac = engine(sources, languages: [.german])
         let target = FixtureTextTarget(text: touch.original)
-        let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+        let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         keyboard.width = grid.width
         keyboard.configureForField()
         installMultipart(touch, in: ac)

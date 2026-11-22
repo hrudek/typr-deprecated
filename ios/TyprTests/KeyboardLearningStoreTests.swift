@@ -117,7 +117,7 @@ final class KeyboardLearningStoreTests: XCTestCase {
         let model = PersonalTypingModel()
         model.keep("hello"); model.recordWord("hello")
         model.rejectCorrection(typed: "hello", replacement: "help")
-        let layout = KeyboardLayout(width: 393)
+        let layout = TyprKeyboardLayout(width: 393)
         let key = try XCTUnwrap(layout.key(.character("a")))
         model.learn([.init(point: CGPoint(x: key.frame.midX, y: key.frame.midY), letter: "a")], layout: layout, source: .keep)
         var diagnostics = KeyboardDiagnostics()
@@ -146,7 +146,7 @@ final class KeyboardLearningStoreTests: XCTestCase {
         let model = PersonalTypingModel()
         model.keep("hallo"); model.recordWord("hello")
         model.rejectCorrection(typed: "hallo", replacement: "hello")
-        let grid = KeyboardLayout(width: 393)
+        let grid = TyprKeyboardLayout(width: 393)
         let key = try XCTUnwrap(grid.key(.character("a")))
         model.learn(Array(repeating: .init(point: CGPoint(x: key.frame.midX, y: key.frame.midY), letter: "a"), count: 20),
                     layout: grid, source: .keep)
@@ -300,9 +300,9 @@ final class KeyboardLearningStoreTests: XCTestCase {
         let fixture = try Fixture(); defer { fixture.clean() }
         let model = PersonalTypingModel()
         let layouts = [
-            KeyboardLayout(width: 669, orientation: .widePortrait),
-            KeyboardLayout(width: 801, orientation: .wideLandscape),
-            KeyboardLayout(width: 801, orientation: .splitLandscape),
+            TyprKeyboardLayout(width: 669, orientation: .widePortrait),
+            TyprKeyboardLayout(width: 801, orientation: .wideLandscape),
+            TyprKeyboardLayout(width: 801, orientation: .splitLandscape),
         ]
         for layout in layouts {
             let g = try XCTUnwrap(layout.key(.character("g")))
@@ -337,7 +337,7 @@ final class KeyboardLearningStoreTests: XCTestCase {
 
     func testAimMemoriesSurviveReloadRepairNonFiniteWeightsAndReset() throws {
         let fixture = try Fixture(); defer { fixture.clean() }
-        let layout = KeyboardLayout(width: 375)
+        let layout = TyprKeyboardLayout(width: 375)
         let id = KeyboardLayoutSignature(layout).id
         let e = try XCTUnwrap(layout.key(.character("e"))).frame
         let session = KeyboardLearningSession(store: fixture.store(), defaults: fixture.defaults)
@@ -370,7 +370,7 @@ final class KeyboardLearningStoreTests: XCTestCase {
 
     func testInvalidKeyStatsAreDroppedWithoutLosingProtectionOrBlockingLaterSaves() throws {
         let fixture = try Fixture(); defer { fixture.clean() }
-        let layout = KeyboardLayout(width: 375)
+        let layout = TyprKeyboardLayout(width: 375)
         let signature = KeyboardLayoutSignature(layout)
         let model = PersonalTypingModel()
         model.keep("hello"); model.recordWord("world")

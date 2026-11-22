@@ -12,7 +12,7 @@ nonisolated struct KeyboardKeyMap: Sendable {
     static let novelty = 0.10
 
     struct Entry: Sendable {
-        let key: KeyboardKey
+        let key: TyprKeyboardKey
         let density: SpatialTouchCalibration.Key
         let logPrior: Double
     }
@@ -27,13 +27,13 @@ nonisolated struct KeyboardKeyMap: Sendable {
         let followers: [SpatialWordDecoder.Language: Followers]
     }
 
-    let layout: KeyboardLayout
+    let layout: TyprKeyboardLayout
     let prefix: String
     let entries: [Entry]
     var payloadBytes: Int { entries.count * MemoryLayout<Entry>.stride }
 
     /// Letters the calibration has not learned score with the prior touch model.
-    init(layout: KeyboardLayout, prefix: String, calibration: SpatialTouchCalibration, priors: [Double]) {
+    init(layout: TyprKeyboardLayout, prefix: String, calibration: SpatialTouchCalibration, priors: [Double]) {
         self.layout = layout
         self.prefix = prefix
         entries = layout.keys.compactMap { key in
@@ -46,7 +46,7 @@ nonisolated struct KeyboardKeyMap: Sendable {
     }
 
     /// The map for the next tap after `prefix`, or nil for a prefix the priors cannot read.
-    static func make(layout: KeyboardLayout, prefix: String, calibration: SpatialTouchCalibration,
+    static func make(layout: TyprKeyboardLayout, prefix: String, calibration: SpatialTouchCalibration,
                      languages: Set<SpatialWordDecoder.Language>,
                      lexicons: [SpatialWordDecoder.Language: SpatialWordLexicon],
                      personal: PersonalCompletionIndex?, context: Context? = nil) -> KeyboardKeyMap? {
@@ -109,8 +109,8 @@ nonisolated struct KeyboardKeyMap: Sendable {
     /// iikb `KeyMap.key(atX:y:in:)`: the reachable letter key with the highest touch density plus
     /// log prior odds. Call at actual insertion; the caller also validates text/config/model epoch.
     /// Only letter keys compete; other keys keep the taps landing on them.
-    func attributedKey(at point: CGPoint, geometric: KeyboardKey,
-                       layout current: KeyboardLayout, prefix currentPrefix: String) -> KeyboardKey {
+    func attributedKey(at point: CGPoint, geometric: TyprKeyboardKey,
+                       layout current: TyprKeyboardLayout, prefix currentPrefix: String) -> TyprKeyboardKey {
         guard current == layout, currentPrefix == prefix, layout.layer == .letters, layout.field == .text,
               point.x.isFinite, point.y.isFinite, layout.hitTest(point) == geometric,
               let hit = entries.first(where: { $0.key == geometric }) else { return geometric }

@@ -13,7 +13,7 @@ final class PersonalTypingTrigramEvaluationTests: XCTestCase {
     private typealias Checker = PersonalTrigramPhraseFixtures.Checker
     private func ranked(_ prefix: String, session: KeyboardLearningSession, model: KeyboardContextModel,
                         language: String) -> [String] {
-        let ac = AutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
+        let ac = TyprAutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
                                    contextResources: .init(model: model))
         ac.englishEnabled = language != "de"
         if language != "en" { ac.german = GermanAutocorrect(checker: Checker()) }

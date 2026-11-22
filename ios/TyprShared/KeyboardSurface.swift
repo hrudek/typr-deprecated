@@ -54,9 +54,9 @@ final class KeyboardViewModel: ObservableObject {
     @Published var numberRow = false
     @Published var splitKeyboard = false
     @Published var splitColumns = false
-    @Published var letters = KeyboardLetterLayout.qwerty
+    @Published var letters = TyprKeyboardLetterLayout.qwerty
     @Published var keyDesign = KeyboardDesign.standard
-    @Published var returnKey = ReturnKeyStyle(.default)
+    @Published var returnKey = TyprReturnKeyStyle(.default)
     @Published var returnKeyEnabled = true
     @Published var isModelInstalled = false
     @Published private(set) var isWarmAvailable = false
@@ -346,7 +346,7 @@ private struct GlobeKeyRepresentable: UIViewRepresentable {
 
 private struct KeyboardChromePalette {
     let isDark: Bool
-    let keys: FullKeyboardPalette
+    let keys: TyprFullKeyboardPalette
 
     var textBase: Color {
         isDark
@@ -389,7 +389,7 @@ private struct KeyboardChromePalette {
 }
 
 struct Keycap: UIViewRepresentable {
-    let palette: FullKeyboardPalette
+    let palette: TyprFullKeyboardPalette
     let isPressed: Bool
     var fill: UIColor?
 
@@ -404,7 +404,7 @@ struct Keycap: UIViewRepresentable {
     }
 
     final class KeycapView: UIView {
-        var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { setNeedsDisplay() } } }
+        var palette = TyprFullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { setNeedsDisplay() } } }
         var isPressed = false { didSet { if isPressed != oldValue { setNeedsDisplay() } } }
         var fill: UIColor? { didSet { if fill != oldValue { setNeedsDisplay() } } }
 
@@ -428,7 +428,7 @@ struct Keycap: UIViewRepresentable {
 }
 
 private extension View {
-    func keycap(_ palette: FullKeyboardPalette, isPressed: Bool = false, fill: UIColor? = nil) -> some View {
+    func keycap(_ palette: TyprFullKeyboardPalette, isPressed: Bool = false, fill: UIColor? = nil) -> some View {
         background(Keycap(palette: palette, isPressed: isPressed, fill: fill).padding(-Keycap.shadowOverhang).allowsHitTesting(false))
     }
 }
@@ -470,7 +470,7 @@ private struct RepeatDeleteKey: View {
             .foregroundStyle(palette.keyGlyph)
             .frame(width: 52, height: 42)
             .keycap(palette.keys, isPressed: isPressing)
-            .contentShape(RoundedRectangle(cornerRadius: FullKeyboardPalette.cornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: TyprFullKeyboardPalette.cornerRadius, style: .continuous))
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in
@@ -558,7 +558,7 @@ struct KeyboardSurfaceView: View {
 
     private var palette: KeyboardChromePalette {
         let isDark = !isHostedExtension || colorScheme == .dark
-        return KeyboardChromePalette(isDark: isDark, keys: FullKeyboardPalette(isDark: isDark, design: model.keyDesign))
+        return KeyboardChromePalette(isDark: isDark, keys: TyprFullKeyboardPalette(isDark: isDark, design: model.keyDesign))
     }
 
     private var isStageActive: Bool {
@@ -580,7 +580,7 @@ struct KeyboardSurfaceView: View {
         .overlay {
             if model.hasFullAccess, model.feedback != nil, !isStageActive {
                 TyprFeedbackTray(model: model)
-                    .background(Color(uiColor: FullKeyboardPalette(isDark: palette.isDark).backdrop))
+                    .background(Color(uiColor: TyprFullKeyboardPalette(isDark: palette.isDark).backdrop))
             }
         }
         .preferredColorScheme(isHostedExtension ? nil : .dark)
@@ -912,7 +912,7 @@ struct KeyboardSurfaceView: View {
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(p.keyGlyph)
                         .frame(width: 44, height: 42)
-                        .contentShape(RoundedRectangle(cornerRadius: FullKeyboardPalette.cornerRadius, style: .continuous))
+                        .contentShape(RoundedRectangle(cornerRadius: TyprFullKeyboardPalette.cornerRadius, style: .continuous))
                 }
                 .buttonStyle(KeyboardKeyButtonStyle(palette: p))
                 .disabled(isStageActive)
@@ -946,11 +946,11 @@ struct KeyboardSurfaceView: View {
                     .foregroundStyle(p.keyMuted)
                     .frame(maxWidth: .infinity)
                     .frame(height: 42)
-                    .contentShape(RoundedRectangle(cornerRadius: FullKeyboardPalette.cornerRadius, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: TyprFullKeyboardPalette.cornerRadius, style: .continuous))
             }
             .buttonStyle(KeyboardKeyButtonStyle(palette: p))
             .simultaneousGesture(
-                LongPressGesture(minimumDuration: FullKeyboardEngine.nextKeyboardHoldDelay)
+                LongPressGesture(minimumDuration: TyprFullKeyboardEngine.nextKeyboardHoldDelay)
                     .onChanged { _ in spaceHeldForNextKeyboard = false }
                     .onEnded { _ in
                         spaceHeldForNextKeyboard = true
@@ -970,7 +970,7 @@ struct KeyboardSurfaceView: View {
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(returnInk(p))
                     .frame(width: 56, height: 42)
-                    .contentShape(RoundedRectangle(cornerRadius: FullKeyboardPalette.cornerRadius, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: TyprFullKeyboardPalette.cornerRadius, style: .continuous))
             }
             .buttonStyle(KeyboardKeyButtonStyle(palette: p, fill: returnFill(p)))
             .disabled(!model.returnKeyEnabled)

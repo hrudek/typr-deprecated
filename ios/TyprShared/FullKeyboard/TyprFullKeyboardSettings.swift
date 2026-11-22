@@ -7,7 +7,7 @@ nonisolated enum KeyboardDesign: String, CaseIterable, Sendable {
 
 /// The full keyboard's switches in the shared App Group.
 @MainActor
-struct FullKeyboardSettings {
+struct TyprFullKeyboardSettings {
     private enum Key {
         static let autocorrect = "settings.keyboardAutocorrect"
         static let swipeTyping = "settings.keyboardSwipeTyping"
@@ -90,11 +90,11 @@ struct FullKeyboardSettings {
         nonmutating set { defaults?.set(newValue, forKey: Key.splitColumns) }
     }
 
-    func letters(for language: SpatialWordDecoder.Language) -> KeyboardLetterLayout {
-        defaults?.string(forKey: Key.letters(language)).flatMap(KeyboardLetterLayout.init(rawValue:)) ?? .qwerty
+    func letters(for language: SpatialWordDecoder.Language) -> TyprKeyboardLetterLayout {
+        defaults?.string(forKey: Key.letters(language)).flatMap(TyprKeyboardLetterLayout.init(rawValue:)) ?? .qwerty
     }
 
-    func setLetters(_ letters: KeyboardLetterLayout, for language: SpatialWordDecoder.Language) {
+    func setLetters(_ letters: TyprKeyboardLetterLayout, for language: SpatialWordDecoder.Language) {
         defaults?.set(letters.rawValue, forKey: Key.letters(language))
     }
 
@@ -104,7 +104,7 @@ struct FullKeyboardSettings {
         return order.first { $0 == .german ? typr.autocorrectGerman : typr.autocorrectEnglish } ?? order[0]
     }
 
-    var letters: KeyboardLetterLayout { letters(for: lettersLanguage) }
+    var letters: TyprKeyboardLetterLayout { letters(for: lettersLanguage) }
 
     var design: KeyboardDesign {
         get { defaults?.string(forKey: Key.design).flatMap(KeyboardDesign.init(rawValue:)) ?? .standard }

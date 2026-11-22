@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class AutocorrectRevertTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { ["ich", "nicht", "heute", "komme"].contains(word) }
         func guesses(for word: String) -> [String] {
             ["nciht": ["nicht"], "hetue": ["heute"]][word] ?? []
@@ -15,7 +15,7 @@ final class AutocorrectRevertTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suite: String!
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var now: TimeInterval = 100
 
     override func setUp() async throws {
@@ -23,9 +23,9 @@ final class AutocorrectRevertTests: XCTestCase {
         defaults = UserDefaults(suiteName: suite)!
         target = FixtureTextTarget()
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let autocorrect = AutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults),
+        let autocorrect = TyprAutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults),
                                             spatialDecoder: nil)
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.scheduleAfter = { _, _ in }
@@ -39,7 +39,7 @@ final class AutocorrectRevertTests: XCTestCase {
 
     private func type(_ text: String) {
         for character in text {
-            let kind: KeyKind = character == " " ? .space : .character(String(character))
+            let kind: TyprKeyKind = character == " " ? .space : .character(String(character))
             let frame = engine.layout.key(kind)!.frame
             let point = CGPoint(x: frame.midX, y: frame.midY)
             engine.touchBegan(id: 1, at: point)
@@ -48,7 +48,7 @@ final class AutocorrectRevertTests: XCTestCase {
         }
     }
 
-    private func strip() async -> [KeyboardSuggestion] {
+    private func strip() async -> [TyprKeyboardSuggestion] {
         await engine.waitForSuggestions()
         return engine.suggestions
     }
@@ -145,10 +145,10 @@ final class AutocorrectRevertTests: XCTestCase {
     }
 
     func testStripDrawsTheRevertChipWithItsLabel() throws {
-        let strip = KeyboardStripView(frame: CGRect(x: 0, y: 0, width: 393, height: 44))
+        let strip = TyprKeyboardStripView(frame: CGRect(x: 0, y: 0, width: 393, height: 44))
         strip.update(suggestions: [
-            KeyboardSuggestion(displayText: "nciht", replacement: "nciht", kind: .revert),
-            KeyboardSuggestion(displayText: "nicht", replacement: "nicht", kind: .primary(autoReplace: true)),
+            TyprKeyboardSuggestion(displayText: "nciht", replacement: "nciht", kind: .revert),
+            TyprKeyboardSuggestion(displayText: "nicht", replacement: "nicht", kind: .primary(autoReplace: true)),
         ], statusText: nil)
         strip.layoutIfNeeded()
         let labels = strip.subviews.filter { !$0.isHidden }.compactMap(\.accessibilityLabel)

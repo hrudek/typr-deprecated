@@ -11,9 +11,9 @@ nonisolated struct KeyboardLayoutSignature: Hashable, Codable, Sendable {
     /// non-split data saved before this field keeps its keys.
     let splitColumns: Bool
     /// Encoded and part of `id` only off QWERTY, so data saved before this field keeps its keys.
-    let letters: KeyboardLetterLayout
+    let letters: TyprKeyboardLetterLayout
 
-    init(_ layout: KeyboardLayout) {
+    init(_ layout: TyprKeyboardLayout) {
         orientation = layout.orientation.rawValue
         widthBucket = Int((layout.width / 8).rounded()) * 8
         showsStrip = layout.showsStrip
@@ -33,7 +33,7 @@ nonisolated struct KeyboardLayoutSignature: Hashable, Codable, Sendable {
         showsStrip = try container.decode(Bool.self, forKey: .showsStrip)
         showsGlobe = try container.decode(Bool.self, forKey: .showsGlobe)
         splitColumns = try container.decodeIfPresent(Bool.self, forKey: .splitColumns) ?? false
-        letters = try container.decodeIfPresent(KeyboardLetterLayout.self, forKey: .letters) ?? .qwerty
+        letters = try container.decodeIfPresent(TyprKeyboardLetterLayout.self, forKey: .letters) ?? .qwerty
     }
 
     func encode(to encoder: Encoder) throws {
@@ -52,7 +52,7 @@ nonisolated struct KeyboardLayoutSignature: Hashable, Codable, Sendable {
     }
 
     var isValid: Bool {
-        guard let pose = KeyboardOrientation(rawValue: orientation) else { return false }
+        guard let pose = TyprKeyboardOrientation(rawValue: orientation) else { return false }
         return (!splitColumns || pose == .splitLandscape) && (8...4096).contains(widthBucket) && widthBucket % 8 == 0
     }
 }

@@ -3,7 +3,7 @@ import UIKit
 
 /// The text field the keys type into. `UITextDocumentProxy` in the keyboard; a fake in tests.
 @MainActor
-protocol KeyboardTextTarget: AnyObject {
+protocol TyprKeyboardTextTarget: AnyObject {
     var documentContextBeforeInput: String? { get }
     var documentContextAfterInput: String? { get }
     var selectedText: String? { get }
@@ -22,7 +22,7 @@ protocol KeyboardTextTarget: AnyObject {
     func adjustTextPosition(byCharacterOffset offset: Int)
 }
 
-extension KeyboardTextTarget {
+extension TyprKeyboardTextTarget {
     var documentContextAfterInput: String? { nil }
     var selectedText: String? { nil }
     var autocorrectionType: UITextAutocorrectionType? { .default }
@@ -34,7 +34,7 @@ extension KeyboardTextTarget {
 }
 
 @MainActor
-final class DocumentProxyTextTarget: KeyboardTextTarget {
+final class TyprDocumentProxyTextTarget: TyprKeyboardTextTarget {
     private let proxy: () -> UITextDocumentProxy
 
     init(_ proxy: @escaping () -> UITextDocumentProxy) {
@@ -64,23 +64,23 @@ final class DocumentProxyTextTarget: KeyboardTextTarget {
 /// auto-capitalization and accelerating delete. Touches are identified by any stable integer
 /// so tests can drive it without `UITouch`.
 @MainActor
-final class FullKeyboardEngine {
+final class TyprFullKeyboardEngine {
     struct ActiveTouch: Equatable {
-        var key: KeyboardKey
+        var key: TyprKeyboardKey
         var startPoint: CGPoint
         var point: CGPoint
         var startTime: TimeInterval
         /// Captured geometry; layout changes and key-to-key slides make evidence ambiguous.
-        var evidenceLayout: KeyboardLayout
+        var evidenceLayout: TyprKeyboardLayout
         var hasUnambiguousPoint = true
         /// A character that already went in because another key went down after it.
         var committed: Bool
         /// The page a 123/ABC press came from; releasing over a character returns there.
-        var returnLayer: KeyboardLayer?
+        var returnLayer: TyprKeyboardLayer?
         var isTrackpad = false
         var trackpadAnchorX: CGFloat = 0
-        var trackpad: TrackpadCursor.State?
-        var trackpadPath: [TrackpadCursor.Sample] = []
+        var trackpad: TyprTrackpadCursor.State?
+        var trackpadPath: [TyprTrackpadCursor.Sample] = []
         /// A delete press slid left (`slidesDeleteByWord`): the words it deleted, oldest first.
         var slideDeleted: [String]?
         /// The text before the cursor when the slide started; hosts can report context late.
@@ -108,10 +108,10 @@ final class FullKeyboardEngine {
     /// space, as on Apple's (its trackpad starts 330 to 365 ms after touch-down; Hex #2233).
     static let trackpadDelay: TimeInterval = 0.35
     static let trackpadPointsPerCharacter: CGFloat = 7.5
-    /// Settings > Experimental: the space bar moves the cursor as Apple's does (`TrackpadCursor`),
+    /// Settings > Experimental: the space bar moves the cursor as Apple's does (`TyprTrackpadCursor`),
     /// also when held still; off, a held slide moves it `trackpadPointsPerCharacter` along.
     var followsTextOnTrackpad = false
-    /// The field's body font, which `TrackpadCursor` lays the text out in.
+    /// The field's body font, which `TyprTrackpadCursor` lays the text out in.
     var trackpadLineHeight: CGFloat = 20
     var trackpadCharacterWidth: (Character) -> CGFloat = { $0.isNewline ? 0 : 8.5 }
     /// Settings > Experimental: sliding left from delete deletes a word per key width, sliding
@@ -123,16 +123,16 @@ final class FullKeyboardEngine {
     /// Coalesced samples of one swipe; older halves are thinned beyond this.
     static let swipePathLimit = 1_024
 
-    private(set) var shift = ShiftStateMachine()
-    private(set) var layerState = KeyboardLayerState()
-    private(set) var field: KeyboardFieldKind = .text
+    private(set) var shift = TyprShiftStateMachine()
+    private(set) var layerState = TyprKeyboardLayerState()
+    private(set) var field: TyprKeyboardFieldKind = .text
     private(set) var touches: [Int: ActiveTouch] = [:]
     /// Touch ids in the order they went down.
     private var touchOrder: [Int] = []
     private var lastSpaceAt: TimeInterval?
     private var heldSpaceBefore: String?
 
-    private(set) var activeAccentMenu: AccentMenu?
+    private(set) var activeAccentMenu: TyprAccentMenu?
     private var activeAccentTouchID: Int?
     /// The active swipe's points for the trail; empty when none. RAM-only, cleared on release.
     private(set) var swipeTrail: [CGPoint] = []
@@ -141,7 +141,7 @@ final class FullKeyboardEngine {
     private var swipeGeneration: UInt64 = 0
     private var swipeTask: Task<Void, Never>?
     private let swipeDecoder: SwipeDecoding
-    private(set) var suggestions: [KeyboardSuggestion] = []
+    private(set) var suggestions: [TyprKeyboardSuggestion] = []
     private let suggestionWorker: KeyboardSuggestionWorker
     /// Optional model next words, merged into the count-based predictions for the same context.
     var modelPredictions: ModelPredictionSession?
@@ -164,8 +164,8 @@ final class FullKeyboardEngine {
     /// Bounded RAM-only ownership, also checked at chip acceptance before any edit/learning.
     var suggestionOwnership: KeyboardSuggestionOwnership {
         let context = stripBefore.flatMap(Self.boundedSuggestionContext)
-        let token = AutocorrectEngine.currentToken(in: context)
-        let route = KeyboardFieldRouting.route(for: target.keyboardType)
+        let token = TyprAutocorrectEngine.currentToken(in: context)
+        let route = TyprKeyboardFieldRouting.route(for: target.keyboardType)
         let prose: Bool
         if case .keys(.text, _) = route { prose = true } else { prose = false }
         return .init(engine: suggestionEngineID, revision: textRevision, context: context,
@@ -195,8 +195,8 @@ final class FullKeyboardEngine {
         return String(before[start...])
     }
 
-    let target: KeyboardTextTarget
-    let autocorrect: AutocorrectEngine
+    let target: TyprKeyboardTextTarget
+    let autocorrect: TyprAutocorrectEngine
     let statistics: UsageStatisticsSession?
     let typingLog: TypingLogRecorder?
     // Bounded RAM-only ownership, discarded with the engine; never sent to the store.
@@ -218,13 +218,13 @@ final class FullKeyboardEngine {
         statistics?.endSession()
     }
     var width: CGFloat = 375 { didSet { if width != oldValue { rebuildLayout() } } }
-    var orientation: KeyboardOrientation = .portrait { didSet { if orientation != oldValue { rebuildLayout() } } }
+    var orientation: TyprKeyboardOrientation = .portrait { didSet { if orientation != oldValue { rebuildLayout() } } }
     var showsGlobe = false { didSet { if showsGlobe != oldValue { rebuildLayout() } } }
     var globeKey = GlobeKey.switches { didSet { if globeKey != oldValue { rebuildLayout() } } }
     var bottomRow = BottomRow() { didSet { if bottomRow != oldValue { rebuildLayout() } } }
     var numberRow = false { didSet { if numberRow != oldValue { rebuildLayout() } } }
     var splitColumns = false { didSet { if splitColumns != oldValue { rebuildLayout() } } }
-    var letters = KeyboardLetterLayout.qwerty { didSet {
+    var letters = TyprKeyboardLetterLayout.qwerty { didSet {
         guard letters != oldValue else { return }
         autocorrect.letters = letters
         rebuildLayout()
@@ -238,7 +238,7 @@ final class FullKeyboardEngine {
             refreshSuggestions()
         }
     }
-    private(set) var layout = KeyboardLayout(width: 375)
+    private(set) var layout = TyprKeyboardLayout(width: 375)
     /// Typr: the swipe typing switch. Off drops any pending decode; sliding keeps slide-to-key.
     var swipeTypingEnabled = true {
         didSet { if !swipeTypingEnabled { cancelPendingSwipe() } }
@@ -263,7 +263,7 @@ final class FullKeyboardEngine {
     /// Called after the spacebar trackpad moved the cursor.
     var onCursorMove: (() -> Void)?
 
-    init(target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil,
+    init(target: TyprKeyboardTextTarget, autocorrect: TyprAutocorrectEngine? = nil,
          suggestionWorker: KeyboardSuggestionWorker? = nil,
          statistics: UsageStatisticsSession? = nil,
          typingLog: TypingLogRecorder? = nil,
@@ -272,7 +272,7 @@ final class FullKeyboardEngine {
         self.typingLog = typingLog
         self.swipeDecoder = swipeDecoder ?? { await SwipeRecognizer.shared.decode($0) }
         self.target = target
-        self.autocorrect = autocorrect ?? AutocorrectEngine()
+        self.autocorrect = autocorrect ?? TyprAutocorrectEngine()
         self.suggestionWorker = suggestionWorker ?? KeyboardSuggestionWorker()
         rebuildLayout()
     }
@@ -284,7 +284,7 @@ final class FullKeyboardEngine {
     }
 
     /// The key whose balloon shows: the newest character still held (hidden while an accent menu is up).
-    var previewKey: KeyboardKey? {
+    var previewKey: TyprKeyboardKey? {
         guard activeAccentMenu == nil else { return nil }
         for id in touchOrder.reversed() {
             if let touch = touches[id], touch.key.character != nil, !touch.committed, !touch.isSwipe {
@@ -294,16 +294,16 @@ final class FullKeyboardEngine {
         return nil
     }
 
-    var pressedKinds: Set<KeyKind> {
+    var pressedKinds: Set<TyprKeyKind> {
         Set(touches.values.filter { !$0.isSwipe }.map(\.key.kind))
     }
 
     /// Like `pressedKinds`, for one key: the split keyboard repeats some keys (space, g, v, ?) on both halves.
-    func isPressed(_ key: KeyboardKey) -> Bool {
+    func isPressed(_ key: TyprKeyboardKey) -> Bool {
         touches.values.contains { !$0.isSwipe && $0.key == key }
     }
 
-    func displayLabel(for key: KeyboardKey) -> String {
+    func displayLabel(for key: TyprKeyboardKey) -> String {
         guard let character = key.character else { return key.label }
         return isUppercase && layerState.layer == .letters ? character.uppercased() : character
     }
@@ -317,7 +317,7 @@ final class FullKeyboardEngine {
         endStatisticsSession()
         suggestionsAreActive = true
         autocorrect.contextResources.prepare { [weak self] in self?.refreshSuggestions() }
-        switch KeyboardFieldRouting.route(for: target.keyboardType) {
+        switch TyprKeyboardFieldRouting.route(for: target.keyboardType) {
         case .keys(let kind, let initialLayer):
             field = kind
             layerState.reset(to: initialLayer)
@@ -381,8 +381,8 @@ final class FullKeyboardEngine {
     func refreshAutoCapitalization() {
         let before = shift
         shift.refreshAutoCapitalization(
-            AutoCapitalization.shouldCapitalize(
-                mode: AutoCapitalization.Mode(target.autocapitalizationType),
+            TyprAutoCapitalization.shouldCapitalize(
+                mode: TyprAutoCapitalization.Mode(target.autocapitalizationType),
                 before: stripBefore,
                 hasText: target.hasText
             )
@@ -448,8 +448,8 @@ final class FullKeyboardEngine {
         })
     }
 
-    private func ownedSuggestions(_ suggestions: [KeyboardSuggestion],
-                                  ownership: KeyboardSuggestionOwnership) -> [KeyboardSuggestion] {
+    private func ownedSuggestions(_ suggestions: [TyprKeyboardSuggestion],
+                                  ownership: KeyboardSuggestionOwnership) -> [TyprKeyboardSuggestion] {
         suggestions.map { suggestion in
             // After-space predictions show (and insert) the host's auto-capitalization.
             var owned = ownership.token == nil ? casedPrediction(suggestion, before: ownership.context) : suggestion
@@ -458,7 +458,7 @@ final class FullKeyboardEngine {
         }
     }
 
-    private func addModelPredictions(to counted: [KeyboardSuggestion], ownership: KeyboardSuggestionOwnership,
+    private func addModelPredictions(to counted: [TyprKeyboardSuggestion], ownership: KeyboardSuggestionOwnership,
                                      evidence: KeyboardTouchWord?) {
         guard let modelPredictions, target.inlinePredictionType != .no,
               target.keyboardType != .numbersAndPunctuation,
@@ -474,14 +474,14 @@ final class FullKeyboardEngine {
         }
     }
 
-    private func publishModelPredictions(_ words: [String], counted: [KeyboardSuggestion],
+    private func publishModelPredictions(_ words: [String], counted: [TyprKeyboardSuggestion],
                                          ownership: KeyboardSuggestionOwnership, evidence: KeyboardTouchWord?) {
         let words = words.filter { autocorrect.mayOffer($0, before: ownership.context) }
         publishSuggestions(ownedSuggestions(ModelPredictionSession.merge(words, into: counted), ownership: ownership),
                            ownership: ownership, evidence: evidence, final: true)
     }
 
-    private func publishSuggestions(_ next: [KeyboardSuggestion], ownership: KeyboardSuggestionOwnership?,
+    private func publishSuggestions(_ next: [TyprKeyboardSuggestion], ownership: KeyboardSuggestionOwnership?,
                                     evidence: KeyboardTouchWord?, final: Bool) {
         published = ownership.map { PublishedStrip(ownership: $0, evidence: evidence, final: final) }
         let next = offeringRevert(next, ownership: ownership)
@@ -519,7 +519,7 @@ final class FullKeyboardEngine {
 
     func waitForSuggestions() async { await suggestionWorker.waitUntilIdle() }
 
-    func acceptSuggestion(_ suggestion: KeyboardSuggestion) {
+    func acceptSuggestion(_ suggestion: TyprKeyboardSuggestion) {
         autocorrect.forgetSpaceTaps()
         if suggestion.isSwipe {
             replaceSwipeWord(with: suggestion)
@@ -542,7 +542,7 @@ final class FullKeyboardEngine {
         }
         // Capture the word's taps before invalidating them: an explicit choice may teach Typr.
         let evidence = autocorrect.touchInput.evidence(beforeInput: before)
-        let token = AutocorrectEngine.currentToken(in: before)
+        let token = TyprAutocorrectEngine.currentToken(in: before)
         // Boundary chips own an exact bounded suffix, not just the current token. Ownership
         // above includes the entire captured context/revision; recheck the actual proxy suffix too.
         let original = suggestion.boundary?.original ?? token
@@ -601,17 +601,17 @@ final class FullKeyboardEngine {
     /// Host auto-capitalization for a next-word prediction: first letter after `. ! ?`, a line
     /// break or at the field start (sentences/words modes), every letter for all-characters.
     /// Never lowercases, so dictionary-cased German nouns and names keep their capitals.
-    static func casedPrediction(_ word: String, mode: AutoCapitalization.Mode, before: String?, hasText: Bool) -> String {
-        guard AutoCapitalization.shouldCapitalize(mode: mode, before: before, hasText: hasText) else { return word }
+    static func casedPrediction(_ word: String, mode: TyprAutoCapitalization.Mode, before: String?, hasText: Bool) -> String {
+        guard TyprAutoCapitalization.shouldCapitalize(mode: mode, before: before, hasText: hasText) else { return word }
         return mode == .allCharacters ? word.uppercased() : word.prefix(1).uppercased() + word.dropFirst()
     }
 
-    private func casedPrediction(_ suggestion: KeyboardSuggestion, before: String?) -> KeyboardSuggestion {
+    private func casedPrediction(_ suggestion: TyprKeyboardSuggestion, before: String?) -> TyprKeyboardSuggestion {
         guard suggestion.boundary == nil else { return suggestion } // Owns an exact original suffix.
-        let mode = AutoCapitalization.Mode(target.autocapitalizationType)
+        let mode = TyprAutoCapitalization.Mode(target.autocapitalizationType)
         let replacement = Self.casedPrediction(suggestion.replacement, mode: mode, before: before, hasText: target.hasText)
         guard replacement != suggestion.replacement else { return suggestion }
-        var cased = KeyboardSuggestion(
+        var cased = TyprKeyboardSuggestion(
             displayText: Self.casedPrediction(suggestion.displayText, mode: mode, before: before, hasText: target.hasText),
             replacement: replacement, kind: suggestion.kind, isCompletion: suggestion.isCompletion)
         cased.ownership = suggestion.ownership
@@ -698,10 +698,10 @@ final class FullKeyboardEngine {
         let dy = touch.point.y - touch.startPoint.y
         guard (dx * dx + dy * dy).squareRoot() <= Self.accentSlop else { return false }
         let options: [String]? = layout.isPeriodKey(touch.key)
-            ? AccentCatalog.periodKey
-            : AccentCatalog.options(for: base, uppercase: isUppercase)
+            ? TyprAccentCatalog.periodKey
+            : TyprAccentCatalog.options(for: base, uppercase: isUppercase)
         guard let options, options.count > 1 else { return false }
-        activeAccentMenu = AccentMenu.build(
+        activeAccentMenu = TyprAccentMenu.build(
             for: touch.key.frame,
             rawOptions: options,
             in: layout.width,
@@ -829,7 +829,7 @@ final class FullKeyboardEngine {
                 typeSpace(sample: sample)
             }
         case .returnKey:
-            guard ReturnKeyStyle.isEnabled(automatically: target.enablesReturnKeyAutomatically, hasText: target.hasText)
+            guard TyprReturnKeyStyle.isEnabled(automatically: target.enablesReturnKeyAutomatically, hasText: target.hasText)
             else { break }
             autocorrect.clearPendingUndo()
             // Return never autocorrects or settles learning.
@@ -903,14 +903,14 @@ final class FullKeyboardEngine {
         if hadTouches { onChange?() }
     }
 
-    private func offeringRevert(_ next: [KeyboardSuggestion],
-                                ownership: KeyboardSuggestionOwnership?) -> [KeyboardSuggestion] {
+    private func offeringRevert(_ next: [TyprKeyboardSuggestion],
+                                ownership: KeyboardSuggestionOwnership?) -> [TyprKeyboardSuggestion] {
         let others = next.filter { $0.kind != .revert }
         guard let ownership, ownership.permitsCorrection,
               showsStrip, field == .text, !spacePending,
               let offer = autocorrect.revertOffer(before: target.documentContextBeforeInput) else { return others }
         let original = offer.correction.original
-        var revert = KeyboardSuggestion(displayText: original, replacement: original, kind: .revert)
+        var revert = TyprKeyboardSuggestion(displayText: original, replacement: original, kind: .revert)
         revert.ownership = ownership
         return [revert] + others.filter {
             $0.kind != .keepLiteral && $0.replacement.caseInsensitiveCompare(original) != .orderedSame
@@ -951,11 +951,11 @@ final class FullKeyboardEngine {
         touch.isTrackpad = true
         touch.trackpadAnchorX = touch.point.x
         if followsTextOnTrackpad {
-            touch.trackpadPath = [TrackpadCursor.Sample(time: time ?? clock(), point: touch.point)]
-            touch.trackpad = TrackpadCursor.State(
+            touch.trackpadPath = [TyprTrackpadCursor.Sample(time: time ?? clock(), point: touch.point)]
+            touch.trackpad = TyprTrackpadCursor.State(
                 before: target.documentContextBeforeInput ?? "",
                 after: target.documentContextAfterInput ?? "",
-                wrapWidth: TrackpadCursor.wrapWidth(forWidth: width),
+                wrapWidth: TyprTrackpadCursor.wrapWidth(forWidth: width),
                 lineHeight: trackpadLineHeight,
                 width: trackpadCharacterWidth
             )
@@ -971,22 +971,22 @@ final class FullKeyboardEngine {
     }
 
     /// The finger moved to `point` at `time`: the UTF-16 offset to move the cursor by. The
-    /// finger's speed sets how far the point goes (`TrackpadCursor.gain(speed:)`).
+    /// finger's speed sets how far the point goes (`TyprTrackpadCursor.gain(speed:)`).
     private func trackpadStep(_ touch: inout ActiveTouch, to point: CGPoint, time: TimeInterval) -> Int {
         guard var state = touch.trackpad else { return 0 }
-        let last = touch.trackpadPath.last ?? TrackpadCursor.Sample(time: time, point: point)
-        let sample = TrackpadCursor.Sample(time: time, point: point)
+        let last = touch.trackpadPath.last ?? TyprTrackpadCursor.Sample(time: time, point: point)
+        let sample = TyprTrackpadCursor.Sample(time: time, point: point)
         touch.trackpadPath = time > last.time ? touch.trackpadPath.suffix(7) + [sample] : [sample]
-        let gain = TrackpadCursor.gain(speed: TrackpadCursor.speed(along: touch.trackpadPath))
+        let gain = TyprTrackpadCursor.gain(speed: TyprTrackpadCursor.speed(along: touch.trackpadPath))
         let dx = point.x - last.point.x, dy = point.y - last.point.y
-        let vertical = touch.trackpadPath.count > 1 ? TrackpadCursor.isVertical(touch.trackpadPath) : abs(dy) > abs(dx)
+        let vertical = touch.trackpadPath.count > 1 ? TyprTrackpadCursor.isVertical(touch.trackpadPath) : abs(dy) > abs(dx)
         var offset = state.move(by: CGVector(dx: dx * gain, dy: dy * gain), at: time, vertical: vertical)
         if state.nearsEdge, catchUp(&state) { offset += state.settle(at: time) }
         touch.trackpad = state
         return offset
     }
 
-    private func catchUp(_ state: inout TrackpadCursor.State) -> Bool {
+    private func catchUp(_ state: inout TyprTrackpadCursor.State) -> Bool {
         state.catchUp(before: target.documentContextBeforeInput ?? "", after: target.documentContextAfterInput ?? "",
                       width: trackpadCharacterWidth)
     }
@@ -1280,11 +1280,11 @@ final class FullKeyboardEngine {
         guard field == .text, target.autocorrectionType != .no, target.isSecureTextEntry != true,
               let before = target.documentContextBeforeInput, before.hasSuffix(separator) else { return }
         let text = String(before.dropLast(separator.count))
-        guard let next = AutocorrectEngine.currentToken(in: text) else { return }
+        guard let next = TyprAutocorrectEngine.currentToken(in: text) else { return }
         let head = text.dropLast(next.count)
         guard head.hasSuffix(" "), !head.hasSuffix("  ") else { return }
         let upToWord = String(head.dropLast())
-        guard let word = AutocorrectEngine.currentToken(in: upToWord),
+        guard let word = TyprAutocorrectEngine.currentToken(in: upToWord),
               let revised = autocorrect.revision(of: word, before: upToWord, next: next) else { return }
         let original = word + " " + next
         let inserted = revised + " " + next + separator
@@ -1363,10 +1363,10 @@ final class FullKeyboardEngine {
         defer { autocorrect.touchInput.resetAttributionSuppression() }
         // Preserve the predecessor only for a new word's boundary, never a second separator.
         // The unchanged real Space below retains geometry; corrected/second/Typr spaces clear it.
-        let hasCurrentWord = AutocorrectEngine.currentToken(in: target.documentContextBeforeInput) != nil
+        let hasCurrentWord = TyprAutocorrectEngine.currentToken(in: target.documentContextBeforeInput) != nil
         autocorrect.discardFeedback(preservingTrustedContext: hasCurrentWord)
         let now = clock()
-        if let spaces = DoubleSpacePeriod.trailingSpacesToReplace(before: target.documentContextBeforeInput, lastSpaceAt: lastSpaceAt, now: now) {
+        if let spaces = TyprDoubleSpacePeriod.trailingSpacesToReplace(before: target.documentContextBeforeInput, lastSpaceAt: lastSpaceAt, now: now) {
             statistics?.direct(" ")
             autocorrect.touchInput.clear()
             autocorrect.forgetSpaceTaps()
@@ -1559,7 +1559,7 @@ final class FullKeyboardEngine {
         let generation = swipeGeneration
         let context = target.documentContextBeforeInput
         // Shift as it was while swiping: a held shift may be up by the time the word arrives.
-        let shiftState: ShiftState = shift.state == .locked ? .locked : shift.isUppercase ? .on : .off
+        let shiftState: TyprShiftState = shift.state == .locked ? .locked : shift.isUppercase ? .on : .off
         let layout = layout
         let decode = swipeDecoder
         swipeTask = Task { [weak self] in
@@ -1575,7 +1575,7 @@ final class FullKeyboardEngine {
         await swipeTask?.value
     }
 
-    private func commitSwipe(_ candidates: [SwipeSearch.Candidate], shift shiftState: ShiftState) {
+    private func commitSwipe(_ candidates: [SwipeSearch.Candidate], shift shiftState: TyprShiftState) {
         let before = target.documentContextBeforeInput
         var words: [String] = []
         for candidate in candidates.filter({ autocorrect.mayOffer($0.word, before: before) }).prefix(3) {
@@ -1603,7 +1603,7 @@ final class FullKeyboardEngine {
     }
 
     /// Shift applies to the whole word: locked uppercases it, one-shot or auto-cap capitalizes it.
-    static func swipeCased(_ word: String, shift: ShiftState) -> String {
+    static func swipeCased(_ word: String, shift: TyprShiftState) -> String {
         if shift == .locked { return word.uppercased() }
         guard shift == .on, let first = word.first else { return word }
         return first.uppercased() + word.dropFirst()
@@ -1623,17 +1623,17 @@ final class FullKeyboardEngine {
     }
 
     /// [runner-up, inserted word, third]: the strip's center slot is the current choice.
-    private func swipeChips(_ swipe: SwipeWord, ownership: KeyboardSuggestionOwnership) -> [KeyboardSuggestion] {
+    private func swipeChips(_ swipe: SwipeWord, ownership: KeyboardSuggestionOwnership) -> [TyprKeyboardSuggestion] {
         let others = swipe.words.filter { $0 != swipe.inserted }
         // Slots are positional: without an alternative there is nothing to offer.
         guard !others.isEmpty else { return [] }
-        let ordered: [(String, KeyboardSuggestion.Kind)] = [
+        let ordered: [(String, TyprKeyboardSuggestion.Kind)] = [
             others.first.map { ($0, .secondary) },
             (swipe.inserted, .primary(autoReplace: false)),
             others.dropFirst().first.map { ($0, .secondary) },
         ].compactMap { $0 }
         return ordered.map { word, kind in
-            var chip = KeyboardSuggestion(displayText: word, replacement: word, kind: kind)
+            var chip = TyprKeyboardSuggestion(displayText: word, replacement: word, kind: kind)
             chip.ownership = ownership
             chip.isSwipe = true
             return chip
@@ -1641,7 +1641,7 @@ final class FullKeyboardEngine {
     }
 
     /// Swaps the swiped word for an alternative in place, without a space and without learning.
-    private func replaceSwipeWord(with suggestion: KeyboardSuggestion) {
+    private func replaceSwipeWord(with suggestion: TyprKeyboardSuggestion) {
         autocorrect.forgetSpaceTaps()
         let before = target.documentContextBeforeInput
         guard let ownership = suggestion.ownership, ownership.revision == textRevision,
@@ -1671,7 +1671,7 @@ final class FullKeyboardEngine {
     private var typingLogAllowed: Bool {
         guard field == .text, target.isSecureTextEntry != true, target.autocorrectionType != .no,
               autocorrect.learning.isLearningEnabled,
-              case .keys(.text, _) = KeyboardFieldRouting.route(for: target.keyboardType) else { return false }
+              case .keys(.text, _) = TyprKeyboardFieldRouting.route(for: target.keyboardType) else { return false }
         return true
     }
 
@@ -1696,7 +1696,7 @@ final class FullKeyboardEngine {
         if autocorrect.learning.isLearningEnabled { typingLog.end(reason) } else { typingLog.discard() }
     }
 
-    private static func chipName(_ kind: KeyboardSuggestion.Kind) -> String {
+    private static func chipName(_ kind: TyprKeyboardSuggestion.Kind) -> String {
         switch kind {
         case .keepLiteral: "keep"
         case .primary: "primary"
@@ -1715,7 +1715,7 @@ final class FullKeyboardEngine {
 
     private func rebuildLayout() {
         let previous = layout
-        layout = KeyboardLayout(
+        layout = TyprKeyboardLayout(
             width: width,
             orientation: orientation,
             layer: layerState.layer,

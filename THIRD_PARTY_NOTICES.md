@@ -400,7 +400,7 @@ covers this adaptation; no duplicate notice or iikb resource is included.
 
 ## Swipe typing (FUTO Swipe encoder, iikb swipe code)
 
-`ios/TyprShared/FullKeyboard/SwipeEncoder.swift` and `SwipeDecoder.swift` translate the
+`ios/TyprShared/FullKeyboard/SwipeEncoder.swift` and `TyprSwipeDecoder.swift` translate the
 pure-Swift swipe encoder kernels, path resampling and CTC prefix beam search over a word trie
 from iikb `Packages/KeyboardModules/Sources/KeyboardCore/Correction/{Swipe,SwipeKernels,SwipeLayout,SwipeMath,SwipeNetwork,SwipeSearch}.swift`
 and `Tools/SwipeBuilder` at
@@ -712,8 +712,8 @@ repository ([LICENSE](LICENSE)).
 ## Hex iOS return key style
 
 The return key's symbol, blue action style, off state and accessibility label per
-`UIReturnKeyType` (`ios/TyprShared/FullKeyboard/ReturnKeyStyle.swift`, the off-key colours
-in `FullKeyboardPalette.swift` and the dictation bar's return key in `KeyboardSurface.swift`)
+`UIReturnKeyType` (`ios/TyprShared/FullKeyboard/TyprReturnKeyStyle.swift`, the off-key colours
+in `TyprFullKeyboardPalette.swift` and the dictation bar's return key in `KeyboardSurface.swift`)
 are adapted from [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2200: `ReturnKeyStyle.swift` and its use in
 `FullKeyboardView.swift`, `KeyboardKeyPlaneView.swift` and `KeyboardSurface.swift`).
@@ -721,9 +721,9 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 
 ## Hex space-tap drift and space rollover
 
-The space-bar drift fix in `ios/TyprShared/FullKeyboard/FullKeyboardEngine.swift` (a space
+The space-bar drift fix in `ios/TyprShared/FullKeyboard/TyprFullKeyboardEngine.swift` (a space
 press slides the cursor only after 0.35 s) and the tests `testRolloverWithTheSpaceBarKeepsOrder`
-and `testAQuickSpaceTapThatDriftsTypesASpace` in `ios/TyprTests/FullKeyboardEngineTests.swift`
+and `testAQuickSpaceTapThatDriftsTypesASpace` in `ios/TyprTests/TyprFullKeyboardEngineTests.swift`
 follow `FullKeyboardEngine` and `FullKeyboardEngineTests` from
 [anomalyco/hex](https://github.com/anomalyco/hex) PR #2233 at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb`. MIT, © Christopher Langton, the same license as
@@ -742,8 +742,8 @@ same license as this repository ([LICENSE](LICENSE)).
 ## Hex iOS autocorrection revert
 
 Delete after an autocorrection taking only its space, the strip's revert chip with the undo
-arrow, its anchor check (`AutocorrectEngine.RevertOffer`, the last 64 characters for long
-text) and the small chip around an autocorrection (`KeyboardStripView.swift`) are adapted from
+arrow, its anchor check (`TyprAutocorrectEngine.RevertOffer`, the last 64 characters for long
+text) and the small chip around an autocorrection (`TyprKeyboardStripView.swift`) are adapted from
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2192: `FullKeyboardEngine+Revert.swift` and
 `AutocorrectEngine.AppliedCorrection.isAtEnd`; PR #2207: the autocorrection chip).
@@ -752,7 +752,7 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 ## Hex iOS letter layouts
 
 The QWERTZ, AZERTY and Dvorak letter rows and the Dvorak key geometry (delete ending row 1,
-row 3 as shift and nine narrower letters) in `ios/TyprShared/FullKeyboard/KeyboardLayout.swift`
+row 3 as shift and nine narrower letters) in `ios/TyprShared/FullKeyboard/TyprKeyboardLayout.swift`
 are adapted from [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2172: `KeyboardLanguage.letterRows(_:)` and
 `dvorakLetterWidth` in `KeyboardLayout.swift`).
@@ -764,8 +764,8 @@ The revision of the word before once the next word tells its language
 (`AutocorrectEngine.revision(of:before:next:)`, `accentRevision`, `languageLean`), the word
 groups, contraction expansions, margins and follower penalty of Words from context
 (`contextGroups`, `contractionWords`, `contextChoice`, `contextCost`) in
-`ios/TyprShared/FullKeyboard/AutocorrectEngine+Revision.swift`, and the closing marks that
-correct the word before them (`;` and `)` in `FullKeyboardEngine.typeCharacter`) are adapted from
+`ios/TyprShared/FullKeyboard/TyprAutocorrectEngine+Revision.swift`, and the closing marks that
+correct the word before them (`;` and `)` in `TyprFullKeyboardEngine.typeCharacter`) are adapted from
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2231: `AutocorrectEngine+Accents.swift`;
 PR #2144: `AutocorrectEngine.contextChoice`, `revision(of:)`). MIT, © Christopher Langton,
@@ -817,20 +817,20 @@ English "at sign". MIT, © Christopher Langton, the same license as this reposit
 
 ## Hex space-bar trackpad
 
-`ios/TyprShared/FullKeyboard/TrackpadCursor.swift` is `TrackpadCursor.swift` from
+`ios/TyprShared/FullKeyboard/TyprTrackpadCursor.swift` is `TrackpadCursor.swift` from
 [anomalyco/hex](https://github.com/anomalyco/hex) at `d65b02d36efbaf1ff771420e89c0632dea4706cb`
 (PRs #2219 and #2192) without its text-target extensions. The trackpad code in
-`FullKeyboardEngine.swift` (`holdSpace`, `trackpadStep`, `trackpadFieldChanged`, `liftTrackpad`),
-the hold timer in `KeyboardKeyPlaneView.swift`, and the tests in
+`TyprFullKeyboardEngine.swift` (`holdSpace`, `trackpadStep`, `trackpadFieldChanged`, `liftTrackpad`),
+the hold timer in `TyprKeyboardKeyPlaneView.swift`, and the tests in
 `ios/TyprTests/TrackpadCursorTests.swift` and the Apple-trackpad tests in
-`ios/TyprTests/FullKeyboardEngineTests.swift` follow `FullKeyboardEngine+Trackpad.swift`,
+`ios/TyprTests/TyprFullKeyboardEngineTests.swift` follow `FullKeyboardEngine+Trackpad.swift`,
 `KeyboardKeyPlaneView.swift` and `FullKeyboardEngineTests.swift` there. MIT, © Christopher
 Langton, the same license as this repository ([LICENSE](LICENSE)).
 
 ## Hex undo dictation
 
-Typr's Undo dictation (`ios/TyprShared/FullKeyboard/DictationUndo.swift`, the strip chip in
-`KeyboardStripView.swift` and the undo plan in `FullKeyboardView.swift`) is taken from
+Typr's Undo dictation (`ios/TyprShared/FullKeyboard/TyprDictationUndo.swift`, the strip chip in
+`TyprKeyboardStripView.swift` and the undo plan in `TyprFullKeyboardView.swift`) is taken from
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb`: `DictationUndo` word for word except one
 private doc comment, the chip and `undoPlan`/`undoDictation` adapted. MIT, © Christopher
@@ -841,8 +841,8 @@ Langton, the same license as this repository ([LICENSE](LICENSE)).
 The emoji panel, its category bar that scrubs the grid, the decaying Frequently used count,
 the index lookup by binary search over a memory-mapped file, word folding and German/English
 word endings, and the finished-word strip emoji placement
-(`ios/TyprShared/FullKeyboard/EmojiPanelView.swift`, `EmojiUsageStore.swift`,
-`EmojiIndex.swift`, `FullKeyboardView.swift`) are adapted from
+(`ios/TyprShared/FullKeyboard/TyprEmojiPanelView.swift`, `TyprEmojiUsageStore.swift`,
+`EmojiIndex.swift`, `TyprFullKeyboardView.swift`) are adapted from
 `ios/HEXShared/FullKeyboard/Emoji/` and `FullKeyboardView+Emoji.swift` in
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (#2051, #2142, #2189).
@@ -851,8 +851,8 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 ## Hex iOS Code from Messages chip
 
 The Code from Messages chip in one-time-code fields and the check for Apple's keyboard among
-the user's keyboards (`ios/TyprShared/FullKeyboard/KeyboardInputModes.swift`,
-`KeyboardStripView.swift`, `FullKeyboardView.swift`) are adapted from `KeyboardClipboard.swift`
+the user's keyboards (`ios/TyprShared/FullKeyboard/TyprKeyboardInputModes.swift`,
+`TyprKeyboardStripView.swift`, `TyprFullKeyboardView.swift`) are adapted from `KeyboardClipboard.swift`
 and `KeyboardStripView.swift` in `ios/HEXShared/FullKeyboard/` of
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (#2187).
@@ -891,7 +891,7 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 
 ## Hex held space mid-sentence
 
-The held space in `ios/TyprShared/FullKeyboard/FullKeyboardEngine.swift` (a space or a picked
+The held space in `ios/TyprShared/FullKeyboard/TyprFullKeyboardEngine.swift` (a space or a picked
 word before text that already starts with a space or a closing mark types no second space; the
 next word, a strip pick or delete takes the held space; the closing-mark set) is adapted from
 [anomalyco/hex](https://github.com/anomalyco/hex) at
@@ -900,7 +900,7 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 
 ## Hex text replacements
 
-Text replacements in `ios/TyprShared/FullKeyboard/AutocorrectEngine.swift` follow
+Text replacements in `ios/TyprShared/FullKeyboard/TyprAutocorrectEngine.swift` follow
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb`: the replacement's casing (`shortcut(for:)`, PR #2153),
 replacements with Autocorrect off (PR #2147), before chat shorthand (PR #2148) and again after the
@@ -912,8 +912,8 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 `DeleteWordSlide.wordLength(before:)` in `ios/TyprShared/FullKeyboard/DeleteWordSlide.swift` is
 `DeleteWordSwipe.wordLength(before:)` with its word-character test from
 [anomalyco/hex](https://github.com/anomalyco/hex) at `d65b02d36efbaf1ff771420e89c0632dea4706cb`
-(PR #2080). The slide in `FullKeyboardEngine.swift` (`slideDelete`) and the delete-slide tests in
-`ios/TyprTests/FullKeyboardEngineTests.swift` follow `DeleteWordSwipe` and its tests there.
+(PR #2080). The slide in `TyprFullKeyboardEngine.swift` (`slideDelete`) and the delete-slide tests in
+`ios/TyprTests/TyprFullKeyboardEngineTests.swift` follow `DeleteWordSwipe` and its tests there.
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
 ## Hex learning from dictation edits

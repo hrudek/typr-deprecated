@@ -8,21 +8,21 @@ enum KeyboardBridge {
     nonisolated static let appGroup = "dev.rudek.typr.keyboard-replay"
 }
 
-/// AccentPicker.swift also holds a UIKit view. Only the key view opens accent menus, which the
+/// TyprAccentPicker.swift also holds a UIKit view. Only the key view opens accent menus, which the
 /// replay never does; with no options no menu opens.
-nonisolated enum AccentCatalog {
+nonisolated enum TyprAccentCatalog {
     static let periodKey: [String] = []
     static func options(for base: String, uppercase: Bool) -> [String]? { nil }
 }
 
-nonisolated struct AccentMenu: Equatable, Sendable {
+nonisolated struct TyprAccentMenu: Equatable, Sendable {
     let options: [String]
     var selectedIndex: Int
     var selectedOption: String { options[selectedIndex] }
 
     static func build(for keyFrame: CGRect, rawOptions: [String], in layoutWidth: CGFloat,
-                      horizontalInset: CGFloat = 0) -> AccentMenu {
-        AccentMenu(options: rawOptions, selectedIndex: 0)
+                      horizontalInset: CGFloat = 0) -> TyprAccentMenu {
+        TyprAccentMenu(options: rawOptions, selectedIndex: 0)
     }
 
     func index(for x: CGFloat) -> Int { selectedIndex }

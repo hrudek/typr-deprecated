@@ -1,21 +1,21 @@
 import UIKit
 
-/// Draws the keys and turns touches into `FullKeyboardEngine` calls. The Typr and globe
-/// keys are real controls laid over their slots by `FullKeyboardView`; this view only
+/// Draws the keys and turns touches into `TyprFullKeyboardEngine` calls. The Typr and globe
+/// keys are real controls laid over their slots by `TyprFullKeyboardView`; this view only
 /// draws the globe's keycap and the shared space/Typr background.
 @MainActor
-final class KeyboardKeyPlaneView: UIView {
-    let engine: FullKeyboardEngine
+final class TyprKeyboardKeyPlaneView: UIView {
+    let engine: TyprFullKeyboardEngine
     var typrPressed = false { didSet { if typrPressed != oldValue { setNeedsDisplay() } } }
-    var palette = FullKeyboardPalette(isDark: false) { didSet {
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet {
         guard palette != oldValue else { return }
         trailLayer.strokeColor = palette.actionFill.withAlphaComponent(0.35).cgColor
         setNeedsDisplay()
     } }
-    var returnStyle = ReturnKeyStyle(.default) { didSet { if returnStyle != oldValue { setNeedsDisplay() } } }
+    var returnStyle = TyprReturnKeyStyle(.default) { didSet { if returnStyle != oldValue { setNeedsDisplay() } } }
     var returnIsEnabled = true { didSet { if returnIsEnabled != oldValue { setNeedsDisplay() } } }
     /// Called on every key going down, for clicks and haptics.
-    var onKeyDown: ((KeyKind) -> Void)?
+    var onKeyDown: ((TyprKeyKind) -> Void)?
     /// Called when long-press accents open.
     var onAccentMenuOpened: (() -> Void)?
     var onNextKeyboard: (() -> Void)?
@@ -28,7 +28,7 @@ final class KeyboardKeyPlaneView: UIView {
     /// The swipe trail: its own layer so a swipe redraws a path, not every key.
     private let trailLayer = CAShapeLayer()
 
-    init(engine: FullKeyboardEngine) {
+    init(engine: TyprFullKeyboardEngine) {
         self.engine = engine
         super.init(frame: .zero)
         trailLayer.fillColor = nil
@@ -307,7 +307,7 @@ final class KeyboardKeyPlaneView: UIView {
             }
         }
         holdWork[id] = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + FullKeyboardEngine.accentHoldDelay, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + TyprFullKeyboardEngine.accentHoldDelay, execute: work)
     }
 
     private func armNextKeyboardTimer(for id: Int) {
@@ -322,7 +322,7 @@ final class KeyboardKeyPlaneView: UIView {
             }
         }
         holdWork[id] = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + FullKeyboardEngine.nextKeyboardHoldDelay, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + TyprFullKeyboardEngine.nextKeyboardHoldDelay, execute: work)
     }
 
     private func armTrackpadHoldTimer(for id: Int) {
@@ -335,7 +335,7 @@ final class KeyboardKeyPlaneView: UIView {
             }
         }
         holdWork[id] = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + FullKeyboardEngine.trackpadDelay, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + TyprFullKeyboardEngine.trackpadDelay, execute: work)
     }
 
     private func cancelHoldTimer(for id: Int) {
@@ -345,11 +345,11 @@ final class KeyboardKeyPlaneView: UIView {
     private func startDeleteRepeat() {
         stopDeleteRepeat()
         deleteStartedAt = CACurrentMediaTime()
-        let timer = Timer(timeInterval: FullKeyboardEngine.repeatInterval, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: TyprFullKeyboardEngine.repeatInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 let held = CACurrentMediaTime() - self.deleteStartedAt
-                guard held >= FullKeyboardEngine.repeatDelay, !self.engine.isDeleteSliding else { return }
+                guard held >= TyprFullKeyboardEngine.repeatDelay, !self.engine.isDeleteSliding else { return }
                 self.engine.repeatDelete(heldFor: held)
                 self.onKeyDown?(.delete)
             }
@@ -366,10 +366,10 @@ final class KeyboardKeyPlaneView: UIView {
 
 /// The pop-up balloon over a pressed key in portrait.
 @MainActor
-final class KeyCalloutView: UIView {
-    var palette = FullKeyboardPalette(isDark: false)
+final class TyprKeyCalloutView: UIView {
+    var palette = TyprFullKeyboardPalette(isDark: false)
     var fontSize = KeyGlyphSizes.portrait.balloonLetter { didSet { if fontSize != oldValue { setNeedsDisplay() } } }
-    private var balloon: KeyBalloon?
+    private var balloon: TyprKeyBalloon?
     private var label = ""
 
     override init(frame: CGRect) {
@@ -383,7 +383,7 @@ final class KeyCalloutView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    func show(_ balloon: KeyBalloon?, label: String) {
+    func show(_ balloon: TyprKeyBalloon?, label: String) {
         guard balloon != self.balloon || label != self.label else { return }
         self.balloon = balloon
         self.label = label
@@ -420,11 +420,11 @@ final class KeyCalloutView: UIView {
     }
 
     /// Key at the bottom, wider bubble above, joined by a smooth downward neck.
-    static func path(for balloon: KeyBalloon) -> CGPath {
+    static func path(for balloon: TyprKeyBalloon) -> CGPath {
         if balloon.isInline {
             return UIBezierPath(roundedRect: balloon.bubble, cornerRadius: 11).cgPath
         }
-        let kr = FullKeyboardPalette.cornerRadius
+        let kr = TyprFullKeyboardPalette.cornerRadius
         let br: CGFloat = 11
         let kl = balloon.keyFrame.minX
         let krt = balloon.keyFrame.maxX

@@ -8,12 +8,12 @@ final class CodeFromMessagesTests: XCTestCase {
         contentType: UITextContentType?,
         appleKeyboard: Bool,
         fullAccess: Bool = true
-    ) -> (FullKeyboardView, FixtureTextTarget) {
+    ) -> (TyprFullKeyboardView, FixtureTextTarget) {
         let target = FixtureTextTarget(text: "Dein Code: ")
         target.textContentType = contentType
         let model = KeyboardViewModel()
         model.hasFullAccess = fullAccess
-        let view = FullKeyboardView(model: model, target: target, autocorrect: AutocorrectEngine(spatialDecoder: nil))
+        let view = TyprFullKeyboardView(model: model, target: target, autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
         view.hasAppleKeyboard = { appleKeyboard }
         view.suggestionBarOverride = true
         view.orientationOverride = .portrait
@@ -38,7 +38,7 @@ final class CodeFromMessagesTests: XCTestCase {
         for type: UITextContentType? in [nil, .password, .emailAddress, .telephoneNumber] {
             let target = FixtureTextTarget()
             target.textContentType = type
-            let view = FullKeyboardView(model: KeyboardViewModel(), target: target, autocorrect: AutocorrectEngine(spatialDecoder: nil))
+            let view = TyprFullKeyboardView(model: KeyboardViewModel(), target: target, autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
             view.hasAppleKeyboard = {
                 XCTFail("asked outside a code field")
                 return true
@@ -74,15 +74,15 @@ final class CodeFromMessagesTests: XCTestCase {
     }
 
     func testApplesKeyboardIsNotEmojiDictationOrAnExtension() {
-        typealias Mode = KeyboardInputModes.Mode
+        typealias Mode = TyprKeyboardInputModes.Mode
         let german = Mode(primaryLanguage: "de-DE", className: "UIKeyboardInputMode")
         let typr = Mode(primaryLanguage: "de-DE", className: "UIKeyboardExtensionInputMode")
         let emoji = Mode(primaryLanguage: "emoji", className: "UIKeyboardInputMode")
         let dictation = Mode(primaryLanguage: "dictation", className: "UIKeyboardInputMode")
-        XCTAssertTrue(KeyboardInputModes.hasAppleKeyboard([typr, emoji, german]))
-        XCTAssertFalse(KeyboardInputModes.hasAppleKeyboard([typr, emoji]))
-        XCTAssertFalse(KeyboardInputModes.hasAppleKeyboard([typr, dictation]))
-        XCTAssertFalse(KeyboardInputModes.hasAppleKeyboard([typr]))
-        XCTAssertFalse(KeyboardInputModes.hasAppleKeyboard([typr, typr, emoji]), "another third-party keyboard gets no code either")
+        XCTAssertTrue(TyprKeyboardInputModes.hasAppleKeyboard([typr, emoji, german]))
+        XCTAssertFalse(TyprKeyboardInputModes.hasAppleKeyboard([typr, emoji]))
+        XCTAssertFalse(TyprKeyboardInputModes.hasAppleKeyboard([typr, dictation]))
+        XCTAssertFalse(TyprKeyboardInputModes.hasAppleKeyboard([typr]))
+        XCTAssertFalse(TyprKeyboardInputModes.hasAppleKeyboard([typr, typr, emoji]), "another third-party keyboard gets no code either")
     }
 }

@@ -8,13 +8,13 @@ nonisolated struct KeyboardSuggestionOwnership: Equatable, Sendable {
     let revision: UInt64
     let context: String?
     let token: String?
-    let field: KeyboardFieldKind
+    let field: TyprKeyboardFieldKind
     let permitsCorrection: Bool
     let configuration: Int
     let learning: Int
     let feedbackEpoch: Int
     let resources: Int
-    let layout: KeyboardLayout
+    let layout: TyprKeyboardLayout
 
     /// Same text, field, configuration, learning, resources and layout; revision aside.
     /// A published strip whose content no longer matches is stale and must be republished.
@@ -29,16 +29,16 @@ nonisolated struct KeyboardSuggestionOwnership: Equatable, Sendable {
 /// Retain what the user actually touched, not whichever ranking occupies that slot at key-up.
 /// At most three pressed chips; cancellation has no fallback to a newer field's suggestion.
 nonisolated struct KeyboardSuggestionSelection {
-    private var pressed: [Int: KeyboardSuggestion] = [:]
+    private var pressed: [Int: TyprKeyboardSuggestion] = [:]
     var count: Int { pressed.count }
 
-    mutating func begin(slot: Int, suggestions: [KeyboardSuggestion]) {
+    mutating func begin(slot: Int, suggestions: [TyprKeyboardSuggestion]) {
         pressed.removeValue(forKey: slot)
         guard (0..<3).contains(slot), suggestions.indices.contains(slot) else { return }
         pressed[slot] = suggestions[slot]
     }
 
-    mutating func finish(slot: Int) -> KeyboardSuggestion? { pressed.removeValue(forKey: slot) }
+    mutating func finish(slot: Int) -> TyprKeyboardSuggestion? { pressed.removeValue(forKey: slot) }
     mutating func cancel(slot: Int) { pressed.removeValue(forKey: slot) }
 }
 

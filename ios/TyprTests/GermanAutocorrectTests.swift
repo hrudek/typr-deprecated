@@ -3,7 +3,7 @@ import XCTest
 @testable import Typr
 
 @MainActor
-private final class FakeTextChecker: TextChecking {
+private final class FakeTextChecker: TyprTextChecking {
     var valid: Set<String>
     var guessTable: [String: [String]]
     var completionTable: [String: [String]]
@@ -38,8 +38,8 @@ final class GermanAutocorrectTests: XCTestCase {
         german: Set<String> = ["neue", "Feuer", "dass", "im", "für", "über", "straße"],
         germanGuesses: [String: [String]] = [:],
         germanOn: Bool = true
-    ) -> AutocorrectEngine {
-        let engine = AutocorrectEngine(
+    ) -> TyprAutocorrectEngine {
+        let engine = TyprAutocorrectEngine(
             checker: FakeTextChecker(valid: english, guesses: ["teh": ["the"]]),
             learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil
         )
@@ -49,7 +49,7 @@ final class GermanAutocorrectTests: XCTestCase {
         return engine
     }
 
-    private func fix(_ engine: AutocorrectEngine, _ word: String) -> String? {
+    private func fix(_ engine: TyprAutocorrectEngine, _ word: String) -> String? {
         engine.replacementOnSpace(beforeInput: word, field: .text, autocorrectionType: .default)?.replacement
     }
 
@@ -77,7 +77,7 @@ final class GermanAutocorrectTests: XCTestCase {
 
     func testMissingUmlautCostsLessThanASubstitution() throws {
         let german = GermanAutocorrect(checker: FakeTextChecker())
-        let substitution = try XCTUnwrap(AutocorrectEngine.singleEditKeyboardCost(from: "fur", to: "fir", on: .qwerty))
+        let substitution = try XCTUnwrap(TyprAutocorrectEngine.singleEditKeyboardCost(from: "fur", to: "fir", on: .qwerty))
         XCTAssertLessThan(try XCTUnwrap(german.costAdjustedForUmlauts(from: "fur", to: "für", on: .qwerty)), substitution)
         XCTAssertNotNil(german.costAdjustedForUmlauts(from: "brucke", to: "brücke", on: .qwerty))
     }
@@ -98,7 +98,7 @@ final class GermanAutocorrectTests: XCTestCase {
                 let reloaded = TyprSettings(defaults: defaults)
                 XCTAssertEqual(reloaded.autocorrectGerman, german)
                 XCTAssertEqual(reloaded.autocorrectEnglish, english)
-                let keyboard = FullKeyboardSettings(defaults: defaults)
+                let keyboard = TyprFullKeyboardSettings(defaults: defaults)
                 keyboard.autocorrect = false
                 keyboard.autocorrect = true
                 XCTAssertEqual(reloaded.autocorrectGerman, german)
@@ -135,7 +135,7 @@ final class GermanAutocorrectTests: XCTestCase {
     }
 
     func testEnglishDictionaryGuessesAndCompletionsRespectSelection() {
-        let engine = AutocorrectEngine(
+        let engine = TyprAutocorrectEngine(
             checker: FakeTextChecker(guesses: ["helo": ["hello"]], completions: ["hel": ["hello"]]),
             learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil
         )
@@ -159,8 +159,8 @@ final class GermanAutocorrectTests: XCTestCase {
         }
     }
 
-    private func makeBilingualEngine(englishGuesses: [String], germanGuesses: [String]) -> AutocorrectEngine {
-        let engine = AutocorrectEngine(
+    private func makeBilingualEngine(englishGuesses: [String], germanGuesses: [String]) -> TyprAutocorrectEngine {
+        let engine = TyprAutocorrectEngine(
             checker: FakeTextChecker(guesses: ["wirk": englishGuesses]),
             learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil
         )
@@ -211,7 +211,7 @@ final class GermanAutocorrectTests: XCTestCase {
 
     func testProductNameIsKeptInGermanAndEnglish() {
         for (german, english) in [(true, false), (false, true), (true, true)] {
-            let engine = AutocorrectEngine(
+            let engine = TyprAutocorrectEngine(
                 checker: FakeTextChecker(valid: ["type", "typo"],
                                          guesses: ["typr": ["type"], "Typr": ["Type"], "tpye": ["type"]]),
                 learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil
@@ -239,7 +239,7 @@ final class GermanAutocorrectTests: XCTestCase {
         guard UITextChecker.availableLanguages.contains(where: { $0.hasPrefix("de") }) else {
             throw XCTSkip("No German dictionary on this simulator")
         }
-        let engine = AutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
+        let engine = TyprAutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
         engine.german = GermanAutocorrect.system()
         XCTAssertEqual(fix(engine, "fuer"), "für")
         XCTAssertNil(fix(engine, "neue"))

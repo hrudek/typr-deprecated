@@ -4,20 +4,20 @@ import XCTest
 
 @MainActor
 final class TouchPosteriorTests: XCTestCase {
-    private let layout = KeyboardLayout(width: 393)
+    private let layout = TyprKeyboardLayout(width: 393)
     private let taps: [(Double, Double)] = [
         (0.12, 0.05), (0.20, -0.03), (0.08, 0.10), (0.15, 0.0), (0.22, 0.07),
         (0.05, -0.05), (0.18, 0.12), (0.10, 0.02), (0.25, 0.04), (0.14, -0.08),
     ]
 
-    private func point(_ x: Double, _ y: Double, on letter: Character, in layout: KeyboardLayout) throws -> CGPoint {
+    private func point(_ x: Double, _ y: Double, on letter: Character, in layout: TyprKeyboardLayout) throws -> CGPoint {
         let key = try XCTUnwrap(layout.key(.character(String(letter))))
         return CGPoint(x: key.frame.midX + CGFloat(x) * (key.frame.width + layout.metrics.gap),
                        y: key.frame.midY + CGFloat(y) * (key.frame.height + layout.metrics.rowGap))
     }
 
     private func calibration(labels n: Int, on letter: Character = "f",
-                             layout: KeyboardLayout? = nil) throws -> SpatialTouchCalibration? {
+                             layout: TyprKeyboardLayout? = nil) throws -> SpatialTouchCalibration? {
         let layout = layout ?? self.layout
         let model = PersonalTypingModel()
         model.learn(try taps.prefix(n).map { TouchLabel(point: try point($0.0, $0.1, on: letter, in: layout), letter: letter) },
@@ -113,7 +113,7 @@ final class TouchPosteriorTests: XCTestCase {
     }
 
     func testBothCopiesOfASplitLetterLearnAndScoreAgainstThemselves() throws {
-        let split = KeyboardLayout(width: 951, orientation: .splitLandscape)
+        let split = TyprKeyboardLayout(width: 951, orientation: .splitLandscape)
         let uniform = [Double](repeating: 1.0 / 26, count: KeyboardKeyMap.keyLimit)
         let assignment = KeyboardKeyMap(layout: split, prefix: "", calibration: SpatialTouchCalibration(keys: [:]),
                                         priors: uniform)
@@ -134,7 +134,7 @@ final class TouchPosteriorTests: XCTestCase {
     }
 
     func testDensitiesDoNotDependOnKeyboardSize() throws {
-        let wide = KeyboardLayout(width: 786)
+        let wide = TyprKeyboardLayout(width: 786)
         for n in [1, 3, 10] {
             let small = try XCTUnwrap(calibration(labels: n))
             let large = try XCTUnwrap(calibration(labels: n, layout: wide))

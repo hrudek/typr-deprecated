@@ -15,7 +15,7 @@ final class TapStatisticsTests: XCTestCase {
         for width: CGFloat in [320, 375, 390, 440, 844] {
             for strip in [true, false] {
                 for globe in [true, false] {
-                    let original = KeyboardLayout(width: width, orientation: width > 500 ? .landscape : .portrait,
+                    let original = TyprKeyboardLayout(width: width, orientation: width > 500 ? .landscape : .portrait,
                                                   showsGlobe: globe, showsStrip: strip)
                     let signature = KeyboardLayoutSignature(original)
                     let board = TapStatistics.board(signature)
@@ -31,7 +31,7 @@ final class TapStatisticsTests: XCTestCase {
         }
     }
     func testSparseModelIsNeutralNotPerfect() {
-        let signature = KeyboardLayoutSignature(KeyboardLayout(width: 392))
+        let signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: 392))
         let taps = TapStatistics(signature: signature, model: summary(signature, n: 19), heat: nil)
         XCTAssertEqual(taps.effectiveSamples, 19)
         XCTAssertNil(taps.onTarget)
@@ -40,7 +40,7 @@ final class TapStatisticsTests: XCTestCase {
         XCTAssertEqual(TapStatistics.percent(taps.onTarget), "—")
     }
     func testThresholdAndOffsetUseKeyPitchesNotKeyWidths() throws {
-        let signature = KeyboardLayoutSignature(KeyboardLayout(width: 392))
+        let signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: 392))
         let taps = TapStatistics(signature: signature, model: summary(signature, n: 20, offsetX: 0.3), heat: nil)
         let key = try XCTUnwrap(taps.layout.key(.character("a")))
         let stats = try XCTUnwrap(taps.keys.first)
@@ -51,7 +51,7 @@ final class TapStatisticsTests: XCTestCase {
         XCTAssertLessThan(stats.onTarget ?? 1, 1)
     }
     func testOffboardAndModifierMassIsNotRenormalizedAway() throws {
-        let board = KeyboardLayout(width: 392)
+        let board = TyprKeyboardLayout(width: 392)
         let edge = try XCTUnwrap(board.key(.character("q")))
         let shares = TapStatistics.landing(center: CGPoint(x: 0, y: edge.frame.midY), xx: 100, xy: 0, yy: 100, degrees: 30, layout: board)
         XCTAssertLessThan(shares.values.reduce(0, +), 0.7)
@@ -60,7 +60,7 @@ final class TapStatisticsTests: XCTestCase {
         XCTAssertTrue(modifier.isEmpty)
     }
     func testCorrelatedGaussianAndInvalidCovariance() {
-        let board = KeyboardLayout(width: 392)
+        let board = TyprKeyboardLayout(width: 392)
         let shares = TapStatistics.landing(center: CGPoint(x: 200, y: 100), xx: 200, xy: 120, yy: 200, degrees: 30, layout: board)
         XCTAssertFalse(shares.isEmpty)
         XCTAssertTrue(shares.values.allSatisfy { $0.isFinite && (0...1).contains($0) })
@@ -70,8 +70,8 @@ final class TapStatisticsTests: XCTestCase {
         }
     }
     func testDifferentLayoutsDoNotShareModelOrHeat() {
-        let a = KeyboardLayoutSignature(KeyboardLayout(width: 392))
-        let b = KeyboardLayoutSignature(KeyboardLayout(width: 440))
+        let a = KeyboardLayoutSignature(TyprKeyboardLayout(width: 392))
+        let b = KeyboardLayoutSignature(TyprKeyboardLayout(width: 440))
         let heat = UsageHeat(layout: b, geometryVersion: 1, cells: Array(repeating: 1, count: 64 * 24), updatedAt: Date())
         let taps = TapStatistics(signature: a, model: summary(b), heat: heat)
         XCTAssertTrue(taps.keys.isEmpty)
@@ -80,8 +80,8 @@ final class TapStatisticsTests: XCTestCase {
         XCTAssertNil(taps.half(left: true))
     }
     func testAlignedSplitHasItsOwnBoardTitleModelAndHeat() throws {
-        let staggered = KeyboardLayoutSignature(KeyboardLayout(width: 951, orientation: .splitLandscape))
-        let original = KeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: true)
+        let staggered = KeyboardLayoutSignature(TyprKeyboardLayout(width: 951, orientation: .splitLandscape))
+        let original = TyprKeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: true)
         let aligned = KeyboardLayoutSignature(original)
         let board = TapStatistics.board(aligned)
         XCTAssertTrue(board.splitColumns)
@@ -101,7 +101,7 @@ final class TapStatisticsTests: XCTestCase {
     }
     @MainActor
     func testRepeatedSplitLettersCountOnTheHalfOfTheCopyHit() throws {
-        let signature = KeyboardLayoutSignature(KeyboardLayout(width: 951, orientation: .splitLandscape))
+        let signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: 951, orientation: .splitLandscape))
         let board = TapStatistics.board(signature)
         let copies = board.keys.filter { $0.kind == .character("g") }
         XCTAssertEqual(copies.count, 2)
@@ -118,7 +118,7 @@ final class TapStatisticsTests: XCTestCase {
         }
     }
     func testHeatPopulationNeverBecomesAccuracy() {
-        let signature = KeyboardLayoutSignature(KeyboardLayout(width: 392))
+        let signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: 392))
         let heat = UsageHeat(layout: signature, geometryVersion: 1, cells: Array(repeating: 2, count: 64 * 24), updatedAt: Date())
         let taps = TapStatistics(signature: signature, model: nil, heat: heat)
         XCTAssertEqual(taps.heatSamples, 3072)
@@ -126,7 +126,7 @@ final class TapStatisticsTests: XCTestCase {
         XCTAssertNil(taps.onTarget)
     }
     func testSummaryWeightsOnlyEligibleModelKeys() {
-        let signature = KeyboardLayoutSignature(KeyboardLayout(width: 392))
+        let signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: 392))
         let sparse = summary(signature, n: 1, offsetX: 0.5).keys[0]
         var model = summary(signature)
         let other = PersonalTypingModel.KeySummary(letter: "s", n: 128, offsetX: 0.45, offsetY: 0,
@@ -140,7 +140,7 @@ final class TapStatisticsTests: XCTestCase {
     }
 
     func testSummarySkipsUnknownAndEmptyKeysButKeepsSparseKeys() {
-        let signature = KeyboardLayoutSignature(KeyboardLayout(width: 392))
+        let signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: 392))
         let entries: [PersonalTypingModel.KeySummary] = [
             .init(letter: "unknown", n: 64, offsetX: 0, offsetY: 0, sigmaX: 0.2, sigmaY: 0.2, degrees: 30),
             .init(letter: "a", n: 0, offsetX: 0, offsetY: 0, sigmaX: 0.2, sigmaY: 0.2, degrees: 30),
@@ -155,7 +155,7 @@ final class TapStatisticsTests: XCTestCase {
     }
 
     func testNeighborsAndCommonDeviationsKeepOrderingAndLimit() throws {
-        let signature = KeyboardLayoutSignature(KeyboardLayout(width: 392))
+        let signature = KeyboardLayoutSignature(TyprKeyboardLayout(width: 392))
         let entries = ["a", "s", "d", "f", "g"].map { letter in
             PersonalTypingModel.KeySummary(letter: letter, n: 64, offsetX: 0.3, offsetY: 0,
                                            sigmaX: 0.4, sigmaY: 0.4, degrees: 30)
@@ -185,7 +185,7 @@ final class TapStatisticsTests: XCTestCase {
 
     @MainActor
     func testSummaryShowsTheDensityInferenceUses() throws {
-        let layout = KeyboardLayout(width: 392)
+        let layout = TyprKeyboardLayout(width: 392)
         let signature = KeyboardLayoutSignature(layout)
         var state = PersonalTypingModel.State()
         state.layouts[signature.id] = .init(signature: signature, lastUpdated: Date(), keys: [
@@ -202,7 +202,7 @@ final class TapStatisticsTests: XCTestCase {
     }
 
     func testLandingSharesIntegrateTheStudentT() throws {
-        let board = KeyboardLayout(width: 392)
+        let board = TyprKeyboardLayout(width: 392)
         let key = try XCTUnwrap(board.key(.character("g")))
         let center = CGPoint(x: key.frame.midX, y: key.frame.midY)
         let variance = 400.0, degrees = 5.0

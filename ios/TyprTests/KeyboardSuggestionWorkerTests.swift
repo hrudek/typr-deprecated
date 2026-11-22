@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class KeyboardSuggestionWorkerTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         var calls = 0
         func isWordValid(_ word: String) -> Bool { calls += 1; return ["the", "hello"].contains(word) }
         func guesses(for word: String) -> [String] {
@@ -41,14 +41,14 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
 
     private func keyboard(worker: KeyboardSuggestionWorker? = nil,
                           session: KeyboardLearningSession? = nil,
-                          context: KeyboardContextResources? = nil) -> (FullKeyboardEngine, FixtureTextTarget, Checker) {
+                          context: KeyboardContextResources? = nil) -> (TyprFullKeyboardEngine, FixtureTextTarget, Checker) {
         let target = FixtureTextTarget()
         let checker = Checker()
         // Freeze the original worker-policy fixtures without corpus context. Otherwise a
         // real asynchronous bundled load can refresh a continuation-gated job mid-test,
         // and Space now legitimately queues a prediction instead of leaving no job.
-        let engine = FullKeyboardEngine(target: target,
-                                        autocorrect: AutocorrectEngine(checker: checker, learning: session, spatialDecoder: nil,
+        let engine = TyprFullKeyboardEngine(target: target,
+                                        autocorrect: TyprAutocorrectEngine(checker: checker, learning: session, spatialDecoder: nil,
                                                                        contextResources: context ?? .init(model: nil)),
                                         suggestionWorker: worker)
         engine.width = 393
@@ -56,7 +56,7 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
         return (engine, target, checker)
     }
 
-    private func type(_ text: String, _ engine: FullKeyboardEngine) throws {
+    private func type(_ text: String, _ engine: TyprFullKeyboardEngine) throws {
         for letter in text {
             let key = try XCTUnwrap(engine.layout.key(.character(String(letter))))
             let point = CGPoint(x: key.frame.midX, y: key.frame.midY)
@@ -268,8 +268,8 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
         let gate = Gate()
         let worker = KeyboardSuggestionWorker(rank: { await gate.rank($0) })
         let target = FixtureTextTarget()
-        let ac = AutocorrectEngine(checker: Checker(), spatialDecoder: source, contextResources: .init(model: nil))
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac, suggestionWorker: worker)
+        let ac = TyprAutocorrectEngine(checker: Checker(), spatialDecoder: source, contextResources: .init(model: nil))
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac, suggestionWorker: worker)
         engine.configureForField()
         try type("teh", engine)
         await waitForJob(gate)
@@ -390,8 +390,8 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
         target.insertText(String(repeating: "👨‍👩‍👧‍👦", count: 200) + " teh")
         engine.textDidChange()
         let context = try XCTUnwrap(engine.suggestionOwnership.context)
-        XCTAssertLessThanOrEqual(context.utf8.count, FullKeyboardEngine.suggestionContextUTF8Limit)
-        XCTAssertLessThanOrEqual(context.count, FullKeyboardEngine.suggestionContextLimit)
+        XCTAssertLessThanOrEqual(context.utf8.count, TyprFullKeyboardEngine.suggestionContextUTF8Limit)
+        XCTAssertLessThanOrEqual(context.count, TyprFullKeyboardEngine.suggestionContextLimit)
         XCTAssertTrue(target.text.hasSuffix(context))
         XCTAssertEqual(engine.suggestionOwnership.token, "teh")
         XCTAssertEqual(engine.suggestions.first?.kind, .keepLiteral)
@@ -401,7 +401,7 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
     // MARK: - Review R-P1 regressions
 
     /// Accepting the final "The" chip must work: proves the strip holds live, current chips.
-    private func assertLiveRanking(_ engine: FullKeyboardEngine, _ target: FixtureTextTarget,
+    private func assertLiveRanking(_ engine: TyprFullKeyboardEngine, _ target: FixtureTextTarget,
                                    _ message: String, file: StaticString = #filePath, line: UInt = #line) async throws {
         XCTAssertFalse(engine.suggestions.isEmpty, "Strip blanked: \(message)", file: file, line: line)
         XCTAssertTrue(engine.suggestions.allSatisfy { $0.ownership == engine.suggestionOwnership },
@@ -442,7 +442,7 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
             case "trackpad":
                 let space = try XCTUnwrap(engine.layout.key(.space)).frame
                 engine.touchBegan(id: 8, at: CGPoint(x: space.midX, y: space.midY))
-                let held = engine.clock() + FullKeyboardEngine.trackpadDelay + 0.1
+                let held = engine.clock() + TyprFullKeyboardEngine.trackpadDelay + 0.1
                 engine.clock = { held }
                 engine.touchMoved(id: 8, to: CGPoint(x: space.midX + 12, y: space.midY))
                 XCTAssertTrue(engine.isTrackpadActive)
@@ -482,8 +482,8 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
     func testResourceInstallationRepublishesThroughTheStalePoll() async throws {
         let source = SpatialWordDecoder(bundle: Bundle.main)
         let target = FixtureTextTarget()
-        let engine = FullKeyboardEngine(target: target,
-                                        autocorrect: AutocorrectEngine(checker: Checker(), spatialDecoder: source))
+        let engine = TyprFullKeyboardEngine(target: target,
+                                        autocorrect: TyprAutocorrectEngine(checker: Checker(), spatialDecoder: source))
         engine.width = 393
         engine.configureForField()
         try type("teh", engine)
@@ -496,7 +496,7 @@ final class KeyboardSuggestionWorkerTests: XCTestCase {
         while source.isResourceLoading, ContinuousClock.now < deadline { await Task.yield() }
         XCTAssertFalse(source.isResourceLoading)
         XCTAssertNotEqual(engine.suggestions.first?.ownership, engine.suggestionOwnership)
-        engine.refreshSuggestionsIfStale() // FullKeyboardView.syncSettings, 4 Hz poll
+        engine.refreshSuggestionsIfStale() // TyprFullKeyboardView.syncSettings, 4 Hz poll
         try await assertLiveRanking(engine, target, "after resource installation")
     }
 

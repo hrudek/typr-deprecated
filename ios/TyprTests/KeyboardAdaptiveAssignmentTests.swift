@@ -7,46 +7,46 @@ import XCTest
 final class KeyboardAdaptiveAssignmentTests: XCTestCase {
     private typealias Language = SpatialWordDecoder.Language
 
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { false }
         func guesses(for word: String) -> [String] { [] }
         func completions(for prefix: String) -> [String] { [] }
     }
 
     private func keyboard(_ text: String = "", autocapitalization: UITextAutocapitalizationType = .none,
-                          context: Bool = false) throws -> (FullKeyboardEngine, FixtureTextTarget) {
+                          context: Bool = false) throws -> (TyprFullKeyboardEngine, FixtureTextTarget) {
         let target = FixtureTextTarget(text: text)
         target.autocapitalizationType = autocapitalization
-        let ac = AutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(),
+        let ac = TyprAutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(),
                                    spatialDecoder: SpatialWordDecoder(lexicons: try XCTUnwrap(BundledKeyboardData.lexicons)),
                                    contextResources: .init(model: context ? BundledKeyboardData.contextModel : nil))
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.width = 393
         engine.configureForField()
         engine.refreshSuggestions()
         return (engine, target)
     }
 
-    private func key(_ letter: Character, _ engine: FullKeyboardEngine) -> KeyboardKey {
+    private func key(_ letter: Character, _ engine: TyprFullKeyboardEngine) -> TyprKeyboardKey {
         engine.layout.key(.character(String(letter)))!
     }
-    private func center(_ key: KeyboardKey) -> CGPoint { CGPoint(x: key.frame.midX, y: key.frame.midY) }
-    private func tap(_ point: CGPoint, _ engine: FullKeyboardEngine) {
+    private func center(_ key: TyprKeyboardKey) -> CGPoint { CGPoint(x: key.frame.midX, y: key.frame.midY) }
+    private func tap(_ point: CGPoint, _ engine: TyprFullKeyboardEngine) {
         engine.touchBegan(id: 1, at: point)
         engine.touchEnded(id: 1, at: point)
     }
-    private func type(_ text: String, _ engine: FullKeyboardEngine) {
+    private func type(_ text: String, _ engine: TyprFullKeyboardEngine) {
         for letter in text { tap(center(key(letter, engine)), engine) }
     }
-    private func insideMTowardN(_ engine: FullKeyboardEngine) -> CGPoint {
+    private func insideMTowardN(_ engine: TyprFullKeyboardEngine) -> CGPoint {
         let m = key("m", engine)
         return CGPoint(x: m.hitFrame.minX + 2, y: m.frame.midY)
     }
-    private func topEdgeOfGUnderT(_ engine: FullKeyboardEngine) -> CGPoint {
+    private func topEdgeOfGUnderT(_ engine: TyprFullKeyboardEngine) -> CGPoint {
         let g = key("g", engine), t = key("t", engine)
         return CGPoint(x: (g.frame.midX + t.frame.midX) / 2, y: g.hitFrame.minY + 1)
     }
-    private func label(_ letter: Character, _ engine: FullKeyboardEngine) {
+    private func label(_ letter: Character, _ engine: TyprFullKeyboardEngine) {
         engine.autocorrect.learning.learn([TouchLabel(point: center(key(letter, engine)), letter: letter)],
                                           layout: engine.layout, source: .keep)
     }
@@ -77,7 +77,7 @@ final class KeyboardAdaptiveAssignmentTests: XCTestCase {
         let map = try XCTUnwrap(engine.autocorrect.keyMap(layout: engine.layout, context: "arou", permitsCorrection: true))
         let m = key("m", engine)
         XCTAssertEqual(map.attributedKey(at: insideMTowardN(engine), geometric: m, layout: engine.layout, prefix: "arouz"), m)
-        XCTAssertEqual(map.attributedKey(at: insideMTowardN(engine), geometric: m, layout: KeyboardLayout(width: 440),
+        XCTAssertEqual(map.attributedKey(at: insideMTowardN(engine), geometric: m, layout: TyprKeyboardLayout(width: 440),
                                          prefix: "arou"), m)
     }
 

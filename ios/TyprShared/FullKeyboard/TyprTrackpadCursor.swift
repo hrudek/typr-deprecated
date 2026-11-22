@@ -7,7 +7,7 @@ import UIKit
 /// the cursor and moves it by characters, so the text is laid out here as a field would show
 /// it: the body font's own widths (an "i" passes quicker than an "m", as on Apple's), lines
 /// wrapped at the keyboard's width less margins, and the font's line height for a line.
-nonisolated enum TrackpadCursor {
+nonisolated enum TyprTrackpadCursor {
     /// How far the point goes per point of finger travel at `speed` (points a second). Apple's
     /// took 80 pt of finger 1.05 times as far slowly, 1.4 times at 400 pt/s, twice at 1,000 and
     /// 2.6 times at 2,000, whichever way the finger went (a slant at 1,000 went twice as far up
@@ -302,7 +302,7 @@ nonisolated enum TrackpadCursor {
         /// The step past the known text went unanswered: that was the text's start or end, the
         /// host ignored the step, and its cursor is where this copy's is.
         private mutating func expire(at time: TimeInterval) {
-            guard let crossing, time - crossing > TrackpadCursor.edgeTimeout else { return }
+            guard let crossing, time - crossing > TyprTrackpadCursor.edgeTimeout else { return }
             self.crossing = nil
             if crossingUp { knowsStart = true } else { knowsEnd = true }
             waiting = false

@@ -3,19 +3,19 @@ import UIKit
 import XCTest
 @testable import Typr
 
-final class KeyboardLayoutTests: XCTestCase {
+final class TyprKeyboardLayoutTests: XCTestCase {
     private let portraitWidths: [CGFloat] = [320, 375, 393, 402, 430, 440]
-    private let layers: [KeyboardLayer] = [.letters, .numbers, .symbols]
-    private let fields: [KeyboardFieldKind] = [.text, .url, .email]
+    private let layers: [TyprKeyboardLayer] = [.letters, .numbers, .symbols]
+    private let fields: [TyprKeyboardFieldKind] = [.text, .url, .email]
 
-    private func everyPortraitLayout(showsStrip: Bool = true, numberRow: Bool = false) -> [KeyboardLayout] {
-        var layouts: [KeyboardLayout] = []
+    private func everyPortraitLayout(showsStrip: Bool = true, numberRow: Bool = false) -> [TyprKeyboardLayout] {
+        var layouts: [TyprKeyboardLayout] = []
         for width in portraitWidths {
             for layer in layers {
                 for field in fields {
                     for globe in [false, true] {
                         for globeKey in GlobeKey.allCases {
-                            layouts.append(KeyboardLayout(
+                            layouts.append(TyprKeyboardLayout(
                                 width: width, layer: layer, field: field, showsGlobe: globe, globeKey: globeKey,
                                 numberRow: numberRow, showsStrip: showsStrip
                             ))
@@ -27,12 +27,12 @@ final class KeyboardLayoutTests: XCTestCase {
         return layouts
     }
 
-    private func everyLayout() -> [KeyboardLayout] {
+    private func everyLayout() -> [TyprKeyboardLayout] {
         [false, true].flatMap { numberRow in
             everyPortraitLayout(numberRow: numberRow) + everyPortraitLayout(showsStrip: false, numberRow: numberRow)
                 + [true, false].flatMap { showsStrip in
                     (landscapeLayouts() + wideLayouts()).map {
-                        KeyboardLayout(
+                        TyprKeyboardLayout(
                             width: $0.width, orientation: $0.orientation, layer: $0.layer, field: $0.field,
                             numberRow: numberRow, horizontalInset: $0.horizontalInset, showsStrip: showsStrip
                         )
@@ -104,7 +104,7 @@ final class KeyboardLayoutTests: XCTestCase {
     func testTyprKeyAndWordmarkMatch393PointReference() {
         // The original 393 pt keycap is unchanged; the wordmark and arrow follow
         // the owner's 2026-11-11 reference keyboard.
-        let layout = KeyboardLayout(width: 393, showsStrip: true)
+        let layout = TyprKeyboardLayout(width: 393, showsStrip: true)
         let cap = layout.key(.typr)!.frame
         XCTAssertEqual(cap.minX, 252.576, accuracy: 0.001)
         XCTAssertEqual(cap.minY, 203, accuracy: 0.001)
@@ -129,7 +129,7 @@ final class KeyboardLayoutTests: XCTestCase {
         let size = joined.frame.size
 
         func pixels(isDark: Bool, design: KeyboardDesign, joinedKey: Bool) -> Data {
-            let palette = FullKeyboardPalette(isDark: isDark, design: design)
+            let palette = TyprFullKeyboardPalette(isDark: isDark, design: design)
             let format = UIGraphicsImageRendererFormat()
             format.scale = 1
             let image = UIGraphicsImageRenderer(size: size, format: format).image { renderer in
@@ -149,7 +149,7 @@ final class KeyboardLayoutTests: XCTestCase {
             let format = UIGraphicsImageRendererFormat()
             format.scale = 1
             let legacy = UIGraphicsImageRenderer(size: size, format: format).image { renderer in
-                renderer.cgContext.fillKeycap(key, fill: FullKeyboardPalette(isDark: isDark).keyFill)
+                renderer.cgContext.fillKeycap(key, fill: TyprFullKeyboardPalette(isDark: isDark).keyFill)
             }.pngData()
             XCTAssertEqual(pixels(isDark: isDark, design: .standard, joinedKey: false), legacy)
             XCTAssertNotEqual(
@@ -171,18 +171,18 @@ final class KeyboardLayoutTests: XCTestCase {
             return (r + g + b) / 3
         }
         for isDark in [false, true] {
-            let standard = FullKeyboardPalette(isDark: isDark)
+            let standard = TyprFullKeyboardPalette(isDark: isDark)
             XCTAssertEqual(standard.keyLabel, standard.textBase)
             XCTAssertEqual(standard.keyGlyph, standard.textBase)
-            let mechanical = FullKeyboardPalette(isDark: isDark, design: .mechanical)
+            let mechanical = TyprFullKeyboardPalette(isDark: isDark, design: .mechanical)
             for ink in [mechanical.keyLabel, mechanical.keyGlyph] {
                 let contrast = abs(white(ink) - white(mechanical.keyFill))
                 XCTAssertLessThan(contrast, abs(white(standard.textBase) - white(mechanical.keyFill)))
                 XCTAssertGreaterThan(contrast, 0.3)
             }
         }
-        XCTAssertEqual(FullKeyboardPalette(isDark: true).warmCore, FullKeyboardPalette(isDark: false).warmCore)
-        XCTAssertNotEqual(FullKeyboardPalette(isDark: true, design: .mechanical).warmCore, FullKeyboardPalette(isDark: true).warmCore)
+        XCTAssertEqual(TyprFullKeyboardPalette(isDark: true).warmCore, TyprFullKeyboardPalette(isDark: false).warmCore)
+        XCTAssertNotEqual(TyprFullKeyboardPalette(isDark: true, design: .mechanical).warmCore, TyprFullKeyboardPalette(isDark: true).warmCore)
     }
 
     @MainActor
@@ -196,7 +196,7 @@ final class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(joined.mechanicalSeamX(atY: face.midY, face: face), boundary, accuracy: 0.001)
 
         for isDark in [false, true] {
-            let palette = FullKeyboardPalette(isDark: isDark, design: .mechanical)
+            let palette = TyprFullKeyboardPalette(isDark: isDark, design: .mechanical)
             let format = UIGraphicsImageRendererFormat()
             format.scale = 1
             let image = UIGraphicsImageRenderer(bounds: joined.frame, format: format).image { renderer in
@@ -235,7 +235,7 @@ final class KeyboardLayoutTests: XCTestCase {
         let centre = joined.mechanicalSeamX(atY: y, face: face)
         let scale: CGFloat = 3
         for isDark in [false, true] {
-            let palette = FullKeyboardPalette(isDark: isDark, design: .mechanical)
+            let palette = TyprFullKeyboardPalette(isDark: isDark, design: .mechanical)
             let format = UIGraphicsImageRendererFormat()
             format.scale = scale
             format.opaque = true
@@ -267,8 +267,8 @@ final class KeyboardLayoutTests: XCTestCase {
     func testPanelKeysShareLetterKeyFill() {
         for design in [KeyboardDesign.standard, .mechanical] {
             for isDark in [false, true] {
-                let palette = FullKeyboardPalette(isDark: isDark, design: design)
-                for button in [PanelKeyButton(), PanelKeyButton()] {
+                let palette = TyprFullKeyboardPalette(isDark: isDark, design: design)
+                for button in [TyprPanelKeyButton(), TyprPanelKeyButton()] {
                     button.palette = palette
                     XCTAssertEqual(button.fill, palette.keyFill)
                 }
@@ -278,7 +278,7 @@ final class KeyboardLayoutTests: XCTestCase {
 
     @MainActor
     func testDarkPaletteMatchesReferenceColors() {
-        let dark = FullKeyboardPalette(isDark: true)
+        let dark = TyprFullKeyboardPalette(isDark: true)
         func hex(_ color: UIColor) -> String {
             var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
             color.getRed(&r, green: &g, blue: &b, alpha: &a)
@@ -308,26 +308,26 @@ final class KeyboardLayoutTests: XCTestCase {
 
     func testPortraitIs253PointsAndLandscapeIs176Points() {
         for width in portraitWidths {
-            XCTAssertEqual(KeyboardLayout(width: width).totalHeight, 253, "width \(width)")
+            XCTAssertEqual(TyprKeyboardLayout(width: width).totalHeight, 253, "width \(width)")
         }
-        XCTAssertEqual(KeyboardLayout.height(for: .portrait), 253)
-        XCTAssertEqual(KeyboardLayout.height(for: .landscape), 176)
+        XCTAssertEqual(TyprKeyboardLayout.height(for: .portrait), 253)
+        XCTAssertEqual(TyprKeyboardLayout.height(for: .landscape), 176)
     }
 
     /// Typr: without the suggestion bar the keys move up to a small top margin.
     func testWithoutTheBarTheKeyboardIsShorterAndKeysMoveUp() {
         for width in portraitWidths {
-            let layout = KeyboardLayout(width: width, showsStrip: false)
+            let layout = TyprKeyboardLayout(width: width, showsStrip: false)
             XCTAssertEqual(layout.totalHeight, 224, "width \(width)")
             XCTAssertEqual(layout.key(.character("q"))!.frame.minY, 6, accuracy: 0.001)
             XCTAssertEqual(layout.stripFrame.height, 0)
             XCTAssertEqual(layout.key(.character("q"))!.hitFrame.minY, 0, "the top margin still types")
         }
-        XCTAssertEqual(KeyboardLayout.height(for: .portrait, showsStrip: false), 224)
-        XCTAssertEqual(KeyboardLayout.height(for: .landscape, showsStrip: false), 141)
+        XCTAssertEqual(TyprKeyboardLayout.height(for: .portrait, showsStrip: false), 224)
+        XCTAssertEqual(TyprKeyboardLayout.height(for: .landscape, showsStrip: false), 141)
         // Same keys, same sizes.
-        let with = KeyboardLayout(width: 393)
-        let without = KeyboardLayout(width: 393, showsStrip: false)
+        let with = TyprKeyboardLayout(width: 393)
+        let without = TyprKeyboardLayout(width: 393, showsStrip: false)
         XCTAssertEqual(with.keys.map(\.frame.size), without.keys.map(\.frame.size))
         XCTAssertEqual(with.keys.map(\.frame.minX), without.keys.map(\.frame.minX))
     }
@@ -354,7 +354,7 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testPortraitMetricsMatchAppleIOS26() {
-        let proMax = KeyboardLayout(width: 440)
+        let proMax = TyprKeyboardLayout(width: 440)
         XCTAssertEqual(proMax.letterWidth, (440 - 13 - 54) / 10, accuracy: 0.001)
         let q = proMax.key(.character("q"))!
         XCTAssertEqual(q.frame.minX, 6.5, accuracy: 0.001)
@@ -447,12 +447,12 @@ final class KeyboardLayoutTests: XCTestCase {
 
     func testAccentMenusClampInwardAcrossEveryWidth() {
         for width in portraitWidths {
-            let layout = KeyboardLayout(width: width)
+            let layout = TyprKeyboardLayout(width: width)
             let bounds = CGRect(x: 0, y: 0, width: layout.width, height: layout.totalHeight)
             for ch in ["e", "a", "i", "o", "u", "n", "c", "s", "z"] {
                 let key = layout.key(.character(ch))!
-                let options = AccentCatalog.options(for: ch, uppercase: false)!
-                let menu = AccentMenu.build(for: key.frame, rawOptions: options, in: layout.width)
+                let options = TyprAccentCatalog.options(for: ch, uppercase: false)!
+                let menu = TyprAccentMenu.build(for: key.frame, rawOptions: options, in: layout.width)
                 XCTAssertTrue(
                     bounds.insetBy(dx: -0.01, dy: -0.01).contains(menu.bubbleFrame),
                     "width \(width) key \(ch): \(menu.bubbleFrame)"
@@ -463,7 +463,7 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testEdgeBalloonsArePushedInward() {
-        let layout = KeyboardLayout(width: 375)
+        let layout = TyprKeyboardLayout(width: 375)
         let q = layout.balloon(for: layout.key(.character("q"))!)!
         let p = layout.balloon(for: layout.key(.character("p"))!)!
         let g = layout.balloon(for: layout.key(.character("g"))!)!
@@ -474,39 +474,39 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testNoBalloonsForModifiersOrInLandscape() {
-        let portrait = KeyboardLayout(width: 393)
+        let portrait = TyprKeyboardLayout(width: 393)
         XCTAssertNil(portrait.balloon(for: portrait.key(.space)!))
         XCTAssertNil(portrait.balloon(for: portrait.key(.shift)!))
-        let landscape = KeyboardLayout(width: 852, orientation: .landscape)
+        let landscape = TyprKeyboardLayout(width: 852, orientation: .landscape)
         XCTAssertNil(landscape.balloon(for: landscape.key(.character("a"))!))
     }
 
     func testBottomRowMatchesIOS26EmailAndURLRightOfSpace() {
-        XCTAssertEqual(bottomRow(KeyboardLayout(width: 393)), [.layerSwitch(.numbers), .space, .typr, .returnKey])
+        XCTAssertEqual(bottomRow(TyprKeyboardLayout(width: 393)), [.layerSwitch(.numbers), .space, .typr, .returnKey])
         XCTAssertEqual(
-            bottomRow(KeyboardLayout(width: 375, showsGlobe: true)),
+            bottomRow(TyprKeyboardLayout(width: 375, showsGlobe: true)),
             [.layerSwitch(.numbers), .globe, .space, .typr, .returnKey]
         )
         XCTAssertEqual(
-            bottomRow(KeyboardLayout(width: 393, layer: .numbers, field: .email)),
+            bottomRow(TyprKeyboardLayout(width: 393, layer: .numbers, field: .email)),
             [.layerSwitch(.letters), .space, .character("@"), .character("."), .typr, .returnKey]
         )
         XCTAssertEqual(
-            bottomRow(KeyboardLayout(width: 393, field: .url)),
+            bottomRow(TyprKeyboardLayout(width: 393, field: .url)),
             [.layerSwitch(.numbers), .space, .character("."), .character("/"), .typr, .returnKey]
         )
     }
 
     func testRowThreeModifiersFollowTheLayer() {
-        XCTAssertNotNil(KeyboardLayout(width: 393).key(.shift))
-        XCTAssertEqual(KeyboardLayout(width: 393, layer: .numbers).key(.layerSwitch(.symbols))?.row, 2)
-        XCTAssertEqual(KeyboardLayout(width: 393, layer: .symbols).key(.layerSwitch(.numbers))?.row, 2)
-        let numbers = KeyboardLayout(width: 393, layer: .numbers)
+        XCTAssertNotNil(TyprKeyboardLayout(width: 393).key(.shift))
+        XCTAssertEqual(TyprKeyboardLayout(width: 393, layer: .numbers).key(.layerSwitch(.symbols))?.row, 2)
+        XCTAssertEqual(TyprKeyboardLayout(width: 393, layer: .symbols).key(.layerSwitch(.numbers))?.row, 2)
+        let numbers = TyprKeyboardLayout(width: 393, layer: .numbers)
         XCTAssertEqual(numbers.keys.filter { $0.row == 2 }.compactMap(\.character), [".", ",", "?", "!", "'"])
     }
 
     func testRowTwoIsCentred() {
-        let layout = KeyboardLayout(width: 402)
+        let layout = TyprKeyboardLayout(width: 402)
         let a = layout.key(.character("a"))!.frame
         let l = layout.key(.character("l"))!.frame
         XCTAssertEqual(a.minX, layout.width - l.maxX, accuracy: 0.001)
@@ -517,7 +517,7 @@ final class KeyboardLayoutTests: XCTestCase {
     func testSplitLettersFollowApplesSplitWithGAndVOnBothHalves() throws {
         for width: CGFloat in [801, 951] {
             for numberRow in [false, true] {
-                let layout = KeyboardLayout(width: width, orientation: .splitLandscape, numberRow: numberRow)
+                let layout = TyprKeyboardLayout(width: width, orientation: .splitLandscape, numberRow: numberRow)
                 let name = describe(layout)
                 let pitch = layout.letterWidth + layout.metrics.gap
                 let rows = (0..<3).map { row in
@@ -539,7 +539,7 @@ final class KeyboardLayoutTests: XCTestCase {
 
                 let shift = try XCTUnwrap(layout.key(.shift)).frame
                 let delete = try XCTUnwrap(layout.key(.delete)).frame
-                XCTAssertEqual(shift.width, layout.letterWidth * KeyboardLayout.modifierWidthRatio, accuracy: 0.001, name)
+                XCTAssertEqual(shift.width, layout.letterWidth * TyprKeyboardLayout.modifierWidthRatio, accuracy: 0.001, name)
                 XCTAssertEqual(delete.width, shift.width, accuracy: 0.001, name)
                 XCTAssertEqual(minX(2, "z") - shift.maxX, delete.minX - rows[2][rows[2].count - 2].frame.maxX,
                                accuracy: 0.001, "shift and delete as far from the letters: \(name)")
@@ -549,17 +549,17 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testSuggestionSlotsSpanTheSplitRightHalfAndTheWholeStripElsewhere() throws {
-        for (orientation, width) in [(KeyboardOrientation.portrait, 393), (.landscape, 852),
-                                     (.wideLandscape, 951)] as [(KeyboardOrientation, CGFloat)] {
-            let layout = KeyboardLayout(width: width, orientation: orientation, horizontalInset: 20)
+        for (orientation, width) in [(TyprKeyboardOrientation.portrait, 393), (.landscape, 852),
+                                     (.wideLandscape, 951)] as [(TyprKeyboardOrientation, CGFloat)] {
+            let layout = TyprKeyboardLayout(width: width, orientation: orientation, horizontalInset: 20)
             XCTAssertEqual(layout.suggestionSlotsFrame, CGRect(origin: .zero, size: layout.stripFrame.size), describe(layout))
         }
-        let rightLetters = Set("yuiophjklbnmgv".map { KeyKind.character(String($0)) } + [.delete])
+        let rightLetters = Set("yuiophjklbnmgv".map { TyprKeyKind.character(String($0)) } + [.delete])
         for width: CGFloat in [801, 951] {
             for inset: CGFloat in [0, 20] {
                 for splitColumns in [false, true] {
                     for numberRow in [false, true] {
-                        let layout = KeyboardLayout(width: width, orientation: .splitLandscape, numberRow: numberRow,
+                        let layout = TyprKeyboardLayout(width: width, orientation: .splitLandscape, numberRow: numberRow,
                                                     splitColumns: splitColumns, horizontalInset: inset)
                         let name = describe(layout)
                         let keys = layout.keys.filter { rightLetters.contains($0.kind) && $0.frame.midX > width / 2 }
@@ -567,8 +567,8 @@ final class KeyboardLayoutTests: XCTestCase {
                         XCTAssertEqual(slots.minX, try XCTUnwrap(keys.map(\.frame.minX).min()), accuracy: 0.001, name)
                         XCTAssertEqual(slots.maxX, try XCTUnwrap(keys.map(\.frame.maxX).max()), accuracy: 0.001, name)
                         XCTAssertEqual(slots.height, layout.stripFrame.height, name)
-                        for layer in [KeyboardLayer.numbers, .symbols] {
-                            let page = KeyboardLayout(width: width, orientation: .splitLandscape, layer: layer, numberRow: numberRow,
+                        for layer in [TyprKeyboardLayer.numbers, .symbols] {
+                            let page = TyprKeyboardLayout(width: width, orientation: .splitLandscape, layer: layer, numberRow: numberRow,
                                                       splitColumns: splitColumns, horizontalInset: inset)
                             XCTAssertEqual(page.suggestionSlotsFrame, layout.suggestionSlotsFrame, "\(name) \(layer)")
                         }
@@ -581,7 +581,7 @@ final class KeyboardLayoutTests: XCTestCase {
     func testAlignedColumnsStackTheSplitLettersInAFiveByThreeGridPerHalf() throws {
         for width: CGFloat in [801, 951] {
             for numberRow in [false, true] {
-                let layout = KeyboardLayout(width: width, orientation: .splitLandscape, numberRow: numberRow, splitColumns: true)
+                let layout = TyprKeyboardLayout(width: width, orientation: .splitLandscape, numberRow: numberRow, splitColumns: true)
                 let name = describe(layout)
                 let firstRow = layout.bottomRowIndex - 3
                 let grid = (0..<3).map { row in
@@ -607,12 +607,12 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testAlignedColumnsChangeOnlyTheSplitLettersPage() {
-        for (orientation, width) in [(KeyboardOrientation.portrait, 393), (.landscape, 932), (.widePortrait, 669),
-                                     (.wideLandscape, 951), (.splitLandscape, 951)] as [(KeyboardOrientation, CGFloat)] {
+        for (orientation, width) in [(TyprKeyboardOrientation.portrait, 393), (.landscape, 932), (.widePortrait, 669),
+                                     (.wideLandscape, 951), (.splitLandscape, 951)] as [(TyprKeyboardOrientation, CGFloat)] {
             for layer in layers {
                 for numberRow in [false, true] {
-                    let staggered = KeyboardLayout(width: width, orientation: orientation, layer: layer, numberRow: numberRow)
-                    let aligned = KeyboardLayout(width: width, orientation: orientation, layer: layer, numberRow: numberRow,
+                    let staggered = TyprKeyboardLayout(width: width, orientation: orientation, layer: layer, numberRow: numberRow)
+                    let aligned = TyprKeyboardLayout(width: width, orientation: orientation, layer: layer, numberRow: numberRow,
                                                  splitColumns: true)
                     let changes = orientation == .splitLandscape && layer == .letters
                     XCTAssertEqual(aligned.keys == staggered.keys, !changes, describe(aligned))
@@ -623,14 +623,14 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testSplitNumbersAndSymbolsFollowApplesSplitInStraightColumns() throws {
-        let pages: [(KeyboardLayer, [String], String)] = [
+        let pages: [(TyprKeyboardLayer, [String], String)] = [
             (.numbers, ["1 2 3 4 5 6 7 8 9 0", "- / : ; ( ) € & @ \"", ". , ? ? ! '"], "#+="),
             (.symbols, ["[ ] { } # % ^ * + =", "_ \\ | ~ < > $ £ ¥ •", ". , ? ? ! '"], "123"),
         ]
         for width: CGFloat in [801, 951] {
             for (layer, labels, switchLabel) in pages {
                 for splitColumns in [false, true] {
-                    let layout = KeyboardLayout(width: width, orientation: .splitLandscape, layer: layer,
+                    let layout = TyprKeyboardLayout(width: width, orientation: .splitLandscape, layer: layer,
                                                 splitColumns: splitColumns)
                     let name = describe(layout)
                     let pitch = layout.letterWidth + layout.metrics.gap
@@ -643,7 +643,7 @@ final class KeyboardLayoutTests: XCTestCase {
                     }
                     XCTAssertEqual(rows[0][9].frame.maxX, width - layout.metrics.side, accuracy: 0.001, name)
 
-                    let letters = KeyboardLayout(width: width, orientation: .splitLandscape)
+                    let letters = TyprKeyboardLayout(width: width, orientation: .splitLandscape)
                     func letter(_ ch: String, _ copy: Int = 0) -> CGRect {
                         letters.keys.filter { $0.label == ch }[copy].frame
                     }
@@ -665,13 +665,13 @@ final class KeyboardLayoutTests: XCTestCase {
     func testSplitLeftSpaceEndsFlushWithTheLeftKeysAbove() throws {
         let orders: [[BottomKey]] = [[.space, .period, .typr], [.typr, .space, .period], [.period, .space, .typr]]
         for width: CGFloat in [669, 801, 951, 1100] {
-            for layer in [KeyboardLayer.letters, .numbers, .symbols] {
+            for layer in [TyprKeyboardLayer.letters, .numbers, .symbols] {
                 for splitColumns in [false, true] {
                     for numberRow in [false, true] {
-                        for field in [KeyboardFieldKind.text, .url, .email] {
+                        for field in [TyprKeyboardFieldKind.text, .url, .email] {
                             for globe in [GlobeKey.switches, .spacer, .hidden] {
                                 for order in orders {
-                                    let layout = KeyboardLayout(
+                                    let layout = TyprKeyboardLayout(
                                         width: width, orientation: .splitLandscape, layer: layer, field: field,
                                         showsGlobe: true, globeKey: globe, bottomRow: BottomRow(order: order),
                                         numberRow: numberRow, splitColumns: splitColumns
@@ -699,13 +699,13 @@ final class KeyboardLayoutTests: XCTestCase {
     func testSplitRightSpaceStartsFlushWithTheRightKeysAbove() throws {
         let orders: [[BottomKey]] = [[.space, .period, .typr], [.typr, .space, .period], [.period, .space, .typr]]
         for width: CGFloat in [669, 801, 951, 1100] {
-            for layer in [KeyboardLayer.letters, .numbers, .symbols] {
+            for layer in [TyprKeyboardLayer.letters, .numbers, .symbols] {
                 for splitColumns in [false, true] {
                     for numberRow in [false, true] {
-                        for field in [KeyboardFieldKind.text, .url, .email] {
+                        for field in [TyprKeyboardFieldKind.text, .url, .email] {
                             for globe in [GlobeKey.switches, .spacer, .hidden] {
                                 for order in orders {
-                                    let layout = KeyboardLayout(
+                                    let layout = TyprKeyboardLayout(
                                         width: width, orientation: .splitLandscape, layer: layer, field: field,
                                         showsGlobe: true, globeKey: globe, bottomRow: BottomRow(order: order),
                                         numberRow: numberRow, splitColumns: splitColumns
@@ -734,7 +734,7 @@ final class KeyboardLayoutTests: XCTestCase {
 
     func testBothCopiesOfASplitLetterTypeIt() throws {
         for splitColumns in [false, true] {
-            let layout = KeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: splitColumns)
+            let layout = TyprKeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: splitColumns)
             for letter in ["g", "v"] {
                 let copies = layout.keys.filter { $0.kind == .character(letter) }
                 XCTAssertEqual(copies.count, 2, letter)
@@ -757,7 +757,7 @@ final class KeyboardLayoutTests: XCTestCase {
             }
         }
         var count = 0
-        let widths: [(KeyboardOrientation, [CGFloat])] = [
+        let widths: [(TyprKeyboardOrientation, [CGFloat])] = [
             (.portrait, [320, 393, 440]), (.landscape, [852, 932]), (.widePortrait, [669]),
             (.wideLandscape, [801, 951]),
         ]
@@ -770,7 +770,7 @@ final class KeyboardLayoutTests: XCTestCase {
                                 for showsGlobe in [false, true] {
                                     for inset: CGFloat in [0, 30] {
                                         for periodKey in [false, true] {
-                                            let layout = KeyboardLayout(
+                                            let layout = TyprKeyboardLayout(
                                                 width: width, orientation: orientation, layer: layer, field: field,
                                                 showsGlobe: showsGlobe, bottomRow: BottomRow(periodKey: periodKey),
                                                 numberRow: numberRow, horizontalInset: inset, showsStrip: showsStrip
@@ -798,23 +798,23 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testLandscapeKeepsInsetsAndHeight() {
-        let layout = KeyboardLayout(width: 932, orientation: .landscape, horizontalInset: 60)
+        let layout = TyprKeyboardLayout(width: 932, orientation: .landscape, horizontalInset: 60)
         XCTAssertEqual(layout.totalHeight, 176)
         XCTAssertEqual(layout.key(.character("q"))!.frame.minX, 64, accuracy: 0.001)
         XCTAssertEqual(layout.key(.character("q"))!.hitFrame.minX, 0)
     }
 
     func testNumberRowPutsOneToZeroAboveTheLettersAndGrowsTheKeyboard() throws {
-        for (orientation, width) in [(KeyboardOrientation.portrait, CGFloat(393)), (.landscape, 852)] {
+        for (orientation, width) in [(TyprKeyboardOrientation.portrait, CGFloat(393)), (.landscape, 852)] {
             for showsStrip in [true, false] {
-                let off = KeyboardLayout(width: width, orientation: orientation, showsStrip: showsStrip)
-                let on = KeyboardLayout(width: width, orientation: orientation, numberRow: true, showsStrip: showsStrip)
+                let off = TyprKeyboardLayout(width: width, orientation: orientation, showsStrip: showsStrip)
+                let on = TyprKeyboardLayout(width: width, orientation: orientation, numberRow: true, showsStrip: showsStrip)
                 let context = "\(orientation) strip=\(showsStrip)"
                 let grow = on.totalHeight - off.totalHeight
                 XCTAssertEqual(grow, on.metrics.numberRowHeight + on.metrics.rowGap, context)
                 XCTAssertGreaterThan(on.metrics.numberRowHeight, 0, context)
                 XCTAssertLessThan(on.metrics.numberRowHeight, on.metrics.keyHeight, context)
-                XCTAssertEqual(KeyboardLayout.height(for: orientation, showsStrip: showsStrip, numberRow: true), on.totalHeight, context)
+                XCTAssertEqual(TyprKeyboardLayout.height(for: orientation, showsStrip: showsStrip, numberRow: true), on.totalHeight, context)
                 XCTAssertEqual(off.bottomRowIndex, 3, context)
                 XCTAssertEqual(on.bottomRowIndex, 4, context)
 
@@ -837,12 +837,12 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testWithTheNumberRowTheOtherPagesKeepTheHeightWithTallerKeys() throws {
-        for orientation in [KeyboardOrientation.portrait, .landscape] {
+        for orientation in [TyprKeyboardOrientation.portrait, .landscape] {
             let width: CGFloat = orientation == .portrait ? 393 : 852
-            let letters = KeyboardLayout(width: width, orientation: orientation, numberRow: true)
-            for layer in [KeyboardLayer.numbers, .symbols] {
-                let off = KeyboardLayout(width: width, orientation: orientation, layer: layer)
-                let on = KeyboardLayout(width: width, orientation: orientation, layer: layer, numberRow: true)
+            let letters = TyprKeyboardLayout(width: width, orientation: orientation, numberRow: true)
+            for layer in [TyprKeyboardLayer.numbers, .symbols] {
+                let off = TyprKeyboardLayout(width: width, orientation: orientation, layer: layer)
+                let on = TyprKeyboardLayout(width: width, orientation: orientation, layer: layer, numberRow: true)
                 XCTAssertEqual(on.totalHeight, letters.totalHeight, "\(orientation) \(layer)")
                 XCTAssertEqual(on.bottomRowIndex, 3)
                 XCTAssertEqual(on.keys.count, off.keys.count)
@@ -853,40 +853,40 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testThePeriodKeyHoldsMorePunctuationBelowTheNumberRow() throws {
-        let layout = KeyboardLayout(width: 393, bottomRow: BottomRow(periodKey: true), numberRow: true)
+        let layout = TyprKeyboardLayout(width: 393, bottomRow: BottomRow(periodKey: true), numberRow: true)
         XCTAssertTrue(layout.isPeriodKey(try XCTUnwrap(layout.key(.character(".")))))
     }
 
     // MARK: - Helpers
 
-    private func landscapeLayouts() -> [KeyboardLayout] {
+    private func landscapeLayouts() -> [TyprKeyboardLayout] {
         [
-            KeyboardLayout(width: 667, orientation: .landscape),
-            KeyboardLayout(width: 852, orientation: .landscape, layer: .numbers),
-            KeyboardLayout(width: 956, orientation: .landscape, field: .email, horizontalInset: 60),
+            TyprKeyboardLayout(width: 667, orientation: .landscape),
+            TyprKeyboardLayout(width: 852, orientation: .landscape, layer: .numbers),
+            TyprKeyboardLayout(width: 956, orientation: .landscape, field: .email, horizontalInset: 60),
         ]
     }
 
     /// The iPhone Duo's inner display: upright, and sideways in the 801 pt iOS gives a keyboard and across all 951 pt.
-    private func wideLayouts() -> [KeyboardLayout] {
+    private func wideLayouts() -> [TyprKeyboardLayout] {
         [
-            KeyboardLayout(width: 669, orientation: .widePortrait),
-            KeyboardLayout(width: 669, orientation: .widePortrait, layer: .symbols, field: .url),
-            KeyboardLayout(width: 801, orientation: .wideLandscape, layer: .numbers),
-            KeyboardLayout(width: 951, orientation: .wideLandscape, field: .email),
-            KeyboardLayout(width: 801, orientation: .splitLandscape),
-            KeyboardLayout(width: 951, orientation: .splitLandscape, layer: .numbers, field: .url),
-            KeyboardLayout(width: 951, orientation: .splitLandscape, layer: .symbols, field: .email),
+            TyprKeyboardLayout(width: 669, orientation: .widePortrait),
+            TyprKeyboardLayout(width: 669, orientation: .widePortrait, layer: .symbols, field: .url),
+            TyprKeyboardLayout(width: 801, orientation: .wideLandscape, layer: .numbers),
+            TyprKeyboardLayout(width: 951, orientation: .wideLandscape, field: .email),
+            TyprKeyboardLayout(width: 801, orientation: .splitLandscape),
+            TyprKeyboardLayout(width: 951, orientation: .splitLandscape, layer: .numbers, field: .url),
+            TyprKeyboardLayout(width: 951, orientation: .splitLandscape, layer: .symbols, field: .email),
         ]
     }
 
     func testGlobeKeyChoicesShapeTheBottomRowOnlyWhereIOSNeedsAGlobe() {
-        for layer in [KeyboardLayer.letters, .numbers] {
-            let layerKey = KeyKind.layerSwitch(layer == .letters ? .numbers : .letters)
-            let switches = KeyboardLayout(width: 393, layer: layer, showsGlobe: true, globeKey: .switches)
-            let spacer = KeyboardLayout(width: 393, layer: layer, showsGlobe: true, globeKey: .spacer)
-            let hidden = KeyboardLayout(width: 393, layer: layer, showsGlobe: true, globeKey: .hidden)
-            let none = KeyboardLayout(width: 393, layer: layer)
+        for layer in [TyprKeyboardLayer.letters, .numbers] {
+            let layerKey = TyprKeyKind.layerSwitch(layer == .letters ? .numbers : .letters)
+            let switches = TyprKeyboardLayout(width: 393, layer: layer, showsGlobe: true, globeKey: .switches)
+            let spacer = TyprKeyboardLayout(width: 393, layer: layer, showsGlobe: true, globeKey: .spacer)
+            let hidden = TyprKeyboardLayout(width: 393, layer: layer, showsGlobe: true, globeKey: .hidden)
+            let none = TyprKeyboardLayout(width: 393, layer: layer)
 
             XCTAssertEqual(bottomRow(switches), [layerKey, .globe, .space, .typr, .returnKey])
             XCTAssertEqual(bottomRow(spacer), [.globeSpacer, layerKey, .space, .typr, .returnKey])
@@ -900,39 +900,39 @@ final class KeyboardLayoutTests: XCTestCase {
             XCTAssertTrue(hidden.layerKeyHoldSwitchesKeyboard)
         }
         for globeKey in GlobeKey.allCases {
-            let layout = KeyboardLayout(width: 393, globeKey: globeKey)
-            XCTAssertEqual(layout.keys, KeyboardLayout(width: 393).keys, "\(globeKey)")
+            let layout = TyprKeyboardLayout(width: 393, globeKey: globeKey)
+            XCTAssertEqual(layout.keys, TyprKeyboardLayout(width: 393).keys, "\(globeKey)")
             XCTAssertFalse(layout.layerKeyHoldSwitchesKeyboard)
         }
     }
 
     func testBottomRowFollowsTheOrderAndThePeriodToggle() {
-        let dot = KeyKind.character(".")
+        let dot = TyprKeyKind.character(".")
         let on = BottomRow(order: [.typr, .space, .period], periodKey: true)
         let off = BottomRow(order: [.typr, .space, .period], periodKey: false)
 
         XCTAssertEqual(
-            bottomRow(KeyboardLayout(width: 393, bottomRow: on)),
+            bottomRow(TyprKeyboardLayout(width: 393, bottomRow: on)),
             [.layerSwitch(.numbers), .typr, .space, dot, .returnKey]
         )
         XCTAssertEqual(
-            bottomRow(KeyboardLayout(width: 393, bottomRow: off)),
+            bottomRow(TyprKeyboardLayout(width: 393, bottomRow: off)),
             [.layerSwitch(.numbers), .typr, .space, .returnKey]
         )
         XCTAssertEqual(
-            bottomRow(KeyboardLayout(width: 393, layer: .numbers, bottomRow: on)),
+            bottomRow(TyprKeyboardLayout(width: 393, layer: .numbers, bottomRow: on)),
             [.layerSwitch(.letters), .typr, .space, .returnKey]
         )
         XCTAssertEqual(
-            bottomRow(KeyboardLayout(width: 393, field: .email, bottomRow: on)),
+            bottomRow(TyprKeyboardLayout(width: 393, field: .email, bottomRow: on)),
             [.layerSwitch(.numbers), .typr, .space, .character("@"), dot, .returnKey]
         )
         XCTAssertEqual(
-            bottomRow(KeyboardLayout(width: 393, field: .url, bottomRow: on)),
+            bottomRow(TyprKeyboardLayout(width: 393, field: .url, bottomRow: on)),
             [.layerSwitch(.numbers), .typr, .space, dot, .character("/"), .returnKey]
         )
         XCTAssertEqual(
-            bottomRow(KeyboardLayout(
+            bottomRow(TyprKeyboardLayout(
                 width: 393, showsGlobe: true, globeKey: .spacer,
                 bottomRow: BottomRow(order: [.period, .space, .typr], periodKey: true)
             )),
@@ -942,12 +942,12 @@ final class KeyboardLayoutTests: XCTestCase {
 
     func testOnlyTheBottomRowPeriodKeyHoldsMorePunctuation() throws {
         let on = BottomRow(order: BottomKey.standard, periodKey: true)
-        let letters = KeyboardLayout(width: 393, bottomRow: on)
+        let letters = TyprKeyboardLayout(width: 393, bottomRow: on)
         XCTAssertTrue(letters.isPeriodKey(try XCTUnwrap(letters.key(.character(".")))))
         for layout in [
-            KeyboardLayout(width: 393, layer: .numbers, bottomRow: on),
-            KeyboardLayout(width: 393, field: .email, bottomRow: on),
-            KeyboardLayout(width: 393, field: .url, bottomRow: on),
+            TyprKeyboardLayout(width: 393, layer: .numbers, bottomRow: on),
+            TyprKeyboardLayout(width: 393, field: .email, bottomRow: on),
+            TyprKeyboardLayout(width: 393, field: .url, bottomRow: on),
         ] {
             XCTAssertFalse(layout.isPeriodKey(try XCTUnwrap(layout.key(.character(".")))), describe(layout))
         }
@@ -956,8 +956,8 @@ final class KeyboardLayoutTests: XCTestCase {
     func testWithoutThePeriodKeyEveryOrderOfSpaceAndTyprBeforeItKeepsTodaysRow() {
         for order in [[BottomKey.space, .typr, .period], [.period, .space, .typr]] {
             XCTAssertEqual(
-                KeyboardLayout(width: 393, bottomRow: BottomRow(order: order, periodKey: false)).keys,
-                KeyboardLayout(width: 393).keys
+                TyprKeyboardLayout(width: 393, bottomRow: BottomRow(order: order, periodKey: false)).keys,
+                TyprKeyboardLayout(width: 393).keys
             )
         }
     }
@@ -970,7 +970,7 @@ final class KeyboardLayoutTests: XCTestCase {
         for base in everyPortraitLayout() + landscapeLayouts() + wideLayouts() {
             for order in orders {
                 for periodKey in [false, true] {
-                    let layout = KeyboardLayout(
+                    let layout = TyprKeyboardLayout(
                         width: base.width, orientation: base.orientation, layer: base.layer, field: base.field,
                         showsGlobe: base.showsGlobe, globeKey: base.globeKey,
                         bottomRow: BottomRow(order: order, periodKey: periodKey),
@@ -1002,23 +1002,23 @@ final class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(BottomKey.arranged([.period, .typr, .space]), [.period, .typr, .space])
     }
 
-    private func bottomRow(_ layout: KeyboardLayout) -> [KeyKind] {
+    private func bottomRow(_ layout: TyprKeyboardLayout) -> [TyprKeyKind] {
         layout.keys.filter { $0.row == layout.bottomRowIndex }.sorted { $0.frame.minX < $1.frame.minX }.map(\.kind)
     }
 
-    private func describe(_ layout: KeyboardLayout) -> String {
+    private func describe(_ layout: TyprKeyboardLayout) -> String {
         "\(layout.width)pt \(layout.orientation) \(layout.layer) \(layout.field) globe=\(layout.showsGlobe) \(layout.globeKey) \(layout.bottomRow) strip=\(layout.showsStrip) numbers=\(layout.numberRow)"
     }
 }
 
 @MainActor
-final class FullKeyboardSettingsTests: XCTestCase {
+final class TyprFullKeyboardSettingsTests: XCTestCase {
     func testKeyboardSettingsDefaultRoundTripAndFallBack() throws {
-        let suite = "FullKeyboardSettingsTests-\(UUID().uuidString)"
+        let suite = "TyprFullKeyboardSettingsTests-\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let settings = FullKeyboardSettings(defaults: defaults)
-        let fresh = { FullKeyboardSettings(defaults: defaults) }
+        let settings = TyprFullKeyboardSettings(defaults: defaults)
+        let fresh = { TyprFullKeyboardSettings(defaults: defaults) }
 
         XCTAssertTrue(settings.autocorrect)
         XCTAssertTrue(settings.swipeTyping)

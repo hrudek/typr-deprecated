@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class KeyboardModelPredictionTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { true }
         func guesses(for word: String) -> [String] { [] }
         func completions(for prefix: String) -> [String] { [] }
@@ -48,10 +48,10 @@ final class KeyboardModelPredictionTests: XCTestCase {
     private let sentence = "I would like to "
 
     private func keyboard(_ provider: FakeModel?, timeout: Duration = .seconds(5),
-                          configure: (FixtureTextTarget) -> Void = { _ in }) throws -> (FullKeyboardEngine, FixtureTextTarget) {
+                          configure: (FixtureTextTarget) -> Void = { _ in }) throws -> (TyprFullKeyboardEngine, FixtureTextTarget) {
         let target = FixtureTextTarget()
         configure(target)
-        let engine = FullKeyboardEngine(target: target, autocorrect: AutocorrectEngine(
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: TyprAutocorrectEngine(
             checker: Checker(), spatialDecoder: nil,
             contextResources: .init(model: try XCTUnwrap(BundledKeyboardData.contextModel))))
         engine.width = 393
@@ -60,13 +60,13 @@ final class KeyboardModelPredictionTests: XCTestCase {
         return (engine, target)
     }
 
-    private func type(_ text: String, _ engine: FullKeyboardEngine, _ target: FixtureTextTarget) async {
+    private func type(_ text: String, _ engine: TyprFullKeyboardEngine, _ target: FixtureTextTarget) async {
         target.insertText(text)
         engine.textDidChange()
         await engine.waitForSuggestions()
     }
 
-    private func settle(_ engine: FullKeyboardEngine) async {
+    private func settle(_ engine: TyprFullKeyboardEngine) async {
         await engine.waitForSuggestions()
         let limit = ContinuousClock.now.advanced(by: .seconds(10))
         while engine.modelPredictions?.isActive == true, ContinuousClock.now < limit {
@@ -74,7 +74,7 @@ final class KeyboardModelPredictionTests: XCTestCase {
         }
     }
 
-    private func bar(_ engine: FullKeyboardEngine) -> [String] { engine.suggestions.map(\.replacement) }
+    private func bar(_ engine: TyprFullKeyboardEngine) -> [String] { engine.suggestions.map(\.replacement) }
 
     private func countedBar() async throws -> [String] {
         let (engine, target) = try keyboard(nil)

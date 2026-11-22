@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class UsageStatisticsEngineTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { ["the", "hello", "world"].contains(word) }
         func guesses(for word: String) -> [String] { word == "teh" ? ["the"] : [] }
         func completions(for prefix: String) -> [String] { [] }
@@ -13,7 +13,7 @@ final class UsageStatisticsEngineTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suite: String!
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var store: UsageStatisticsStore!
     private var session: UsageStatisticsSession!
     private var clock: TimeInterval = 100
@@ -27,8 +27,8 @@ final class UsageStatisticsEngineTests: XCTestCase {
         session = UsageStatisticsSession(store: store, monotonic: { [unowned self] in self.clock },
                                          now: { [unowned self] in self.wall }, automaticallyFlush: false)
         let learning = KeyboardLearningSession(defaults: defaults)
-        let autocorrect = AutocorrectEngine(checker: Checker(), learning: learning, spatialDecoder: nil)
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect, statistics: session)
+        let autocorrect = TyprAutocorrectEngine(checker: Checker(), learning: learning, spatialDecoder: nil)
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect, statistics: session)
         engine.width = 393; engine.clock = { [unowned self] in self.clock }
         engine.configureForField()
     }
@@ -37,11 +37,11 @@ final class UsageStatisticsEngineTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
         try? FileManager.default.removeItem(at: directory)
     }
-    private func point(_ kind: KeyKind) -> CGPoint {
+    private func point(_ kind: TyprKeyKind) -> CGPoint {
         let frame = engine.layout.key(kind)!.frame
         return CGPoint(x: frame.midX, y: frame.midY)
     }
-    private func tap(_ kind: KeyKind) {
+    private func tap(_ kind: TyprKeyKind) {
         let p = point(kind)
         engine.touchBegan(id: 1, at: p); engine.touchEnded(id: 1, at: p)
         clock += 0.1
@@ -90,7 +90,7 @@ final class UsageStatisticsEngineTests: XCTestCase {
     }
     func testRefusedSuggestionIsNothingAndAcceptedSuggestionBreaksTimeChain() throws {
         type("he")
-        let suggestion = KeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary)
+        let suggestion = TyprKeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary)
         engine.acceptSuggestion(suggestion) // No ownership: refused.
         XCTAssertEqual(try totals().suggestions, 0)
         engine.acceptOwnedFixtureSuggestion(suggestion)
@@ -143,7 +143,7 @@ final class UsageStatisticsEngineTests: XCTestCase {
     func testAccentSelectionCountsOneGraphemeAndNoFabricatedHeat() throws {
         let key = point(.character("e"))
         engine.touchBegan(id: 1, at: key)
-        clock += FullKeyboardEngine.accentHoldDelay + 0.01
+        clock += TyprFullKeyboardEngine.accentHoldDelay + 0.01
         XCTAssertTrue(engine.openAccentMenuIfEligible(forTouch: 1))
         let menu = try XCTUnwrap(engine.activeAccentMenu)
         let cell = menu.cellFrames[1]
@@ -174,7 +174,7 @@ final class UsageStatisticsEngineTests: XCTestCase {
 final class UsageStatisticsAcceptedLabelTests: XCTestCase {
     func testValidatedLabelHookSeesOnlyAcceptedFiniteInRangeLabels() throws {
         let model = PersonalTypingModel(isLearningEnabled: true)
-        let layout = KeyboardLayout(width: 393)
+        let layout = TyprKeyboardLayout(width: 393)
         let key = try XCTUnwrap(layout.key(.character("a")))
         var accepted: [TouchLabel] = []
         let valid = TouchLabel(point: CGPoint(x: key.frame.midX, y: key.frame.midY), letter: "a")

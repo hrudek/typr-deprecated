@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class KeyboardPersonalLexiconLearningTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { false }
         func guesses(for word: String) -> [String] {
             let guesses = ["ina": "in", "malin": "main", "andi": "and", "jens": "jeans",
@@ -20,8 +20,8 @@ final class KeyboardPersonalLexiconLearningTests: XCTestCase {
         return builder.build()
     }
 
-    private func engine() -> AutocorrectEngine {
-        AutocorrectEngine(checker: Checker(), spatialDecoder: nil, contextResources: .init(model: nil))
+    private func engine() -> TyprAutocorrectEngine {
+        TyprAutocorrectEngine(checker: Checker(), spatialDecoder: nil, contextResources: .init(model: nil))
     }
 
     private func suffix(_ index: Int) -> String {
@@ -107,7 +107,7 @@ final class KeyboardPersonalLexiconLearningTests: XCTestCase {
         let ac = engine()
         ac.loadLexiconEntries([("ina", "in a")])
         ac.loadProtectedLexicon(lexicon("Ina fuer teh O’Neil"))
-        XCTAssertEqual(AutocorrectEngine.currentToken(in: "O’Neil"), "O’Neil")
+        XCTAssertEqual(TyprAutocorrectEngine.currentToken(in: "O’Neil"), "O’Neil")
         for word in ["ina", "INA", "fuer", "teh", "O’Neil", "O'Neil"] {
             XCTAssertTrue(ac.literalIsValid(word))
             XCTAssertNil(ac.replacementOnSpace(beforeInput: word, field: .text, autocorrectionType: .default))

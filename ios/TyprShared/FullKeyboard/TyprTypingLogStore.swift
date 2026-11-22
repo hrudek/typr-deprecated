@@ -4,7 +4,7 @@ import Foundation
 /// The typing log's files in the App Group: the keyboard appends, the app exports and deletes.
 /// JSON Lines in two rolling files: `current` becomes `previous` after `segmentWords` words, so
 /// the log keeps the most recent `segmentWords` to `2 × segmentWords` words.
-nonisolated final class TypingLogStore: @unchecked Sendable {
+nonisolated final class TyprTypingLogStore: @unchecked Sendable {
     static let currentName = "typing-log-v1.jsonl"
     static let previousName = "typing-log-v1-previous.jsonl"
     private static let lockName = "typing-log.lock"

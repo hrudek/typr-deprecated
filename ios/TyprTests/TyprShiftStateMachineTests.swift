@@ -2,9 +2,9 @@ import UIKit
 import XCTest
 @testable import Typr
 
-final class ShiftStateMachineTests: XCTestCase {
+final class TyprShiftStateMachineTests: XCTestCase {
     func testTapTurnsShiftOnForOneCharacter() {
-        var shift = ShiftStateMachine()
+        var shift = TyprShiftStateMachine()
         shift.shiftDown(now: 0)
         shift.shiftUp()
         XCTAssertEqual(shift.state, .on)
@@ -15,7 +15,7 @@ final class ShiftStateMachineTests: XCTestCase {
     }
 
     func testTappingShiftAgainTurnsItOff() {
-        var shift = ShiftStateMachine()
+        var shift = TyprShiftStateMachine()
         shift.shiftDown(now: 0)
         shift.shiftUp()
         shift.shiftDown(now: 1)
@@ -24,7 +24,7 @@ final class ShiftStateMachineTests: XCTestCase {
     }
 
     func testChordTypesCapitalsWhileHeldThenTurnsOff() {
-        var shift = ShiftStateMachine()
+        var shift = TyprShiftStateMachine()
         shift.shiftDown(now: 0)
         XCTAssertTrue(shift.isUppercase)
         shift.didType()  // "A"
@@ -36,7 +36,7 @@ final class ShiftStateMachineTests: XCTestCase {
     }
 
     func testChordDoesNotCountTowardDoubleTap() {
-        var shift = ShiftStateMachine()
+        var shift = TyprShiftStateMachine()
         shift.shiftDown(now: 0)
         shift.didType()
         shift.shiftUp()
@@ -45,7 +45,7 @@ final class ShiftStateMachineTests: XCTestCase {
     }
 
     func testDoubleTapLocksAndTapUnlocks() {
-        var shift = ShiftStateMachine()
+        var shift = TyprShiftStateMachine()
         shift.shiftDown(now: 0)
         shift.shiftUp()
         shift.shiftDown(now: 0.2)
@@ -62,7 +62,7 @@ final class ShiftStateMachineTests: XCTestCase {
     }
 
     func testSlowSecondTapTurnsShiftOff() {
-        var shift = ShiftStateMachine()
+        var shift = TyprShiftStateMachine()
         shift.shiftDown(now: 0)
         shift.shiftUp()
         shift.shiftDown(now: 0.31)
@@ -71,7 +71,7 @@ final class ShiftStateMachineTests: XCTestCase {
     }
 
     func testDoubleTapFromAutoCapsLocks() {
-        var shift = ShiftStateMachine()
+        var shift = TyprShiftStateMachine()
         shift.refreshAutoCapitalization(true)
         shift.shiftDown(now: 0)
         shift.shiftUp()
@@ -82,7 +82,7 @@ final class ShiftStateMachineTests: XCTestCase {
     }
 
     func testAutoCapsLeavesAHeldShiftAlone() {
-        var shift = ShiftStateMachine()
+        var shift = TyprShiftStateMachine()
         shift.shiftDown(now: 0)
         shift.refreshAutoCapitalization(false)
         XCTAssertTrue(shift.isUppercase)
@@ -111,7 +111,7 @@ final class ShiftStateMachineTests: XCTestCase {
         ]
         for (before, hasText, expected) in cases {
             XCTAssertEqual(
-                AutoCapitalization.shouldCapitalize(mode: .sentences, before: before, hasText: hasText),
+                TyprAutoCapitalization.shouldCapitalize(mode: .sentences, before: before, hasText: hasText),
                 expected,
                 "before: \(String(describing: before)) hasText: \(hasText)"
             )
@@ -119,41 +119,41 @@ final class ShiftStateMachineTests: XCTestCase {
     }
 
     func testOtherCapitalizationModes() {
-        XCTAssertFalse(AutoCapitalization.shouldCapitalize(mode: .none, before: "", hasText: false))
-        XCTAssertTrue(AutoCapitalization.shouldCapitalize(mode: .allCharacters, before: "abc", hasText: true))
-        XCTAssertTrue(AutoCapitalization.shouldCapitalize(mode: .words, before: "Jane ", hasText: true))
-        XCTAssertFalse(AutoCapitalization.shouldCapitalize(mode: .words, before: "Ja", hasText: true))
-        XCTAssertEqual(AutoCapitalization.Mode(UITextAutocapitalizationType.none), .none)
-        XCTAssertEqual(AutoCapitalization.Mode(nil), .sentences)
+        XCTAssertFalse(TyprAutoCapitalization.shouldCapitalize(mode: .none, before: "", hasText: false))
+        XCTAssertTrue(TyprAutoCapitalization.shouldCapitalize(mode: .allCharacters, before: "abc", hasText: true))
+        XCTAssertTrue(TyprAutoCapitalization.shouldCapitalize(mode: .words, before: "Jane ", hasText: true))
+        XCTAssertFalse(TyprAutoCapitalization.shouldCapitalize(mode: .words, before: "Ja", hasText: true))
+        XCTAssertEqual(TyprAutoCapitalization.Mode(UITextAutocapitalizationType.none), .none)
+        XCTAssertEqual(TyprAutoCapitalization.Mode(nil), .sentences)
     }
 
     // MARK: - Double-space period
 
     func testDoubleSpaceAfterAWordTypesAPeriod() {
-        XCTAssertEqual(DoubleSpacePeriod.trailingSpacesToReplace(before: "late ", lastSpaceAt: 10, now: 10.2), 1)
-        XCTAssertEqual(DoubleSpacePeriod.trailingSpacesToReplace(before: "at 7 ", lastSpaceAt: 10, now: 10.35), 1)
+        XCTAssertEqual(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "late ", lastSpaceAt: 10, now: 10.2), 1)
+        XCTAssertEqual(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "at 7 ", lastSpaceAt: 10, now: 10.35), 1)
     }
 
     func testDoubleSpaceAfterAutomaticSeparatorReplacesBothSpaces() {
-        XCTAssertEqual(DoubleSpacePeriod.trailingSpacesToReplace(before: "late  ", lastSpaceAt: 10, now: 10.2), 2)
+        XCTAssertEqual(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "late  ", lastSpaceAt: 10, now: 10.2), 2)
     }
 
     func testDoubleSpaceEdgeCases() {
-        XCTAssertNil(DoubleSpacePeriod.trailingSpacesToReplace(before: "late ", lastSpaceAt: 10, now: 10.4), "too slow")
-        XCTAssertNil(DoubleSpacePeriod.trailingSpacesToReplace(before: "late ", lastSpaceAt: nil, now: 10), "not our space")
-        XCTAssertNil(DoubleSpacePeriod.trailingSpacesToReplace(before: "late. ", lastSpaceAt: 10, now: 10.1), "already punctuated")
-        XCTAssertNil(DoubleSpacePeriod.trailingSpacesToReplace(before: "late   ", lastSpaceAt: 10, now: 10.1), "third space")
-        XCTAssertNil(DoubleSpacePeriod.trailingSpacesToReplace(before: "late.  ", lastSpaceAt: 10, now: 10.1), "punctuated")
-        XCTAssertNil(DoubleSpacePeriod.trailingSpacesToReplace(before: "  ", lastSpaceAt: 10, now: 10.1), "no word")
-        XCTAssertNil(DoubleSpacePeriod.trailingSpacesToReplace(before: " ", lastSpaceAt: 10, now: 10.1), "start of field")
-        XCTAssertNil(DoubleSpacePeriod.trailingSpacesToReplace(before: nil, lastSpaceAt: 10, now: 10.1), "no context")
-        XCTAssertNil(DoubleSpacePeriod.trailingSpacesToReplace(before: "late", lastSpaceAt: 10, now: 10.1), "cursor moved")
+        XCTAssertNil(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "late ", lastSpaceAt: 10, now: 10.4), "too slow")
+        XCTAssertNil(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "late ", lastSpaceAt: nil, now: 10), "not our space")
+        XCTAssertNil(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "late. ", lastSpaceAt: 10, now: 10.1), "already punctuated")
+        XCTAssertNil(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "late   ", lastSpaceAt: 10, now: 10.1), "third space")
+        XCTAssertNil(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "late.  ", lastSpaceAt: 10, now: 10.1), "punctuated")
+        XCTAssertNil(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "  ", lastSpaceAt: 10, now: 10.1), "no word")
+        XCTAssertNil(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: " ", lastSpaceAt: 10, now: 10.1), "start of field")
+        XCTAssertNil(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: nil, lastSpaceAt: 10, now: 10.1), "no context")
+        XCTAssertNil(TyprDoubleSpacePeriod.trailingSpacesToReplace(before: "late", lastSpaceAt: 10, now: 10.1), "cursor moved")
     }
 
     // MARK: - Layers and fields
 
     func testNumbersGoBackToLettersOnSpaceOrReturn() {
-        var layer = KeyboardLayerState()
+        var layer = TyprKeyboardLayerState()
         layer.switchTo(.numbers)
         layer.didInsert("7")
         XCTAssertEqual(layer.layer, .numbers)
@@ -171,13 +171,13 @@ final class ShiftStateMachineTests: XCTestCase {
     }
 
     func testFieldRouting() {
-        XCTAssertEqual(KeyboardFieldRouting.route(for: .default), .keys(.text, initialLayer: .letters))
-        XCTAssertEqual(KeyboardFieldRouting.route(for: nil), .keys(.text, initialLayer: .letters))
-        XCTAssertEqual(KeyboardFieldRouting.route(for: .URL), .keys(.url, initialLayer: .letters))
-        XCTAssertEqual(KeyboardFieldRouting.route(for: .emailAddress), .keys(.email, initialLayer: .letters))
-        XCTAssertEqual(KeyboardFieldRouting.route(for: .numbersAndPunctuation), .keys(.text, initialLayer: .numbers))
-        XCTAssertEqual(KeyboardFieldRouting.route(for: .numberPad), .handOff)
-        XCTAssertEqual(KeyboardFieldRouting.route(for: .decimalPad), .handOff)
-        XCTAssertEqual(KeyboardFieldRouting.route(for: .asciiCapableNumberPad), .handOff)
+        XCTAssertEqual(TyprKeyboardFieldRouting.route(for: .default), .keys(.text, initialLayer: .letters))
+        XCTAssertEqual(TyprKeyboardFieldRouting.route(for: nil), .keys(.text, initialLayer: .letters))
+        XCTAssertEqual(TyprKeyboardFieldRouting.route(for: .URL), .keys(.url, initialLayer: .letters))
+        XCTAssertEqual(TyprKeyboardFieldRouting.route(for: .emailAddress), .keys(.email, initialLayer: .letters))
+        XCTAssertEqual(TyprKeyboardFieldRouting.route(for: .numbersAndPunctuation), .keys(.text, initialLayer: .numbers))
+        XCTAssertEqual(TyprKeyboardFieldRouting.route(for: .numberPad), .handOff)
+        XCTAssertEqual(TyprKeyboardFieldRouting.route(for: .decimalPad), .handOff)
+        XCTAssertEqual(TyprKeyboardFieldRouting.route(for: .asciiCapableNumberPad), .handOff)
     }
 }

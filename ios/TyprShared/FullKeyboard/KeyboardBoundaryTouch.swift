@@ -16,7 +16,7 @@ nonisolated struct KeyboardBoundaryTouch: Equatable, Sendable {
     var payloadBytes: Int {
         func wordBytes(_ word: KeyboardTouchWord) -> Int {
             let keyBytes = word.layout.keys.reduce(0) { sum, key in
-                sum + MemoryLayout<KeyboardKey>.stride + key.label.utf8.count + (key.character?.utf8.count ?? 0)
+                sum + MemoryLayout<TyprKeyboardKey>.stride + key.label.utf8.count + (key.character?.utf8.count ?? 0)
             }
             let sampleBytes = word.samples.reduce(0) { sum, sample in
                 sum + MemoryLayout<KeyboardTouchWord.Sample>.stride + sample.text.utf8.count
@@ -56,7 +56,7 @@ nonisolated struct KeyboardBoundaryTouch: Equatable, Sendable {
 
     /// Only bottom-row letters whose horizontal span actually meets this layout's Space.
     /// Geometry is checked before density: a broad prior can never license a distant key.
-    static func adjacentLetters(in layout: KeyboardLayout) -> [KeyboardKey] {
+    static func adjacentLetters(in layout: TyprKeyboardLayout) -> [TyprKeyboardKey] {
         guard let space = layout.key(.space), let shift = layout.key(.shift) else { return [] }
         var seen = Set<String>()
         let bottomLetters = layout.keys.filter { $0.row == shift.row }.compactMap(\.character)
@@ -69,7 +69,7 @@ nonisolated struct KeyboardBoundaryTouch: Equatable, Sendable {
         }
     }
 
-    static func spaceDensity(_ point: CGPoint, layout: KeyboardLayout,
+    static func spaceDensity(_ point: CGPoint, layout: TyprKeyboardLayout,
                              calibration: SpatialTouchCalibration? = nil) -> Double? {
         guard point.x.isFinite, point.y.isFinite, let space = layout.key(.space) else { return nil }
         let pitchX = layout.letterWidth + layout.metrics.gap
@@ -84,7 +84,7 @@ nonisolated struct KeyboardBoundaryTouch: Equatable, Sendable {
         return aim.logDensityY(row) - log(width)
     }
 
-    static func letterDensity(_ point: CGPoint, key: KeyboardKey, layout: KeyboardLayout,
+    static func letterDensity(_ point: CGPoint, key: TyprKeyboardKey, layout: TyprKeyboardLayout,
                               calibration: SpatialTouchCalibration?) -> Double? {
         guard point.x.isFinite, point.y.isFinite, let letter = key.character?.first else { return nil }
         let x = Double((point.x - key.frame.midX) / (key.frame.width + layout.metrics.gap))

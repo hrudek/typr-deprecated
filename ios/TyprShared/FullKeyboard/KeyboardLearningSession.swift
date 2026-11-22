@@ -107,7 +107,7 @@ final class KeyboardLearningSession {
     /// Personal word priors for the decoder: none while learning is off.
     var personalPriors: PersonalLexiconSnapshot { model.isLearningEnabled ? model.lexicon : .empty }
     /// Read-only frozen per-key posterior snapshot; `nil` while off or without labels for the layout.
-    func calibration(for layout: KeyboardLayout) -> SpatialTouchCalibration? { model.calibration(for: layout) }
+    func calibration(for layout: TyprKeyboardLayout) -> SpatialTouchCalibration? { model.calibration(for: layout) }
 
     /// Keyboard appearance and settings sync: switch value and app reset epochs.
     func refresh() {
@@ -246,10 +246,10 @@ final class KeyboardLearningSession {
         modelChanged()
     }
 
-    var onValidatedLabel: ((TouchLabel, KeyboardLayout) -> Void)?
+    var onValidatedLabel: ((TouchLabel, TyprKeyboardLayout) -> Void)?
     var onLabelsInvalidated: (() -> Void)?
 
-    func learn(_ labels: [TouchLabel], layout: KeyboardLayout, source: TouchLabelSource) {
+    func learn(_ labels: [TouchLabel], layout: TyprKeyboardLayout, source: TouchLabelSource) {
         guard !labels.isEmpty else { return }
         let outcome = model.learn(labels, layout: layout, source: source, accepted: { [weak self] label in
             self?.onValidatedLabel?(label, layout)
@@ -258,7 +258,7 @@ final class KeyboardLearningSession {
         if outcome.accepted > 0 { modelChanged() } else { markChanged() }
     }
 
-    func learnSpace(_ point: CGPoint, layout: KeyboardLayout) {
+    func learnSpace(_ point: CGPoint, layout: TyprKeyboardLayout) {
         let outcome = model.learnSpace(point, layout: layout)
         diagnostics.recordLabels(outcome, source: .space)
         if outcome.accepted > 0 { modelChanged() } else { markChanged() }

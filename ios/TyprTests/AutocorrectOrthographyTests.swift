@@ -4,7 +4,7 @@ import XCTest
 
 final class AutocorrectOrthographyTests: XCTestCase {
     @MainActor
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         let words: Set<String>
         var validityCalls = 0
         var apostropheCalls = 0
@@ -20,11 +20,11 @@ final class AutocorrectOrthographyTests: XCTestCase {
     }
 
     @MainActor
-    private func engine() throws -> AutocorrectEngine {
+    private func engine() throws -> TyprAutocorrectEngine {
         let model = try XCTUnwrap(BundledKeyboardData.contextModel)
         let english: Set<String> = ["were", "well", "ill", "wont", "shell", "hell", "its", "cant", "house", "gift"]
         let german: Set<String> = ["für", "über", "möchte", "heiß", "Haus", "Buch", "Arbeit", "Essen", "essen", "Laut", "laut", "Masse", "Maße", "Steuer", "Mauer", "Israel", "Michael", "Strasse", "strasse", "weiss", "im", "die", "am", "war", "will", "also", "Gift", "Chef", "schon"]
-        let result = AutocorrectEngine(checker: Checker(english), spatialDecoder: nil,
+        let result = TyprAutocorrectEngine(checker: Checker(english), spatialDecoder: nil,
                                       contextResources: .init(model: model))
         result.german = GermanAutocorrect(checker: Checker(german))
         return result
@@ -51,7 +51,7 @@ final class AutocorrectOrthographyTests: XCTestCase {
         let controls: [String] = ["were", "well", "ill", "wont", "shell", "hell", "its", "cant", "ich will essen", "das ist laut", "wir sind am essen", "ich sehe die masse", "die Masse", "die Maße", "die Steuer", "die Mauer", "Israel", "Michael", "die Strasse", "ich weiss", "im", "die", "war", "will", "also", "Gift", "Chef", "schon", "this is the house", "please send the gift", "ich sende the house", "TyprKey", "API", "@dont", "file/dont", "foo_dont"]
         let falseAutos = controls.filter { engine.replacementOnSpace(beforeInput: $0, field: .text, autocorrectionType: .default) != nil }.count
         XCTAssertEqual(falseAutos, 0)
-        let english = AutocorrectEngine(checker: Checker(["shan't", "who'd"]), spatialDecoder: nil,
+        let english = TyprAutocorrectEngine(checker: Checker(["shan't", "who'd"]), spatialDecoder: nil,
                                        contextResources: .init(model: BundledKeyboardData.contextModel))
         let missing = [("shant", "shan't"), ("whod", "who'd")]
         var hits = 0
@@ -64,10 +64,10 @@ final class AutocorrectOrthographyTests: XCTestCase {
     @MainActor
     func testAmbiguousWordsNeverUseSpellingFallbackAuthority() {
         let checker = Checker()
-        checker.alternatives = AutocorrectEngine.suggestOnlyContractions.mapValues { [$0] }
-        let engine = AutocorrectEngine(checker: checker, spatialDecoder: nil,
+        checker.alternatives = TyprAutocorrectEngine.suggestOnlyContractions.mapValues { [$0] }
+        let engine = TyprAutocorrectEngine(checker: checker, spatialDecoder: nil,
                                       contextResources: .init(model: nil))
-        for (literal, target) in AutocorrectEngine.suggestOnlyContractions {
+        for (literal, target) in TyprAutocorrectEngine.suggestOnlyContractions {
             XCTAssertNil(engine.replacementOnSpace(beforeInput: literal, field: .text, autocorrectionType: .default))
             let chips = engine.suggestions(beforeInput: literal, field: .text, autocorrectionType: .default)
             XCTAssertTrue(chips.contains { $0.replacement == target })
@@ -80,7 +80,7 @@ final class AutocorrectOrthographyTests: XCTestCase {
         for (literal, possessive) in [("dogs", "dog's"), ("houses", "house's"), ("users", "user's"), ("Dogs", "Dog's")] {
             // Title case is intentionally absent: lowercased validity must also veto search.
             let checker = Checker([literal.lowercased(), possessive.lowercased()])
-            let engine = AutocorrectEngine(checker: checker, spatialDecoder: nil,
+            let engine = TyprAutocorrectEngine(checker: checker, spatialDecoder: nil,
                                           contextResources: .init(model: nil))
             let chips = engine.suggestions(beforeInput: literal, field: .text, autocorrectionType: .default)
             let hits = chips.filter { $0.replacement == possessive }.count
@@ -92,7 +92,7 @@ final class AutocorrectOrthographyTests: XCTestCase {
     @MainActor
     func testDeterministicWorkAndMemoryBounds() {
         let checker = Checker()
-        let engine = AutocorrectEngine(checker: checker, spatialDecoder: nil,
+        let engine = TyprAutocorrectEngine(checker: checker, spatialDecoder: nil,
                                       contextResources: .init(model: nil))
         let input = String(repeating: "x", count: 32)
         let first = engine.suggestions(beforeInput: input, field: .text, autocorrectionType: .default)
@@ -144,9 +144,9 @@ final class AutocorrectOrthographyTests: XCTestCase {
                                               defaults: defaults, allowsPersistence: { false })
         let english = Checker(["shan't", "who'd", "were", "wont", "cant"])
         let model = try XCTUnwrap(BundledKeyboardData.contextModel)
-        let apostrophe = AutocorrectEngine(checker: english, learning: session, spatialDecoder: nil,
+        let apostrophe = TyprAutocorrectEngine(checker: english, learning: session, spatialDecoder: nil,
                                            contextResources: .init(model: model))
-        func manual(_ engine: AutocorrectEngine, _ input: String, _ target: String) -> Bool {
+        func manual(_ engine: TyprAutocorrectEngine, _ input: String, _ target: String) -> Bool {
             let chips = engine.suggestions(beforeInput: input, field: .text, autocorrectionType: .default)
             XCTAssertNil(engine.replacementOnSpace(beforeInput: input, field: .text, autocorrectionType: .default))
             XCTAssertFalse(chips.contains { $0.kind == .primary(autoReplace: true) })

@@ -5,7 +5,7 @@ import UIKit
 /// join and route →, search 🔍, done ✓, emergency call 📞) and on a plain key for return ↵, next
 /// and continue ›. Apple shows no text on the key, so only the accessibility label is words.
 /// Both the full keyboard and the dictation bar draw it.
-nonisolated struct ReturnKeyStyle: Equatable, Sendable {
+nonisolated struct TyprReturnKeyStyle: Equatable, Sendable {
     let symbol: String
     let isAction: Bool
     let accessibilityLabel: String

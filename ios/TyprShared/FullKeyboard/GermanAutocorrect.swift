@@ -3,9 +3,9 @@ import UIKit
 @MainActor
 final class GermanAutocorrect {
     /// `nil` when the device has no German dictionary; only the built-in table works then.
-    let checker: TextChecking?
+    let checker: TyprTextChecking?
 
-    init(checker: TextChecking?) {
+    init(checker: TyprTextChecking?) {
         self.checker = checker
     }
 
@@ -13,11 +13,11 @@ final class GermanAutocorrect {
         let languages = UITextChecker.availableLanguages.filter { $0.hasPrefix("de") }
         let chosen = languages.first(where: { $0 == "de_DE" }) ?? languages.first
         guard let chosen else { return GermanAutocorrect(checker: nil) }
-        return GermanAutocorrect(checker: SystemTextChecker(language: chosen))
+        return GermanAutocorrect(checker: TyprSystemTextChecker(language: chosen))
     }
 
     func warmUp() {
-        (checker as? SystemTextChecker)?.warmUp()
+        (checker as? TyprSystemTextChecker)?.warmUp()
     }
 
     func isValid(_ word: String) -> Bool {
@@ -107,8 +107,8 @@ final class GermanAutocorrect {
     private static let fold: [Character: Character] = ["ä": "a", "ö": "o", "ü": "u", "ß": "s"]
 
     /// Single-edit cost where an umlaut or ß in the target counts as a cheap 0.4 swap for its plain letter.
-    func costAdjustedForUmlauts(from source: String, to target: String, on letters: KeyboardLetterLayout) -> Double? {
-        let direct = AutocorrectEngine.singleEditKeyboardCost(from: source, to: target, on: letters)
+    func costAdjustedForUmlauts(from source: String, to target: String, on letters: TyprKeyboardLetterLayout) -> Double? {
+        let direct = TyprAutocorrectEngine.singleEditKeyboardCost(from: source, to: target, on: letters)
         let folded = String(target.map { Self.fold[$0] ?? $0 })
         guard folded != target else { return direct }
         // A missing umlaut ("fur" for "für") is cheaper than an ordinary
@@ -116,7 +116,7 @@ final class GermanAutocorrect {
         let umlaut: Double?
         if folded == source {
             umlaut = 0.4
-        } else if let base = AutocorrectEngine.singleEditKeyboardCost(from: source, to: folded, on: letters) {
+        } else if let base = TyprAutocorrectEngine.singleEditKeyboardCost(from: source, to: folded, on: letters) {
             umlaut = base + 0.4
         } else {
             umlaut = nil

@@ -2092,7 +2092,7 @@ final class DictationController {
 
         case "settings-keyboard-typing":
             #if targetEnvironment(simulator)
-            FullKeyboardSettings().autocorrect = true
+            TyprFullKeyboardSettings().autocorrect = true
             TyprSettings().autocorrectGerman = true
             TyprSettings().autocorrectEnglish = true
             #endif

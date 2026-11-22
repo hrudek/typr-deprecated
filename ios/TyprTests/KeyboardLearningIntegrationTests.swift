@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class KeyboardLearningIntegrationTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         var valid: Set<String>
         var answers: [String: [String]]
         init(valid: Set<String> = ["hello", "world", "the"], answers: [String: [String]] = ["teh": ["the"]]) {
@@ -17,25 +17,25 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
     }
 
     private func keyboard(session: KeyboardLearningSession? = nil,
-                          checker: Checker? = nil) -> (FullKeyboardEngine, FixtureTextTarget) {
+                          checker: Checker? = nil) -> (TyprFullKeyboardEngine, FixtureTextTarget) {
         let target = FixtureTextTarget()
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let ac = AutocorrectEngine(checker: checker ?? Checker(), learning: session, spatialDecoder: nil)
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let ac = TyprAutocorrectEngine(checker: checker ?? Checker(), learning: session, spatialDecoder: nil)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.width = 393
         engine.clock = { 100 } // No accidental double-space conversion except when explicitly requested.
         engine.configureForField()
         return (engine, target)
     }
 
-    private func tap(_ kind: KeyKind, _ engine: FullKeyboardEngine) {
+    private func tap(_ kind: TyprKeyKind, _ engine: TyprFullKeyboardEngine) {
         guard let key = engine.layout.key(kind) else { XCTFail("Missing synthetic key"); return }
         let point = CGPoint(x: key.frame.midX, y: key.frame.midY)
         engine.touchBegan(id: 1, at: point)
         engine.touchEnded(id: 1, at: point)
     }
 
-    private func type(_ text: String, _ engine: FullKeyboardEngine) {
+    private func type(_ text: String, _ engine: TyprFullKeyboardEngine) {
         for letter in text { tap(letter == " " ? .space : .character(String(letter)), engine) }
     }
 
@@ -123,7 +123,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
     }
 
     func testSeparatorsReturnAndPunctuationNeverSettleLiteral() {
-        for ending in [KeyKind.space, .returnKey, .character(".")] {
+        for ending in [TyprKeyKind.space, .returnKey, .character(".")] {
             let (engine, _) = keyboard()
             type("hello ", engine)
             if ending == .character(".") { tap(.layerSwitch(.numbers), engine) }
@@ -154,7 +154,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
             XCTAssertNotNil(engine.autocorrect.touchInput.evidence(beforeInput: "hello"))
             if choice == 0 { type(" w", engine) }
             else {
-                engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: choice == 1 ? "hello" : "help",
+                engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: choice == 1 ? "hello" : "help",
                     replacement: choice == 1 ? "hello" : "help", kind: choice == 1 ? .keepLiteral : .secondary))
             }
             let session = engine.autocorrect.learning
@@ -170,7 +170,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         XCTAssertEqual(engine.autocorrect.learning.diagnostics.acceptedLabels, 0)
     }
 
-    private func missOThenRetype(_ engine: FullKeyboardEngine) throws {
+    private func missOThenRetype(_ engine: TyprFullKeyboardEngine) throws {
         let p = try XCTUnwrap(engine.layout.key(.character("p")))
         let miss = CGPoint(x: p.frame.minX + 1, y: p.frame.midY)
         engine.touchBegan(id: 1, at: miss)
@@ -200,7 +200,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
 
     func testRetypeDoesNotTeachFarTapsSameLettersUnsettledOrCorrectedWords() throws {
         var text = ""
-        func retypeLabels(_ run: (FullKeyboardEngine) throws -> Void) rethrows -> Int? {
+        func retypeLabels(_ run: (TyprFullKeyboardEngine) throws -> Void) rethrows -> Int? {
             let session = KeyboardLearningSession()
             let (engine, target) = keyboard(session: session)
             try run(engine)
@@ -264,7 +264,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
     }
 
     func testJoinedOrInterruptedSpaceNeverTeaches() throws {
-        func spaceLabels(_ run: (FullKeyboardEngine) -> Void) -> Int? {
+        func spaceLabels(_ run: (TyprFullKeyboardEngine) -> Void) -> Int? {
             let session = KeyboardLearningSession()
             let (engine, _) = keyboard(session: session)
             run(engine)
@@ -460,7 +460,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         engine.acceptOwnedFixtureSuggestion(.init(displayText: "the", replacement: "the", kind: .secondary))
         XCTAssertTrue(engine.autocorrect.learning.protections.isRejected(typed: "teh", replacement: "the"))
 
-        let ac = AutocorrectEngine(checker: Checker(), spatialDecoder: nil)
+        let ac = TyprAutocorrectEngine(checker: Checker(), spatialDecoder: nil)
         ac.learning.rejectCorrection(typed: "teh", replacement: "the")
         ac.recordUndo(.init(original: "teh", insertedText: "the ", separator: " "))
         ac.recordSuggestionFeedback(.init(displayText: "the", replacement: "the", kind: .secondary),
@@ -485,7 +485,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
     func testManualAlignmentDropsDistantSubstitutionAndCountsRejection() {
         let (engine, _) = keyboard()
         type("pello", engine)
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary))
+        engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary))
         let session = engine.autocorrect.learning
         XCTAssertEqual(session.diagnostics.acceptedBySource["manualPick"], 4)
         XCTAssertEqual(session.diagnostics.rejectedByReason["outlier"], 1)
@@ -544,7 +544,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
                 engine.touchEnded(id: 1, at: end)
             }
             type("he", engine)
-            engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary))
+            engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary))
             XCTAssertEqual(engine.autocorrect.learning.diagnostics.acceptedLabels, 0)
         }
     }
@@ -559,10 +559,10 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         type("hello world", engine)
         XCTAssertEqual(session.diagnostics.acceptedLabels, 0)
         XCTAssertTrue(session.model.lexicon.counts.isEmpty)
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "world", replacement: "world", kind: .keepLiteral))
+        engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "world", replacement: "world", kind: .keepLiteral))
         XCTAssertTrue(session.model.lexicon.isKept("world"))
         type("teh", engine)
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
+        engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
         XCTAssertTrue(session.model.lexicon.isKept("teh"))
         XCTAssertEqual(session.diagnostics[.keepChip], 2)
         XCTAssertEqual(session.diagnostics[.wordsKept], 2)
@@ -580,7 +580,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         let session = KeyboardLearningSession(defaults: defaults)
         let (engine, target) = keyboard(session: session)
         type("w", engine)
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "w", replacement: "w", kind: .keepLiteral))
+        engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "w", replacement: "w", kind: .keepLiteral))
         XCTAssertEqual(target.text, "w ")
         XCTAssertEqual(session.diagnostics[.keepChip], 1)
         XCTAssertEqual(session.diagnostics[.wordsKept], 0)
@@ -603,14 +603,14 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
         XCTAssertEqual(session.diagnostics[.correctionsRejected], 1)
         XCTAssertEqual(session.diagnostics.acceptedLabels, 0)
         XCTAssertTrue(session.model.lexicon.counts.isEmpty)
-        engine.acceptOwnedFixtureSuggestion(KeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
+        engine.acceptOwnedFixtureSuggestion(TyprKeyboardSuggestion(displayText: "teh", replacement: "teh", kind: .keepLiteral))
         XCTAssertTrue(session.protections.isKept("teh"), "Keep chip remains permanent while learning is off")
         XCTAssertEqual(session.diagnostics.acceptedLabels, 0)
         XCTAssertTrue(session.model.lexicon.counts.isEmpty)
     }
 
     func testAutomaticUndoMethodMappingAndManualUndosDoNotCountAsAutomatic() {
-        let ac = AutocorrectEngine(checker: Checker(), spatialDecoder: nil)
+        let ac = TyprAutocorrectEngine(checker: Checker(), spatialDecoder: nil)
         ac.recordUndo(.init(original: "teh", insertedText: "the ", separator: " ", kind: .autoSpatial))
         ac.recordUndo(.init(original: "helo", insertedText: "hello ", separator: " ", kind: .autoSpelling))
         ac.recordUndo(.init(original: "dont", insertedText: "don't ", separator: " ", kind: .autoRule))
@@ -631,7 +631,7 @@ final class KeyboardLearningIntegrationTests: XCTestCase {
     }
 
     func testSpellingCompletionRefusesBelowMarginWithoutTapEvidence() {
-        let ac = AutocorrectEngine(checker: Checker(answers: ["worl": ["world"]]), spatialDecoder: nil)
+        let ac = TyprAutocorrectEngine(checker: Checker(answers: ["worl": ["world"]]), spatialDecoder: nil)
         XCTAssertNil(ac.replacementOnSpace(beforeInput: "worl", field: .text, autocorrectionType: .default))
         XCTAssertEqual(ac.learning.diagnostics[.boundaries], 1)
         XCTAssertEqual(ac.learning.diagnostics[.evidenceMissing], 1)

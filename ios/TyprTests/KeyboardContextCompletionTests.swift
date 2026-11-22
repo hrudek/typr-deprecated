@@ -6,7 +6,7 @@ import XCTest
 /// deferred worker/finish. Synthetic spellings/checkers, not Apple's dictionary or typing quality.
 @MainActor
 final class KeyboardContextCompletionTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         let words: [String]
         init(_ words: [String] = []) { self.words = words }
         func isWordValid(_ word: String) -> Bool { false }
@@ -36,7 +36,7 @@ final class KeyboardContextCompletionTests: XCTestCase {
     }
 
     private func make(source: String, model: KeyboardContextModel?, learningOn: Bool = true,
-                      seeded: Bool = true) throws -> (AutocorrectEngine, UserDefaults) {
+                      seeded: Bool = true) throws -> (TyprAutocorrectEngine, UserDefaults) {
         let defaults = UserDefaults(suiteName: "typr.tests.context-completion.\(UUID().uuidString)")!
         defaults.set(learningOn, forKey: "keyboard.personalLearning")
         let session = KeyboardLearningSession(defaults: defaults)
@@ -55,15 +55,15 @@ final class KeyboardContextCompletionTests: XCTestCase {
             // Both selected resources must exist; no English-only/German-only fallback.
             lexicons = [.german: fixture, .english: fixture]
         }
-        let ac = AutocorrectEngine(checker: Checker(system), learning: session,
+        let ac = TyprAutocorrectEngine(checker: Checker(system), learning: session,
                                    spatialDecoder: lexicons.isEmpty ? nil : SpatialWordDecoder(lexicons: lexicons),
                                    contextResources: .init(model: model))
         ac.german = GermanAutocorrect(checker: Checker())
         return (ac, defaults)
     }
 
-    private func ranked(_ ac: AutocorrectEngine, text: String = "ich ha") async -> [KeyboardSuggestion] {
-        let engine = FullKeyboardEngine(target: FixtureTextTarget(text: text), autocorrect: ac)
+    private func ranked(_ ac: TyprAutocorrectEngine, text: String = "ich ha") async -> [TyprKeyboardSuggestion] {
+        let engine = TyprFullKeyboardEngine(target: FixtureTextTarget(text: text), autocorrect: ac)
         engine.width = 393
         engine.configureForField()
         await engine.waitForSuggestions()

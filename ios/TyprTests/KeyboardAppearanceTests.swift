@@ -33,10 +33,10 @@ final class KeyboardAppearanceTests: XCTestCase {
         }
         try await waitForState("the page mounts its preview") {
             host.view.layoutIfNeeded()
-            return Self.subviews(of: host.view).contains { $0 is FullKeyboardView }
+            return Self.subviews(of: host.view).contains { $0 is TyprFullKeyboardView }
         }
         let views = Self.subviews(of: host.view)
-        let previews = views.compactMap { $0 as? FullKeyboardView }
+        let previews = views.compactMap { $0 as? TyprFullKeyboardView }
         XCTAssertEqual(previews.count, 1)
         XCTAssertEqual(previews.first?.isUserInteractionEnabled, false)
         let design = views.compactMap { $0 as? UISegmentedControl }
@@ -73,10 +73,10 @@ final class KeyboardAppearanceTests: XCTestCase {
         }
         try await waitForState("the page mounts its preview") {
             host.view.layoutIfNeeded()
-            return Self.subviews(of: host.view).contains { $0 is FullKeyboardView }
+            return Self.subviews(of: host.view).contains { $0 is TyprFullKeyboardView }
         }
         let views = Self.subviews(of: host.view)
-        let keyboard = try XCTUnwrap(views.compactMap { $0 as? FullKeyboardView }.first)
+        let keyboard = try XCTUnwrap(views.compactMap { $0 as? TyprFullKeyboardView }.first)
         let frame = keyboard.convert(keyboard.bounds, to: window)
         XCTAssertGreaterThanOrEqual(frame.minY, -1)
         XCTAssertLessThanOrEqual(frame.maxX, window.bounds.width + 1)
@@ -96,7 +96,7 @@ final class KeyboardAppearanceTests: XCTestCase {
         view.frame = CGRect(x: 0, y: 0, width: 393, height: view.preferredHeight)
         view.layoutIfNeeded()
         XCTAssertEqual(view.design, .standard)
-        XCTAssertEqual(view.preferredHeight, KeyboardLayout.height(for: .portrait, showsStrip: true))
+        XCTAssertEqual(view.preferredHeight, TyprKeyboardLayout.height(for: .portrait, showsStrip: true))
         XCTAssertNotNil(view.engine.layout.key(.globe))
         XCTAssertNil(view.engine.layout.key(.character(".")))
 
@@ -107,7 +107,7 @@ final class KeyboardAppearanceTests: XCTestCase {
         settings.bottomRow = BottomRow(order: [.typr, .period, .space], periodKey: true)
         KeyboardAppearancePreview.apply(settings, to: view)
         XCTAssertEqual(view.design, .mechanical)
-        XCTAssertEqual(view.preferredHeight, KeyboardLayout.height(for: .portrait, showsStrip: false))
+        XCTAssertEqual(view.preferredHeight, TyprKeyboardLayout.height(for: .portrait, showsStrip: false))
         let bottomRow = settings.bottomRow
         try await waitForState("the preview's keys follow the bottom row") {
             view.engine.bottomRow == bottomRow && view.engine.globeKey == .spacer
@@ -115,7 +115,7 @@ final class KeyboardAppearanceTests: XCTestCase {
         let layout = view.engine.layout
         XCTAssertNotNil(layout.key(.globeSpacer))
         XCTAssertNil(layout.key(.globe))
-        let x = { (kind: KeyKind) in layout.key(kind)?.frame.minX ?? -1 }
+        let x = { (kind: TyprKeyKind) in layout.key(kind)?.frame.minX ?? -1 }
         XCTAssertLessThan(x(.typr), x(.character(".")))
         XCTAssertLessThan(x(.character(".")), x(.space))
 
@@ -128,7 +128,7 @@ final class KeyboardAppearanceTests: XCTestCase {
         settings.numberRow = true
         KeyboardAppearancePreview.apply(settings, to: view)
         try await waitForState("the preview shows the number row") { view.engine.numberRow }
-        XCTAssertEqual(view.preferredHeight, KeyboardLayout.height(for: .portrait, showsStrip: false, numberRow: true))
+        XCTAssertEqual(view.preferredHeight, TyprKeyboardLayout.height(for: .portrait, showsStrip: false, numberRow: true))
         XCTAssertNotNil(view.engine.layout.key(.character("1")))
     }
 
@@ -144,8 +144,8 @@ final class KeyboardAppearanceTests: XCTestCase {
         XCTAssertFalse(view.isUserInteractionEnabled)
         XCTAssertEqual(defaults.map { $0.dictionaryRepresentation() as NSDictionary }, before)
 
-        let normal = FullKeyboardView(model: KeyboardViewModel(), target: KeyboardPreviewTextTarget(),
-                                      autocorrect: AutocorrectEngine(spatialDecoder: nil))
+        let normal = TyprFullKeyboardView(model: KeyboardViewModel(), target: KeyboardPreviewTextTarget(),
+                                      autocorrect: TyprAutocorrectEngine(spatialDecoder: nil))
         XCTAssertTrue(normal.engine.suggestionsAreActive, "without a preview the keyboard suggests as before")
     }
 
@@ -162,7 +162,7 @@ final class KeyboardAppearanceTests: XCTestCase {
 
     /// iPhone Duo outer 466 × 678 pt and inner 669 × 951 pt, each both ways; split only open and sideways.
     func testPreviewPicksThePoseOfTheWholeWindow() {
-        let poses: [(CGSize, KeyboardOrientation, Bool)] = [
+        let poses: [(CGSize, TyprKeyboardOrientation, Bool)] = [
             (CGSize(width: 393, height: 852), .portrait, false),
             (CGSize(width: 466, height: 678), .portrait, false),
             (CGSize(width: 678, height: 466), .landscape, false),
@@ -206,7 +206,7 @@ final class KeyboardAppearanceTests: XCTestCase {
 
     func testPreviewStaysBelowAFoldAcrossThePage() {
         let page = CGSize(width: 669, height: 830)
-        let height = KeyboardLayout.height(for: .widePortrait, numberRow: true)
+        let height = TyprKeyboardLayout.height(for: .widePortrait, numberRow: true)
         XCTAssertEqual(KeyboardAppearancePage.previewScale(keyboardHeight: height, page: page, foldBottom: nil), 1)
         XCTAssertEqual(KeyboardAppearancePage.previewScale(keyboardHeight: height, page: page, foldBottom: 400), 1,
                        "a fold above the keyboard changes nothing")
@@ -225,7 +225,7 @@ final class KeyboardAppearanceTests: XCTestCase {
             window.isHidden = true
             window.rootViewController = nil
         }
-        let poses: [(CGSize, KeyboardOrientation)] = [
+        let poses: [(CGSize, TyprKeyboardOrientation)] = [
             (CGSize(width: 951, height: 669), .wideLandscape),
             (CGSize(width: 669, height: 951), .widePortrait),
             (CGSize(width: 466, height: 678), .portrait),
@@ -235,13 +235,13 @@ final class KeyboardAppearanceTests: XCTestCase {
             window.frame = CGRect(origin: .zero, size: size)
             try await waitForState("the preview shows the \(orientation) keyboard") {
                 host.view.layoutIfNeeded()
-                let keyboard = Self.subviews(of: host.view).compactMap { $0 as? FullKeyboardView }.first
+                let keyboard = Self.subviews(of: host.view).compactMap { $0 as? TyprFullKeyboardView }.first
                 return keyboard?.engine.layout.orientation == orientation
             }
-            let keyboard = try XCTUnwrap(Self.subviews(of: host.view).compactMap { $0 as? FullKeyboardView }.first)
+            let keyboard = try XCTUnwrap(Self.subviews(of: host.view).compactMap { $0 as? TyprFullKeyboardView }.first)
             XCTAssertEqual(keyboard.bounds.width, KeyboardAppearancePage.keyboardWidth(display: size), accuracy: 0.5, "\(size)")
             if orientation == .wideLandscape {
-                XCTAssertEqual(keyboard.engine.layout.letterWidth, KeyboardMetrics.maxWideLetterWidth, accuracy: 0.001)
+                XCTAssertEqual(keyboard.engine.layout.letterWidth, TyprKeyboardMetrics.maxWideLetterWidth, accuracy: 0.001)
             }
         }
     }

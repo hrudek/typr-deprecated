@@ -1,13 +1,13 @@
 import CoreGraphics
 
-nonisolated enum KeyboardLayer: Equatable, Hashable, Sendable {
+nonisolated enum TyprKeyboardLayer: Equatable, Hashable, Sendable {
     case letters
     case numbers
     case symbols
 }
 
 /// Stored raw values must never change.
-nonisolated enum KeyboardLetterLayout: String, CaseIterable, Codable, Sendable {
+nonisolated enum TyprKeyboardLetterLayout: String, CaseIterable, Codable, Sendable {
     case qwerty
     case qwertz
     case azerty
@@ -34,7 +34,7 @@ nonisolated enum KeyboardLetterLayout: String, CaseIterable, Codable, Sendable {
 }
 
 /// The kind of text field, as far as the key rows care.
-nonisolated enum KeyboardFieldKind: Equatable, Sendable {
+nonisolated enum TyprKeyboardFieldKind: Equatable, Sendable {
     case text
     /// Adds `.` and `/` right of space.
     case url
@@ -43,7 +43,7 @@ nonisolated enum KeyboardFieldKind: Equatable, Sendable {
 }
 
 /// Which keyboard geometry a display gets, picked by `init(container:)` from its size alone.
-nonisolated enum KeyboardOrientation: String, Equatable, Sendable {
+nonisolated enum TyprKeyboardOrientation: String, Equatable, Sendable {
     case portrait
     case landscape
     /// A display at least `wideShortSide` across held upright: the iPhone Duo's inner display, 669 × 951 pt.
@@ -63,7 +63,7 @@ nonisolated enum KeyboardOrientation: String, Equatable, Sendable {
     init(container: CGSize, split: Bool = false) {
         let isLandscape = container.width > container.height
         let isWide = min(container.width, container.height) >= Self.wideShortSide
-        let full: KeyboardOrientation = switch (isWide, isLandscape) {
+        let full: TyprKeyboardOrientation = switch (isWide, isLandscape) {
         case (false, false): .portrait
         case (false, true): .landscape
         case (true, false): .widePortrait
@@ -164,11 +164,11 @@ nonisolated struct BottomRow: Equatable, Sendable {
     var emojiKey = false
 }
 
-nonisolated enum KeyKind: Equatable, Hashable, Sendable {
+nonisolated enum TyprKeyKind: Equatable, Hashable, Sendable {
     /// Inserts its text (letters are stored lowercase; shift decides the case).
     case character(String)
     case shift
-    case layerSwitch(KeyboardLayer)
+    case layerSwitch(TyprKeyboardLayer)
     case delete
     case space
     case returnKey
@@ -180,8 +180,8 @@ nonisolated enum KeyKind: Equatable, Hashable, Sendable {
     case emoji
 }
 
-nonisolated struct KeyboardKey: Equatable, Sendable {
-    let kind: KeyKind
+nonisolated struct TyprKeyboardKey: Equatable, Sendable {
+    let kind: TyprKeyKind
     let row: Int
     /// The drawn keycap.
     let frame: CGRect
@@ -196,7 +196,7 @@ nonisolated struct KeyboardKey: Equatable, Sendable {
 }
 
 /// The pop-up balloon over a pressed key: a wider bubble joined to the key by a neck.
-nonisolated struct KeyBalloon: Equatable, Sendable {
+nonisolated struct TyprKeyBalloon: Equatable, Sendable {
     static let bubbleHeight: CGFloat = 46
     static let neck: CGFloat = 8
     static let extraWidth: CGFloat = 20
@@ -215,7 +215,7 @@ nonisolated struct KeyBalloon: Equatable, Sendable {
     var bounds: CGRect { bubble.union(keyFrame) }
 }
 
-nonisolated struct KeyboardMetrics: Equatable, Sendable {
+nonisolated struct TyprKeyboardMetrics: Equatable, Sendable {
     let side: CGFloat
     let gap: CGFloat
     let rowGap: CGFloat
@@ -233,7 +233,7 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
 
     /// Matches iOS 26 portrait keyboard geometry inside the system's +17 pt Liquid Glass crown:
     /// 35 pt strip area + 218 pt of keys (4 × 45 pt + 3 × 11 pt + 5 pt) = 253 pt extension height.
-    static let portrait = KeyboardMetrics(
+    static let portrait = TyprKeyboardMetrics(
         side: 6.5, gap: 6, rowGap: 11, keyHeight: 45,
         stripTop: 0, stripHeight: 33, stripBottom: 2,
         keysTop: 0, keysBottom: 5, cornerRadius: 8.5
@@ -241,7 +241,7 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
 
     /// Matches iOS 26 landscape keyboard geometry inside the system's +10 pt Liquid Glass crown:
     /// 39 pt strip area + 137 pt of keys (4 × 27.5 pt + 3 × 8 pt + 3 pt) = 176 pt extension height.
-    static let landscape = KeyboardMetrics(
+    static let landscape = TyprKeyboardMetrics(
         side: 4, gap: 6, rowGap: 8, keyHeight: 27.5,
         stripTop: 0, stripHeight: 33, stripBottom: 6,
         keysTop: 0, keysBottom: 3, cornerRadius: 7.5
@@ -249,7 +249,7 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
 
     /// The iPhone Duo's inner display upright, after Apple's keyboard there (18 pt in, keys 9 apart, rows 14 apart,
     /// keys 45.67 pt tall; iikb docs/design.md): 35 + 4 × 46 + 3 × 14 + 5 = 266 pt, 28% of the display's 951 pt.
-    static let widePortrait = KeyboardMetrics(
+    static let widePortrait = TyprKeyboardMetrics(
         side: 18, gap: 9, rowGap: 14, keyHeight: 46,
         stripTop: 0, stripHeight: 33, stripBottom: 2,
         keysTop: 0, keysBottom: 5, cornerRadius: 8.5
@@ -257,7 +257,7 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
 
     /// The inner display sideways, after Apple's (9 pt in, keys 10 apart, rows 13 apart, keys 38.67 pt tall):
     /// 39 + 4 × 39 + 3 × 13 + 4 = 238 pt, 36% of the display's 669 pt.
-    static let wideLandscape = KeyboardMetrics(
+    static let wideLandscape = TyprKeyboardMetrics(
         side: 9, gap: 10, rowGap: 13, keyHeight: 39,
         stripTop: 0, stripHeight: 33, stripBottom: 6,
         keysTop: 0, keysBottom: 4, cornerRadius: 8.5
@@ -274,8 +274,8 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
 
     /// The inner display sideways, split: `wideLandscape`'s rows at the phone's key gap, the keys as wide as 6.5 key
     /// pitches per half allow within `splitHalfShare`, the rest the gap between halves.
-    private static func splitLandscape(innerWidth: CGFloat?) -> KeyboardMetrics {
-        var metrics = KeyboardMetrics(
+    private static func splitLandscape(innerWidth: CGFloat?) -> TyprKeyboardMetrics {
+        var metrics = TyprKeyboardMetrics(
             side: 9, gap: 6, rowGap: 13, keyHeight: 39,
             stripTop: 0, stripHeight: 33, stripBottom: 6,
             keysTop: 0, keysBottom: 4, cornerRadius: 8.5
@@ -295,19 +295,19 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
     /// Typr: `showsStrip: false` drops the suggestion bar; the keys move up to a small top margin.
     /// `numberRow` adds a row of short keys, 0.8 of a key high like iikb's, above the letters.
     static func `for`(
-        _ orientation: KeyboardOrientation,
+        _ orientation: TyprKeyboardOrientation,
         innerWidth: CGFloat? = nil,
         showsStrip: Bool = true,
         numberRow: Bool = false
-    ) -> KeyboardMetrics {
+    ) -> TyprKeyboardMetrics {
         var metrics = withStrip(orientation, innerWidth: innerWidth)
         if !showsStrip { metrics = metrics.withoutStrip(orientation) }
         if numberRow { metrics.numberRowHeight = (metrics.keyHeight * 0.8).rounded() }
         return metrics
     }
 
-    private func withoutStrip(_ orientation: KeyboardOrientation) -> KeyboardMetrics {
-        KeyboardMetrics(
+    private func withoutStrip(_ orientation: TyprKeyboardOrientation) -> TyprKeyboardMetrics {
+        TyprKeyboardMetrics(
             side: side, gap: gap, rowGap: rowGap, keyHeight: keyHeight,
             stripTop: 0, stripHeight: 0, stripBottom: 0,
             keysTop: orientation.isLandscape ? 4 : 6, keysBottom: keysBottom, cornerRadius: cornerRadius,
@@ -315,14 +315,14 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
         )
     }
 
-    private static func withStrip(_ orientation: KeyboardOrientation, innerWidth: CGFloat?) -> KeyboardMetrics {
+    private static func withStrip(_ orientation: TyprKeyboardOrientation, innerWidth: CGFloat?) -> TyprKeyboardMetrics {
         switch orientation {
         case .landscape:
             return .landscape
         case .widePortrait:
-            return KeyboardMetrics.widePortrait.centringLetters(in: innerWidth)
+            return TyprKeyboardMetrics.widePortrait.centringLetters(in: innerWidth)
         case .wideLandscape:
-            return KeyboardMetrics.wideLandscape.centringLetters(in: innerWidth)
+            return TyprKeyboardMetrics.wideLandscape.centringLetters(in: innerWidth)
         case .splitLandscape:
             return splitLandscape(innerWidth: innerWidth)
         case .portrait:
@@ -334,19 +334,19 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
             } else {
                 3.0
             }
-            return KeyboardMetrics.portrait.with(side: side)
+            return TyprKeyboardMetrics.portrait.with(side: side)
         }
     }
 
     /// Side insets that keep letter keys at most `maxWideLetterWidth` wide across `innerWidth`.
-    private func centringLetters(in innerWidth: CGFloat?) -> KeyboardMetrics {
+    private func centringLetters(in innerWidth: CGFloat?) -> TyprKeyboardMetrics {
         guard let innerWidth else { return self }
         let centred = (innerWidth - 10 * Self.maxWideLetterWidth - 9 * gap) / 2
         return with(side: max(side, centred))
     }
 
-    private func with(side: CGFloat) -> KeyboardMetrics {
-        KeyboardMetrics(
+    private func with(side: CGFloat) -> TyprKeyboardMetrics {
+        TyprKeyboardMetrics(
             side: side, gap: gap, rowGap: rowGap, keyHeight: keyHeight,
             stripTop: stripTop, stripHeight: stripHeight, stripBottom: stripBottom,
             keysTop: keysTop, keysBottom: keysBottom, cornerRadius: cornerRadius,
@@ -363,7 +363,7 @@ nonisolated struct KeyboardMetrics: Equatable, Sendable {
 
 /// Pure geometry of the full keyboard: every key's frame and touch target for one width,
 /// layer and field kind. Coordinates are in the keyboard view, strip included.
-nonisolated struct KeyboardLayout: Equatable, Sendable {
+nonisolated struct TyprKeyboardLayout: Equatable, Sendable {
     /// Matches Apple's 50 pt shift/delete beside 37.3 pt letters on 440 pt Pro Max (`50 / 37.3 = 1.34`).
     static let modifierWidthRatio: CGFloat = 1.34
     static let bottomSwitchWidthRatio: CGFloat = 1.56
@@ -371,9 +371,9 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
     static let compactReturnWidthRatio: CGFloat = 2.18
 
     let width: CGFloat
-    let orientation: KeyboardOrientation
-    let layer: KeyboardLayer
-    let field: KeyboardFieldKind
+    let orientation: TyprKeyboardOrientation
+    let layer: TyprKeyboardLayer
+    let field: TyprKeyboardFieldKind
     let showsGlobe: Bool
     let globeKey: GlobeKey
     let bottomRow: BottomRow
@@ -381,24 +381,24 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
     let numberRow: Bool
     /// Settings › Aligned columns: the split letters in straight columns. Always false off `.splitLandscape`.
     let splitColumns: Bool
-    let letters: KeyboardLetterLayout
+    let letters: TyprKeyboardLetterLayout
     let horizontalInset: CGFloat
     /// Typr: whether the suggestion bar sits above the keys.
     let showsStrip: Bool
-    let metrics: KeyboardMetrics
-    let keys: [KeyboardKey]
+    let metrics: TyprKeyboardMetrics
+    let keys: [TyprKeyboardKey]
 
     init(
         width: CGFloat,
-        orientation: KeyboardOrientation = .portrait,
-        layer: KeyboardLayer = .letters,
-        field: KeyboardFieldKind = .text,
+        orientation: TyprKeyboardOrientation = .portrait,
+        layer: TyprKeyboardLayer = .letters,
+        field: TyprKeyboardFieldKind = .text,
         showsGlobe: Bool = false,
         globeKey: GlobeKey = .switches,
         bottomRow: BottomRow = BottomRow(),
         numberRow: Bool = false,
         splitColumns: Bool = false,
-        letters: KeyboardLetterLayout = .qwerty,
+        letters: TyprKeyboardLetterLayout = .qwerty,
         horizontalInset: CGFloat = 0,
         showsStrip: Bool = true
     ) {
@@ -415,7 +415,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         self.horizontalInset = max(0, horizontalInset)
         self.showsStrip = showsStrip
         let innerWidth = width - 2 * self.horizontalInset
-        let metrics = KeyboardMetrics.for(orientation, innerWidth: innerWidth, showsStrip: showsStrip, numberRow: numberRow)
+        let metrics = TyprKeyboardMetrics.for(orientation, innerWidth: innerWidth, showsStrip: showsStrip, numberRow: numberRow)
         self.metrics = metrics
         self.keys = Self.buildKeys(
             width: width,
@@ -433,12 +433,12 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         )
     }
 
-    private static func showsPeriodKey(_ bottomRow: BottomRow, layer: KeyboardLayer, field: KeyboardFieldKind) -> Bool {
+    private static func showsPeriodKey(_ bottomRow: BottomRow, layer: TyprKeyboardLayer, field: TyprKeyboardFieldKind) -> Bool {
         bottomRow.periodKey && layer == .letters && field == .text
     }
 
     /// The bottom row's period key, whose hold offers more punctuation.
-    func isPeriodKey(_ key: KeyboardKey) -> Bool {
+    func isPeriodKey(_ key: TyprKeyboardKey) -> Bool {
         Self.showsPeriodKey(bottomRow, layer: layer, field: field) && key.row == bottomRowIndex && key.kind == .character(".")
     }
 
@@ -447,8 +447,8 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
 
     var showsNumberRow: Bool { numberRow && layer == .letters }
 
-    static func height(for orientation: KeyboardOrientation, showsStrip: Bool = true, numberRow: Bool = false) -> CGFloat {
-        KeyboardMetrics.for(orientation, showsStrip: showsStrip, numberRow: numberRow).totalHeight
+    static func height(for orientation: TyprKeyboardOrientation, showsStrip: Bool = true, numberRow: Bool = false) -> CGFloat {
+        TyprKeyboardMetrics.for(orientation, showsStrip: showsStrip, numberRow: numberRow).totalHeight
     }
 
     var totalHeight: CGFloat { metrics.totalHeight }
@@ -463,7 +463,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
     var suggestionSlotsFrame: CGRect {
         let strip = CGRect(origin: .zero, size: stripFrame.size)
         guard metrics.splitGap > 0 else { return strip }
-        let letters = layer == .letters ? self : KeyboardLayout(
+        let letters = layer == .letters ? self : TyprKeyboardLayout(
             width: width, orientation: orientation, field: field, showsGlobe: showsGlobe, globeKey: globeKey,
             bottomRow: bottomRow, numberRow: numberRow, splitColumns: splitColumns, letters: letters,
             horizontalInset: horizontalInset, showsStrip: showsStrip
@@ -489,18 +489,18 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
     /// iOS needs a way to the next keyboard and the globe key does not switch: holding 123/ABC does.
     var layerKeyHoldSwitchesKeyboard: Bool { showsGlobe && globeKey != .switches }
 
-    func key(_ kind: KeyKind) -> KeyboardKey? {
+    func key(_ kind: TyprKeyKind) -> TyprKeyboardKey? {
         keys.first { $0.kind == kind }
     }
 
     /// The copy of `kind` closest to `point`: the split letters have g and v on both halves.
-    func key(_ kind: KeyKind, nearest point: CGPoint) -> KeyboardKey? {
+    func key(_ kind: TyprKeyKind, nearest point: CGPoint) -> TyprKeyboardKey? {
         keys.filter { $0.kind == kind }.min {
             hypot($0.frame.midX - point.x, $0.frame.midY - point.y) < hypot($1.frame.midX - point.x, $1.frame.midY - point.y)
         }
     }
 
-    func hitTest(_ point: CGPoint) -> KeyboardKey? {
+    func hitTest(_ point: CGPoint) -> TyprKeyboardKey? {
         keys.first { $0.hitFrame.contains(point) }
     }
 
@@ -515,18 +515,18 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
 
     /// The balloon for a character key, kept inside the keyboard's bounds. `nil` for keys
     /// without one (space, modifiers) and in landscape, where there is no room above row 1.
-    func balloon(for key: KeyboardKey) -> KeyBalloon? {
+    func balloon(for key: TyprKeyboardKey) -> TyprKeyBalloon? {
         guard showsBalloons, key.character != nil else { return nil }
-        let bubbleWidth = key.frame.width + KeyBalloon.extraWidth
-        let raisedY = key.frame.minY - KeyBalloon.neck - KeyBalloon.bubbleHeight
+        let bubbleWidth = key.frame.width + TyprKeyBalloon.extraWidth
+        let raisedY = key.frame.minY - TyprKeyBalloon.neck - TyprKeyBalloon.bubbleHeight
         let minX = max(0, horizontalInset + 2)
         let maxX = max(minX, width - horizontalInset - 2 - bubbleWidth)
         var x = key.frame.midX - bubbleWidth / 2
         x = max(minX, min(maxX, x))
         // Typr: without the suggestion bar the top row has no room above it; widen the key in place.
-        if raisedY < -KeyBalloon.bubbleHeight / 2 {
-            let top = max(0, key.frame.minY - KeyBalloon.inlineLift)
-            return KeyBalloon(
+        if raisedY < -TyprKeyBalloon.bubbleHeight / 2 {
+            let top = max(0, key.frame.minY - TyprKeyBalloon.inlineLift)
+            return TyprKeyBalloon(
                 keyFrame: key.frame,
                 bubble: CGRect(x: x, y: top, width: bubbleWidth, height: key.frame.maxY - top)
             )
@@ -535,14 +535,14 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
             x: x,
             y: max(0, raisedY),
             width: bubbleWidth,
-            height: KeyBalloon.bubbleHeight
+            height: TyprKeyBalloon.bubbleHeight
         )
-        return KeyBalloon(keyFrame: key.frame, bubble: bubble)
+        return TyprKeyBalloon(keyFrame: key.frame, bubble: bubble)
     }
 
     // MARK: - Building
 
-    static func letterWidth(innerWidth: CGFloat, metrics: KeyboardMetrics) -> CGFloat {
+    static func letterWidth(innerWidth: CGFloat, metrics: TyprKeyboardMetrics) -> CGFloat {
         (innerWidth - metrics.splitGap - 2 * metrics.side - 9 * metrics.gap) / 10
     }
 
@@ -550,7 +550,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
     /// first column. The letters repeat g and v, staggered so z sits under s and the right v under g; aligned columns put
     /// shift under a and delete under l. The other pages end in `splitPunctuation`.
     static func splitHalves(
-        _ layer: KeyboardLayer, aligned: Bool, letters: KeyboardLetterLayout
+        _ layer: TyprKeyboardLayer, aligned: Bool, letters: TyprKeyboardLetterLayout
     ) -> [(rows: [[String]], offsets: [CGFloat])] {
         func rows(_ rows: String...) -> [[String]] { rows.map { $0.map(String.init) } }
         switch layer {
@@ -573,7 +573,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
 
     static let numberRowCharacters = "1234567890".map(String.init)
 
-    static func characterRows(for layer: KeyboardLayer, letters: KeyboardLetterLayout) -> [[String]] {
+    static func characterRows(for layer: TyprKeyboardLayer, letters: TyprKeyboardLetterLayout) -> [[String]] {
         let punctuation = [".", ",", "?", "!", "'"]
         switch layer {
         case .letters:
@@ -595,16 +595,16 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
 
     private static func buildKeys(
         width: CGFloat,
-        metrics m: KeyboardMetrics,
-        layer: KeyboardLayer,
-        field: KeyboardFieldKind,
+        metrics m: TyprKeyboardMetrics,
+        layer: TyprKeyboardLayer,
+        field: TyprKeyboardFieldKind,
         globe: GlobeKey,
         emoji: Bool,
         aroundSpace: [BottomKey],
         inset: CGFloat,
         splitColumns: Bool,
-        letters: KeyboardLetterLayout
-    ) -> [KeyboardKey] {
+        letters: TyprKeyboardLetterLayout
+    ) -> [TyprKeyboardKey] {
         let lw = letterWidth(innerWidth: width - 2 * inset, metrics: m)
         let boardWidth = width - 2 * inset - m.splitGap
         let modW = lw * modifierWidthRatio
@@ -627,9 +627,9 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
             row < firstRow ? m.numberRowHeight : keyHeight
         }
 
-        var drawn: [(KeyKind, Int, CGRect, String)] = []
+        var drawn: [(TyprKeyKind, Int, CGRect, String)] = []
 
-        func add(_ kind: KeyKind, row: Int, x: CGFloat, w: CGFloat, label: String) {
+        func add(_ kind: TyprKeyKind, row: Int, x: CGFloat, w: CGFloat, label: String) {
             drawn.append((kind, row, CGRect(x: x, y: rowY(row), width: w, height: rowHeight(row)), label))
         }
 
@@ -716,7 +716,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         let isCompactBottomRow = globe != .hidden || emoji || field != .text || aroundSpace.contains(.period)
         let switchW = isCompactBottomRow ? modW : lw * bottomSwitchWidthRatio
         let returnW = isCompactBottomRow ? (lw * compactReturnWidthRatio) : (lw * returnWidthRatio + m.gap)
-        var leading: [(KeyKind, CGFloat, String)] = [
+        var leading: [(TyprKeyKind, CGFloat, String)] = [
             layer == .letters
                 ? (.layerSwitch(.numbers), switchW, "123")
                 : (.layerSwitch(.letters), switchW, "ABC"),
@@ -727,7 +727,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         case .hidden: break
         }
         if emoji { leading.append((.emoji, modW, "emoji")) }
-        func arrangedKey(_ key: BottomKey) -> (KeyKind, CGFloat, String)? {
+        func arrangedKey(_ key: BottomKey) -> (TyprKeyKind, CGFloat, String)? {
             switch key {
             case .space: nil
             case .period: (.character("."), lw, ".")
@@ -736,7 +736,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         }
         let spaceIndex = aroundSpace.firstIndex(of: .space) ?? aroundSpace.endIndex
         leading += aroundSpace[..<spaceIndex].compactMap(arrangedKey)
-        var trailing: [(KeyKind, CGFloat, String)] = []
+        var trailing: [(TyprKeyKind, CGFloat, String)] = []
         switch field {
         case .text:
             break
@@ -798,7 +798,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         }
         let top = m.stripArea
         let bottom = m.totalHeight
-        var keys: [KeyboardKey] = []
+        var keys: [TyprKeyboardKey] = []
         for row in 0...spaceRow {
             let rowKeys = drawn.filter { $0.1 == row }.sorted { $0.2.minX < $1.2.minX }
             let y0 = row == 0 ? top : rowY(row) - m.rowGap / 2
@@ -806,7 +806,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
             for (i, item) in rowKeys.enumerated() {
                 let x0 = i == 0 ? 0 : boundaries(rowKeys[i - 1].2, item.2).start
                 let x1 = i == rowKeys.count - 1 ? width : boundaries(item.2, rowKeys[i + 1].2).end
-                keys.append(KeyboardKey(
+                keys.append(TyprKeyboardKey(
                     kind: item.0,
                     row: row,
                     frame: item.2,

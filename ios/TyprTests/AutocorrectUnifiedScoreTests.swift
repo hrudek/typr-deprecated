@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class AutocorrectUnifiedScoreTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { ["in", "is", "us", "if", "of", "okay", "yes"].contains(word.lowercased()) }
         func guesses(for word: String) -> [String] { [] }
         func completions(for prefix: String) -> [String] { [] }
@@ -23,28 +23,28 @@ final class AutocorrectUnifiedScoreTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    private final class GermanChecker: TextChecking {
+    private final class GermanChecker: TyprTextChecking {
         func isWordValid(_ word: String) -> Bool { ["für", "ich", "bin", "zwei", "okay", "yes"].contains(word.lowercased()) }
         func guesses(for word: String) -> [String] { [] }
         func completions(for prefix: String) -> [String] { [] }
     }
 
-    private func keyboard(after context: String, german: Bool = false) throws -> (FullKeyboardEngine, FixtureTextTarget) {
+    private func keyboard(after context: String, german: Bool = false) throws -> (TyprFullKeyboardEngine, FixtureTextTarget) {
         let lexicons = try XCTUnwrap(BundledKeyboardData.lexicons)
-        let autocorrect = AutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults),
+        let autocorrect = TyprAutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults),
                                             spatialDecoder: SpatialWordDecoder(lexicons: lexicons),
                                             contextResources: .init(model: try XCTUnwrap(BundledKeyboardData.contextModel)))
         if german { autocorrect.german = GermanAutocorrect(checker: GermanChecker()) }
         let target = FixtureTextTarget(text: context)
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let engine = FullKeyboardEngine(target: target, autocorrect: autocorrect)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect)
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
         engine.configureForField()
         return (engine, target)
     }
 
-    private func tap(_ kind: KeyKind, _ engine: FullKeyboardEngine) {
+    private func tap(_ kind: TyprKeyKind, _ engine: TyprFullKeyboardEngine) {
         let key = engine.layout.key(kind)!
         let center = CGPoint(x: key.frame.midX, y: key.frame.midY)
         engine.touchBegan(id: 1, at: center)

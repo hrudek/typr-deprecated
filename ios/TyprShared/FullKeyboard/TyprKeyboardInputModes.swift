@@ -5,7 +5,7 @@ import UIKit
 /// `UIKeyboardExtensionInputMode` and Apple's are `UIKeyboardInputMode`; Emoji's language is
 /// `emoji`. `advanceToNextInputMode` skips Emoji when Apple's keyboard is on, in either order
 /// (Hex, iOS 27.2 simulator).
-enum KeyboardInputModes {
+enum TyprKeyboardInputModes {
     struct Mode: Equatable {
         var primaryLanguage: String?
         var className: String

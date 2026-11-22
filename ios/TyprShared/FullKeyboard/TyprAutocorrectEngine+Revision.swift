@@ -4,7 +4,7 @@ import Foundation
 /// THIRD_PARTY_NOTICES.md): the word before takes the next word's language's umlauts, and
 /// with Words from context on, sound-alike and apostrophe words follow their neighbours.
 @MainActor
-extension AutocorrectEngine {
+extension TyprAutocorrectEngine {
     /// English words chosen by the words around them rather than as typos (Hex's list):
     /// the same letters with and without an apostrophe, and words that sound alike. "were"
     /// and "we're" stay out: the word pairs can't tell them apart.

@@ -6,8 +6,8 @@ import XCTest
 @MainActor
 final class KeyboardKeyMapTests: XCTestCase {
     private typealias Language = SpatialWordDecoder.Language
-    private let grid = KeyboardLayout(width: 393)
-    private final class Checker: TextChecking {
+    private let grid = TyprKeyboardLayout(width: 393)
+    private final class Checker: TyprTextChecking {
         let lexicons: [SpatialWordLexicon]
         var calls = 0
         init(_ lexicons: [SpatialWordLexicon]) { self.lexicons = lexicons }
@@ -29,40 +29,40 @@ final class KeyboardKeyMapTests: XCTestCase {
         return .init(keys: keys)
     }
 
-    private func center(_ key: KeyboardKey) -> CGPoint { CGPoint(x: key.frame.midX, y: key.frame.midY) }
-    private func key(_ letter: Character, _ layout: KeyboardLayout? = nil) -> KeyboardKey {
+    private func center(_ key: TyprKeyboardKey) -> CGPoint { CGPoint(x: key.frame.midX, y: key.frame.midY) }
+    private func key(_ letter: Character, _ layout: TyprKeyboardLayout? = nil) -> TyprKeyboardKey {
         (layout ?? grid).key(.character(String(letter)))!
     }
-    private func gap(_ intended: Character, _ layout: KeyboardLayout? = nil) -> CGPoint {
+    private func gap(_ intended: Character, _ layout: TyprKeyboardLayout? = nil) -> CGPoint {
         let k = key(intended, layout)
         return CGPoint(x: k.hitFrame.maxX + 0.3, y: k.frame.midY)
     }
-    private func tap(_ point: CGPoint, _ engine: FullKeyboardEngine, id: Int = 1) {
+    private func tap(_ point: CGPoint, _ engine: TyprFullKeyboardEngine, id: Int = 1) {
         engine.touchBegan(id: id, at: point)
         engine.touchEnded(id: id, at: point)
     }
-    private func type(_ text: String, _ engine: FullKeyboardEngine) {
+    private func type(_ text: String, _ engine: TyprFullKeyboardEngine) {
         for letter in text { tap(center(key(letter, engine.layout)), engine) }
     }
 
     private func keyboard(_ sources: [Language: SpatialWordLexicon], languages: Set<Language> = [.english],
                           trained: Bool = true, worker: KeyboardSuggestionWorker? = nil)
-        -> (FullKeyboardEngine, FixtureTextTarget, Checker) {
+        -> (TyprFullKeyboardEngine, FixtureTextTarget, Checker) {
         let target = FixtureTextTarget()
         target.autocapitalizationType = .some(.none)
         let checker = Checker(Array(sources.values))
-        let ac = AutocorrectEngine(checker: checker, learning: KeyboardLearningSession(),
+        let ac = TyprAutocorrectEngine(checker: checker, learning: KeyboardLearningSession(),
                                    spatialDecoder: SpatialWordDecoder(lexicons: sources),
                                    contextResources: .init(model: nil))
         ac.englishEnabled = languages.contains(.english)
         if languages.contains(.german) { ac.german = GermanAutocorrect(checker: checker) }
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac, suggestionWorker: worker)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac, suggestionWorker: worker)
         engine.width = 393
         engine.configureForField()
         if trained { train(engine) }
         return (engine, target, checker)
     }
-    private func train(_ engine: FullKeyboardEngine, offset: Double = 0.4) {
+    private func train(_ engine: TyprFullKeyboardEngine, offset: Double = 0.4) {
         let layout = engine.layout
         for i in 0..<40 {
             let jitter = Double(i % 3 - 1) * 0.045
@@ -154,7 +154,7 @@ final class KeyboardKeyMapTests: XCTestCase {
             }
         }
         XCTAssertEqual(map.attributedKey(at: point, geometric: geometric, layout: grid, prefix: "ha"), geometric)
-        XCTAssertEqual(map.attributedKey(at: point, geometric: geometric, layout: KeyboardLayout(width: 440), prefix: "wher"), geometric)
+        XCTAssertEqual(map.attributedKey(at: point, geometric: geometric, layout: TyprKeyboardLayout(width: 440), prefix: "wher"), geometric)
         XCTAssertEqual(map.attributedKey(at: CGPoint(x: CGFloat.nan, y: 0), geometric: geometric, layout: grid, prefix: "wher"), geometric)
         XCTAssertLessThanOrEqual(map.entries.count, 26)
     }
@@ -665,7 +665,7 @@ final class KeyboardKeyMapTests: XCTestCase {
 
     func testAdaptiveTypesTheLikeliestKeyThroughTheEngine() throws {
         let sources = try resources()
-        func settle(configure: (FullKeyboardEngine, FixtureTextTarget) -> Void = { _, _ in })
+        func settle(configure: (TyprFullKeyboardEngine, FixtureTextTarget) -> Void = { _, _ in })
             -> (typed: String, settled: String) {
             let (engine, target, _) = keyboard(sources)
             configure(engine, target)
@@ -700,7 +700,7 @@ final class KeyboardKeyMapTests: XCTestCase {
         let area: [(x: CGFloat, y: CGFloat)] = stride(from: -1.0, through: 1.0, by: 0.1).flatMap { x in
             [-1.0, -0.6, -0.45, -0.3, 0, 0.3, 0.45, 0.6, 1.0].map { (CGFloat(x), CGFloat($0)) }
         }
-        func taps(around k: KeyboardKey, dense: Bool) -> [CGPoint] {
+        func taps(around k: TyprKeyboardKey, dense: Bool) -> [CGPoint] {
             let edges = depths.flatMap { [CGPoint(x: k.hitFrame.minX + $0, y: k.frame.midY),
                                           CGPoint(x: k.hitFrame.maxX - $0, y: k.frame.midY)] }
             let grid2D = area.map { CGPoint(x: k.frame.midX + $0.x * pitch.width, y: k.frame.midY + $0.y * pitch.height) }

@@ -21,7 +21,7 @@ nonisolated enum SpatialTypoEvaluationEvidence {
             sqrt(-2 * log(uniform())) * cos(2 * Double.pi * uniform())
         }
     }
-    private static func neighbour(_ letter: Character, grid: KeyboardLayout) throws -> Character {
+    private static func neighbour(_ letter: Character, grid: TyprKeyboardLayout) throws -> Character {
         let frame = try XCTUnwrap(grid.key(.character(String(letter)))).frame
         let pitchX = frame.width + grid.metrics.gap
         let pitchY = frame.height + grid.metrics.rowGap
@@ -39,7 +39,7 @@ nonisolated enum SpatialTypoEvaluationEvidence {
         return try XCTUnwrap(sorted.first)
     }
 
-    static func evidence(_ word: String, grid: KeyboardLayout, error: ErrorClass? = nil, ordinal: Int,
+    static func evidence(_ word: String, grid: TyprKeyboardLayout, error: ErrorClass? = nil, ordinal: Int,
                           seed: UInt64, sigma: Double) throws -> KeyboardTouchWord {
         var typed = Array(word.lowercased())
         var aimed = typed

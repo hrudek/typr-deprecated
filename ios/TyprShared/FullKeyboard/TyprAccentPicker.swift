@@ -1,7 +1,7 @@
 import UIKit
 
 /// Alternate diacritics and punctuation variants shown when holding a key for 400 ms.
-nonisolated enum AccentCatalog {
+nonisolated enum TyprAccentCatalog {
     private static let table: [String: [String]] = [
         "e": ["e", "è", "é", "ê", "ë", "ē", "ė", "ę"],
         "a": ["a", "à", "á", "â", "ä", "æ", "ã", "å", "ā"],
@@ -39,7 +39,7 @@ nonisolated enum AccentCatalog {
 
 /// Pure inward-clamped geometry for the long-press accent callout so every option fits inside
 /// the extension's clipped bounds across 320–440 pt widths.
-nonisolated struct AccentMenu: Equatable, Sendable {
+nonisolated struct TyprAccentMenu: Equatable, Sendable {
     static let cellHeight: CGFloat = 44
     static let padding: CGFloat = 4
     static let verticalGap: CGFloat = 6
@@ -58,7 +58,7 @@ nonisolated struct AccentMenu: Equatable, Sendable {
         rawOptions: [String],
         in layoutWidth: CGFloat,
         horizontalInset: CGFloat = 0
-    ) -> AccentMenu {
+    ) -> TyprAccentMenu {
         let minX = max(2, horizontalInset + 4)
         let maxX = max(minX + 60, layoutWidth - horizontalInset - 4)
         let availableWidth = maxX - minX
@@ -91,7 +91,7 @@ nonisolated struct AccentMenu: Equatable, Sendable {
                 height: cellHeight
             )
         }
-        return AccentMenu(
+        return TyprAccentMenu(
             keyFrame: keyFrame,
             bubbleFrame: bubbleFrame,
             options: ordered,
@@ -112,11 +112,11 @@ nonisolated struct AccentMenu: Equatable, Sendable {
     }
 }
 
-/// Floating callout view that renders an active `AccentMenu` over the key plane.
+/// Floating callout view that renders an active `TyprAccentMenu` over the key plane.
 @MainActor
-final class AccentCalloutView: UIView {
-    var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { setNeedsDisplay() } } }
-    private(set) var menu: AccentMenu?
+final class TyprAccentCalloutView: UIView {
+    var palette = TyprFullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { setNeedsDisplay() } } }
+    private(set) var menu: TyprAccentMenu?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -129,7 +129,7 @@ final class AccentCalloutView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    func show(_ menu: AccentMenu?) {
+    func show(_ menu: TyprAccentMenu?) {
         guard menu != self.menu else { return }
         self.menu = menu
         isHidden = menu == nil

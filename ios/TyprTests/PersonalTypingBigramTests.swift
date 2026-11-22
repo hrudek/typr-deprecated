@@ -5,7 +5,7 @@ import XCTest
 /// P4 regression tests: trusted personal next-word pairs (Typr-authored synthetic words only).
 @MainActor
 final class PersonalTypingBigramTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         var valid: Set<String> = ["hello", "world", "the", "next", "ich", "code", "swift", "morgen", "coffee", "please",
                                    "meine", "tastatur", "heute", "mittag", "guten", "daily", "review", "project", "update", "morning"]
         func isWordValid(_ word: String) -> Bool { valid.contains(word) }
@@ -13,23 +13,23 @@ final class PersonalTypingBigramTests: XCTestCase {
         func completions(for prefix: String) -> [String] { [] }
     }
     private func keyboard(_ session: KeyboardLearningSession? = nil, text: String = "",
-                          model: KeyboardContextModel? = nil) -> (FullKeyboardEngine, FixtureTextTarget) {
+                          model: KeyboardContextModel? = nil) -> (TyprFullKeyboardEngine, FixtureTextTarget) {
         let target = FixtureTextTarget(text: text)
         target.autocapitalizationType = .some(.none)
-        let ac = AutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
+        let ac = TyprAutocorrectEngine(checker: Checker(), learning: session, spatialDecoder: nil,
                                    contextResources: .init(model: model))
-        let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+        let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         engine.width = 393
         engine.clock = { 100 }
         engine.configureForField()
         return (engine, target)
     }
-    private func tap(_ kind: KeyKind, _ engine: FullKeyboardEngine) {
+    private func tap(_ kind: TyprKeyKind, _ engine: TyprFullKeyboardEngine) {
         guard let key = engine.layout.key(kind) else { XCTFail("Missing fixture key \(kind)"); return }
         let p = CGPoint(x: key.frame.midX, y: key.frame.midY)
         engine.touchBegan(id: 1, at: p); engine.touchEnded(id: 1, at: p)
     }
-    private func type(_ text: String, _ engine: FullKeyboardEngine) {
+    private func type(_ text: String, _ engine: TyprFullKeyboardEngine) {
         for ch in text { tap(ch == " " ? .space : .character(String(ch)), engine) }
     }
     /// Distinct synthetic letter-only words: w + base-26 digits.
@@ -137,7 +137,7 @@ final class PersonalTypingBigramTests: XCTestCase {
             let (engine, _) = keyboard()
             type("hello world", engine)
             await engine.waitForSuggestions()
-            var chip = KeyboardSuggestion(displayText: "world", replacement: "world", kind: .keepLiteral)
+            var chip = TyprKeyboardSuggestion(displayText: "world", replacement: "world", kind: .keepLiteral)
             chip.ownership = engine.suggestions.first?.ownership
             engine.acceptSuggestion(chip)
             XCTAssertEqual(engine.autocorrect.learning.personalBigrams.pairCount, 0)
@@ -152,7 +152,7 @@ final class PersonalTypingBigramTests: XCTestCase {
             let (engine, target) = keyboard(text: "")
             type("hello helloworld", engine)
             XCTAssertEqual(engine.autocorrect.learning.previousTrustedWord, "hello")
-            var chip = KeyboardSuggestion(displayText: "hello world", replacement: "hello world",
+            var chip = TyprKeyboardSuggestion(displayText: "hello world", replacement: "hello world",
                                           kind: .primary(autoReplace: false))
             chip.boundary = .init(kind: .split, original: "helloworld", replacement: "hello world", score: 0, baseline: 0)
             chip.ownership = engine.suggestionOwnership
@@ -415,22 +415,22 @@ final class PersonalTypingBigramTests: XCTestCase {
     }
 
     func testPredictionPicksFollowSentenceCapitalizationAndKeepNounCasing() async throws {
-        typealias Mode = AutoCapitalization.Mode
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "done. ", hasText: true), "World")
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "done! ", hasText: true), "World")
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "done? ", hasText: true), "World")
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "line\n", hasText: true), "World")
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "", hasText: false), "World")
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "hello ", hasText: true), "world")
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("world", mode: .words, before: "hello ", hasText: true), "World")
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("world", mode: .allCharacters, before: "hello ", hasText: true), "WORLD")
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("world", mode: Mode.none, before: "done. ", hasText: true), "world")
-        XCTAssertEqual(FullKeyboardEngine.casedPrediction("Tastatur", mode: .sentences, before: "meine ", hasText: true), "Tastatur",
+        typealias Mode = TyprAutoCapitalization.Mode
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "done. ", hasText: true), "World")
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "done! ", hasText: true), "World")
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "done? ", hasText: true), "World")
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "line\n", hasText: true), "World")
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "", hasText: false), "World")
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("world", mode: .sentences, before: "hello ", hasText: true), "world")
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("world", mode: .words, before: "hello ", hasText: true), "World")
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("world", mode: .allCharacters, before: "hello ", hasText: true), "WORLD")
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("world", mode: Mode.none, before: "done. ", hasText: true), "world")
+        XCTAssertEqual(TyprFullKeyboardEngine.casedPrediction("Tastatur", mode: .sentences, before: "meine ", hasText: true), "Tastatur",
                        "German nouns are never lowercased")
         for (text, capitalizes) in [("done. ", true), ("done! ", true), ("done? ", true), ("hello ", false), ("", true)] {
             let (engine, target) = keyboard(text: text)
             target.autocapitalizationType = .sentences
-            var chip = KeyboardSuggestion(displayText: "world", replacement: "world", kind: .primary(autoReplace: false), isCompletion: true)
+            var chip = TyprKeyboardSuggestion(displayText: "world", replacement: "world", kind: .primary(autoReplace: false), isCompletion: true)
             // A directly owned prediction fixture also covers a field-start pick without inventing history.
             chip.ownership = engine.suggestionOwnership
             engine.acceptSuggestion(chip)

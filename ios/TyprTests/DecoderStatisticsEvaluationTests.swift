@@ -10,7 +10,7 @@ import XCTest
 @MainActor
 final class DecoderStatisticsEvaluationTests: XCTestCase {
     private typealias Decoder = SpatialWordDecoder
-    private let grid = KeyboardLayout(width: 393, orientation: .portrait, layer: .letters,
+    private let grid = TyprKeyboardLayout(width: 393, orientation: .portrait, layer: .letters,
                                       field: .text, showsGlobe: false, showsStrip: true)
     private let penalty = log(0.01)
 

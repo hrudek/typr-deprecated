@@ -7,7 +7,7 @@ import XCTest
 /// (Hex #2173, #2218).
 @MainActor
 final class MidSentenceEditingTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         let valid: Set<String>
         let corrections: [String: String]
         init(valid: Set<String>, corrections: [String: String] = [:]) {
@@ -30,7 +30,7 @@ final class MidSentenceEditingTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suite: String!
     private var target: FixtureTextTarget!
-    private var engine: FullKeyboardEngine!
+    private var engine: TyprFullKeyboardEngine!
     private var now: TimeInterval = 100
 
     override func setUp() async throws {
@@ -50,7 +50,7 @@ final class MidSentenceEditingTests: XCTestCase {
         target = FixtureTextTarget(text: text.replacingOccurrences(of: "|", with: ""))
         target.adjustTextPosition(byCharacterOffset: -after)
         let spatial = swiped != nil || wordLists ? SpatialWordDecoder(lexicons: BundledKeyboardData.lexicons ?? [:]) : nil
-        let autocorrect = AutocorrectEngine(checker: german ? Self.german : Self.english,
+        let autocorrect = TyprAutocorrectEngine(checker: german ? Self.german : Self.english,
                                             learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: spatial)
         if german {
             autocorrect.german = GermanAutocorrect(checker: Self.german)
@@ -58,7 +58,7 @@ final class MidSentenceEditingTests: XCTestCase {
         }
         autocorrect.loadLexiconEntries(lexicon.map { (userInput: $0, documentText: $0) })
         let candidate = swiped.map { SwipeSearch.Candidate(word: $0, score: 0, language: german ? .german : .english) }
-        engine = FullKeyboardEngine(target: target, autocorrect: autocorrect,
+        engine = TyprFullKeyboardEngine(target: target, autocorrect: autocorrect,
                                     swipeDecoder: { _ in candidate.map { [$0] } ?? [] })
         engine.width = 393
         engine.clock = { [unowned self] in self.now }
@@ -73,7 +73,7 @@ final class MidSentenceEditingTests: XCTestCase {
 
     private func type(_ text: String) {
         for character in text {
-            let kind: KeyKind = character == " " ? .space : .character(String(character))
+            let kind: TyprKeyKind = character == " " ? .space : .character(String(character))
             let frame = engine.layout.key(kind)!.frame
             let point = CGPoint(x: frame.midX, y: frame.midY)
             engine.touchBegan(id: 1, at: point)
@@ -87,7 +87,7 @@ final class MidSentenceEditingTests: XCTestCase {
         return engine.suggestions.map(\.replacement)
     }
 
-    private func chipReplacing(with replacement: String) async throws -> KeyboardSuggestion {
+    private func chipReplacing(with replacement: String) async throws -> TyprKeyboardSuggestion {
         await engine.waitForSuggestions()
         return try XCTUnwrap(engine.suggestions.first { $0.replacement == replacement && $0.boundary != nil },
                              "\(engine.suggestions.map(\.replacement))")
@@ -177,10 +177,10 @@ final class MidSentenceEditingTests: XCTestCase {
         type("morgen ")
         let space = engine.layout.key(.space)!.frame
         let start = CGPoint(x: space.midX, y: space.midY)
-        let activated = CGPoint(x: start.x - FullKeyboardEngine.trackpadActivationDistance, y: start.y)
-        let away = CGPoint(x: activated.x - 3 * FullKeyboardEngine.trackpadPointsPerCharacter, y: start.y)
+        let activated = CGPoint(x: start.x - TyprFullKeyboardEngine.trackpadActivationDistance, y: start.y)
+        let away = CGPoint(x: activated.x - 3 * TyprFullKeyboardEngine.trackpadPointsPerCharacter, y: start.y)
         engine.touchBegan(id: 3, at: start)
-        now += FullKeyboardEngine.trackpadDelay + 0.1
+        now += TyprFullKeyboardEngine.trackpadDelay + 0.1
         engine.touchMoved(id: 3, to: activated)
         engine.touchMoved(id: 3, to: away)
         engine.touchMoved(id: 3, to: activated)
@@ -245,7 +245,7 @@ final class MidSentenceEditingTests: XCTestCase {
         XCTAssertEqual(shown, "ich nicht| heute")
         await engine.waitForSuggestions()
         XCTAssertFalse(engine.suggestions.contains { $0.kind == .revert }, "the held space hides the revert")
-        engine.acceptSuggestion(KeyboardSuggestion(displayText: "komme", replacement: "komme",
+        engine.acceptSuggestion(TyprKeyboardSuggestion(displayText: "komme", replacement: "komme",
                                                    kind: .primary(autoReplace: false),
                                                    ownership: engine.suggestionOwnership))
         XCTAssertEqual(shown, "ich nicht komme| heute")

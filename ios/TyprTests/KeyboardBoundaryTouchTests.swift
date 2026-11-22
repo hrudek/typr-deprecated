@@ -16,9 +16,9 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
             .init(token: token, previous: previous, languages: languages, personal: .empty, kept: [])
         }
         func engine(_ sources: [Language: SpatialWordLexicon],
-                    languages: Set<Language> = [.german, .english], trusted: Set<String> = []) -> AutocorrectEngine {
+                    languages: Set<Language> = [.german, .english], trusted: Set<String> = []) -> TyprAutocorrectEngine {
             let checker = KeyboardBoundaryDecoderTests.Checker(sources[.english], trusted: trusted)
-            let ac = AutocorrectEngine(checker: checker, spatialDecoder: SpatialWordDecoder(lexicons: sources),
+            let ac = TyprAutocorrectEngine(checker: checker, spatialDecoder: SpatialWordDecoder(lexicons: sources),
                                       contextResources: KeyboardContextResources(model: nil))
             ac.englishEnabled = languages.contains(.english)
             if languages.contains(.german) {
@@ -29,9 +29,9 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
         }
     }
     let helper = Fixture()
-    let grid = KeyboardLayout(width: 393)
+    let grid = TyprKeyboardLayout(width: 393)
 
-    func word(_ text: String, layout: KeyboardLayout? = nil) throws -> KeyboardTouchWord {
+    func word(_ text: String, layout: TyprKeyboardLayout? = nil) throws -> KeyboardTouchWord {
         let layout = layout ?? grid
         let samples: [KeyboardTouchWord.Sample] = try text.map { letter in
             let key = try XCTUnwrap(layout.key(.character(String(letter).lowercased())))
@@ -67,7 +67,7 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
         return job
     }
 
-    func install(_ touch: KeyboardBoundaryTouch, in ac: AutocorrectEngine) {
+    func install(_ touch: KeyboardBoundaryTouch, in ac: TyprAutocorrectEngine) {
         ac.touchInput.clear()
         var before = ""
         func append(_ sample: KeyboardTouchWord.Sample) {
@@ -188,8 +188,8 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
         XCTAssertTrue(valid.isUsable)
     }
 
-    func tap(_ character: String, keyboard: FullKeyboardEngine, id: Int = 1, point: CGPoint? = nil) throws {
-        let kind: KeyKind = character == " " ? .space : .character(character)
+    func tap(_ character: String, keyboard: TyprFullKeyboardEngine, id: Int = 1, point: CGPoint? = nil) throws {
+        let kind: TyprKeyKind = character == " " ? .space : .character(character)
         let key = try XCTUnwrap(keyboard.layout.key(kind))
         let location = point ?? CGPoint(x: key.frame.midX, y: key.frame.midY)
         keyboard.touchBegan(id: id, at: location)
@@ -200,7 +200,7 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
         let ac = helper.engine(try helper.resources(), languages: [.english])
         let target = FixtureTextTarget(text: "")
         target.autocapitalizationType = .some(.none)
-        let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+        let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         keyboard.configureForField()
         try tap("a", keyboard: keyboard)
         let space = try XCTUnwrap(keyboard.layout.key(.space))
@@ -218,7 +218,7 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
 
         let other = FixtureTextTarget(text: "")
         other.autocapitalizationType = .some(.none)
-        let k = FullKeyboardEngine(target: other, autocorrect: ac)
+        let k = TyprFullKeyboardEngine(target: other, autocorrect: ac)
         k.configureForField()
         try tap("a", keyboard: k)
         k.typeSpaceFromTyprKey()
@@ -232,7 +232,7 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
         // Held letters commit in down order, with the last known point, exactly once.
         let rollover = FixtureTextTarget(text: "")
         rollover.autocapitalizationType = .some(.none)
-        let r = FullKeyboardEngine(target: rollover, autocorrect: ac)
+        let r = TyprFullKeyboardEngine(target: rollover, autocorrect: ac)
         r.configureForField()
         let a = try XCTUnwrap(r.layout.key(.character("a")))
         let p = CGPoint(x: a.frame.midX, y: a.frame.midY)
@@ -261,7 +261,7 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
         for action in 0..<5 {
             let ac = helper.engine(sources, languages: [.english])
             let target = FixtureTextTarget(text: touch.original)
-            let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+            let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
             keyboard.width = grid.width
             keyboard.configureForField()
             install(touch, in: ac)
@@ -319,7 +319,7 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
                 let ac = helper.engine(sources, languages: languages, trusted: [first, second])
                 let target = FixtureTextTarget(text: "")
                 target.autocapitalizationType = .some(.none)
-                let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+                let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
                 keyboard.width = grid.width
                 keyboard.configureForField()
                 for letter in first { try tap(String(letter), keyboard: keyboard) }
@@ -340,7 +340,7 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
     }
 
     /// Aim about as loose as the static density (σ ≈ .35 pitch) for every letter and Space.
-    private func loosenAim(_ ac: AutocorrectEngine, layout: KeyboardLayout) {
+    private func loosenAim(_ ac: TyprAutocorrectEngine, layout: TyprKeyboardLayout) {
         var labels: [TouchLabel] = []
         for letter in "abcdefghijklmnopqrstuvwxyz" {
             guard let key = layout.key(.character(String(letter))) else { continue }
@@ -366,7 +366,7 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
                 let ac = helper.engine(sources, languages: [.english], trusted: ["hello", "next"])
                 let target = FixtureTextTarget(text: "")
                 target.autocapitalizationType = .some(.none)
-                let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+                let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
                 keyboard.width = grid.width
                 keyboard.configureForField()
                 // Labels go into aim from the first one now. The join reads a tap at the bar's top
@@ -426,7 +426,7 @@ final class KeyboardBoundaryTouchTests: XCTestCase {
         for touch in [try splitTouch("greatvday", index: 5), try joinTouch("a out", aimed: "b")] {
             let ac = helper.engine(sources, languages: [.english])
             let target = FixtureTextTarget(text: touch.original)
-            let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+            let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
             keyboard.width = grid.width
             keyboard.configureForField()
             install(touch, in: ac)

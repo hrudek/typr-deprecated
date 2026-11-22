@@ -128,12 +128,12 @@ final class UsageStatisticsTests: XCTestCase {
         XCTAssertFalse(json.contains("co-operate")); XCTAssertFalse(json.contains("Different output"))
     }
     func testHeatRejectsOffboardNonfiniteAndUnsupportedLayouts() throws {
-        let layout = KeyboardLayout(width: 393)
+        let layout = TyprKeyboardLayout(width: 393)
         session.recordHeat(point: CGPoint(x: 50, y: 90), layout: layout)
         session.recordHeat(point: CGPoint(x: -1, y: 90), layout: layout)
         session.recordHeat(point: CGPoint(x: CGFloat.infinity, y: 90), layout: layout)
         session.recordHeat(point: CGPoint(x: 393, y: 90), layout: layout)
-        session.recordHeat(point: CGPoint(x: 50, y: 90), layout: KeyboardLayout(width: 393, layer: .numbers))
+        session.recordHeat(point: CGPoint(x: 50, y: 90), layout: TyprKeyboardLayout(width: 393, layer: .numbers))
         session.flush()
         let heat = try XCTUnwrap(store.snapshot().heat.first)
         XCTAssertEqual(heat.cells.count, 64 * 24)
@@ -141,8 +141,8 @@ final class UsageStatisticsTests: XCTestCase {
         XCTAssertEqual(heat.geometryVersion, 1)
     }
     func testHeatWithTheNumberRowLandsOnTheSameLetterCells() throws {
-        let off = KeyboardLayout(width: 393)
-        let on = KeyboardLayout(width: 393, numberRow: true)
+        let off = TyprKeyboardLayout(width: 393)
+        let on = TyprKeyboardLayout(width: 393, numberRow: true)
         for layout in [off, on] {
             let q = try XCTUnwrap(layout.key(.character("q")))
             session.recordHeat(point: CGPoint(x: q.frame.midX, y: q.frame.midY), layout: layout)
@@ -156,8 +156,8 @@ final class UsageStatisticsTests: XCTestCase {
     }
 
     func testStaggeredAndAlignedSplitKeepSeparateHeat() throws {
-        let staggered = KeyboardLayout(width: 951, orientation: .splitLandscape)
-        let aligned = KeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: true)
+        let staggered = TyprKeyboardLayout(width: 951, orientation: .splitLandscape)
+        let aligned = TyprKeyboardLayout(width: 951, orientation: .splitLandscape, splitColumns: true)
         let q = try XCTUnwrap(staggered.key(.character("q")))
         session.recordHeat(point: CGPoint(x: q.frame.midX, y: q.frame.midY), layout: staggered)
         session.recordHeat(point: CGPoint(x: q.frame.midX, y: q.frame.midY), layout: aligned)
@@ -171,14 +171,14 @@ final class UsageStatisticsTests: XCTestCase {
 
     func testLayoutRetentionAndSessionRecentLabelsAreBounded() throws {
         for width in [320, 350, 375, 393, 430] {
-            session.recordHeat(point: CGPoint(x: 50, y: 90), layout: KeyboardLayout(width: CGFloat(width)))
+            session.recordHeat(point: CGPoint(x: 50, y: 90), layout: TyprKeyboardLayout(width: CGFloat(width)))
             session.flush()
         }
         XCTAssertEqual(try store.snapshot().heat.count, 4)
-        let layout = KeyboardLayout(width: 393)
+        let layout = TyprKeyboardLayout(width: 393)
         for _ in 0..<150 { session.validatedLabel(.init(point: .zero, letter: "a"), layout: layout) }
         XCTAssertEqual(session.recentLabels.count, 128)
-        session.validatedLabel(.init(point: .zero, letter: "a"), layout: KeyboardLayout(width: 320))
+        session.validatedLabel(.init(point: .zero, letter: "a"), layout: TyprKeyboardLayout(width: 320))
         XCTAssertEqual(session.recentLabels.count, 1)
         session.endSession()
         XCTAssertTrue(session.recentLabels.isEmpty)

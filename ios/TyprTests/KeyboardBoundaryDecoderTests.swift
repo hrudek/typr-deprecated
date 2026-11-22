@@ -8,7 +8,7 @@ final class KeyboardBoundaryDecoderTests: XCTestCase {
     typealias Boundary = KeyboardBoundaryDecoder
     typealias Language = SpatialWordDecoder.Language
 
-    final class Checker: TextChecking {
+    final class Checker: TyprTextChecking {
         let lexicon: SpatialWordLexicon?
         var trusted: Set<String>
         /// Corpus entries a real dictionary does not list (FrequencyWords merge noise such
@@ -29,7 +29,7 @@ final class KeyboardBoundaryDecoderTests: XCTestCase {
         func completions(for prefix: String) -> [String] { calls += 1; return [] }
     }
 
-    let grid = KeyboardLayout(width: 393)
+    let grid = TyprKeyboardLayout(width: 393)
 
     func resources() throws -> [Language: SpatialWordLexicon] { try XCTUnwrap(BundledKeyboardData.lexicons) }
 
@@ -37,8 +37,8 @@ final class KeyboardBoundaryDecoderTests: XCTestCase {
 
     func engine(_ sources: [Language: SpatialWordLexicon], languages: Set<Language> = [.german, .english],
                 trusted: Set<String> = [], rejected: Set<String> = [],
-                model: KeyboardContextModel? = nil) -> AutocorrectEngine {
-        let ac = AutocorrectEngine(checker: Checker(sources[.english], trusted: trusted, rejected: rejected),
+                model: KeyboardContextModel? = nil) -> TyprAutocorrectEngine {
+        let ac = TyprAutocorrectEngine(checker: Checker(sources[.english], trusted: trusted, rejected: rejected),
                                   spatialDecoder: SpatialWordDecoder(lexicons: sources),
                                   contextResources: KeyboardContextResources(model: model))
         ac.englishEnabled = languages.contains(.english)
@@ -53,7 +53,7 @@ final class KeyboardBoundaryDecoderTests: XCTestCase {
         .init(token: token, previous: previous, languages: languages, personal: personal, kept: kept)
     }
 
-    func strip(_ ac: AutocorrectEngine, _ text: String) -> [KeyboardSuggestion] {
+    func strip(_ ac: TyprAutocorrectEngine, _ text: String) -> [TyprKeyboardSuggestion] {
         ac.suggestions(beforeInput: text, field: .text, autocorrectionType: .default)
     }
 
@@ -190,9 +190,9 @@ final class KeyboardBoundaryDecoderTests: XCTestCase {
             // "inthe" exercises corpus merge-noise ranking; its dictionary must reject it.
             let ac = text == "inthe" ? engine(sources, rejected: ["inthe"], model: model) : engine(sources)
             let target = FixtureTextTarget(text: text)
-            let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+            let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
             keyboard.configureForField()
-            let current = try XCTUnwrap(AutocorrectEngine.currentToken(in: text))
+            let current = try XCTUnwrap(TyprAutocorrectEngine.currentToken(in: text))
             var before = String(text.dropLast(current.count))
             for letter in current {
                 let key = try XCTUnwrap(keyboard.layout.key(.character(String(letter).lowercased())))
@@ -240,6 +240,6 @@ final class KeyboardBoundaryDecoderTests: XCTestCase {
         }
         XCTAssertTrue(ac.learning.model.state.rejected.isEmpty)
         XCTAssertEqual(ac.boundaryRejectionCount, 64)
-        print("EVAL P5_rejections attempts=100 session_pairs=\(ac.boundaryRejectionCount) persistent_phrase_pairs=\(ac.learning.model.state.rejected.count) session_pair_cap=\(AutocorrectEngine.boundaryRejectionLimit)")
+        print("EVAL P5_rejections attempts=100 session_pairs=\(ac.boundaryRejectionCount) persistent_phrase_pairs=\(ac.learning.model.state.rejected.count) session_pair_cap=\(TyprAutocorrectEngine.boundaryRejectionLimit)")
     }
 }

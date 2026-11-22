@@ -71,7 +71,7 @@ extension KeyboardBoundaryDecoderTests {
         let ac = engine(sources, rejected: ["inthe"], model: model)
         func request(_ text: String) -> KeyboardSuggestionWorker.Request {
             let owner = KeyboardSuggestionOwnership(engine: UUID(), revision: 1, context: text,
-                token: AutocorrectEngine.currentToken(in: text), field: .text, permitsCorrection: true,
+                token: TyprAutocorrectEngine.currentToken(in: text), field: .text, permitsCorrection: true,
                 configuration: ac.suggestionConfiguration, learning: ac.learning.generation,
                 feedbackEpoch: ac.learning.feedbackEpoch, resources: ac.spatialDecoder?.resourceRevision ?? -1,
                 layout: grid)
@@ -140,7 +140,7 @@ extension KeyboardBoundaryDecoderTests {
         defer { defaults.removePersistentDomain(forName: suite) }
         defaults.set(false, forKey: "keyboard.personalLearning")
         let session = KeyboardLearningSession(defaults: defaults)
-        let off = AutocorrectEngine(checker: Checker(sources[.english], rejected: ["inthe"]), learning: session,
+        let off = TyprAutocorrectEngine(checker: Checker(sources[.english], rejected: ["inthe"]), learning: session,
                                     spatialDecoder: SpatialWordDecoder(lexicons: sources),
                                     contextResources: KeyboardContextResources(model: model))
         XCTAssertFalse(off.learning.isLearningEnabled)

@@ -5,7 +5,7 @@ import UIKit
 /// Glass system keyboard; dark matches the owner's 2026-11-11 reference keyboard
 /// (opaque `#2D2D2D` keycaps on a `#171717` platter). Dark is chosen by the
 /// field's `keyboardAppearance` first, then the host's interface style.
-struct FullKeyboardPalette: Equatable {
+struct TyprFullKeyboardPalette: Equatable {
     let isDark: Bool
     var design = KeyboardDesign.standard
 
@@ -137,7 +137,7 @@ struct JoinedSpaceKeycap {
     /// Outline and seam width: 2 px at 3x, as in the reference.
     static let lineWidth: CGFloat = 2.0 / 3.0
 
-    init?(layout: KeyboardLayout) {
+    init?(layout: TyprKeyboardLayout) {
         guard let typr = layout.key(.typr), let space = layout.keys.first(where: {
             $0.kind == .space && abs(typr.frame.minX - $0.frame.maxX - layout.metrics.gap) < 0.01
         }) else { return nil }
@@ -193,7 +193,7 @@ struct JoinedSpaceKeycap {
         return path
     }
 
-    func draw(in context: CGContext, palette: FullKeyboardPalette, spacePressed: Bool, typrPressed: Bool) {
+    func draw(in context: CGContext, palette: TyprFullKeyboardPalette, spacePressed: Bool, typrPressed: Bool) {
         if palette.design == .mechanical {
             drawMechanical(in: context, palette: palette, spacePressed: spacePressed, typrPressed: typrPressed)
             return
@@ -229,7 +229,7 @@ extension JoinedSpaceKeycap {
         (space.maxX + typr.minX) / 2 + MechanicalKeycap.seamSlant * (face.midY - y)
     }
 
-    fileprivate func drawMechanical(in context: CGContext, palette: FullKeyboardPalette, spacePressed: Bool, typrPressed: Bool) {
+    fileprivate func drawMechanical(in context: CGContext, palette: TyprFullKeyboardPalette, spacePressed: Bool, typrPressed: Bool) {
         let mechanical = MechanicalKeycap(isDark: palette.isDark)
         let face = mechanical.faceRect(frame)
         let half = MechanicalKeycap.seamGap / 2
@@ -382,7 +382,7 @@ struct MechanicalKeycap {
 }
 
 extension CGContext {
-    func fillKeycap(_ rect: CGRect, palette: FullKeyboardPalette, fill: UIColor, radius: CGFloat = FullKeyboardPalette.cornerRadius) {
+    func fillKeycap(_ rect: CGRect, palette: TyprFullKeyboardPalette, fill: UIColor, radius: CGFloat = TyprFullKeyboardPalette.cornerRadius) {
         switch palette.design {
         case .standard:
             fillKeycap(rect, fill: fill, radius: radius)
@@ -392,7 +392,7 @@ extension CGContext {
     }
 
     /// Draws a continuous-corner iOS 26 Liquid Glass keycap with no legacy under-shadow.
-    func fillKeycap(_ rect: CGRect, fill: UIColor, shadow: UIColor = .clear, radius: CGFloat = FullKeyboardPalette.cornerRadius) {
+    func fillKeycap(_ rect: CGRect, fill: UIColor, shadow: UIColor = .clear, radius: CGFloat = TyprFullKeyboardPalette.cornerRadius) {
         let path = UIBezierPath(roundedRect: rect, cornerRadius: radius).cgPath
         saveGState()
         if shadow != .clear {

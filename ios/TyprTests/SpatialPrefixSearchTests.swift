@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class SpatialPrefixSearchTests: XCTestCase {
-    private let grid = KeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text,
+    private let grid = TyprKeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text,
                                       showsGlobe: false, showsStrip: true)
 
     private func evidence(_ typed: String, aimed: String? = nil, noise: Bool = false) -> KeyboardTouchWord {
@@ -18,7 +18,7 @@ final class SpatialPrefixSearchTests: XCTestCase {
         return KeyboardTouchWord(layout: grid, samples: samples)
     }
 
-    private func track(_ word: KeyboardTouchWord, engine: AutocorrectEngine) {
+    private func track(_ word: KeyboardTouchWord, engine: TyprAutocorrectEngine) {
         var before = ""
         for sample in word.samples {
             let after = before + sample.text
@@ -64,7 +64,7 @@ final class SpatialPrefixSearchTests: XCTestCase {
 
     func testNoisyPrefixCompletionPickCountsWithoutTouchLabels() throws {
         let words = spatialLexicon([("keyboard", 100), ("hello", 100)])
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: []), learning: KeyboardLearningSession(),
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: []), learning: KeyboardLearningSession(),
                                    spatialDecoder: SpatialWordDecoder(lexicons: [.english: words]))
         let taps = evidence("gell", aimed: "hell")
         track(taps, engine: ac)
@@ -116,14 +116,14 @@ final class SpatialPrefixSearchTests: XCTestCase {
         let words = spatialLexicon([("schon", 10), ("schön", 100), ("über", 100), ("für", 100), ("straße", 100)])
         let decoder = SpatialWordDecoder(lexicons: [.german: words, .english: words])
         for (typed, intended) in [("uber", "über"), ("fur", "für"), ("strase", "straße"), ("Strasse", "Straße")] {
-            let ac = AutocorrectEngine(checker: SpatialChecker(valid: []), learning: KeyboardLearningSession(), spatialDecoder: decoder)
+            let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: []), learning: KeyboardLearningSession(), spatialDecoder: decoder)
             ac.german = GermanAutocorrect(checker: SpatialChecker(valid: [intended], guesses: [intended]))
             track(evidence(typed), engine: ac)
             XCTAssertTrue(ac.suggestions(beforeInput: typed, field: .text, autocorrectionType: nil)
                 .contains { $0.replacement == intended }, typed)
         }
         let valid: Set<String> = ["schon", "schön", "uber", "über", "fur", "für", "Strasse", "Straße"]
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: valid), learning: KeyboardLearningSession(), spatialDecoder: decoder)
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: valid), learning: KeyboardLearningSession(), spatialDecoder: decoder)
         ac.german = GermanAutocorrect(checker: SpatialChecker(valid: valid, guesses: ["schön", "über", "für", "Straße"]))
         for token in valid.sorted() {
             if token.allSatisfy({ $0.isASCII }) { track(evidence(token), engine: ac) }
@@ -139,7 +139,7 @@ final class SpatialPrefixSearchTests: XCTestCase {
     func testCompletionsCanonicalNounsNoisyPrefixAndNoAutomaticSuffix() throws {
         let words = spatialLexicon([("keyboard", 100), ("häuser", 100), ("hello", 100)])
         let decoder = SpatialWordDecoder(lexicons: [.english: words, .german: words])
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: ["keyboard", "hello"]),
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: ["keyboard", "hello"]),
                                    learning: KeyboardLearningSession(), spatialDecoder: decoder)
         ac.german = GermanAutocorrect(checker: SpatialChecker(valid: ["Häuser"]))
         for (typed, aimed, intended) in [("keyb", "keyb", "keyboard"), ("gell", "hell", "hello"), ("hau", "hau", "Häuser")] {
@@ -159,13 +159,13 @@ final class SpatialPrefixSearchTests: XCTestCase {
 
     func testPrefixExtendingTextReplacementIsHighlightedAndAppliedAtSpace() async throws {
         for (german, english) in [(true, false), (false, true), (true, true), (false, false)] {
-            let ac = AutocorrectEngine(checker: SpatialChecker(valid: []), learning: KeyboardLearningSession(), spatialDecoder: nil)
+            let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: []), learning: KeyboardLearningSession(), spatialDecoder: nil)
             ac.englishEnabled = english
             ac.german = german ? GermanAutocorrect(checker: SpatialChecker(valid: [])) : nil
             ac.loadLexiconEntries([("sig", "signature")])
             let target = FixtureTextTarget()
             target.autocapitalizationType = .some(.none)
-            let engine = FullKeyboardEngine(target: target, autocorrect: ac)
+            let engine = TyprFullKeyboardEngine(target: target, autocorrect: ac)
             engine.configureForField()
             target.insertText("sig")
             engine.textDidChange()
@@ -241,7 +241,7 @@ final class SpatialPrefixSearchTests: XCTestCase {
         let decoder = SpatialWordDecoder(lexicons: words)
         let controls = SpatialTypoEvaluationFixtures.germanNouns + SpatialTypoEvaluationFixtures.novel
             + SpatialTypoEvaluationFixtures.absent + ["schon", "schön", "uber", "über", "fur", "für", "Strasse", "Straße"]
-        let ac = AutocorrectEngine(checker: SpatialChecker(valid: Set(controls)), learning: KeyboardLearningSession(), spatialDecoder: decoder)
+        let ac = TyprAutocorrectEngine(checker: SpatialChecker(valid: Set(controls)), learning: KeyboardLearningSession(), spatialDecoder: decoder)
         ac.german = GermanAutocorrect(checker: SpatialChecker(valid: Set(controls)))
         var unwanted = 0
         for token in controls {

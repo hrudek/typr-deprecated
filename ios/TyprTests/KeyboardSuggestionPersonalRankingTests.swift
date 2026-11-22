@@ -6,7 +6,7 @@ import XCTest
 /// public fixtures. Not Apple's dictionaries, real typing, simulator or iPhone evidence.
 @MainActor
 final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
-    private final class Checker: TextChecking {
+    private final class Checker: TyprTextChecking {
         var valid: Set<String>
         var completionLists: [String: [String]]
         var guessLists: [String: [String]]
@@ -25,7 +25,7 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
     }
 
     /// Valid when the bundled corpus has the word (or it is explicitly trusted); no system completions.
-    private final class CorpusChecker: TextChecking {
+    private final class CorpusChecker: TyprTextChecking {
         let lexicon: SpatialWordLexicon?
         let trusted: Set<String>
         init(_ lexicon: SpatialWordLexicon?, trusted: Set<String> = []) { self.lexicon = lexicon; self.trusted = trusted }
@@ -36,16 +36,16 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
         func completions(for prefix: String) -> [String] { [] }
     }
 
-    private let grid = KeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text,
+    private let grid = TyprKeyboardLayout(width: 393, orientation: .portrait, layer: .letters, field: .text,
                                       showsGlobe: false, showsStrip: true)
 
     func testRepeatedExplicitAcceptanceStrengthensCompletion() {
         let (session, _) = session()
         let checker = Checker(valid: ["he"], completions: ["he": ["help", "hello"]])
-        let ac = AutocorrectEngine(checker: checker, learning: session, spatialDecoder: nil)
+        let ac = TyprAutocorrectEngine(checker: checker, learning: session, spatialDecoder: nil)
         let before = alternatives(ac, "he")
         XCTAssertEqual(before, ["help", "hello"])
-        let pick = KeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary, isCompletion: true)
+        let pick = TyprKeyboardSuggestion(displayText: "hello", replacement: "hello", kind: .secondary, isCompletion: true)
         for _ in 0..<8 { ac.recordSuggestionFeedback(pick, literal: "he", evidence: nil) }
         let after = alternatives(ac, "he")
         XCTAssertEqual(after.first, "hello")
@@ -68,11 +68,11 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
         for word in kept { _ = session.model.keep(word) }
     }
 
-    private func strip(_ ac: AutocorrectEngine, _ text: String) -> [KeyboardSuggestion] {
+    private func strip(_ ac: TyprAutocorrectEngine, _ text: String) -> [TyprKeyboardSuggestion] {
         ac.suggestions(beforeInput: text, field: .text, autocorrectionType: .default)
     }
 
-    private func alternatives(_ ac: AutocorrectEngine, _ text: String) -> [String] {
+    private func alternatives(_ ac: TyprAutocorrectEngine, _ text: String) -> [String] {
         strip(ac, text).filter { $0.kind != .keepLiteral }.map(\.replacement)
     }
 
@@ -85,7 +85,7 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
         return KeyboardTouchWord(layout: grid, samples: samples)
     }
 
-    private func track(_ word: KeyboardTouchWord, engine: AutocorrectEngine) {
+    private func track(_ word: KeyboardTouchWord, engine: TyprAutocorrectEngine) {
         var before = ""
         for sample in word.samples {
             let after = before + sample.text
@@ -190,8 +190,8 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
                                               "kno": ["know", "knowledge", "knot"]]) }
         let tokens = ["hel", "Hel", "tas", "kno", "fen", "Fen", "stra", "mü", "zz", "ha"]
         let personal = ["helmet": 6, "knot": 4, "fenster": 3, "fensterbank": 9, "tassen": 5, "mühle": 3, "haushalt": 7]
-        func make(_ session: KeyboardLearningSession) -> AutocorrectEngine {
-            let ac = AutocorrectEngine(checker: checker(), learning: session,
+        func make(_ session: KeyboardLearningSession) -> TyprAutocorrectEngine {
+            let ac = TyprAutocorrectEngine(checker: checker(), learning: session,
                                        spatialDecoder: SpatialWordDecoder(lexicons: words))
             ac.german = GermanAutocorrect(checker: Checker(valid: ["Fenster", "Mühle", "Haushalt"]))
             return ac
@@ -220,7 +220,7 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
         let (learning, _) = session()
         seed(learning, counts: ["helmet": 3, "helpful": 3])
         let checker = Checker(completions: ["hel": ["helpful", "hello", "help", "helmet"]])
-        let ac = AutocorrectEngine(checker: checker, learning: learning, spatialDecoder: nil)
+        let ac = TyprAutocorrectEngine(checker: checker, learning: learning, spatialDecoder: nil)
         // Baseline (length, then alphabetical): help, hello, helmet, helpful.
         let chips = strip(ac, "hel")
         XCTAssertEqual(chips.map(\.replacement), ["hel", "helmet", "helpful"], "Equal counts keep system order")
@@ -228,7 +228,7 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
         seed(learning, counts: ["helpful": 2], kept: ["hello"])
         XCTAssertEqual(alternatives(ac, "hel"), ["helpful", "helmet"], "Higher count wins")
         XCTAssertEqual(alternatives(ac, "Hel"), ["Helpful", "Helmet"], "Typed capital applies")
-        let keptOnly = AutocorrectEngine(checker: checker, learning: { let (s, _) = session(); seed(s, counts: [:], kept: ["hello"]); return s }(),
+        let keptOnly = TyprAutocorrectEngine(checker: checker, learning: { let (s, _) = session(); seed(s, counts: [:], kept: ["hello"]); return s }(),
                                          spatialDecoder: nil)
         XCTAssertEqual(alternatives(keptOnly, "hel"), ["hello", "help"], "A kept word moves up; others keep order")
     }
@@ -236,7 +236,7 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
     func testMissingPersonalWordsJoinWithDictionaryCasingIncludingGermanNounsAndSharpS() {
         let (learning, _) = session()
         seed(learning, counts: ["tastatur": 4, "hendrik": 3, "straße": 3, "müsli": 2, "berlin": 5])
-        let ac = AutocorrectEngine(checker: Checker(valid: ["Berlin"]), learning: learning, spatialDecoder: nil)
+        let ac = TyprAutocorrectEngine(checker: Checker(valid: ["Berlin"]), learning: learning, spatialDecoder: nil)
         ac.german = GermanAutocorrect(checker: Checker(valid: ["Tastatur", "Straße", "Müsli"]))
         XCTAssertEqual(alternatives(ac, "tast"), ["Tastatur"], "German noun capital from the dictionary")
         XCTAssertEqual(alternatives(ac, "Tast"), ["Tastatur"])
@@ -247,7 +247,7 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
         XCTAssertEqual(alternatives(ac, "Stra"), ["Straße"])
         XCTAssertEqual(alternatives(ac, "mu\u{308}").map { $0.precomposedStringWithCanonicalMapping }, ["Müsli"])
         XCTAssertTrue(strip(ac, "tast").dropFirst().allSatisfy { $0.isPersonal && $0.isCompletion })
-        let noGerman = AutocorrectEngine(checker: Checker(), learning: learning, spatialDecoder: nil)
+        let noGerman = TyprAutocorrectEngine(checker: Checker(), learning: learning, spatialDecoder: nil)
         XCTAssertEqual(alternatives(noGerman, "tast"), ["tastatur"], "No dictionary: no invented capital")
     }
 
@@ -257,9 +257,9 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
         let checker = Checker(valid: ["the", "hello", "help"],
                               completions: ["hel": ["hello", "help", "helmet"], "teh": ["teheran"]],
                               guesses: ["teh": ["the"]])
-        let ac = AutocorrectEngine(checker: checker, learning: learning, spatialDecoder: nil)
+        let ac = TyprAutocorrectEngine(checker: checker, learning: learning, spatialDecoder: nil)
         let (offLearning, _) = session(learning: false)
-        let off = AutocorrectEngine(checker: checker, learning: offLearning, spatialDecoder: nil)
+        let off = TyprAutocorrectEngine(checker: checker, learning: offLearning, spatialDecoder: nil)
         for engine in [ac, off] { engine.loadLexiconEntries([(userInput: "Helmut", documentText: "Helmut")]) }
         XCTAssertEqual(alternatives(ac, "hel"), ["Helmut", "helmet"], "Contacts keep precedence")
         XCTAssertEqual(alternatives(off, "hel"), ["Helmut", "help"])
@@ -283,7 +283,7 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
     func testPersonalCompletionPickCountsWordOnlyAndIsCountedSeparately() throws {
         let (learning, _) = session()
         seed(learning, counts: ["keyboard": 3])
-        let ac = AutocorrectEngine(checker: Checker(completions: ["keyb": ["keybinding"]]), learning: learning,
+        let ac = TyprAutocorrectEngine(checker: Checker(completions: ["keyb": ["keybinding"]]), learning: learning,
                                    spatialDecoder: nil)
         let taps = evidence("keyb")
         track(taps, engine: ac)
@@ -308,11 +308,11 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
         let words = try bundled()
         let worker = KeyboardSuggestionWorker()
         for (typed, noisy) in [("fens", false), ("hau", false), ("keyb", true), ("tast", false), ("stra", false)] {
-            func make() -> (AutocorrectEngine, Checker) {
+            func make() -> (TyprAutocorrectEngine, Checker) {
                 let (learning, _) = session()
                 seed(learning, counts: ["fensterbank": 4, "haushalt": 3, "keyboard": 2, "tastatur": 5, "strandkorb": 3])
                 let checker = Checker(completions: ["hau": ["haul", "haunt"], "keyb": ["keyboards"]])
-                let ac = AutocorrectEngine(checker: checker, learning: learning,
+                let ac = TyprAutocorrectEngine(checker: checker, learning: learning,
                                            spatialDecoder: SpatialWordDecoder(lexicons: words))
                 ac.german = GermanAutocorrect(checker: Checker(valid: ["Fensterbank", "Haushalt", "Tastatur", "Strandkorb"]))
                 return (ac, checker)
@@ -359,11 +359,11 @@ final class KeyboardSuggestionPersonalRankingTests: XCTestCase {
                 + (name == "mixed" ? names : [])
             var counts: [String: Int] = [:]
             for (ordinal, word) in targets.enumerated() { counts[word] = 2 + (ordinal * 7) % 19 }
-            func make(learning on: Bool) -> AutocorrectEngine {
+            func make(learning on: Bool) -> TyprAutocorrectEngine {
                 let (learning, defaults) = session(learning: true)
                 seed(learning, counts: counts)
                 if !on { defaults.set(false, forKey: "keyboard.personalLearning"); learning.refresh() }
-                let ac = AutocorrectEngine(checker: CorpusChecker(words[.english], trusted: Set(names)),
+                let ac = TyprAutocorrectEngine(checker: CorpusChecker(words[.english], trusted: Set(names)),
                                            learning: learning, spatialDecoder: SpatialWordDecoder(lexicons: words))
                 ac.englishEnabled = name != "DE"
                 if name != "EN" { ac.german = GermanAutocorrect(checker: CorpusChecker(words[.german])) }

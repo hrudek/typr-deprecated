@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Renders the `FullKeyboardView` under a composer when
+/// Renders the `TyprFullKeyboardView` under a composer when
 /// `--snap-state full-keyboard-<state>[-dark|-dark-field]` is passed on Simulator.
 /// `-dark` is a dark app; `-dark-field` is a light app whose field asks for a dark keyboard.
 struct FullKeyboardSnapshotStage: View {
@@ -55,7 +55,7 @@ struct FullKeyboardSnapshotStage: View {
         let canvas = darkApp
             ? Color(red: 0x09 / 255, green: 0x0A / 255, blue: 0x0C / 255)
             : Color(red: 0xF5 / 255, green: 0xF6 / 255, blue: 0xF8 / 255)
-        let backdrop = FullKeyboardPalette(isDark: darkApp || darkField).backdrop
+        let backdrop = TyprFullKeyboardPalette(isDark: darkApp || darkField).backdrop
         VStack(spacing: 0) {
             Spacer()
             Text(draft)
@@ -71,7 +71,7 @@ struct FullKeyboardSnapshotStage: View {
                 .padding(.horizontal, 14)
                 .padding(.bottom, 10)
             FullKeyboardFixture(state: state, draft: draft, darkKeyboard: darkApp || darkField, design: design)
-                .frame(height: KeyboardLayout.height(for: .portrait, showsStrip: Self.showsSuggestionBar(state)))
+                .frame(height: TyprKeyboardLayout.height(for: .portrait, showsStrip: Self.showsSuggestionBar(state)))
                 .padding(.top, 12)
                 .background(Color(uiColor: backdrop).ignoresSafeArea(edges: .bottom))
         }
@@ -100,7 +100,7 @@ private struct FullKeyboardFixture: UIViewRepresentable {
         Coordinator(draft: draft, darkKeyboard: darkKeyboard)
     }
 
-    func makeUIView(context: Context) -> FullKeyboardView {
+    func makeUIView(context: Context) -> TyprFullKeyboardView {
         let model = context.coordinator.model
         model.needsGlobeKey = false
         let now: TimeInterval = 10_000
@@ -132,7 +132,7 @@ private struct FullKeyboardFixture: UIViewRepresentable {
             model.configureFixture(snapshot: warm, now: now)
         }
 
-        let view = FullKeyboardView(model: model, target: context.coordinator.target)
+        let view = TyprFullKeyboardView(model: model, target: context.coordinator.target)
         view.appearanceOverride = darkKeyboard
         view.designOverride = design
         view.orientationOverride = .portrait
@@ -152,7 +152,7 @@ private struct FullKeyboardFixture: UIViewRepresentable {
                 view.engine.touchEnded(id: 900, at: center(of: .layerSwitch(.numbers), in: view))
                 view.debugPress("3")
             case "symbols":
-                for kind in [KeyKind.layerSwitch(.numbers), .layerSwitch(.symbols)] {
+                for kind in [TyprKeyKind.layerSwitch(.numbers), .layerSwitch(.symbols)] {
                     view.engine.touchBegan(id: 901, at: center(of: kind, in: view))
                     view.engine.touchEnded(id: 901, at: center(of: kind, in: view))
                 }
@@ -176,17 +176,17 @@ private struct FullKeyboardFixture: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: FullKeyboardView, context: Context) {}
+    func updateUIView(_ uiView: TyprFullKeyboardView, context: Context) {}
 }
 
 @MainActor
-private func center(of kind: KeyKind, in view: FullKeyboardView) -> CGPoint {
+private func center(of kind: TyprKeyKind, in view: TyprFullKeyboardView) -> CGPoint {
     guard let key = view.engine.layout.key(kind) else { return .zero }
     return CGPoint(x: key.frame.midX, y: key.frame.midY)
 }
 
 @MainActor
-final class FixtureTextTarget: KeyboardTextTarget {
+final class FixtureTextTarget: TyprKeyboardTextTarget {
     private(set) var text: String
     private(set) var cursorIndex: Int
     let keyboardAppearance: UIKeyboardAppearance?

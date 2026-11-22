@@ -5,45 +5,45 @@ import XCTest
 
 extension KeyboardBoundaryDecoderTests {
     func runKeyboard(_ languages: Set<Language> = [.english], text: String = "") throws
-        -> (FullKeyboardEngine, FixtureTextTarget) {
+        -> (TyprFullKeyboardEngine, FixtureTextTarget) {
         let ac = engine(try resources(), languages: languages, model: try contextModel())
         let target = FixtureTextTarget(text: text)
         target.autocapitalizationType = UITextAutocapitalizationType.none
-        let keyboard = FullKeyboardEngine(target: target, autocorrect: ac)
+        let keyboard = TyprFullKeyboardEngine(target: target, autocorrect: ac)
         keyboard.width = grid.width
         keyboard.configureForField()
         return (keyboard, target)
     }
 
-    func press(_ keyboard: FullKeyboardEngine, at point: CGPoint) {
+    func press(_ keyboard: TyprFullKeyboardEngine, at point: CGPoint) {
         keyboard.touchBegan(id: 1, at: point)
         keyboard.touchEnded(id: 1, at: point)
     }
 
-    func centre(_ keyboard: FullKeyboardEngine, _ kind: KeyKind) throws -> CGPoint {
+    func centre(_ keyboard: TyprFullKeyboardEngine, _ kind: TyprKeyKind) throws -> CGPoint {
         let frame = try XCTUnwrap(keyboard.layout.key(kind)).frame
         return CGPoint(x: frame.midX, y: frame.midY)
     }
 
-    func typeRun(_ keyboard: FullKeyboardEngine, _ text: String) throws {
+    func typeRun(_ keyboard: TyprFullKeyboardEngine, _ text: String) throws {
         for letter in text {
             press(keyboard, at: try centre(keyboard, letter == " " ? .space : .character(String(letter))))
         }
     }
 
-    func typeNear(_ keyboard: FullKeyboardEngine, _ letter: String, toward: String) throws {
+    func typeNear(_ keyboard: TyprFullKeyboardEngine, _ letter: String, toward: String) throws {
         let key = try XCTUnwrap(keyboard.layout.key(.character(letter))).frame
         let other = try XCTUnwrap(keyboard.layout.key(.character(toward))).frame
         let x = other.midX < key.midX ? key.minX + 1 : key.maxX - 1
         press(keyboard, at: CGPoint(x: x, y: key.midY))
     }
 
-    func typeAboveSpace(_ keyboard: FullKeyboardEngine, _ letter: String) throws {
+    func typeAboveSpace(_ keyboard: TyprFullKeyboardEngine, _ letter: String) throws {
         let key = try XCTUnwrap(keyboard.layout.key(.character(letter))).frame
         press(keyboard, at: CGPoint(x: key.midX, y: key.maxY - 1))
     }
 
-    func typeSpace(_ keyboard: FullKeyboardEngine, below letter: String? = nil) throws {
+    func typeSpace(_ keyboard: TyprFullKeyboardEngine, below letter: String? = nil) throws {
         let space = try XCTUnwrap(keyboard.layout.key(.space)).frame
         guard let letter else { return press(keyboard, at: CGPoint(x: space.midX, y: space.midY)) }
         let key = try XCTUnwrap(keyboard.layout.key(.character(letter))).frame
