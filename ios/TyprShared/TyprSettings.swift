@@ -61,6 +61,7 @@ struct ExperimentalSwitch: Hashable {
 struct TyprSettings {
     private enum Key {
         static let aiCleanup = "typr.aiCleanup"
+        static let cleanUpWhatISay = "typr.cleanUpWhatISay"
         static let dictationLog = "typr.dictationLog"
         static let autocorrectGerman = "typr.autocorrectGerman"
         static let autocorrectEnglish = "typr.autocorrectEnglish"
@@ -81,6 +82,13 @@ struct TyprSettings {
     var aiCleanup: Bool {
         get { defaults?.object(forKey: Key.aiCleanup) as? Bool ?? false }
         nonmutating set { defaults?.set(newValue, forKey: Key.aiCleanup) }
+    }
+
+    /// "Clean up what I say": hesitations, stutters and explicit self-repairs removed by word
+    /// rules before AI cleanup, skipped in Verbatim. On by default, like Hex.
+    var cleanUpWhatISay: Bool {
+        get { defaults?.object(forKey: Key.cleanUpWhatISay) as? Bool ?? true }
+        nonmutating set { defaults?.set(newValue, forKey: Key.cleanUpWhatISay) }
     }
 
     /// Collection only. Off interrupts pending log entries but deliberately keeps saved history.

@@ -40,8 +40,12 @@ An explicit engine or language choice never silently falls back to another.
   it ends. Experimental › **Warm mic on iPhone** follows Hex: the idle warm input stays
   on the iPhone and each dictation moves to the chosen microphone, which can end the
   warm session while Typr is in the background.
-- Text processing combines vocabulary corrections, optional AI cleanup and
-  formatting styles. Cleanup runs on-device with Apple Intelligence (iOS 26+,
+- Text processing combines vocabulary corrections, **Clean up what I say**, optional AI
+  cleanup and formatting styles. Clean up what I say (Dictation style page, on by default,
+  skipped in Verbatim) runs Hex's German word rules, with English rules added, before AI
+  cleanup: it removes hesitations (äh, ähm, öh, hm; English um, uh), stuttered words
+  (ich ich) and explicit self-repairs (Dienstag, ich meine, Mittwoch), and keeps eh,
+  emphatic repeats (sehr sehr) and repairs it cannot place. Cleanup runs on-device with Apple Intelligence (iOS 26+,
   default) or, with your own Anthropic API key (stored in the Keychain), with
   Claude in the cloud; the plain transcript is used whenever cleanup is
   unavailable. Apple Intelligence cleanup is Hex's iOS cleaner at `d65b02d3` word for word

@@ -7,7 +7,7 @@ extension DictationStyle {
         case .casual: "Chat text with natural capitalization, like typing with iPhone autocorrect. Drops the final period, even after several sentences; keeps question and exclamation marks."
         case .veryCasual: "Lowercase chat text. Drops the final period, even after several sentences; keeps question and exclamation marks."
         case .notes: "Turns spoken “bullet”, “new line” and “new paragraph” into bullets and line breaks. For lists and quick notes."
-        case .verbatim: "Skips AI cleanup and style formatting. Vocabulary corrections, spaces instead of hyphens between words and basic spacing still apply."
+        case .verbatim: "Skips AI cleanup, Clean up what I say and style formatting. Vocabulary corrections, spaces instead of hyphens between words and basic spacing still apply."
         }
     }
 }
@@ -49,9 +49,16 @@ struct SettingsChoiceRow: View {
 @MainActor
 struct DictationStyleSettingsCard: View {
     @Bindable var dictation: DictationController
+    @State private var cleanUpWhatISay = TyprSettings().cleanUpWhatISay
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            SettingsSection {
+                SettingsToggle(title: "Clean up what I say",
+                               detail: "Removes “äh” and “um”, stutters like “ich ich” and corrections like “Dienstag, ich meine, Mittwoch”. Skipped in Verbatim.",
+                               isOn: $cleanUpWhatISay)
+                    .onChange(of: cleanUpWhatISay) { _, enabled in TyprSettings().cleanUpWhatISay = enabled }
+            }
             SettingsSection {
                 ForEach(DictationStyle.allCases, id: \.self) { style in
                     if style != DictationStyle.allCases.first { SettingsDivider() }
@@ -61,7 +68,7 @@ struct DictationStyleSettingsCard: View {
                     }
                 }
             }
-            Text("AI cleanup, when enabled and available, runs before formatting in every style except Verbatim.")
+            Text("Clean up what I say, then AI cleanup when enabled and available, run before formatting in every style except Verbatim.")
                 .font(.footnote).foregroundStyle(TyprTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
