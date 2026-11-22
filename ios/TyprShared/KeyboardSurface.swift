@@ -90,10 +90,10 @@ final class KeyboardViewModel: ObservableObject {
 
     var resultNoteDuration: TimeInterval = 8
     private var resultNoteWork: DispatchWorkItem?
-    /// The inserted dictation's `KeyboardSnapshot.resultNote`, for `resultNoteDuration`.
+    /// The inserted dictation's `KeyboardSnapshot.resultNote`, for `resultNoteDuration` from
+    /// each insertion.
     @Published var resultNote: String? {
         didSet {
-            guard resultNote != oldValue else { return }
             resultNoteWork?.cancel()
             guard let note = resultNote else { return }
             UIAccessibility.post(notification: .announcement, argument: note)

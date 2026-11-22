@@ -365,3 +365,14 @@ final class DictationTranslationPipelineTests: XCTestCase {
         try await drain(f)
     }
 }
+
+@MainActor
+final class KeyboardResultNoteTests: XCTestCase {
+    func testNoteHidesByItself() async throws {
+        let model = KeyboardViewModel()
+        model.resultNoteDuration = 0.05
+        model.resultNote = TranslationFailure.failed.note
+        XCTAssertEqual(model.resultNote, "Couldn't translate, pasted as spoken")
+        try await waitForState("note hidden") { model.resultNote == nil }
+    }
+}
