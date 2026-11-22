@@ -10,7 +10,7 @@ struct LearnedDictationFixesCard: View {
     var store = DictationLearningStore()
 
     @Environment(\.scenePhase) private var scenePhase
-    @State private var fixes: [DictationLearnedFix] = []
+    @State private var fixes: [TyprDictationLearnedFix] = []
     @State private var hasRecords = false
     @State private var isOn = false
     @State private var confirmingDelete = false

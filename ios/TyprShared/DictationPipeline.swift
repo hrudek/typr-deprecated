@@ -45,7 +45,7 @@ nonisolated struct DictationPipeline: Sendable {
         style: DictationStyle,
         language: String?,
         vocabulary: [String] = [],
-        corrections: [DictationCorrection] = [],
+        corrections: [TyprDictationCorrection] = [],
         lowercase: Bool = false,
         formatLists: Bool = false,
         spokenPunctuation: Bool = false,

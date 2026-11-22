@@ -15,7 +15,7 @@ final class DictationPipelineTests: XCTestCase {
     }
 
     func testLearnedFixesComeFirst() async {
-        let fix = DictationCorrection(heard: "wal", meant: "Wahl", caseIsKnown: true)
+        let fix = TyprDictationCorrection(heard: "wal", meant: "Wahl", caseIsKnown: true)
         let pipeline = DictationPipeline(style: .polished, language: "de-DE", corrections: [fix])
         let stages = await pipeline.run("die wal ist morgen")
         XCTAssertEqual(stages.spelled, "die Wahl ist morgen")

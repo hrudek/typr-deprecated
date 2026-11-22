@@ -1,14 +1,14 @@
 import Foundation
 
 /// A word in dictated or typed text: letters and digits, with apostrophes inside it.
-nonisolated struct DictationWord: Equatable, Sendable {
+nonisolated struct TyprDictationWord: Equatable, Sendable {
     let text: String
     let range: Range<String.Index>
 }
 
-nonisolated enum DictationText {
-    static func words(in text: String) -> [DictationWord] {
-        var result: [DictationWord] = []
+nonisolated enum TyprDictationText {
+    static func words(in text: String) -> [TyprDictationWord] {
+        var result: [TyprDictationWord] = []
         var start: String.Index?
         var index = text.startIndex
         while index < text.endIndex {
@@ -19,13 +19,13 @@ nonisolated enum DictationText {
             if isWordCharacter {
                 if start == nil { start = index }
             } else if let wordStart = start {
-                result.append(DictationWord(text: String(text[wordStart..<index]), range: wordStart..<index))
+                result.append(TyprDictationWord(text: String(text[wordStart..<index]), range: wordStart..<index))
                 start = nil
             }
             index = next
         }
         if let wordStart = start {
-            result.append(DictationWord(text: String(text[wordStart...]), range: wordStart..<text.endIndex))
+            result.append(TyprDictationWord(text: String(text[wordStart...]), range: wordStart..<text.endIndex))
         }
         return result
     }
@@ -66,7 +66,7 @@ nonisolated enum DictationText {
 
     /// Whether a word begins a sentence: after a period, question or exclamation mark, a line
     /// break, or nothing at all.
-    static func isSentenceStart(_ word: DictationWord, in text: String) -> Bool {
+    static func isSentenceStart(_ word: TyprDictationWord, in text: String) -> Bool {
         var index = word.range.lowerBound
         while index > text.startIndex {
             index = text.index(before: index)
@@ -81,7 +81,7 @@ nonisolated enum DictationText {
 
 /// A dictation Typr inserted, remembered by the text right around it rather than by
 /// position, because the host only shows the text near the cursor and it moves.
-nonisolated struct DictationInsertion: Equatable, Sendable {
+nonisolated struct TyprDictationInsertion: Equatable, Sendable {
     static let anchorLength = 32
 
     let inserted: String
@@ -96,7 +96,7 @@ nonisolated struct DictationInsertion: Equatable, Sendable {
 }
 
 /// The text that now sits where the dictation went.
-nonisolated struct DictationSpan: Equatable, Sendable {
+nonisolated struct TyprDictationSpan: Equatable, Sendable {
     var text: String
     /// False when the start can't be told from the host cutting its context short
     /// (the dictation began the field and text now sits before the cursor).
@@ -104,13 +104,13 @@ nonisolated struct DictationSpan: Equatable, Sendable {
     /// False when the end can't be told from the host cutting its context short.
     var endIsCertain: Bool
 
-    var hasWords: Bool { !DictationText.words(in: text).isEmpty }
+    var hasWords: Bool { !TyprDictationText.words(in: text).isEmpty }
 }
 
-nonisolated enum DictationSpanLocator {
+nonisolated enum TyprDictationSpanLocator {
     /// Finds the dictation between its anchors in the text around the cursor, or nil
     /// when the context is missing or the anchors are gone (another field, or edited).
-    static func locate(_ insertion: DictationInsertion, before: String?, after: String?) -> DictationSpan? {
+    static func locate(_ insertion: TyprDictationInsertion, before: String?, after: String?) -> TyprDictationSpan? {
         guard before != nil || after != nil else { return nil }
         let currentBefore = before ?? ""
         let currentAfter = after ?? ""
@@ -136,7 +136,7 @@ nonisolated enum DictationSpanLocator {
         guard let range = best?.range,
               text.distance(from: range.lowerBound, to: range.upperBound) <= expected * 4 + 200
         else { return nil }
-        return DictationSpan(
+        return TyprDictationSpan(
             text: String(text[range]),
             startIsCertain: !insertion.anchorBefore.isEmpty || currentBefore.isEmpty,
             endIsCertain: !insertion.anchorAfter.isEmpty || currentAfter.isEmpty
@@ -144,7 +144,7 @@ nonisolated enum DictationSpanLocator {
     }
 }
 
-nonisolated enum DictationWordDiff {
+nonisolated enum TyprDictationWordDiff {
     /// A run of old words replaced by a run of new words; either side may be empty.
     struct Hunk: Equatable, Sendable {
         var old: Range<Int>
@@ -206,7 +206,7 @@ nonisolated enum DictationWordDiff {
     }
 }
 
-nonisolated enum DictationOutcome: Sendable {
+nonisolated enum TyprDictationOutcome: Sendable {
     /// Sent or left as Typr inserted it.
     case kept
     /// Some words fixed.
@@ -222,7 +222,7 @@ nonisolated enum DictationOutcome: Sendable {
 }
 
 /// Words you replaced in a dictation, at most three a side.
-nonisolated struct DictationEditPair: Equatable, Sendable {
+nonisolated struct TyprDictationEditPair: Equatable, Sendable {
     /// The words as Typr inserted them.
     var inserted: String
     /// The words you ended up with.
@@ -232,54 +232,54 @@ nonisolated struct DictationEditPair: Equatable, Sendable {
     var caseIsKnown: Bool
 }
 
-nonisolated struct DictationEditResult: Equatable, Sendable {
-    var outcome: DictationOutcome
-    var pairs: [DictationEditPair] = []
+nonisolated struct TyprDictationEditResult: Equatable, Sendable {
+    var outcome: TyprDictationOutcome
+    var pairs: [TyprDictationEditPair] = []
     /// Runs of word keys left exactly as inserted in a dictation you corrected elsewhere, so you
     /// saw them and kept them. Never stored; used to contradict learned fixes.
     var keptWords: [[String]] = []
 }
 
-nonisolated enum DictationEditClassifier {
+nonisolated enum TyprDictationEditClassifier {
     static let maxPairWords = 3
     static let maxWords = 400
 
     /// Classifies a dictation against the text now in its place. Nil when there is nothing to
     /// judge (no words, or far too long).
-    static func classify(inserted: String, final span: DictationSpan, undone: Bool = false) -> DictationEditResult? {
-        let insertedWords = DictationText.words(in: inserted)
+    static func classify(inserted: String, final span: TyprDictationSpan, undone: Bool = false) -> TyprDictationEditResult? {
+        let insertedWords = TyprDictationText.words(in: inserted)
         guard !insertedWords.isEmpty, insertedWords.count <= maxWords else { return nil }
-        let finalWords = DictationText.words(in: span.text)
+        let finalWords = TyprDictationText.words(in: span.text)
         if finalWords.isEmpty {
-            return DictationEditResult(outcome: undone ? .undone : .deleted)
+            return TyprDictationEditResult(outcome: undone ? .undone : .deleted)
         }
         guard finalWords.count <= maxWords * 2 else { return nil }
 
         let ins = insertedWords.map(\.text)
         let fin = finalWords.map(\.text)
-        let allHunks = DictationWordDiff.hunks(ins, fin)
+        let allHunks = TyprDictationWordDiff.hunks(ins, fin)
         let hunks = trimEdges(allHunks, old: ins, new: fin, span: span)
         guard !hunks.isEmpty else {
-            return DictationEditResult(outcome: .kept)
+            return TyprDictationEditResult(outcome: .kept)
         }
 
         let changed = hunks.reduce(0) { $0 + max($1.old.count, $1.new.count) }
         guard Double(changed) <= max(1, Double(ins.count) / 2) else {
-            return DictationEditResult(outcome: .rewritten)
+            return TyprDictationEditResult(outcome: .rewritten)
         }
 
         let startsSentence = ins.first?.first?.isUppercase ?? false
-        var pairs: [DictationEditPair] = []
+        var pairs: [TyprDictationEditPair] = []
         for hunk in hunks where isReplacement(hunk) {
             let sentenceStart = hunk.new.lowerBound == 0
                 ? startsSentence
-                : DictationText.isSentenceStart(finalWords[hunk.new.lowerBound], in: span.text)
+                : TyprDictationText.isSentenceStart(finalWords[hunk.new.lowerBound], in: span.text)
             if let pair = pair(ins[hunk.old], fin[hunk.new], sentenceStart: sentenceStart) {
                 pairs.append(pair)
             }
         }
 
-        return DictationEditResult(
+        return TyprDictationEditResult(
             outcome: .edited,
             pairs: pairs,
             keptWords: keptRuns(ins, excluding: allHunks)
@@ -288,16 +288,16 @@ nonisolated enum DictationEditClassifier {
 
     /// A dictation you removed and dictated again within the redictation window: the words
     /// that came out differently the second time, when most of it is the same.
-    static func redictation(previousInserted: String, nextInserted: String) -> DictationEditResult? {
-        let oldWords = DictationText.words(in: previousInserted)
+    static func redictation(previousInserted: String, nextInserted: String) -> TyprDictationEditResult? {
+        let oldWords = TyprDictationText.words(in: previousInserted)
         guard !oldWords.isEmpty, oldWords.count <= maxWords else { return nil }
-        let newWords = DictationText.words(in: nextInserted)
+        let newWords = TyprDictationText.words(in: nextInserted)
         let old = oldWords.map(\.text)
         let new = newWords.map(\.text)
-        var result = DictationEditResult(outcome: .redictated)
+        var result = TyprDictationEditResult(outcome: .redictated)
         guard !new.isEmpty, new.count <= maxWords * 2 else { return result }
 
-        let hunks = DictationWordDiff.hunks(old.map(DictationText.key), new.map(DictationText.key))
+        let hunks = TyprDictationWordDiff.hunks(old.map(TyprDictationText.key), new.map(TyprDictationText.key))
         let changed = hunks.reduce(0) { $0 + max($1.old.count, $1.new.count) }
         guard Double(changed) <= max(1, Double(old.count) / 2) else { return result }
 
@@ -305,7 +305,7 @@ nonisolated enum DictationEditClassifier {
         for hunk in hunks where isReplacement(hunk) {
             let sentenceStart = hunk.new.lowerBound == 0
                 ? startsSentence
-                : DictationText.isSentenceStart(newWords[hunk.new.lowerBound], in: nextInserted)
+                : TyprDictationText.isSentenceStart(newWords[hunk.new.lowerBound], in: nextInserted)
             if let pair = pair(old[hunk.old], new[hunk.new], sentenceStart: sentenceStart) {
                 result.pairs.append(pair)
             }
@@ -315,35 +315,35 @@ nonisolated enum DictationEditClassifier {
 
     /// Whether `meant` could be a fix of `inserted` rather than different words altogether.
     static func isPlausibleFix(_ inserted: String, _ meant: String) -> Bool {
-        let a = DictationText.letters(inserted)
-        let b = DictationText.letters(meant)
+        let a = TyprDictationText.letters(inserted)
+        let b = TyprDictationText.letters(meant)
         guard !a.isEmpty, !b.isEmpty else { return false }
         if a == b { return true }
-        return DictationText.distance(a, b) <= max(2, max(a.count, b.count) / 2)
+        return TyprDictationText.distance(a, b) <= max(2, max(a.count, b.count) / 2)
     }
 
-    private static func isReplacement(_ hunk: DictationWordDiff.Hunk) -> Bool {
+    private static func isReplacement(_ hunk: TyprDictationWordDiff.Hunk) -> Bool {
         !hunk.old.isEmpty && !hunk.new.isEmpty && hunk.old.count <= maxPairWords && hunk.new.count <= maxPairWords
     }
 
-    private static func pair(_ old: ArraySlice<String>, _ new: ArraySlice<String>, sentenceStart: Bool) -> DictationEditPair? {
+    private static func pair(_ old: ArraySlice<String>, _ new: ArraySlice<String>, sentenceStart: Bool) -> TyprDictationEditPair? {
         let inserted = old.joined(separator: " ")
         let typed = new.joined(separator: " ")
         guard isPlausibleFix(inserted, typed) else { return nil }
         let meant = normalizedMeant(typed, sentenceStart: sentenceStart)
         guard meant != inserted else { return nil }
-        return DictationEditPair(inserted: inserted, meant: meant, caseIsKnown: meant == typed)
+        return TyprDictationEditPair(inserted: inserted, meant: meant, caseIsKnown: meant == typed)
     }
 
     /// Edits at the very edges of the span are the least certain: words typed before or
     /// after it are new writing, and when the host cut the context short a missing edge
     /// is truncation, not a deletion.
     private static func trimEdges(
-        _ hunks: [DictationWordDiff.Hunk],
+        _ hunks: [TyprDictationWordDiff.Hunk],
         old: [String],
         new: [String],
-        span: DictationSpan
-    ) -> [DictationWordDiff.Hunk] {
+        span: TyprDictationSpan
+    ) -> [TyprDictationWordDiff.Hunk] {
         var result = hunks
         if let first = result.first, first.old.lowerBound == 0, first.new.lowerBound == 0 {
             let truncated = !span.startIsCertain
@@ -370,20 +370,20 @@ nonisolated enum DictationEditClassifier {
 
     /// A word the host cut in half: a proper suffix (at the start) or prefix (at the end) of an old word.
     private static func isPartialWord(_ word: String, of old: ArraySlice<String>, suffix: Bool) -> Bool {
-        let key = DictationText.key(word)
+        let key = TyprDictationText.key(word)
         return old.contains { candidate in
-            let full = DictationText.key(candidate)
+            let full = TyprDictationText.key(candidate)
             return full.count > key.count && (suffix ? full.hasSuffix(key) : full.hasPrefix(key))
         }
     }
 
     private static func bestLength(old: ArraySlice<String>, new: ArraySlice<String>, fromEnd: Bool) -> Int {
-        let target = DictationText.letters(old.joined())
+        let target = TyprDictationText.letters(old.joined())
         var best = 1
         var bestScore = Int.max
         for length in 1...min(new.count, maxPairWords + 1) {
             let slice = fromEnd ? new.suffix(length) : new.prefix(length)
-            let score = DictationText.distance(target, DictationText.letters(slice.joined()))
+            let score = TyprDictationText.distance(target, TyprDictationText.letters(slice.joined()))
             if score < bestScore {
                 best = length
                 bestScore = score
@@ -395,12 +395,12 @@ nonisolated enum DictationEditClassifier {
     private static func normalizedMeant(_ meant: String, sentenceStart: Bool) -> String {
         guard sentenceStart, let first = meant.first, first.isUppercase,
               !meant.dropFirst().contains(where: \.isUppercase) else { return meant }
-        let firstWord = DictationText.words(in: meant).first.map { DictationText.key($0.text) } ?? ""
+        let firstWord = TyprDictationText.words(in: meant).first.map { TyprDictationText.key($0.text) } ?? ""
         guard !["i", "i'm", "i'll", "i've", "i'd"].contains(firstWord) else { return meant }
         return first.lowercased() + meant.dropFirst()
     }
 
-    private static func keptRuns(_ words: [String], excluding hunks: [DictationWordDiff.Hunk]) -> [[String]] {
+    private static func keptRuns(_ words: [String], excluding hunks: [TyprDictationWordDiff.Hunk]) -> [[String]] {
         var touched = Array(repeating: false, count: words.count)
         for hunk in hunks {
             for index in hunk.old { touched[index] = true }
@@ -409,7 +409,7 @@ nonisolated enum DictationEditClassifier {
         var run: [String] = []
         for (index, word) in words.enumerated() {
             if !touched[index] {
-                run.append(DictationText.key(word))
+                run.append(TyprDictationText.key(word))
             } else if !run.isEmpty {
                 runs.append(run)
                 run = []
