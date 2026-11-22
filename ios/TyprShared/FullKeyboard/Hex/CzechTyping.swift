@@ -51,4 +51,51 @@ nonisolated enum FrenchTyping {
     }
 }
 
-// Hex's `FullKeyboardEngine.typeLayoutRules` (the rest of this file) arrives with Hex's engine.
+@MainActor
+extension FullKeyboardEngine {
+    /// The layout's own keys' typing rules: Greek's tonos key and final sigma (`GreekTyping`),
+    /// Czech's ´ and ˇ (`CzechTyping`), French's apostrophe key (`FrenchTyping`). True when
+    /// the key already did all it does; else `text` is what to type.
+    func typeLayoutRules(_ text: inout String) -> Bool {
+        switch layout.language {
+        case .greek: return typeGreek(&text)
+        case .czech: return typeCzech(text)
+        case .french, .frenchCanadian, .frenchSwiss:
+            if typesFrenchApostrophe(text) { text = "'" }
+            return false
+        default: return false
+        }
+    }
+
+    /// Whether `character` is French's apostrophe key and types the apostrophe here, right
+    /// after a letter (`FrenchTyping`).
+    func typesFrenchApostrophe(_ character: String) -> Bool {
+        layout.language.isFrench && character == FrenchTyping.key && FrenchTyping.typesApostrophe(after: typingContext)
+    }
+
+    /// The key a held `character` offers options for: French's apostrophe key after a letter
+    /// holds the 123 page's ', else itself.
+    func heldBase(_ character: String) -> String {
+        typesFrenchApostrophe(character) ? "'" : character
+    }
+
+    /// Czech: a held ˇ's ˇ or ˚ accents the letter before it, as a tapped ˇ does. True when it
+    /// did; else the held key's choice goes in as it is.
+    func typeHeldMark(_ chosen: String) -> Bool {
+        guard layout.language == .czech else { return false }
+        var mark = chosen
+        return typeLayoutRules(&mark)
+    }
+
+    /// ´, ˇ or ˚ after a letter it accents: puts the accented letter in its place. False
+    /// otherwise, and the mark is typed as itself.
+    private func typeCzech(_ text: String) -> Bool {
+        guard let accented = CzechTyping.accenting(text, after: target.documentContextBeforeInput) else { return false }
+        rememberTypingContext(before: textBefore.map { String($0.dropLast(1)) }, inserted: accented)
+        target.deleteBackward()
+        target.insertText(accented)
+        didEdit()
+        logState("typed")
+        return true
+    }
+}

@@ -1,7 +1,5 @@
 import Foundation
 
-// Hex's file without its `FullKeyboardEngine` extension, which arrives with Hex's engine.
-
 /// The Greek layout's own typing rules, as the system Greek keyboard was observed to apply them
 /// (iOS 27.2 simulator, real touches in Messages, black box). The tonos key ´ accents the vowel
 /// right before it (α´ -> ά, Α´ -> Ά, and ϊ´ -> ΐ, ϋ´ -> ΰ); after anything else, an accented
@@ -34,5 +32,30 @@ nonisolated enum GreekTyping {
     /// follows it.
     static func reopensFinalSigma(typing text: String, after before: String?) -> Bool {
         before?.last == "ς" && text.first?.isLetter == true
+    }
+}
+
+@MainActor
+extension FullKeyboardEngine {
+    /// The Greek layout's tonos key and final sigma (`GreekTyping`): true when the tonos key
+    /// accented the vowel before it, which is all it does; else `text` is what to type (ς for
+    /// σ), with a final ς before it already back to σ.
+    func typeGreek(_ text: inout String) -> Bool {
+        let before = target.documentContextBeforeInput
+        if let vowel = GreekTyping.accenting(text, after: before) {
+            rememberTypingContext(before: textBefore.map { String($0.dropLast(1)) }, inserted: vowel)
+            target.deleteBackward()
+            target.insertText(vowel)
+            didEdit()
+            logState("typed")
+            return true
+        }
+        if GreekTyping.reopensFinalSigma(typing: text, after: before) {
+            rememberTypingContext(before: textBefore.map { String($0.dropLast(1)) }, inserted: "σ")
+            target.deleteBackward()
+            target.insertText("σ")
+        }
+        text = GreekTyping.letter(text)
+        return false
     }
 }
