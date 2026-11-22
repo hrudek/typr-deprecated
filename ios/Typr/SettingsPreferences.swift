@@ -60,6 +60,7 @@ struct TextProcessingSettingsCard: View {
                 }
             }
             VocabularySettingsCard()
+            LearnedDictationFixesCard()
         }
         .onAppear(perform: refresh)
         .onChange(of: scenePhase) { _, phase in if phase == .active { refresh() } }

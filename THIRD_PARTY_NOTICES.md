@@ -881,3 +881,15 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 (PR #2080). The slide in `FullKeyboardEngine.swift` (`slideDelete`) and the delete-slide tests in
 `ios/TyprTests/FullKeyboardEngineTests.swift` follow `DeleteWordSwipe` and its tests there.
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
+
+## Hex learning from dictation edits
+
+Learn from my edits (`ios/TyprShared/DictationEditInference.swift`,
+`DictationEditTracker.swift`, `DictationLearning.swift`) is adapted from
+`DictationEditInference.swift`, `DictationEditTracker.swift`, `DictationCorrections.swift` and
+`FullKeyboard/TypingJournalLearning.swift` in `ios/HEXShared/` of
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (#2022), without the raw transcript, context
+words and pair kinds other than replacements, with Undo dictation never paired with the
+next dictation and German-aware case for learned words.
+MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).

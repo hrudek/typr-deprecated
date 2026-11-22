@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -67,6 +67,13 @@ struct ExperimentalSwitch: Hashable {
         name: "deleteSlide",
         title: "Slide delete to remove words",
         detail: "Press delete and slide left: each key width removes one more word. Slide back to bring words back; lift to keep the rest deleted."
+    )
+
+    /// Hex's learning from dictation edits (anomalyco/hex #2022, `DictationEditTracker`).
+    static let learnFromEdits = ExperimentalSwitch(
+        name: "learnFromEdits",
+        title: "Learn from my edits",
+        detail: "For a minute after a dictation, Typr's keyboard notes words you replace with similar ones, like “Wal” with “Wahl”. Fixed the same way twice, Typr writes it that way in later dictations. Needs Full Access; manage them in AI & vocabulary."
     )
 }
 

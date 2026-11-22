@@ -65,6 +65,7 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.engine.endTypingLogWord("dismiss")
         fullKeyboard?.discardTouchEvidence()
         fullKeyboard?.flushLearning()
+        fullKeyboard?.finishDictationEdits()
         pollTimer?.invalidate()
         pollTimer = nil
         disarmWarmDictation()
@@ -218,6 +219,7 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.discardTouchEvidence()
         surface?.removeFromSuperview()
         fullKeyboard?.flushLearning()
+        fullKeyboard?.finishDictationEdits()
         fullKeyboard = nil
         didWarmLexicon = false
 
@@ -246,6 +248,10 @@ final class KeyboardViewController: UIInputViewController {
                 typingLog: typingLog(persistent: store != nil)
             )
             keyboard.hostController = self
+            keyboard.dictationEdits.onResult = { [weak self] result in
+                guard self?.hasFullAccess == true else { return }
+                DictationLearningStore().record(result)
+            }
             if hasFullAccess {
                 keyboard.hasCloudKey = {
                     KeychainSecret.keyboardAnthropicAPIKey.read()?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -404,7 +410,8 @@ final class KeyboardViewController: UIInputViewController {
                 afterContext: after
             )
             textDocumentProxy.insertText(insertion)
-            fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "")
+            fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "",
+                                             learns: TyprSettings()[experiment: .learnFromEdits])
             bridge.lastInsertedResultID = resultID
             insertedResult = true
             if feedbackBridge.switchesEnabled, snap.state != .recording, snap.state != .transcribing {
@@ -425,6 +432,7 @@ final class KeyboardViewController: UIInputViewController {
             animated: animated
         )
 
+        fullKeyboard?.tickDictationEdits()
         remountIfNeeded(now: now)
         schedulePoll(force: false)
     }
