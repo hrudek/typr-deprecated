@@ -13,7 +13,12 @@ DictationTranscriber), English on Parakeet V2 only where Apple Speech has no
 SpeechTranscriber and Parakeet fits in memory. Before iOS 26, Parakeet V2 takes
 English where it has room and Apple's on-device recognizer takes everything else.
 After two Parakeet loads in a row ended Typr, or one found too little memory,
-Parakeet is set aside for a day and Typr no longer loads it at launch.
+Parakeet is set aside for a day and Typr no longer loads it at launch. When Typr
+picks the engine itself, a preparation that says nothing for 30 s, or makes no
+progress for 120 s, ends with Try again; a language Apple can't install here or
+Parakeet without room moves on to the next pick, and a failed new pick keeps the
+engine that worked, with a note on home. A download cut off in the background is
+tried again when Typr returns.
 
 ## How it works
 

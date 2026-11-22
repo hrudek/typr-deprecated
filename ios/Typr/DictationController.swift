@@ -242,19 +242,34 @@ final class DictationController {
     /// The engine of the ready transcriber; nil while none is ready or while switching.
     private(set) var currentEngine: SpeechEngineChoice?
     private(set) var isDeletingModel = false
-    @ObservationIgnored private var loadingEngine: SpeechEngineChoice? {
+    /// Every candidate still inside `prepare`, by its preparation generation, including one a
+    /// timeout dropped: a Core ML load can't be interrupted, so deletion waits for each.
+    @ObservationIgnored private var loadingEngines: [UInt64: SpeechEngineChoice] = [:] {
         didSet {
-            guard loadingEngine == nil else { return }
             let waiters = loadFinishedWaiters
             loadFinishedWaiters = []
             waiters.forEach { $0.resume() }
         }
     }
     @ObservationIgnored private var loadFinishedWaiters: [CheckedContinuation<Void, Never>] = []
+    @ObservationIgnored private(set) var deletionWaitsForTesting = 0
     private(set) var modelPreparation = ModelPreparationProgress(
         fractionCompleted: 0,
         detail: "Checking model files"
     )
+    /// Why the engine Typr picked by itself changed or stayed: Automatic moved on from a
+    /// language this iPhone can't dictate yet, Parakeet had no room, or a new guess failed and
+    /// the engine that worked keeps dictating.
+    private(set) var languageNotice: String?
+    @ObservationIgnored private var isInBackground = false
+    @ObservationIgnored private var preparationFailedInBackground = false
+    @ObservationIgnored private var preparationChangedAt = ContinuousClock.now
+    @ObservationIgnored private var preparationReported = false
+    @ObservationIgnored var preparationLimits = (firstReport: Duration.seconds(30), stall: Duration.seconds(120))
+    /// The engine Typr picked by itself that dictated before the automatic preparation now
+    /// running; it comes back when that preparation fails (Hex #2371: a failed guess never
+    /// takes away a working engine).
+    @ObservationIgnored private var workingEngine: WorkingEngine?
 
     init(
         audio: (any AudioManaging)? = nil,
@@ -472,6 +487,7 @@ final class DictationController {
         guard language != dictationLanguage else { return }
         dictationLanguage = language
         languageSettings.dictationLanguage = language
+        languageNotice = nil
         // Apple Speech prepares one locale. Do not mutate the current capture; reprepare when
         // idle, including after a cancelled inference has really released its snapshot.
         if preferredEngine == .appleSpeech || transcriber.displayName == "Apple Speech" || engineName == "Apple Speech" {
@@ -535,8 +551,12 @@ final class DictationController {
             isModelReady = false
             phase = .modelRequired
         }
+        if workingEngine?.engine == engine {
+            workingEngine = nil
+        }
         // A Core ML load cannot be interrupted, also one superseded by another engine's choice.
-        while loadingEngine == engine {
+        while loadingEngines.values.contains(engine) {
+            deletionWaitsForTesting += 1
             await withCheckedContinuation { loadFinishedWaiters.append($0) }
         }
         let result: ModelDeletion
@@ -574,6 +594,7 @@ final class DictationController {
         preferredEngine = engine
         languageSettings.preferredSpeechEngine = engine
         engineName = engine.displayName
+        languageNotice = nil
         // Pinning the automatically ready engine needs no model reload.
         if currentEngine != engine || !isModelReady { prepareModel() }
         return .selected
@@ -717,6 +738,13 @@ final class DictationController {
     }
 
     func noteSceneDidBecomeActive() {
+        isInBackground = false
+        if preparationFailedInBackground {
+            // Picks up a download that iOS cut off while Typr was in the background; FluidAudio
+            // resumes each file from the bytes it has.
+            preparationFailedInBackground = false
+            if case .failed = phase, !isModelReady { prepareModel() }
+        }
         if deferredLaunchPreparation {
             deferredLaunchPreparation = false
             prepareLaunchModel()
@@ -745,6 +773,7 @@ final class DictationController {
     }
 
     func noteSceneDidEnterBackground() {
+        isInBackground = true
         scheduleModelMaintenance()
         autoReturnFallbackTask?.cancel()
         autoReturnFallbackTask = nil
@@ -1029,6 +1058,16 @@ final class DictationController {
     // MARK: - Model Preparation
 
     func prepareModel() {
+        prepareModel(fallbacksLeft: 2)
+    }
+
+    private struct WorkingEngine {
+        let transcriber: any LocalTranscribing
+        let engine: SpeechEngineChoice?
+        let languageName: String
+    }
+
+    private func prepareModel(fallbacksLeft: Int) {
         // This is also called by handoff/intents and tests, not just the settings button.
         guard canChangeEngine else { return }
         pendingAppleLanguageChange = false
@@ -1047,6 +1086,11 @@ final class DictationController {
         let language = dictationLanguage
         let previous = preparationTask
         previous?.cancel()
+        if preferred != nil {
+            workingEngine = nil
+        } else if isModelReady {
+            workingEngine = WorkingEngine(transcriber: transcriber, engine: currentEngine, languageName: transcriptionLanguage)
+        }
         // Release the previous engine before the next one loads, so two large models are never
         // held together. A running transcription keeps its own snapshot until it ends.
         transcriber = UnpreparedTranscriber(displayName: engineName)
@@ -1060,6 +1104,10 @@ final class DictationController {
             }
         }
         scheduleModelMaintenance()
+        preparationFailedInBackground = false
+        if downloaded == nil {
+            watchPreparation(prepGen)
+        }
 
         preparationTask = Task {
             defer {
@@ -1080,13 +1128,21 @@ final class DictationController {
                     candidate = await engineProvider.automaticTranscriber(language: language)
                 }
                 guard self.modelPrepGeneration == prepGen else { return }
+                if candidate is ParakeetTranscriber, self.workingEngine?.transcriber is ParakeetTranscriber {
+                    self.workingEngine = nil
+                }
                 engineName = candidate.displayName
-                loadingEngine = SpeechEngineChoice(displayName: candidate.displayName)
-                defer { loadingEngine = nil }
+                loadingEngines[prepGen] = SpeechEngineChoice(displayName: candidate.displayName)
+                defer { loadingEngines[prepGen] = nil }
                 try await candidate.prepare { [weak self] progress in
                     Task { @MainActor [weak self] in
                         guard let self, self.modelPrepGeneration == prepGen else { return }
                         guard self.phase == .preparingModel else { return }
+                        if progress.fractionCompleted != self.modelPreparation.fractionCompleted
+                            || progress.detail != self.modelPreparation.detail {
+                            self.preparationChangedAt = .now
+                            self.preparationReported = true
+                        }
                         self.modelPreparation = progress
                         if downloaded != nil { self.modelBackground?.update(progress) }
                     }
@@ -1101,6 +1157,7 @@ final class DictationController {
                     self.preparePendingAppleLanguageIfIdle()
                     return
                 }
+                self.workingEngine = nil
                 self.transcriber = candidate
                 self.currentEngine = SpeechEngineChoice(displayName: candidate.displayName)
                 self.transcriptionLanguage = candidateLanguageName
@@ -1113,6 +1170,18 @@ final class DictationController {
                 }
             } catch {
                 guard self.modelPrepGeneration == prepGen else { return }
+                if preferred == nil, fallbacksLeft > 0, let notice = Self.switchNotice(for: error) {
+                    self.languageNotice = notice
+                    self.preparationTask = nil
+                    self.prepareModel(fallbacksLeft: fallbacksLeft - 1)
+                    return
+                }
+                if let working = self.workingEngine {
+                    self.restore(working, because: error.localizedDescription)
+                    return
+                }
+                self.preparationFailedInBackground = downloaded == nil && self.isInBackground
+                    && Self.isDownloadInterruption(error)
                 self.keyboardBridge.setModelInstalled(
                     preferred.map { self.engineProvider.isInstalled($0) } ?? ParakeetTranscriber.hasCachedModel)
                 self.pendingHandoff = nil
@@ -1121,6 +1190,77 @@ final class DictationController {
                 self.preparePendingAppleLanguageIfIdle()
             }
         }
+    }
+
+    private func restore(_ working: WorkingEngine, because reason: String) {
+        workingEngine = nil
+        transcriber = working.transcriber
+        currentEngine = working.engine
+        engineName = working.transcriber.displayName
+        transcriptionLanguage = working.languageName
+        isModelReady = true
+        languageNotice = "\(reason) Typr keeps using \(working.transcriber.displayName)."
+        keyboardBridge.setModelInstalled(true)
+        phase = .ready
+        publishKeyboardSnapshot()
+        if pendingHandoff != nil {
+            activateWarmSessionAndRunHandoff()
+        }
+    }
+
+    /// Ends a preparation that has said nothing new for too long, in plain words with Try
+    /// again, instead of a bar that never moves: `firstReport` (30 s) before it has said
+    /// anything (Apple's speech service or asset store not answering leaves "Checking model
+    /// files" up for good, Hex TestFlight build 126), `stall` (120 s) after. Time while iOS had
+    /// Typr suspended doesn't count. The work it ends can't always be cancelled (an XPC call
+    /// that never returns); its result is dropped, and Try again starts a new one without
+    /// waiting for it. Downloaded engines keep Typr's background preparation instead.
+    private func watchPreparation(_ prepGen: UInt64) {
+        preparationChangedAt = .now
+        preparationReported = false
+        Task { [weak self] in
+            let clock = ContinuousClock()
+            var polled = clock.now
+            while true {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard let self, self.modelPrepGeneration == prepGen, self.phase == .preparingModel else { return }
+                let now = clock.now
+                if now - polled > .seconds(5) {
+                    self.preparationChangedAt = now
+                }
+                polled = now
+                let limit = self.preparationReported ? self.preparationLimits.stall : self.preparationLimits.firstReport
+                guard now - self.preparationChangedAt >= limit else { continue }
+                self.modelPrepGeneration &+= 1
+                self.preparationTask?.cancel()
+                self.preparationTask = nil
+                let message = "The speech model isn't ready. Try again."
+                if let working = self.workingEngine {
+                    self.restore(working, because: message)
+                    return
+                }
+                self.pendingHandoff = nil
+                self.keyboardBridge.setModelInstalled(ParakeetTranscriber.hasCachedModel)
+                self.phase = .failed(message)
+                self.publishKeyboardSnapshot()
+                return
+            }
+        }
+    }
+
+    nonisolated static func switchNotice(for error: any Error) -> String? {
+        if let unavailable = error as? SpeechModelUnavailable, unavailable.switchedAutomatically {
+            return unavailable.errorDescription
+        }
+        if (error as? ParakeetTranscriber.TranscriberError) == .notEnoughMemory {
+            return "Not enough memory for the speech model. Typr is using Apple's on-device speech recognition."
+        }
+        return nil
+    }
+
+    nonisolated static func isDownloadInterruption(_ error: any Error) -> Bool {
+        if error is StallWatch.Stalled || error is URLError { return true }
+        return (error as? ParakeetTranscriber.TranscriberError) == .downloadFailed
     }
 
     // MARK: - Capture & Generation-Scoped Transcription
