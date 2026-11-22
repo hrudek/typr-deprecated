@@ -123,6 +123,7 @@ final class FullKeyboardEngine {
     /// Touch ids in the order they went down.
     private var touchOrder: [Int] = []
     private var lastSpaceAt: TimeInterval?
+    private var heldSpaceBefore: String?
 
     private(set) var activeAccentMenu: AccentMenu?
     private var activeAccentTouchID: Int?
@@ -155,7 +156,7 @@ final class FullKeyboardEngine {
 
     /// Bounded RAM-only ownership, also checked at chip acceptance before any edit/learning.
     var suggestionOwnership: KeyboardSuggestionOwnership {
-        let context = target.documentContextBeforeInput.flatMap(Self.boundedSuggestionContext)
+        let context = stripBefore.flatMap(Self.boundedSuggestionContext)
         let token = AutocorrectEngine.currentToken(in: context)
         let route = KeyboardFieldRouting.route(for: target.keyboardType)
         let prose: Bool
@@ -368,7 +369,7 @@ final class FullKeyboardEngine {
         shift.refreshAutoCapitalization(
             AutoCapitalization.shouldCapitalize(
                 mode: AutoCapitalization.Mode(target.autocapitalizationType),
-                before: target.documentContextBeforeInput,
+                before: stripBefore,
                 hasText: target.hasText
             )
         )
@@ -519,6 +520,7 @@ final class FullKeyboardEngine {
             refreshSuggestions()
             return
         }
+        if spacePending, suggestion.kind != .revert { typeHeldSpace() }
         let before = target.documentContextBeforeInput
         if suggestion.kind == .revert {
             revertAutocorrection(before: before)
@@ -553,7 +555,9 @@ final class FullKeyboardEngine {
             }
         }
         autocorrect.clearPendingUndo()
-        insert(replacement + " ", keepsFeedback: suggestion.boundary == nil)
+        let holdsSpace = textAfterSeparates
+        insert(holdsSpace ? replacement : replacement + " ", keepsFeedback: suggestion.boundary == nil)
+        if holdsSpace { holdSpace() }
         logTyping { log in
             if let original {
                 log.picked(from: original, to: replacement, chip: Self.chipName(suggestion.kind),
@@ -881,7 +885,7 @@ final class FullKeyboardEngine {
                                 ownership: KeyboardSuggestionOwnership?) -> [KeyboardSuggestion] {
         let others = next.filter { $0.kind != .revert }
         guard let ownership, ownership.permitsCorrection,
-              showsStrip, field == .text,
+              showsStrip, field == .text, !spacePending,
               let offer = autocorrect.revertOffer(before: target.documentContextBeforeInput) else { return others }
         let original = offer.correction.original
         var revert = KeyboardSuggestion(displayText: original, replacement: original, kind: .revert)
@@ -1014,6 +1018,12 @@ final class FullKeyboardEngine {
     }
 
     func deleteBackward(allowAutocorrectUndo: Bool = true, recordsStatistics: Bool = true) {
+        if spacePending {
+            heldSpaceBefore = nil
+            lastSpaceAt = nil
+            didEdit()
+            return
+        }
         prepareStatisticsEdit()
         autocorrect.forgetSpaceTaps()
         autocorrect.syncLearning()
@@ -1130,6 +1140,17 @@ final class FullKeyboardEngine {
     /// Sentence punctuation is a word boundary too, including hold-123/slide input.
     private func typeCharacter(_ text: String, sample: KeyboardTouchWord.Sample? = nil) {
         prepareStatisticsEdit()
+        if spacePending {
+            if let first = text.first, Self.closingMarks.contains(first) {
+                heldSpaceBefore = nil
+                autocorrect.forgetSpaceTaps()
+                statistics?.direct(text)
+                insert(text)
+                logTyping { $0.boundary(text) }
+                return
+            }
+            typeHeldSpace()
+        }
         guard [".", ",", "?", "!"].contains(text), field == .text else {
             statistics?.direct(text)
             let tapLayout = layout
@@ -1199,9 +1220,54 @@ final class FullKeyboardEngine {
         onChange?()
     }
 
+    // MARK: - Held space
+    // Adapted from Hex (anomalyco/hex #2214, MIT): mid-sentence, where the text after the cursor
+    // already starts with a space or a closing mark, the space after a word is held instead of
+    // typed, and goes in only if the next key starts another word.
+
+    private static let closingMarks: Set<Character> = [".", ",", "!", "?", ";", ":", ")", "]", "}", "\"", "'", "”", "’", "…"]
+
+    private var textAfterSeparates: Bool {
+        guard let first = target.documentContextAfterInput?.first else { return false }
+        return first.isWhitespace ? !first.isNewline : Self.closingMarks.contains(first)
+    }
+
+    private var holdsTypedSpace: Bool {
+        guard let last = target.documentContextBeforeInput?.last, !last.isWhitespace, textAfterSeparates else {
+            return false
+        }
+        return target.documentContextAfterInput?.first?.isWhitespace == true || last.isLetter || last.isNumber
+    }
+
+    private var spacePending: Bool {
+        guard let heldSpaceBefore else { return false }
+        return heldSpaceBefore == target.documentContextBeforeInput && textAfterSeparates
+    }
+
+    private var stripBefore: String? {
+        let before = target.documentContextBeforeInput
+        return spacePending ? before.map { $0 + " " } : before
+    }
+
+    private func holdSpace() {
+        heldSpaceBefore = target.documentContextBeforeInput
+        refreshAutoCapitalization()
+        refreshSuggestions()
+    }
+
+    private func typeHeldSpace() {
+        heldSpaceBefore = nil
+        prepareStatisticsEdit()
+        statistics?.direct(" ")
+        target.insertText(" ")
+        statisticsContext = statistics == nil ? nil : target.documentContextBeforeInput.flatMap(Self.boundedSuggestionContext)
+    }
+
     private func typeSpace(sample: KeyboardTouchWord.Sample? = nil) {
         prepareStatisticsEdit()
         if sample == nil { autocorrect.forgetSpaceTaps() }
+        if spacePending { return }
+        let ending = holdsTypedSpace ? "" : " "
         // Only an actual, unambiguous Space release can retain boundary geometry.
         // Typr/programmatic spaces deliberately call with nil.
         _ = autocorrect.touchInput.evidence(beforeInput: target.documentContextBeforeInput)
@@ -1239,12 +1305,13 @@ final class FullKeyboardEngine {
             for _ in 0..<original.count {
                 target.deleteBackward()
             }
-            let inserted = replacement + " "
+            let inserted = replacement + ending
             autocorrect.touchInput.clear()
             target.insertText(inserted)
             logTyping { $0.boundary(" ", replacement: replacement, correction: typingLogCorrection) }
-            autocorrect.recordAppliedCorrection(original: original, corrected: replacement, separator: " ",
+            autocorrect.recordAppliedCorrection(original: original, corrected: replacement, separator: ending,
                                                 before: target.documentContextBeforeInput)
+            if ending.isEmpty { heldSpaceBefore = target.documentContextBeforeInput }
             if let sample {
                 autocorrect.spaceTyped(at: sample.point, layout: layout, afterInput: target.documentContextBeforeInput)
             }
@@ -1255,6 +1322,17 @@ final class FullKeyboardEngine {
             return
         }
         autocorrect.clearPendingUndo()
+        if ending.isEmpty {
+            autocorrect.discardFeedback()
+            autocorrect.touchInput.clearAtBoundary()
+            logTyping { $0.boundary(" ") }
+            lastSpaceAt = now
+            layerState.didInsert(" ")
+            rebuildLayoutIfNeeded()
+            heldSpaceBefore = target.documentContextBeforeInput
+            didEdit()
+            return
+        }
         let calibration = sample == nil ? nil : autocorrect.learning.calibration(for: layout)
         if let sample, let asSpace = KeyboardBoundaryTouch.spaceDensity(sample.point, layout: layout,
                                                                         calibration: calibration) {

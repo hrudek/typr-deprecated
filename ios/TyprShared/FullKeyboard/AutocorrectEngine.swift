@@ -1068,7 +1068,7 @@ final class AutocorrectEngine {
         // Prefix matches from Contacts / lexicon terms.
         if lower.count >= 2 && pool.count < poolLimit {
             for term in lexiconTerms where term.lowercased().hasPrefix(lower) && term.lowercased() != lower {
-                let candidate = Self.matchCase(of: token, onto: term)
+                let candidate = Self.matchCase(of: token, onto: withoutStrayCapital(term))
                 if !pool.contains(where: { $0.caseInsensitiveCompare(candidate) == .orderedSame }) {
                     pool.append(candidate)
                     completions.insert(candidate)
@@ -1323,6 +1323,16 @@ final class AutocorrectEngine {
             : DecodeCache(evidence: evidence, languages: languages, context: context, generation: generation,
                           resources: spatialDecoder?.resourceRevision ?? -1, outcome: outcome)
         return outcome
+    }
+
+    private func withoutStrayCapital(_ term: String) -> String {
+        let lower = term.lowercased()
+        guard term != lower, term.dropFirst() == lower.dropFirst() else { return term }
+        if let german {
+            if german.isValid(lower) { return lower }
+            if german.isValid(term) { return term }
+        }
+        return englishEnabled && checker.isWordValid(lower) ? lower : term
     }
 
     /// A swiped lexicon word as written: FrequencyWords is lowercase, so German noun casing comes
