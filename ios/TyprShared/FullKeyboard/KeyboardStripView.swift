@@ -177,7 +177,6 @@ final class KeyboardStripView: UIView {
         )
     }
 
-    /// Slot widths: equal thirds, except a long word borrows room from short neighbours.
     private var slotWidths: [CGFloat] {
         let wanted = (0..<3).map { idx in
             idx < currentSuggestions.count ? Self.wantedWidth(for: currentSuggestions[idx]) : 0
@@ -187,14 +186,11 @@ final class KeyboardStripView: UIView {
 
     static func wantedWidth(for suggestion: KeyboardSuggestion) -> CGFloat { SlotButton.wantedWidth(for: suggestion) }
 
-    /// Water-filling: every slot gets at least a quarter of `total` (or what it wants, if less),
-    /// the rest is shared out to the slots that want more, up to what they want.
     static func slotWidths(total: CGFloat, wanted: [CGFloat]) -> [CGFloat] {
         let floorW = total / 4
         var widths = wanted.map { max(floorW, $0) }
         let spare = total - widths.reduce(0, +)
         if spare >= 0 { return widths.map { $0 + spare / CGFloat(widths.count) } }
-        // Too much wanted: slots above an equal share give way, the shortest ones first.
         var order = widths.indices.sorted { widths[$0] < widths[$1] }
         var share = total / CGFloat(widths.count)
         var remaining = total
@@ -303,13 +299,11 @@ final class KeyboardStripView: UIView {
             .systemFont(ofSize: 15.5, weight: suggestion.willAutoReplace || suggestion.kind == .revert ? .medium : .regular)
         }
 
-        /// Width the slot needs to show the word at full size: text, revert arrow, pill margins.
         static func wantedWidth(for suggestion: KeyboardSuggestion) -> CGFloat {
             let text = (suggestion.displayText as NSString).size(withAttributes: [.font: font(for: suggestion)]).width
             return ceil(text) + (suggestion.kind == .revert ? 15 : 0) + textMargin
         }
 
-        /// The pill's 5 pt side inset plus the text's 6 pt each side.
         private static let textMargin: CGFloat = 22
 
         override func draw(_ rect: CGRect) {
