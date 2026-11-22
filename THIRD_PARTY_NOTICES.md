@@ -746,6 +746,19 @@ are adapted from [anomalyco/hex](https://github.com/anomalyco/hex) at
 `dvorakLetterWidth` in `KeyboardLayout.swift`).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
+## Hex iOS bilingual revision and words from context
+
+The revision of the word before once the next word tells its language
+(`AutocorrectEngine.revision(of:before:next:)`, `accentRevision`, `languageLean`), the word
+groups, contraction expansions, margins and follower penalty of Words from context
+(`contextGroups`, `contractionWords`, `contextChoice`, `contextCost`) in
+`ios/TyprShared/FullKeyboard/AutocorrectEngine+Revision.swift`, and the closing marks that
+correct the word before them (`;` and `)` in `FullKeyboardEngine.typeCharacter`) are adapted from
+[anomalyco/hex](https://github.com/anomalyco/hex) at
+`d65b02d36efbaf1ff771420e89c0632dea4706cb` (PR #2231: `AutocorrectEngine+Accents.swift`;
+PR #2144: `AutocorrectEngine.contextChoice`, `revision(of:)`). MIT, © Christopher Langton,
+the same license as this repository ([LICENSE](LICENSE)).
+
 ## Hex iOS audio mixing and keepalive backoff
 
 The Keep other audio playing session in `ios/Typr/DictationAudioSession.swift` (category,

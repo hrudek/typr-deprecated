@@ -1218,7 +1218,7 @@ final class FullKeyboardEngine {
             }
             typeHeldSpace()
         }
-        guard [".", ",", "?", "!"].contains(text), field == .text else {
+        guard [".", ",", "?", "!", ";", ")"].contains(text), field == .text else {
             statistics?.direct(text)
             let tapLayout = layout
             insert(text, sample: sample)
@@ -1231,7 +1231,7 @@ final class FullKeyboardEngine {
         autocorrect.forgetSpaceTaps()
         let before = target.documentContextBeforeInput
         // Remove one word separator, never indentation, a newline or multiple spaces.
-        if let before, before.hasSuffix(" "),
+        if [".", ",", "?", "!"].contains(text), let before, before.hasSuffix(" "),
            let previous = before.dropLast().last, previous.isLetter || previous.isNumber {
             target.deleteBackward()
             // This word was already committed; do not reconsider an explicit choice.
@@ -1263,13 +1263,41 @@ final class FullKeyboardEngine {
             autocorrect.touchInput.clearAtBoundary()
             lastSpaceAt = nil
             layerState.didInsert(text)
+            reviseWordBefore(separator: text)
             rebuildLayoutIfNeeded()
             didEdit()
         } else {
             statistics?.direct(text)
             insert(text)
             logTyping { $0.boundary(text) }
+            reviseWordBefore(separator: text)
         }
+    }
+
+    /// The word before the one just finished, revised once that one tells its language or
+    /// meaning ("fur die" -> "für die"). One Delete right after puts it back.
+    private func reviseWordBefore(separator: String) {
+        guard field == .text, target.autocorrectionType != .no, target.isSecureTextEntry != true,
+              let before = target.documentContextBeforeInput, before.hasSuffix(separator) else { return }
+        let text = String(before.dropLast(separator.count))
+        guard let next = AutocorrectEngine.currentToken(in: text) else { return }
+        let head = text.dropLast(next.count)
+        guard head.hasSuffix(" "), !head.hasSuffix("  ") else { return }
+        let upToWord = String(head.dropLast())
+        guard let word = AutocorrectEngine.currentToken(in: upToWord),
+              let revised = autocorrect.revision(of: word, before: upToWord, next: next) else { return }
+        let original = word + " " + next
+        let inserted = revised + " " + next + separator
+        for _ in 0..<(original.count + separator.count) { target.deleteBackward() }
+        target.insertText(inserted)
+        autocorrect.discardFeedback()
+        autocorrect.touchInput.clear()
+        autocorrect.forgetSpaceTaps()
+        autocorrect.clearRevertOffer()
+        autocorrect.record(.init(original: original, insertedText: inserted,
+                                 context: RejectedCorrection.context(before: upToWord, token: word),
+                                 revised: RejectedCorrection(typed: word, replacement: revised)), at: clock())
+        didEdit()
     }
 
     private func commitAccentSelection(_ chosen: String) {
@@ -1376,6 +1404,7 @@ final class FullKeyboardEngine {
             }
             lastSpaceAt = now
             layerState.didInsert(" ")
+            reviseWordBefore(separator: " ")
             rebuildLayoutIfNeeded()
             didEdit(holdsSpace: ending.isEmpty)
             return
@@ -1411,6 +1440,7 @@ final class FullKeyboardEngine {
             autocorrect.spaceTyped(at: sample.point, layout: tapLayout, afterInput: target.documentContextBeforeInput)
         }
         lastSpaceAt = now
+        reviseWordBefore(separator: " ")
     }
 
     /// `keepsFeedback`: the boundary's own separator, which opened the pending word feedback.

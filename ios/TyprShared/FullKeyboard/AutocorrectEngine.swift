@@ -116,6 +116,8 @@ final class AutocorrectEngine {
         var context: String? = nil
         var keptWordWasNew: Bool? = nil
         var boundary: KeyboardBoundaryDecoder.Candidate? = nil
+        /// A revision of the word before (`revision(of:before:next:)`): that word as typed and as revised.
+        var revised: RejectedCorrection? = nil
     }
 
     struct PendingUndo: Equatable {
@@ -218,6 +220,8 @@ final class AutocorrectEngine {
     /// ranked ahead of the other language's spatial candidates.
     var preferredLanguage = SpatialWordDecoder.Language.german
     var letters = KeyboardLetterLayout.qwerty
+    /// Settings > Experimental > Words from context (`ExperimentalSwitch.wordsFromContext`).
+    var choosesWordsFromContext = false { didSet { invalidateDecode() } }
     private(set) var lexiconShortcuts: [String: String] = [:]
     private(set) var protectedLexicon: ProtectedPersonalLexicon = .empty
 
@@ -228,7 +232,7 @@ final class AutocorrectEngine {
         mayOffer(candidate, after: Self.lastWord(of: RejectedCorrection.context(before: beforeInput, token: "")))
     }
 
-    private func mayOffer(_ candidate: String, after previous: String?) -> Bool {
+    func mayOffer(_ candidate: String, after previous: String?) -> Bool {
         !NeverSuggestWords.blocks(candidate, after: previous, allowsSwearing: allowsSwearing) { word in
             learning.protections.knows(word) || protectedLexicon.contains(word)
                 || lexiconTermKeys.contains(word.lowercased())
@@ -240,7 +244,7 @@ final class AutocorrectEngine {
         candidate.lowercased() == token.lowercased() || mayOffer(candidate, after: Self.lastWord(of: rejectionContext))
     }
 
-    private static func lastWord(of context: String?) -> String? {
+    static func lastWord(of context: String?) -> String? {
         context?.split(separator: " ").last.map(String.init)
     }
 
@@ -257,8 +261,8 @@ final class AutocorrectEngine {
     }
 
     private var lexiconTerms: [String] = []
-    private var lexiconTermKeys: Set<String> = []
-    private var suppressedInSession: Set<String> = []
+    private(set) var lexiconTermKeys: Set<String> = []
+    private(set) var suppressedInSession: Set<String> = []
     private var reversibleRejection: RejectedCorrection?
     /// Phrase pairs never enter the letter/apostrophe-only persistent rejection schema.
     private var boundaryRejections: [RejectedCorrection] = []
@@ -608,7 +612,7 @@ final class AutocorrectEngine {
                                  separator: separator, boundary: candidate), at: now)
     }
 
-    private func record(_ correction: AppliedCorrection, at now: TimeInterval) {
+    func record(_ correction: AppliedCorrection, at now: TimeInterval) {
         lastCorrection = PendingUndo(correction: correction, window: KeyboardUndoWindow(openedAt: now))
     }
 
@@ -775,6 +779,12 @@ final class AutocorrectEngine {
     func recordUndo(_ undo: AppliedCorrection) {
         pendingPairChoice = nil
         learning.breakWordSequence()
+        if let revised = undo.revised {
+            pendingFeedback = nil
+            suppressedInSession.insert(revised.typed.lowercased())
+            learning.rejectCorrection(typed: revised.typed, replacement: revised.replacement, context: undo.context)
+            return
+        }
         if let boundary = undo.boundary {
             pendingFeedback = nil
             reversibleBoundary = nil
@@ -1290,7 +1300,7 @@ final class AutocorrectEngine {
         protectedLexicon.contains(token) || learning.protections.isKept(token) || dictionaryAcceptsLiteral(token)
     }
 
-    private func dictionaryAcceptsLiteral(_ token: String) -> Bool {
+    func dictionaryAcceptsLiteral(_ token: String) -> Bool {
         let lower = token.lowercased()
         let title = lower.prefix(1).uppercased() + lower.dropFirst()
         return (englishEnabled && (checker.isWordValid(token) || checker.isWordValid(lower)))
@@ -1500,6 +1510,9 @@ final class AutocorrectEngine {
             return Decision()
         }
         guard !lexiconTermKeys.contains(lower) else { return Decision(refusal: .refusedProtected) }
+        if let choice = contextChoice(for: token, previous: context?.previous, next: nil) {
+            return automatic(choice, token: token, kind: .autoRule, counter: .autoRule)
+        }
         let literalValid = dictionaryAcceptsLiteral(token)
         if isAllCaps {
             guard !literalValid, let variant = spellingFallback(token, variantsOnly: true) else {

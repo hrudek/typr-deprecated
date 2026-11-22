@@ -14,7 +14,7 @@ struct ExperimentalSwitch: Hashable {
     }
 
     /// The switches shown in Settings > Experimental, in display order.
-    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits]
+    static let all: [ExperimentalSwitch] = [.warmMicOnIPhone, .mixWithOtherAudio, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext]
 
     /// Hex's warm session (anomalyco/hex #2179): idle on the iPhone's microphone, each dictation
     /// moves to the chosen one. Typr can't start input in the background, so a move there can
@@ -74,6 +74,15 @@ struct ExperimentalSwitch: Hashable {
         name: "learnFromEdits",
         title: "Learn from my edits",
         detail: "For a minute after a dictation, Typr's keyboard notes words you replace with similar ones, like “Wal” with “Wahl”. Fixed the same way twice, Typr writes it that way in later dictations. Needs Full Access; manage them in AI & vocabulary."
+    )
+
+    /// Hex's context words (anomalyco/hex #2144): its/it's, your/you're, there/their/they're,
+    /// then/than and words missing an apostrophe follow the words around them, at their own
+    /// space or the next word's; German gets geht's and gibt's.
+    static let wordsFromContext = ExperimentalSwitch(
+        name: "wordsFromContext",
+        title: "Words from context",
+        detail: "Autocorrect picks its or it's, your or you're, then or than by the words around them, and writes geht's and gibt's with an apostrophe."
     )
 }
 

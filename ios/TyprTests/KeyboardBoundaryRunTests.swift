@@ -135,6 +135,24 @@ extension KeyboardBoundaryDecoderTests {
         XCTAssertEqual(ac.learning.model.state.layouts, state.layouts, "The Space tap is not learned as a letter or Space")
     }
 
+    /// Hex #2144's splits and joins in German: a run is offered split, never applied (German
+    /// writes compounds together), and a space hit for a letter joins the word.
+    func testGermanRunIsOfferedSplitAndASpaceHitForALetterJoins() async throws {
+        let (run, runTarget) = try runKeyboard([.german, .english])
+        try typeRun(run, "ichbingut")
+        await run.waitForSuggestions()
+        XCTAssertTrue(run.suggestions.contains { $0.replacement == "ich bin gut" && !$0.willAutoReplace })
+        try typeSpace(run)
+        XCTAssertEqual(runTarget.text, "ichbingut ")
+
+        let (join, joinTarget) = try runKeyboard([.german, .english])
+        try typeRun(join, "ni")
+        try typeSpace(join, below: "c")
+        try typeRun(join, "ht")
+        try typeSpace(join)
+        XCTAssertEqual(joinTarget.text, "nicht ")
+    }
+
     func testCapitalizedWordInsideASentenceIsNotJoined() throws {
         let ac = engine(try resources(), languages: [.english], model: try contextModel())
         let space = try XCTUnwrap(grid.key(.space)).frame
