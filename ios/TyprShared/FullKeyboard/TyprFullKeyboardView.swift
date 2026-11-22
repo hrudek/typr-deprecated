@@ -511,7 +511,6 @@ final class TyprFullKeyboardView: UIView, UIInputViewAudioFeedback {
         callout.frame = bounds
         accentCallout.frame = bounds
         stripView.frame = layout.stripFrame
-        stripView.slotsFrame = layout.suggestionSlotsFrame
 
         typrKey.joinsSpace = JoinedSpaceKeycap(layout: layout) != nil
         typrKey.cornerRadius = layout.metrics.cornerRadius

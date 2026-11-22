@@ -106,26 +106,38 @@ final class SuggestionBarTests: XCTestCase {
         XCTAssertEqual(activationCount, 2)
     }
 
-    func testSplitKeyboardCentresTheSuggestionsOverTheRightHalf() throws {
-        let (view, _) = keyboard(showsBar: true)
-        view.orientationOverride = .splitLandscape
-        view.frame = CGRect(x: 0, y: 0, width: 951, height: view.preferredHeight)
-        view.layoutIfNeeded()
-        let layout = view.engine.layout
-        let strip = try XCTUnwrap(view.subviews.first { $0 is TyprKeyboardStripView })
-        let slots = Self.slots(of: strip)
-        XCTAssertEqual(slots.count, 3)
-        let frames = slots.map { strip.convert($0.frame, to: view) }
-        let y = try XCTUnwrap(layout.key(.character("y"))).frame
-        let delete = try XCTUnwrap(layout.key(.delete)).frame
-        XCTAssertLessThanOrEqual(frames[0].minX, y.minX + 0.001)
-        XCTAssertGreaterThan(frames[0].minX, layout.width / 2)
-        XCTAssertEqual(frames[2].maxX, delete.maxX, accuracy: 0.001)
-        for (left, right) in zip(frames, frames.dropFirst()) {
-            XCTAssertEqual(left.maxX, right.minX, accuracy: 0.001)
-            XCTAssertEqual(left.width, right.width, accuracy: 0.001)
+    func testSplitKeyboardSpreadsLongSuggestionsOverTheWholeStrip() throws {
+        let rows = [["Hauptmann", "Hauptsache", "selbstverständlich"], ["haupt", "Entschuldigung", "Hauptsache"]]
+        for width: CGFloat in [801, 951] {
+            let (view, _) = keyboard(showsBar: true)
+            view.orientationOverride = .splitLandscape
+            view.frame = CGRect(x: 0, y: 0, width: width, height: view.preferredHeight)
+            view.layoutIfNeeded()
+            XCTAssertGreaterThan(view.engine.layout.metrics.splitGap, 0)
+            let strip = try XCTUnwrap(view.subviews.first { $0 is TyprKeyboardStripView } as? TyprKeyboardStripView)
+            let keys = view.engine.layout.keys.map(\.frame)
+            XCTAssertEqual(view.preferredHeight, TyprKeyboardLayout.height(for: .splitLandscape))
+            XCTAssertEqual(strip.frame, view.engine.layout.stripFrame)
+            for words in rows {
+                let suggestions = words.map { TyprKeyboardSuggestion(displayText: $0, replacement: $0, kind: .secondary) }
+                strip.update(suggestions: suggestions, statusText: nil)
+                strip.layoutIfNeeded()
+                let slots = Self.slots(of: strip)
+                XCTAssertEqual(slots.count, 3)
+                XCTAssertEqual(slots[0].frame.minX, 0, accuracy: 0.001, "\(width)")
+                XCTAssertEqual(slots[2].frame.maxX, strip.bounds.maxX, accuracy: 0.001, "\(width)")
+                for (left, right) in zip(slots, slots.dropFirst()) {
+                    XCTAssertEqual(left.frame.maxX, right.frame.minX, accuracy: 0.001)
+                }
+                for (slot, suggestion) in zip(slots, suggestions) {
+                    XCTAssertGreaterThanOrEqual(slot.frame.width, TyprKeyboardStripView.wantedWidth(for: suggestion),
+                                                "\(suggestion.displayText) is cut at \(width) pt")
+                    XCTAssertEqual(strip.hitTest(CGPoint(x: slot.frame.midX, y: slot.frame.midY), with: nil), slot)
+                }
+                view.layoutIfNeeded()
+                XCTAssertEqual(view.engine.layout.keys.map(\.frame), keys, "The split keys stay where they are")
+            }
         }
-        XCTAssertGreaterThan(frames[1].midX, y.maxX, "The middle suggestion sits over the right half")
     }
 
     func testSwitchingTheBarRebuildsTheKeys() {

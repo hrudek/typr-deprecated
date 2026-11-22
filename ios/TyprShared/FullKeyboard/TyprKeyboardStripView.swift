@@ -20,14 +20,6 @@ final class TyprKeyboardStripView: UIView {
     var onSelectSuggestion: ((TyprKeyboardSuggestion) -> Void)?
     var onCodeFromMessages: (() -> Void)?
     var onUndoDictation: (() -> Void)?
-    /// Where the three slots sit; nil spreads them over the whole strip.
-    var slotsFrame: CGRect? {
-        didSet {
-            guard slotsFrame != oldValue else { return }
-            setNeedsLayout()
-            setNeedsDisplay()
-        }
-    }
 
     private let statusLabel = UILabel()
     private let undoChip = UIButton(type: .custom)
@@ -159,9 +151,8 @@ final class TyprKeyboardStripView: UIView {
         let undoH = min(30, max(18, bounds.height - 6))
         let undoW = min(bounds.width, undoChip.sizeThatFits(CGSize(width: bounds.width, height: undoH)).width)
         undoChip.frame = CGRect(x: (bounds.width - undoW) / 2, y: max(0, midY - undoH / 2), width: undoW, height: undoH)
-        let slots = slotsRect
         let widths = slotWidths
-        var x = slots.minX
+        var x: CGFloat = 0
         for (idx, button) in slotButtons.enumerated() {
             button.inSystemPlatter = inSystemPlatter
             button.frame = CGRect(x: x, y: 0, width: widths[idx], height: bounds.height)
@@ -170,7 +161,7 @@ final class TyprKeyboardStripView: UIView {
         let chipH = min(30, max(22, bounds.height - 6))
         let chipW = min(bounds.width, codeChip.sizeThatFits(CGSize(width: bounds.width, height: chipH)).width)
         codeChip.frame = CGRect(
-            x: max(0, min(bounds.width - chipW, slots.midX - chipW / 2)),
+            x: max(0, min(bounds.width - chipW, bounds.midX - chipW / 2)),
             y: max(0, midY - chipH / 2),
             width: chipW,
             height: chipH
@@ -181,7 +172,7 @@ final class TyprKeyboardStripView: UIView {
         let wanted = (0..<3).map { idx in
             idx < currentSuggestions.count ? Self.wantedWidth(for: currentSuggestions[idx]) : 0
         }
-        return Self.slotWidths(total: slotsRect.width, wanted: wanted)
+        return Self.slotWidths(total: bounds.width, wanted: wanted)
     }
 
     static func wantedWidth(for suggestion: TyprKeyboardSuggestion) -> CGFloat { SlotButton.wantedWidth(for: suggestion) }
@@ -207,13 +198,8 @@ final class TyprKeyboardStripView: UIView {
         return widths
     }
 
-    private var slotsRect: CGRect {
-        slotsFrame.map { CGRect(x: $0.minX, y: 0, width: $0.width, height: bounds.height) } ?? bounds
-    }
-
     override func draw(_ rect: CGRect) {
-        let slots = slotsRect
-        guard !showsUndo, statusLabel.isHidden, !showsCodeChip, slots.width > 60 else { return }
+        guard !showsUndo, statusLabel.isHidden, !showsCodeChip, bounds.width > 60 else { return }
         let scale = max(1, traitCollection.displayScale)
         let hairline = 1 / scale
         // 18.5 pt dividers, as in the owner's 2026-11-11 reference.
@@ -222,8 +208,8 @@ final class TyprKeyboardStripView: UIView {
         let widths = slotWidths
 
         palette.separator.setFill()
-        UIRectFill(CGRect(x: (slots.minX + widths[0]).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
-        UIRectFill(CGRect(x: (slots.minX + widths[0] + widths[1]).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
+        UIRectFill(CGRect(x: widths[0].rounded() - hairline / 2, y: y, width: hairline, height: lineH))
+        UIRectFill(CGRect(x: (widths[0] + widths[1]).rounded() - hairline / 2, y: y, width: hairline, height: lineH))
     }
 
     /// Empty space passes through, so `TyprFullKeyboardView` (never hidden) owns a hold there even
