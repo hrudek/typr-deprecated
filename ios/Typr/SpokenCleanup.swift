@@ -72,7 +72,7 @@ nonisolated enum SpokenCleanup {
         for index in words.indices.dropFirst() {
             let previous = words[kept]
             let word = bare(words[index])
-            let joined = previous.last.map { $0 == "," || !closingMarks.contains($0) } ?? false
+            let joined = previous.last.map { !closingMarks.contains($0) || ($0 == "," && rules.pronouns.contains(word)) } ?? false
             if joined, !hasOpeningMark(words[index]), rules.stutters.contains(word), bare(previous) == word {
                 deletes[index] = true
             } else {
@@ -283,7 +283,7 @@ nonisolated enum SpokenCleanup {
         noComma: ["und", "oder", "aber", "dass", "der", "die", "das", "ein", "eine", "mit", "zu", "in",
                   "an", "auf", "für", "von", "ich", "du", "er", "sie", "wir"],
         stutters: ["ich", "wir", "du", "ein", "eine", "einen", "und", "oder", "aber", "dass", "weil", "wenn",
-                   "dann", "ist", "mit", "auf", "für"],
+                   "dann", "mit", "auf", "für"],
         pronouns: ["ich", "du", "er", "sie", "es", "wir", "ihr", "man", "das", "dies", "dieser", "diese", "dieses"]
     )
 

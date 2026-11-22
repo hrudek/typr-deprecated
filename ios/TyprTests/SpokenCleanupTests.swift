@@ -46,6 +46,9 @@ final class SpokenCleanupTests: XCTestCase {
             ("Das ist teuer, ich meine, das ist zu viel.", "Das ist teuer, ich meine, das ist zu viel."),
             ("Wir können gehen, ich meine, wir müssen nicht bleiben.", "Wir können gehen, ich meine, wir müssen nicht bleiben."),
             ("Die Tür ist zu, zu spät.", "Die Tür ist zu, zu spät."),
+            ("Was mir wichtig ist, ist Ruhe.", "Was mir wichtig ist, ist Ruhe."),
+            ("Was es ist ist gut.", "Was es ist ist gut."),
+            ("Und, und dann?", "Und, und dann?"),
         ], language: .german)
     }
 
