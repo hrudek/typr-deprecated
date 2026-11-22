@@ -106,8 +106,6 @@ final class SuggestionBarTests: XCTestCase {
         XCTAssertEqual(activationCount, 2)
     }
 
-    /// Split layouts spread the three suggestions over the whole strip, both halves and the gap, so long
-    /// German words are not cut (they were squeezed over the right half before).
     func testSplitKeyboardSpreadsLongSuggestionsOverTheWholeStrip() throws {
         let rows = [["Hauptmann", "Hauptsache", "selbstverständlich"], ["haupt", "Entschuldigung", "Hauptsache"]]
         for width: CGFloat in [801, 951] {
