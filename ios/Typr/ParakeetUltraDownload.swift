@@ -2,26 +2,16 @@ import Foundation
 import Observation
 import SwiftUI
 
-/// Experimental › Hex experiments › Multilingual model (Parakeet): gets Parakeet Ultra onto the iPhone beside the
-/// engine Typr dictates with meanwhile, so turning the experiment on never takes dictation away.
-/// Each file resumes from its `.partial`, at the next launch too. A dropped connection or a
-/// download that stops moving for `stallLimit` tries again by itself (after 2, 4, 8, 16, 30 s),
-/// and at once when Typr comes back to the front; after `automaticTries` in a row that got nothing
-/// further, it says what went wrong and waits for Try again (or, for a connection, the next
-/// time Typr comes to the front).
+/// Resumes each file from its partial download, including after relaunch.
 @MainActor
 @Observable
 final class ParakeetUltraDownload {
     enum State: Equatable {
-        /// Nothing to say: the experiment off, not wanted for this language, or Ultra dictates.
         case idle
-        /// Bytes on disk.
         case downloading(Int64)
-        /// Stopped, and tries again by itself in `retryIn` seconds, or once Typr is in front (nil).
+        /// A nil retry delay waits for foreground activation.
         case waiting(Int64, retryIn: Int?)
-        /// On disk; Typr gets it ready beside the engine it dictates with.
         case loading
-        /// What went wrong, in plain words.
         case failed(String)
     }
 
@@ -33,6 +23,7 @@ final class ParakeetUltraDownload {
     static let automaticTries = 6
 
     @ObservationIgnored private var task: Task<Void, Never>?
+    @ObservationIgnored private var drainingTask: Task<Void, Never>?
     @ObservationIgnored private var tries = 0
     /// What was on disk at the last stop: a download that moved since starts its tries over.
     @ObservationIgnored private var bytesAtLastStop: Int64 = 0
@@ -41,9 +32,8 @@ final class ParakeetUltraDownload {
     @ObservationIgnored private var backgroundTime: BackgroundTime?
     @ObservationIgnored private let directory: URL
     @ObservationIgnored private let files: [ParakeetUltraModel.File]
-    @ObservationIgnored private let base: String
-    @ObservationIgnored private let session: URLSession
-    @ObservationIgnored private let stallLimit: Duration
+    typealias Fetch = @Sendable (@escaping @Sendable (Int64) async -> Void) async throws -> Void
+    @ObservationIgnored private let fetch: Fetch
     @ObservationIgnored private let backoff: (Int) -> Int
 
     init(
@@ -52,13 +42,17 @@ final class ParakeetUltraDownload {
         base: String = ParakeetUltraModel.baseURL,
         session: URLSession = ParakeetUltraDownload.makeSession(),
         stallLimit: Duration = ParakeetUltraDownload.stallLimit,
-        backoff: @escaping (Int) -> Int = ParakeetUltraDownload.backoff
+        backoff: @escaping (Int) -> Int = ParakeetUltraDownload.backoff,
+        fetch: Fetch? = nil
     ) {
         self.directory = directory
         self.files = files
-        self.base = base
-        self.session = session
-        self.stallLimit = stallLimit
+        self.fetch = fetch ?? { publish in
+            try await Self.fetch(
+                directory: directory, files: files, base: base, session: session,
+                stallLimit: stallLimit, publish: publish
+            )
+        }
         self.backoff = backoff
     }
 
@@ -78,51 +72,56 @@ final class ParakeetUltraDownload {
 
     var total: Int64 { files.reduce(0) { $0 + $1.size } }
 
-    /// Starts, or resumes from what's on disk; does nothing while it runs.
     func start() {
         guard task == nil else { return }
+        let previous = drainingTask
+        drainingTask = nil
         tries = 0
-        run()
+        failedForConnection = false
+        state = .downloading(ParakeetUltraModel.bytesOnDisk(in: directory, files: files))
+        task = Task { [weak self] in
+            // Cancellation can leave URLSession callbacks or file promotion still running.
+            await previous?.value
+            guard !Task.isCancelled, let self else { return }
+            self.bytesAtLastStop = ParakeetUltraModel.bytesOnDisk(in: self.directory, files: self.files)
+            await self.loop()
+        }
     }
 
-    /// Starts over from what's on disk, with all the automatic tries again.
     func restart() {
-        task?.cancel()
-        task = nil
-        tries = 0
-        run()
+        cancel()
+        start()
     }
 
-    /// Stops it and waits until nothing writes to the folder any more, so it can be deleted.
-    func stop() async {
-        let running = task
-        task = nil
-        running?.cancel()
-        await running?.value
+    /// The returned task drains the writer and all superseded writers before deletion.
+    @discardableResult
+    func cancel() -> Task<Void, Never>? {
+        if let task {
+            task.cancel()
+            drainingTask = task
+            self.task = nil
+        }
         endBackgroundTime()
+        failedForConnection = false
         state = .idle
+        return drainingTask
     }
 
     func loading() {
         state = .loading
     }
 
-    /// A load beside the usual engine that another preparation replaced.
     func dropLoad() {
         if state == .loading { state = .idle }
     }
 
-    /// Ultra dictates, or isn't wanted any more.
     func settle() {
         guard task == nil else { return }
         state = .idle
     }
 
-    /// A load that failed, or one that ended Typr: said with Try again beside it.
     func fail(_ message: String) {
-        task?.cancel()
-        task = nil
-        failedForConnection = false
+        cancel()
         state = .failed(message)
     }
 
@@ -134,12 +133,21 @@ final class ParakeetUltraDownload {
         }
     }
 
-    /// Back in front: a download that stopped tries again at once, and one suspended long
-    /// enough for iOS to drop its connection starts a fresh one from where it is.
-    func appBecameActive() {
-        let away = backgroundedAt.map { Date().timeIntervalSince($0) } ?? 0
+    func appBecameActive(canRetry: Bool, now: Date = Date()) {
+        let away = backgroundedAt.map { now.timeIntervalSince($0) } ?? 0
         backgroundedAt = nil
         endBackgroundTime()
+        guard canRetry else {
+            switch state {
+            case .downloading, .waiting:
+                cancel()
+            case .failed where failedForConnection:
+                cancel()
+            default:
+                break
+            }
+            return
+        }
         switch state {
         case .waiting:
             restart()
@@ -157,27 +165,12 @@ final class ParakeetUltraDownload {
         backgroundTime = nil
     }
 
-    private func run() {
-        failedForConnection = false
-        bytesAtLastStop = ParakeetUltraModel.bytesOnDisk(in: directory, files: files)
-        state = .downloading(bytesAtLastStop)
-        task = Task { [weak self] in
-            await self?.loop()
-        }
-    }
-
     private func loop() async {
         while !Task.isCancelled {
             do {
-                try await Self.fetch(
-                    directory: directory,
-                    files: files,
-                    base: base,
-                    session: session,
-                    stallLimit: stallLimit
-                ) { [weak self] bytes in
+                try await fetch { [weak self] bytes in
                     await MainActor.run {
-                        guard let self, self.task != nil, case .downloading = self.state else { return }
+                        guard !Task.isCancelled, let self, case .downloading = self.state else { return }
                         self.state = .downloading(bytes)
                     }
                 }
@@ -195,7 +188,6 @@ final class ParakeetUltraDownload {
                 }
                 bytesAtLastStop = onDisk
                 tries += 1
-                print("multilingual model: download try \(tries) stopped at \(onDisk) bytes: \(error)")
                 guard Self.triesAgain(after: error), tries < Self.automaticTries else {
                     task = nil
                     endBackgroundTime()
@@ -204,7 +196,6 @@ final class ParakeetUltraDownload {
                     return
                 }
                 if backgroundedAt != nil {
-                    // Suspended soon anyway: tries again once Typr is back in front.
                     task = nil
                     endBackgroundTime()
                     state = .waiting(onDisk, retryIn: nil)

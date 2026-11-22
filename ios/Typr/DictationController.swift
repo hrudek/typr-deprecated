@@ -263,6 +263,7 @@ final class DictationController {
             waiters.forEach { $0.resume() }
         }
     }
+    @ObservationIgnored var multilingualRemovalGeneration: UInt64 = 0
     @ObservationIgnored var loadFinishedWaiters: [CheckedContinuation<Void, Never>] = []
     /// Experimental › Hex experiments › Multilingual model (Parakeet): its download, beside the
     /// engine Typr dictates with meanwhile.
@@ -558,7 +559,7 @@ final class DictationController {
 
     func noteSceneDidBecomeActive() {
         isInBackground = false
-        multilingualDownload.appBecameActive()
+        multilingualDownload.appBecameActive(canRetry: canDownloadMultilingualModel)
         if preparationFailedInBackground {
             // Picks up a download that iOS cut off while Typr was in the background; FluidAudio
             // resumes each file from the bytes it has.

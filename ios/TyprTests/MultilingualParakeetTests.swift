@@ -205,11 +205,63 @@ final class MultilingualParakeetTests: XCTestCase {
         download.start()
         try await waitUntil { ParakeetUltraModel.bytesOnDisk(in: model.folder, files: model.files) == 800 }
 
-        await download.stop()
+        await download.cancel()?.value
         XCTAssertEqual(download.state, .idle)
         ParakeetUltraModel.remove(from: model.folder)
-        try await Task.sleep(for: .milliseconds(300))
         XCTAssertFalse(FileManager.default.fileExists(atPath: model.folder.path), "nothing wrote after stop")
+    }
+
+    func testAForegroundRestartWaitsForThePreviousWriter() async throws {
+        let writer = GatedUltraWriter()
+        let download = ParakeetUltraDownload(fetch: { _ in await writer.write() })
+        download.start()
+        try await waitForState("first writer started") { writer.events == [.started] }
+
+        download.appMovedToBackground()
+        download.appBecameActive(canRetry: true, now: Date().addingTimeInterval(26))
+        await mainActorBarrier()
+        XCTAssertEqual(writer.events, [.started])
+        writer.release()
+        try await waitForState("replacement finished") { download.state == .loading }
+
+        XCTAssertEqual(writer.events, [.started, .finished, .started, .finished])
+    }
+
+    func testCancellingAQueuedRestartDrainsTheOriginalWriter() async throws {
+        let writer = GatedUltraWriter()
+        let download = ParakeetUltraDownload(fetch: { _ in await writer.write() })
+        download.start()
+        try await waitForState("first writer started") { writer.events == [.started] }
+
+        download.restart()
+        let drain = try XCTUnwrap(download.cancel())
+        let deletion = Task {
+            await drain.value
+            writer.events.append(.deleted)
+        }
+        await mainActorBarrier()
+        XCTAssertEqual(writer.events, [.started])
+        writer.release()
+        await deletion.value
+
+        XCTAssertEqual(writer.events, [.started, .finished, .deleted])
+        XCTAssertEqual(download.state, .idle)
+    }
+
+    func testForegroundDropsPausedRetriesWhenUltraIsIneligible() async throws {
+        let download = ParakeetUltraDownload(backoff: { _ in 30 }, fetch: { _ in
+            throw URLError(.networkConnectionLost)
+        })
+        download.start()
+        try await waitForState("download retry is waiting") {
+            if case .waiting = download.state { return true }
+            return false
+        }
+
+        download.appBecameActive(canRetry: false)
+        XCTAssertEqual(download.state, .idle)
+        XCTAssertFalse(download.isRunning)
+        await download.cancel()?.value
     }
 
     func testParakeetUltrasFilesArePinnedAndComplete() throws {
@@ -247,6 +299,27 @@ final class MultilingualParakeetTests: XCTestCase {
             }
             try await Task.sleep(for: .milliseconds(20))
         }
+    }
+}
+
+@MainActor
+private final class GatedUltraWriter {
+    enum Event: Equatable { case started, finished, deleted }
+
+    var events: [Event] = []
+    private var gate: CheckedContinuation<Void, Never>?
+
+    func write() async {
+        events.append(.started)
+        if events.count == 1 {
+            await withCheckedContinuation { gate = $0 }
+        }
+        events.append(.finished)
+    }
+
+    func release() {
+        gate?.resume()
+        gate = nil
     }
 }
 

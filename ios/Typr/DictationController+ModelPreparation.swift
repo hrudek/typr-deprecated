@@ -14,15 +14,12 @@ extension DictationController {
         let languageName: String
     }
 
-    /// `preset`: Parakeet Ultra taking Parakeet V2's place (`replaceParakeetWithMultilingual`).
-    func prepareModel(fallbacksLeft: Int, candidate preset: (any LocalTranscribing)? = nil) {
-        // This is also called by handoff/intents and tests, not just the settings button.
+    func prepareModel(fallbacksLeft: Int, launchUltraLanguage: String? = nil) {
         guard canChangeEngine else { return }
         pendingAppleLanguageChange = false
         modelNeedsReload = false
         modelPrepGeneration &+= 1
         let prepGen = modelPrepGeneration
-        // A load beside the engine this replaces is dropped; the end of this one decides again.
         multilingualDownload.dropLoad()
         startMultilingualDownloadIfWanted()
         modelBackground?.finish(success: false)
@@ -37,7 +34,7 @@ extension DictationController {
         let language = dictationLanguage
         let previous = preparationTask
         previous?.cancel()
-        if preferred != nil {
+        if preferred != nil || transcriber is ParakeetUltraTranscriber {
             workingEngine = nil
         } else if isModelReady {
             workingEngine = WorkingEngine(transcriber: transcriber, engine: currentEngine, languageName: transcriptionLanguage)
@@ -72,8 +69,8 @@ extension DictationController {
             var candidateIsUltra = false
             do {
                 let candidate: any LocalTranscribing
-                if let preset {
-                    candidate = preset
+                if let launchUltraLanguage, self.multilingualLanguage() == launchUltraLanguage {
+                    candidate = ParakeetUltraTranscriber(language: launchUltraLanguage)
                 } else if let preferred {
                     candidate = try await engineProvider.transcriber(for: preferred, language: language)
                 } else if let transcriberFactory {
@@ -83,10 +80,7 @@ extension DictationController {
                 }
                 guard self.modelPrepGeneration == prepGen else { return }
                 candidateIsUltra = candidate is ParakeetUltraTranscriber
-                // Two in-process Parakeet models never stay loaded together.
-                if candidate is ParakeetTranscriber || candidateIsUltra,
-                   self.workingEngine?.transcriber is ParakeetTranscriber
-                    || self.workingEngine?.transcriber is ParakeetUltraTranscriber {
+                if candidate is ParakeetTranscriber, self.workingEngine?.transcriber is ParakeetTranscriber {
                     self.workingEngine = nil
                 }
                 engineName = candidate.displayName
@@ -111,9 +105,9 @@ extension DictationController {
                 }
                 let candidateLanguageName = await candidate.languageName
                 guard self.modelPrepGeneration == prepGen else { return }
-                // A language change while preparation awaited must not publish the old Apple
-                // locale as ready. The replacement waits for this task to release its candidate.
-                if candidate.displayName == "Apple Speech", self.dictationLanguage != language {
+                // The replacement waits for this task to release its candidate.
+                if (candidate.displayName == "Apple Speech" && self.dictationLanguage != language)
+                    || (candidateIsUltra && self.multilingualLanguage() != launchUltraLanguage) {
                     self.pendingAppleLanguageChange = true
                     self.phase = .ready
                     self.preparePendingAppleLanguageIfIdle()
@@ -136,16 +130,12 @@ extension DictationController {
                 self.syncMultilingualParakeet()
             } catch {
                 guard self.modelPrepGeneration == prepGen else { return }
-                if candidateIsUltra, fallbacksLeft > 0, !(error is CancellationError) {
-                    // Parakeet Ultra didn't load: the engine that dictated before keeps
-                    // dictating, else the one Typr picks without it (Hex #2337).
-                    self.multilingualParakeetFailedToLoad(error)
-                    if let working = self.workingEngine {
-                        self.restore(working, because: error.localizedDescription)
-                    } else {
-                        self.preparationTask = nil
-                        self.prepareModel(fallbacksLeft: fallbacksLeft - 1)
+                if candidateIsUltra {
+                    if self.multilingualLanguage() == launchUltraLanguage {
+                        self.multilingualParakeetFailedToLoad(error)
                     }
+                    self.phase = .ready
+                    self.prepareModel(fallbacksLeft: fallbacksLeft)
                     return
                 }
                 if preferred == nil, fallbacksLeft > 0, let notice = Self.switchNotice(for: error) {
@@ -166,7 +156,6 @@ extension DictationController {
                 self.phase = .failed(error.localizedDescription)
                 self.publishKeyboardSnapshot()
                 self.preparePendingAppleLanguageIfIdle()
-                // A downloaded Parakeet Ultra can still dictate.
                 self.syncMultilingualParakeet()
             }
         }
@@ -247,16 +236,7 @@ extension DictationController {
     }
 }
 
-/// Experimental › Hex experiments › Multilingual model (Parakeet) (anomalyco/hex #2197, #2337):
-/// Parakeet Ultra downloads and loads beside the engine that dictates meanwhile, so it never
-/// takes a working dictation away. Only while no engine is chosen: a chosen engine is never
-/// replaced.
 extension DictationController {
-    /// The switch turned on or off. On, the engine Typr dictates with stays while Parakeet
-    /// Ultra downloads and loads beside it; a load that ended Typr gets another try. Off, the
-    /// download stops and is deleted once no load of it runs, and Typr prepares the engine it
-    /// picks without it if Ultra was the one dictating (now, or once the dictation in flight
-    /// is done).
     func multilingualParakeetChanged() {
         let settings = MultilingualParakeetSettings()
         if settings.isEnabled {
@@ -270,8 +250,6 @@ extension DictationController {
             settings.isModelReady = false
             removeMultilingualModel()
             if engineName != ParakeetUltraTranscriber.name, isModelReady || preferredEngine != nil {
-                // Ultra wasn't dictating: drop a load of it beside the engine that is.
-                if isModelReady { modelPrepGeneration &+= 1 }
                 return
             }
         }
@@ -280,40 +258,31 @@ extension DictationController {
             return
         }
         prepareModel()
-        if !settings.isEnabled, workingEngine?.transcriber is ParakeetUltraTranscriber {
-            workingEngine = nil
-        }
     }
 
     /// Stops the download, waits for every load of the model to return (a Core ML load can't
     /// be interrupted), then deletes it, unless the switch was turned on again meanwhile.
-    private func removeMultilingualModel() {
-        let download = multilingualDownload
+    func removeMultilingualModel() {
+        multilingualRemovalGeneration &+= 1
+        let removal = multilingualRemovalGeneration
+        let download = multilingualDownload.cancel()
         Task {
-            await download.stop()
+            await download?.value
             while !multilingualLoads.isEmpty {
                 deletionWaitsForTesting += 1
                 await withCheckedContinuation { loadFinishedWaiters.append($0) }
             }
-            guard !MultilingualParakeetSettings().isEnabled else { return }
+            guard multilingualRemovalGeneration == removal, !MultilingualParakeetSettings().isEnabled else { return }
             ParakeetUltraModel.remove()
         }
     }
 
-    /// Parakeet V2 dictates and leaves no room to load Parakeet Ultra beside it (English
-    /// before iOS 26): Ultra takes its place and loads as it would at launch, rather than
-    /// never getting its first load. False when V2 isn't the engine.
-    func replaceParakeetWithMultilingual(language: String) -> Bool {
-        guard transcriber is ParakeetTranscriber, phase != .preparingModel, canChangeEngine else { return false }
-        prepareModel(fallbacksLeft: 2, candidate: ParakeetUltraTranscriber(language: language))
-        return true
-    }
-
-    /// Loads Parakeet Ultra while the engine Typr has keeps dictating, and switches to it once
-    /// it's loaded; a dictation in flight isn't interrupted. A failure keeps that engine and
-    /// says why. Only while no other preparation runs; the next one waits for this load.
-    func loadMultilingualParakeetBeside(language: String) {
-        guard phase != .preparingModel, preferredEngine == nil else { return }
+    func loadMultilingualParakeetBeside(
+        language: String,
+        makeTranscriber: (String) -> any LocalTranscribing = { ParakeetUltraTranscriber(language: $0) }
+    ) {
+        guard phase != .preparingModel, multilingualLoads.isEmpty, multilingualLanguage() == language else { return }
+        let candidate = makeTranscriber(language)
         modelPrepGeneration &+= 1
         let prepGen = modelPrepGeneration
         multilingualDownload.loading()
@@ -324,14 +293,20 @@ extension DictationController {
             defer {
                 backgroundTime.end()
                 self.multilingualLoads.remove(prepGen)
+                let wanted = self.multilingualLanguage()
+                if self.modelPrepGeneration == prepGen, wanted != language {
+                    self.multilingualDownload.dropLoad()
+                    if wanted != nil, ParakeetUltraModel.isDownloaded() {
+                        self.syncMultilingualParakeet()
+                    }
+                }
             }
             await previous?.value
-            guard self.modelPrepGeneration == prepGen else { return }
-            let candidate = ParakeetUltraTranscriber(language: language)
+            guard self.modelPrepGeneration == prepGen, self.multilingualLanguage() == language else { return }
             do {
                 try await candidate.prepare { _ in }
                 let languageName = await candidate.languageName
-                guard self.modelPrepGeneration == prepGen, self.preferredEngine == nil else { return }
+                guard self.modelPrepGeneration == prepGen, self.multilingualLanguage() == language else { return }
                 self.workingEngine = nil
                 self.transcriber = candidate
                 self.currentEngine = nil
@@ -348,7 +323,7 @@ extension DictationController {
                 self.multilingualParakeetLoaded()
                 self.publishKeyboardSnapshot()
             } catch {
-                guard self.modelPrepGeneration == prepGen else { return }
+                guard self.modelPrepGeneration == prepGen, self.multilingualLanguage() == language else { return }
                 self.multilingualParakeetFailedToLoad(error)
             }
         }

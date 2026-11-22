@@ -245,6 +245,7 @@ private nonisolated final class PartialFileWriter: NSObject, URLSessionDataDeleg
     private var written: Int64 = 0
     private var failure: Error?
     private var continuation: CheckedContinuation<Void, Error>?
+    private var cancelled = false
 
     init(url: URL, offset: Int64, onBytes: @escaping @Sendable (Int64) -> Void) throws {
         self.url = url
@@ -260,11 +261,19 @@ private nonisolated final class PartialFileWriter: NSObject, URLSessionDataDeleg
         task.delegate = self
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                lock.withLock { self.continuation = continuation }
+                let cancelled = lock.withLock {
+                    self.continuation = continuation
+                    return self.cancelled
+                }
+                if cancelled { task.cancel() }
                 task.resume()
             }
         } onCancel: {
-            task.cancel()
+            let registered = self.lock.withLock {
+                self.cancelled = true
+                return self.continuation != nil
+            }
+            if registered { task.cancel() }
         }
     }
 
