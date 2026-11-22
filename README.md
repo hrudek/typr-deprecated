@@ -19,6 +19,8 @@ An explicit engine or language choice never silently falls back to another.
   While it runs, touching the Typr key already holds the running input's audio in
   memory (at most 3 s, never on disk); the hold writes it as the start of the
   dictation, and a tap (space), slide or 1.5 s without a hold drops it.
+  Holding the suggestion bar where no word or chip is dictates the same way, push
+  to talk: lifting the finger stops it, and a tap there does nothing.
   If iOS reports another app playing audio before
   microphone activation, Typr leaves idle input cold. Dictate then opens Typr to
   start recording and interrupt that audio. Stopping or cancelling the recording

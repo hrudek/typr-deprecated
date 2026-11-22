@@ -889,6 +889,137 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.text.count, 2, "a cancelled touch types nothing")
     }
 
+    func testHoldingTheEmptyStripDictatesUntilReleasedAndATapDoesNothing() throws {
+        let model = KeyboardViewModel()
+        var events: [String] = []
+        model.onArmDictation = { events.append("arm") }
+        model.onDisarmDictation = { events.append("disarm") }
+        model.onDictateTap = { events.append("start") }
+        model.onStopTap = { events.append("stop") }
+        model.onColdStart = { events.append("cold") }
+        let view = FullKeyboardView(model: model, target: target)
+        view.frame = CGRect(x: 0, y: 0, width: 393, height: 254)
+        view.layoutIfNeeded()
+        let strip = try XCTUnwrap(view.subviews.compactMap { $0 as? KeyboardStripView }.first)
+        let key = try XCTUnwrap(view.subviews.compactMap { $0 as? TyprKeyControl }.first)
+        XCTAssertFalse(strip.isHidden)
+        let empty = CGPoint(x: strip.frame.minX + 20, y: strip.frame.midY)
+        XCTAssertTrue(view.hitTest(empty, with: nil) === view, "the keyboard view, never hidden, owns the hold")
+
+        func waitFor(_ event: String) {
+            let seen = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                MainActor.assumeIsolated { events.contains(event) }
+            }, object: nil)
+            wait(for: [seen], timeout: 2)
+        }
+        func expectNoHold(_ body: () -> Void) {
+            let fired = expectation(description: "no hold")
+            fired.isInverted = true
+            model.onDictateTap = { fired.fulfill() }
+            body()
+            wait(for: [fired], timeout: TyprKeyGesture.holdDuration + 0.3)
+            model.onDictateTap = { events.append("start") }
+        }
+
+        XCTAssertTrue(view.beginStripPress(at: empty))
+        waitFor("cold")
+        view.endStripPress()
+        XCTAssertEqual(events, ["cold", "disarm"], "cold: the hold opens Typr as the Typr key does, the end stops nothing")
+
+        let t = Date().timeIntervalSince1970
+        model.applyBridgeState(
+            hasFullAccess: true,
+            snapshot: KeyboardSnapshot(state: .ready, heartbeat: t, expiresAt: t + 60),
+            isModelInstalled: true,
+            style: .polished,
+            now: t,
+            clearPending: false,
+            animated: false
+        )
+        let warm = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            MainActor.assumeIsolated { key.isWarm }
+        }, object: nil)
+        wait(for: [warm], timeout: 2)
+
+        events = []
+        XCTAssertTrue(view.beginStripPress(at: empty))
+        XCTAssertEqual(events, ["arm"], "warm: the touch-down arms")
+        waitFor("start")
+        XCTAssertEqual(events, ["arm", "start"], "a still hold starts dictating")
+        model.applyBridgeState(
+            hasFullAccess: true,
+            snapshot: KeyboardSnapshot(state: .recording, heartbeat: t, expiresAt: t + 60, recordingStartedAt: t, jobID: "j1"),
+            isModelInstalled: true,
+            style: .polished,
+            now: t,
+            clearPending: false,
+            animated: false
+        )
+        let recording = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            MainActor.assumeIsolated { view.hasAllocatedRecordingPanel && strip.isHidden }
+        }, object: nil)
+        wait(for: [recording], timeout: 2)
+        view.endStripPress()
+        XCTAssertEqual(events, ["arm", "start", "disarm", "stop"], "the release after the panel hid the strip stops it")
+
+        model.applyBridgeState(
+            hasFullAccess: true,
+            snapshot: KeyboardSnapshot(state: .ready, heartbeat: t, expiresAt: t + 60),
+            isModelInstalled: true,
+            style: .polished,
+            now: t,
+            clearPending: true,
+            animated: false
+        )
+        let idle = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            MainActor.assumeIsolated { !strip.isHidden }
+        }, object: nil)
+        wait(for: [idle], timeout: 2)
+
+        events = []
+        expectNoHold {
+            view.beginStripPress(at: empty)
+            view.endStripPress()
+        }
+        XCTAssertEqual(events, ["arm", "disarm"], "a short tap only drops the arming")
+
+        events = []
+        expectNoHold {
+            view.beginStripPress(at: empty)
+            view.moveStripPress(to: CGPoint(x: empty.x + 20, y: empty.y))
+        }
+        XCTAssertEqual(events, ["arm", "disarm"], "a slide before the hold is no hold")
+        XCTAssertEqual(target.text, "", "no strip touch types anything")
+    }
+
+    func testStripWordsAndChipsKeepTheirTouchesBesideTheEmptyHoldArea() {
+        let strip = KeyboardStripView(frame: CGRect(x: 0, y: 0, width: 393, height: 44))
+        let suggestion = KeyboardSuggestion(displayText: "Hallo", replacement: "Hallo", kind: .primary(autoReplace: false))
+        let emoji = KeyboardSuggestion(displayText: "😀", replacement: "😀", kind: .secondary)
+        var picked: [String] = []
+        strip.onSelectSuggestion = { picked.append($0.replacement) }
+
+        strip.update(suggestions: [suggestion, emoji], statusText: nil)
+        strip.layoutIfNeeded()
+        XCTAssertFalse(strip.hitTest(CGPoint(x: 65, y: 22), with: nil) === strip, "a word's slot takes its touch")
+        XCTAssertFalse(strip.hitTest(CGPoint(x: 196, y: 22), with: nil) === strip, "an emoji's slot takes its touch")
+        XCTAssertNil(strip.hitTest(CGPoint(x: 330, y: 22), with: nil), "the empty third slot passes through to the hold")
+        let slot = strip.hitTest(CGPoint(x: 65, y: 22), with: nil) as? UIControl
+        slot?.sendActions(for: .touchDown)
+        slot?.sendActions(for: .touchUpInside)
+        XCTAssertEqual(picked, ["Hallo"], "tapping a word still picks it")
+
+        strip.update(suggestions: [], statusText: nil, showsUndo: true)
+        strip.layoutIfNeeded()
+        XCTAssertTrue(strip.hitTest(CGPoint(x: 196, y: 22), with: nil) is UIButton, "Undo dictation takes its touch")
+        XCTAssertNil(strip.hitTest(CGPoint(x: 20, y: 22), with: nil), "beside Undo passes through to the hold")
+
+        strip.update(suggestions: [], statusText: nil, showsCodeChip: true)
+        strip.layoutIfNeeded()
+        XCTAssertTrue(strip.hitTest(CGPoint(x: 196, y: 22), with: nil) is UIButton, "Code from Messages takes its touch")
+        XCTAssertNil(strip.hitTest(CGPoint(x: 20, y: 22), with: nil), "beside the code chip passes through to the hold")
+    }
+
     func testEmailFieldShowsAtAndDot() {
         target.keyboardType = .emailAddress
         engine.configureForField()
