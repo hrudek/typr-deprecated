@@ -413,6 +413,7 @@ final class KeyboardViewController: UIInputViewController {
             fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "",
                                              learns: TyprSettings()[experiment: .learnFromEdits])
             bridge.lastInsertedResultID = resultID
+            viewModel.resultNote = snap.resultNote
             insertedResult = true
             if feedbackBridge.switchesEnabled, snap.state != .recording, snap.state != .transcribing {
                 viewModel.feedback = DictationFeedbackPresentation.inserted(offer: snap.feedbackOffer,

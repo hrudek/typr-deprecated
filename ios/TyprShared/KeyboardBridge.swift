@@ -243,6 +243,9 @@ nonisolated struct KeyboardSnapshot: Codable, Equatable, Sendable {
     let resultID: String?
     let resultExpiresAt: TimeInterval?
     let transcript: String?
+    /// Shown briefly with `transcript` when it went in differently than asked, such as
+    /// Translate what I say pasting as spoken.
+    let resultNote: String?
     let message: String?
     let feedbackOffer: DictationFeedbackOffer?
 
@@ -257,6 +260,7 @@ nonisolated struct KeyboardSnapshot: Codable, Equatable, Sendable {
         resultID: String? = nil,
         resultExpiresAt: TimeInterval? = nil,
         transcript: String? = nil,
+        resultNote: String? = nil,
         message: String? = nil,
         feedbackOffer: DictationFeedbackOffer? = nil
     ) {
@@ -270,6 +274,7 @@ nonisolated struct KeyboardSnapshot: Codable, Equatable, Sendable {
         self.resultID = resultID
         self.resultExpiresAt = resultExpiresAt
         self.transcript = transcript
+        self.resultNote = resultNote
         self.message = message
         self.feedbackOffer = feedbackOffer
     }

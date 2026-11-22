@@ -89,6 +89,8 @@ final class DictationController {
         let spokenPunctuation: Bool
         let endsWithPeriod: Bool
         let lowercase: Bool
+        /// Translate what I say's output language, frozen at start; nil inserts as spoken.
+        let translationTarget: DictationLanguage?
     }
 
     private struct PendingKeyboardHandoff {
@@ -120,6 +122,7 @@ final class DictationController {
     private let cleanupCoordinator = CleanupCoordinator()
     private let statistics: UsageDictationRecorder?
     private let languageSettings: TyprSettings
+    private let translator: DictationTranslator?
     private var pendingCleanupJob: CleanupJob?
     private var transcriptionHeartbeat: Task<Void, Never>?
     private let dictationLog: DictationLogStore?
@@ -165,6 +168,7 @@ final class DictationController {
     private var keyboardFeedbackOffer: DictationFeedbackOffer?
     private var keyboardResultExpiresAt: TimeInterval?
     private var keyboardResult: String?
+    private var keyboardResultNote: String?
     private var keyboardMessage: String?
     private var pendingHandoff: PendingKeyboardHandoff?
     private var keyboardSessionExpiresAt: TimeInterval = 0
@@ -190,6 +194,8 @@ final class DictationController {
     private(set) var isModelReady = false
     private(set) var transcript = ""
     private(set) var lastLoggedTranscriptID: UUID?
+    /// Why `transcript` went in as spoken although Translate what I say was on.
+    private(set) var translationFailure: TranslationFailure?
     @ObservationIgnored private(set) var audioLevel: Float = 0
     @ObservationIgnored private(set) var loudnessDB: Float = -120
     @ObservationIgnored private var rawRecordingDuration: TimeInterval = 0
@@ -271,8 +277,10 @@ final class DictationController {
         engineProvider: (any SpeechEngineProviding)? = nil,
         audioActivationRetryDelays: [Duration] = DictationController.audioActivationRetryDelays,
         modelBackground: (any ModelPreparationScheduling)? = nil,
-        deferPreparationUntilActive: Bool = false
+        deferPreparationUntilActive: Bool = false,
+        translator: DictationTranslator? = .system
     ) {
+        self.translator = translator
         self.audioRetryDelays = audioActivationRetryDelays
         let resolvedBridge = keyboardBridge ?? KeyboardBridge()
         let resolvedAudio = audio ?? SystemAudioManager(mixWithOthers: { languageSettings[experiment: .mixWithOtherAudio] })
@@ -591,6 +599,7 @@ final class DictationController {
 
     func clearTranscript() {
         transcript = ""
+        translationFailure = nil
         copied = false
     }
 
@@ -1135,6 +1144,7 @@ final class DictationController {
             : (enabled ? .typr : .none)
         let cleanupEnabled = enabled && effectiveStyle != .verbatim
         let spokenCleanup = languageSettings[experiment: .cleanUpWhatISay] && effectiveStyle != .verbatim
+        let translationTarget = languageSettings.translateDictation && translator != nil ? languageSettings.translationTarget : nil
         let disabledCleanupReason: CleanupSkipReason? = !enabled ? .off : (effectiveStyle == .verbatim ? .verbatim : nil)
         // The keyboard's caret text and host app; a cold start knows only the app it came from.
         var cleanupContext = keyboardContext ?? CleanupContext(application: attemptAutoReturnOnStart ? returnHost : nil)
@@ -1179,7 +1189,8 @@ final class DictationController {
                 formatLists: languageSettings[experiment: .formatLists],
                 spokenPunctuation: languageSettings[experiment: .spokenPunctuation],
                 endsWithPeriod: languageSettings.dictationEndsWithPeriod,
-                lowercase: languageSettings.dictationLowercase
+                lowercase: languageSettings.dictationLowercase,
+                translationTarget: translationTarget
             )
             refreshWarmExpiry()
             audioLevel = 0
@@ -1389,11 +1400,29 @@ final class DictationController {
                         self.cleanupCoordinator.recordSkip(.off, dependencies: cleanup, diagnostics: recording)
                     }
                 }
-                let beforeSpelling = TranscriptFormatter.format(text, style: session.style, language: session.language,
+                let cleaned = text
+                var outputLanguage = session.language
+                var translationFailure: TranslationFailure?
+                if let target = session.translationTarget, let translator = self.translator {
+                    let outcome = await translator.translate(cleaned, from: session.language, to: target)
+                    guard let outcome, self.jobGeneration == captureGeneration, !Task.isCancelled else { return }
+                    switch outcome {
+                    case .translated(let translated):
+                        text = translated
+                        outputLanguage = target
+                        self.languageSettings.translationFailure = nil
+                    case .failed(let failure):
+                        translationFailure = failure
+                        self.languageSettings.translationFailure = failure
+                    case .skipped:
+                        break
+                    }
+                }
+                let beforeSpelling = TranscriptFormatter.format(text, style: session.style, language: outputLanguage,
                                                                 lists: session.formatLists,
                                                                 punctuation: session.spokenPunctuation,
                                                                 endsWithPeriod: session.endsWithPeriod)
-                recording?.processingStages(cleanupOutput: text, formattedText: beforeSpelling)
+                recording?.processingStages(cleanupOutput: cleaned, formattedText: beforeSpelling)
                 var secondPass = DictationLogSpellingPass()
                 let observeSecond: ((String, String, String) -> Void)? = recording == nil ? nil : { before, after, term in
                     secondPass.record(before: before, after: after, term: term)
@@ -1412,6 +1441,7 @@ final class DictationController {
                 recording?.finish(text: formatted, beforeSpelling: beforeSpelling, spellingPass: secondPass)
                 self.recordingDuration = 0
                 self.transcript = formatted
+                self.translationFailure = translationFailure
                 // Exact recording correlation, never whichever archive row happens to be latest.
                 self.lastLoggedTranscriptID = recording.flatMap { recording in
                     guard let entry = self.dictationLog?.entry(recording.entryID),
@@ -1429,6 +1459,7 @@ final class DictationController {
                 if keyboardJobID != nil {
                     self.keyboardResultID = UUID().uuidString
                     self.keyboardResult = formatted
+                    self.keyboardResultNote = translationFailure?.note
                     self.keyboardResultExpiresAt = self.now() + Self.resultDeliveryTTL
                     if let recording, let resultID = self.keyboardResultID, let keyboardJobID {
                         self.keyboardFeedbackOffer = self.dictationLog?.makeKeyboardFeedbackOffer(
@@ -1695,6 +1726,7 @@ final class DictationController {
             keyboardResultID = nil
             keyboardFeedbackOffer = nil
             keyboardResult = nil
+            keyboardResultNote = nil
             keyboardResultExpiresAt = nil
         }
 
@@ -1752,6 +1784,7 @@ final class DictationController {
                 resultID: keyboardResultID,
                 resultExpiresAt: keyboardResultExpiresAt,
                 transcript: keyboardResult,
+                resultNote: keyboardResultNote,
                 message: failureMessage,
                 feedbackOffer: keyboardFeedbackOffer?.resultID == keyboardResultID ? keyboardFeedbackOffer : nil
             )

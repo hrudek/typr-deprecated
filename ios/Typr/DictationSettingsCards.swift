@@ -1,4 +1,5 @@
 import SwiftUI
+@preconcurrency import Translation
 
 extension DictationStyle {
     var settingsDescription: String {
@@ -114,6 +115,105 @@ struct DictationLanguageSettingsCard: View {
                 .font(.footnote).foregroundStyle(TyprTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
+            TranslateDictationSettingsCard()
+        }
+    }
+}
+
+/// Translate what I say (Hex #2015, #2176): the switch, German or English as the language to
+/// insert, the one-time download of Apple's language pack, and why the last dictation went in
+/// as spoken.
+@MainActor
+struct TranslateDictationSettingsCard: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var enabled = TyprSettings().translateDictation
+    @State private var target = TyprSettings().translationTarget
+    @State private var failure = TyprSettings().translationFailure
+    @State private var status: LanguageAvailability.Status?
+    @State private var download: TranslationSession.Configuration?
+    private let available = DictationTranslator.system != nil
+
+    var body: some View {
+        SettingsSection(title: "Translate what I say") {
+            SettingsToggle(title: "Translate what I say", detail: toggleDetail, isOn: $enabled)
+                .disabled(!available)
+                .onChange(of: enabled) { _, value in TyprSettings().translateDictation = value }
+            if enabled && available {
+                SettingsDivider()
+                Picker("Insert in", selection: $target) {
+                    Text(DictationLanguage.german.label).tag(DictationLanguage.german)
+                    Text(DictationLanguage.english.label).tag(DictationLanguage.english)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16).padding(.vertical, 12)
+                .accessibilityIdentifier("translation-target")
+                .onChange(of: target) { _, value in
+                    TyprSettings().translationTarget = value
+                    Task { await refreshStatus() }
+                }
+                SettingsDivider()
+                packStatus
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+            }
+        }
+        .translationTask(download) { session in
+            try? await session.prepareTranslation()
+            await refreshStatus()
+        }
+        .task { await refreshStatus() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            failure = TyprSettings().translationFailure
+            Task { await refreshStatus() }
+        }
+    }
+
+    private var toggleDetail: String {
+        available ? "Speak German, insert English, or the other way round. Works offline once the languages are downloaded."
+            : "Needs iOS 26."
+    }
+
+    private var source: DictationLanguage { target == .english ? .german : .english }
+
+    @ViewBuilder private var packStatus: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            switch status {
+            case .installed:
+                Text(failure == .failed ? "Couldn't translate the last dictation; it went in as spoken." : "Ready. Works offline.")
+                    .font(.subheadline).foregroundStyle(TyprTheme.textMuted)
+            case .supported:
+                Text(failure == nil ? "Download German and English once to translate offline."
+                     : TranslationFailure.notDownloaded.note)
+                    .font(.subheadline).foregroundStyle(TyprTheme.textMuted)
+                Button("Download languages") {
+                    let configuration = TranslationSession.Configuration(
+                        source: Locale.Language(identifier: source.rawValue),
+                        target: Locale.Language(identifier: target.rawValue))
+                    if download == configuration {
+                        download?.invalidate()
+                    } else {
+                        download = configuration
+                    }
+                }
+                .accessibilityIdentifier("download-translation")
+            case .unsupported:
+                Text("Apple can't translate between German and English on this iPhone.")
+                    .font(.subheadline).foregroundStyle(TyprTheme.textMuted)
+            default:
+                EmptyView()
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func refreshStatus() async {
+        let current = await LanguageAvailability().status(
+            from: Locale.Language(identifier: source.rawValue), to: Locale.Language(identifier: target.rawValue))
+        status = current
+        if current == .installed, failure == .notDownloaded {
+            TyprSettings().translationFailure = nil
+            failure = nil
         }
     }
 }

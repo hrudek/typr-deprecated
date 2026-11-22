@@ -39,7 +39,7 @@ enum SettingsDestination: String, CaseIterable, Hashable {
              .keyboardLearnedWords, .textProcessing, .history: ""
         case .speechEngine: "Automatic chooses an engine until you select one. Audio stays on this iPhone."
         case .style: "Choose how Typr formats your dictations. You can also change style from the keyboard."
-        case .language: "Choose the language you dictate in, not a translation language. Your speech engine stays selected."
+        case .language: "Choose the language you dictate in and, if you like, a language to insert. Your speech engine stays selected."
         case .experimental: "Changes still being tested. All are off by default."
         }
     }

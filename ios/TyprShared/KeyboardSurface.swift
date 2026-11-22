@@ -88,6 +88,24 @@ final class KeyboardViewModel: ObservableObject {
     var onFeedbackRating: ((String, [String]?) -> Void)?
     func dismissFeedback() { feedback = nil }
 
+    var resultNoteDuration: TimeInterval = 8
+    private var resultNoteWork: DispatchWorkItem?
+    /// The inserted dictation's `KeyboardSnapshot.resultNote`, for `resultNoteDuration`.
+    @Published var resultNote: String? {
+        didSet {
+            guard resultNote != oldValue else { return }
+            resultNoteWork?.cancel()
+            guard let note = resultNote else { return }
+            UIAccessibility.post(notification: .announcement, argument: note)
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, self.resultNote == note else { return }
+                self.resultNote = nil
+            }
+            resultNoteWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + resultNoteDuration, execute: work)
+        }
+    }
+
     /// Shared rating behavior; queue failures restore a retry panel on either surface.
     func rateFeedback(_ rating: String, issues: [String]? = nil) {
         onFeedbackRating?(rating, issues)
@@ -641,12 +659,18 @@ struct KeyboardSurfaceView: View {
     private func leadingAccessory(palette p: KeyboardChromePalette) -> some View {
         let showNoAccess = !model.hasFullAccess
         let showRecordingClock = model.hasFullAccess && model.stagePhase == .recording
+        let showResultNote = model.hasFullAccess
+            && model.resultNote != nil
+            && model.stagePhase != .recording
+            && model.stagePhase != .transcribing
         let showWarmStatus = model.hasFullAccess
             && model.isWarmAvailable
+            && !showResultNote
             && model.stagePhase != .recording
             && model.stagePhase != .transcribing
         let showHostNotice = model.hasFullAccess
             && model.hostNotice != nil
+            && !showResultNote
             && !model.isWarmAvailable
             && model.stagePhase != .recording
             && model.stagePhase != .transcribing
@@ -696,6 +720,13 @@ struct KeyboardSurfaceView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
                 .typrTrayReveal(showHostNotice, reduceMotion: reduceMotion, offsetY: 2)
+
+            Text(model.resultNote ?? " ")
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(p.textMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .typrTrayReveal(showResultNote, reduceMotion: reduceMotion, offsetY: 2)
         }
     }
 
