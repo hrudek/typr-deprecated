@@ -67,10 +67,28 @@ extension CGContext {
 }
 
 extension FullKeyboardView {
-    func syncTyprVariants(_ settings: TyprSettings = TyprSettings()) {
+    func syncTyprVariants(_ settings: TyprSettings = TyprSettings(), keyboard: TyprFullKeyboardSettings = TyprFullKeyboardSettings()) {
+        let bottomRow = settings[experiment: .typrBottomRow] ? keyboard.bottomRow : nil
+        if engine.typrBottomRow != bottomRow {
+            engine.typrBottomRow = bottomRow
+            setNeedsLayout()
+        }
+        let showsStrip = !(settings[experiment: .typrCompactStrip] && settings.hideSuggestionBar)
+        if engine.showsStrip != showsStrip {
+            engine.showsStrip = showsStrip
+            setNeedsLayout()
+            onPreferredHeightChange?()
+        }
         let repeats = !settings[experiment: .deleteSlide]
         if plane.repeatsHeldDelete != repeats { plane.repeatsHeldDelete = repeats }
         plane.slidesDeleteByWord = !repeats || !settings[experiment: .typrDeleteSliding]
         engine.slidesCursorByCharacter = settings[experiment: .typrCursorSliding]
+    }
+}
+
+extension FullKeyboardView {
+    var recordingPanelMetrics: KeyboardMetrics {
+        guard !engine.showsStrip else { return engine.layout.metrics }
+        return engine.orientation == .landscape ? .typrLandscape : .typrPortrait
     }
 }

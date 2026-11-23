@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -195,6 +195,18 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "A held delete key keeps deleting letters, then words, even when your finger slides off it. With Slide delete to remove words on, that switch decides."
     )
 
+    static let typrBottomRow = ExperimentalSwitch(
+        name: "variant.bottomRow",
+        title: "Typr bottom row",
+        detail: "The Typr key sits beside the space bar, with Typr's period and emoji keys in the order set in Keyboard › Appearance."
+    )
+
+    static let typrCompactStrip = ExperimentalSwitch(
+        name: "variant.compactStrip",
+        title: "Typr compact strip",
+        detail: "Keyboard › Appearance can hide the whole suggestion bar. The keyboard gets shorter and the Typr key moves beside the space bar."
+    )
+
     static let typrAutomaticHostReturn = ExperimentalSwitch(
         name: "variant.automaticHostReturn",
         title: "Typr automatic host return",
@@ -208,6 +220,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
         .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding,
+        .typrBottomRow, .typrCompactStrip,
     ]
 
     /// Retired: Hex's warm session (anomalyco/hex #2179) is the default since its audio cutover;

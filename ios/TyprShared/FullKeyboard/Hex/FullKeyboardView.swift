@@ -341,7 +341,8 @@ final class FullKeyboardView: UIView {
     /// The strip and the keys, without the lift.
     private var keysHeight: CGFloat {
         KeyboardLayout.height(
-            for: orientation, posture: engine.posture, phoneSize: engine.phoneSize, pad: engine.pad, numberRow: engine.hasNumberRow
+            for: orientation, posture: engine.posture, phoneSize: engine.phoneSize, pad: engine.pad, numberRow: engine.hasNumberRow,
+            showsStrip: engine.showsStrip
         )
     }
 
@@ -757,6 +758,7 @@ final class FullKeyboardView: UIView {
         // its three slots share it by word length (`KeyboardStripView`).
         let strip = Self.typrStripFrame(layout)
         stripView.frame = strip.offsetBy(dx: 0, dy: lift)
+        stripView.clipsToBounds = !engine.showsStrip
         selectionStrip.frame = stripView.frame
         stripView.textCenterY = layout.metrics.stripTextCenter
         stripView.chipHeight = layout.metrics.stripChipHeight
@@ -781,7 +783,7 @@ final class FullKeyboardView: UIView {
         if let panel = recordingPanel {
             panel.frame = recordingPanelFrame
             panel.horizontalInset = layout.horizontalInset
-            panel.metrics = layout.metrics
+            panel.metrics = recordingPanelMetrics
             panel.hexOnLeading = layout.hexOnLeading
         }
         if let menu = styleMenu, let hex = layout.key(.hex) {
@@ -982,7 +984,7 @@ final class FullKeyboardView: UIView {
     /// Where the recording panel sits: the suggestion strip, full width and its height, so
     /// neither the keyboard nor the keys move.
     private var recordingPanelFrame: CGRect {
-        let m = engine.layout.metrics
+        let m = recordingPanelMetrics
         return CGRect(x: 0, y: m.stripTop + appliedLift, width: bounds.width, height: m.stripHeight)
     }
 

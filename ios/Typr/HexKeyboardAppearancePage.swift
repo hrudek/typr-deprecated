@@ -7,6 +7,10 @@ struct HexKeyboardAppearancePage: View {
     @State private var design = TyprFullKeyboardSettings().design
     @State private var typrKeyOnLeft = FullKeyboardSettings().hexKeyOnLeft
     @State private var numberRow = FullKeyboardSettings().numberRow
+    @State private var typrBottomRow = TyprSettings()[experiment: .typrBottomRow]
+    @State private var bottomRow = TyprFullKeyboardSettings().bottomRow
+    @State private var typrCompactStrip = TyprSettings()[experiment: .typrCompactStrip]
+    @State private var hideSuggestionBar = TyprSettings().hideSuggestionBar
     @State private var window: WindowReader.Window?
 
     static let typrKeyFooter = "The Typr key sits at this end of the suggestion bar."
@@ -83,6 +87,36 @@ struct HexKeyboardAppearancePage: View {
                 SettingsToggle(title: "Number row", detail: "1 to 0 above the letters. The keyboard grows taller.", isOn: $numberRow)
                     .onChange(of: numberRow) { _, shown in FullKeyboardSettings().numberRow = shown }
             }
+
+            if typrCompactStrip {
+                SettingsSection(title: "Suggestions") {
+                    SettingsToggle(title: "Hide suggestion bar", detail: "Autocorrect still works on space.", isOn: $hideSuggestionBar)
+                        .onChange(of: hideSuggestionBar) { _, hidden in TyprSettings().hideSuggestionBar = hidden }
+                }
+            }
+
+            if typrBottomRow {
+                VStack(alignment: .leading, spacing: 8) {
+                    SettingsSection(title: "Bottom row") {
+                        SettingsToggle(title: "Period key", detail: "A period beside the space bar.", isOn: $bottomRow.periodKey)
+                        SettingsDivider()
+                        SettingsToggle(title: "Emoji key", detail: KeyboardAppearancePage.emojiKeyDetail, isOn: $bottomRow.emojiKey)
+                        SettingsDivider()
+                        SettingsOrderRows(items: $bottomRow.order) { key in
+                            HStack {
+                                Text(key.title).font(.body).foregroundStyle(TyprTheme.textBase)
+                                Spacer(minLength: 8)
+                                if key == .period, !bottomRow.periodKey {
+                                    Text("Hidden").font(.subheadline).foregroundStyle(TyprTheme.textMuted)
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
+                    }
+                    .onChange(of: bottomRow) { _, row in TyprFullKeyboardSettings().bottomRow = row }
+                    SettingsFooter(KeyboardAppearancePage.bottomRowFooter)
+                }
+            }
         }
     }
 
@@ -91,6 +125,8 @@ struct HexKeyboardAppearancePage: View {
             design: design,
             typrKeyOnLeft: typrKeyOnLeft,
             numberRow: numberRow,
+            bottomRow: typrBottomRow ? bottomRow : nil,
+            showsStrip: !(typrCompactStrip && hideSuggestionBar),
             isDark: KeyboardAppearancePage.snapshotIsDark() ?? window?.systemIsDark ?? true,
             container: container
         )
@@ -111,6 +147,10 @@ struct HexKeyboardAppearancePage: View {
         design = TyprFullKeyboardSettings().design
         typrKeyOnLeft = FullKeyboardSettings().hexKeyOnLeft
         numberRow = FullKeyboardSettings().numberRow
+        typrBottomRow = TyprSettings()[experiment: .typrBottomRow]
+        bottomRow = TyprFullKeyboardSettings().bottomRow
+        typrCompactStrip = TyprSettings()[experiment: .typrCompactStrip]
+        hideSuggestionBar = TyprSettings().hideSuggestionBar
     }
 }
 
@@ -119,16 +159,18 @@ struct HexKeyboardAppearancePreview: UIViewRepresentable {
         var design = KeyboardDesign.standard
         var typrKeyOnLeft: Bool
         var numberRow: Bool
+        var bottomRow: BottomRow?
+        var showsStrip = true
         var isDark: Bool
         var container: CGSize
 
         var orientation: KeyboardOrientation { container.width > container.height ? .landscape : .portrait }
 
-        var height: CGFloat { KeyboardLayout.height(for: orientation, numberRow: numberRow) }
+        var height: CGFloat { KeyboardLayout.height(for: orientation, numberRow: numberRow, showsStrip: showsStrip) }
 
         var accessibilityLabel: String {
             ["Full keyboard preview", design.title, "Typr key \(typrKeyOnLeft ? "left" : "right")",
-             "number row \(numberRow ? "on" : "off")"].joined(separator: ", ")
+             "number row \(numberRow ? "on" : "off")", "suggestions \(showsStrip ? "shown" : "hidden")"].joined(separator: ", ")
         }
     }
 
@@ -156,6 +198,9 @@ struct HexKeyboardAppearancePreview: UIViewRepresentable {
     static func apply(_ settings: Settings, to view: FullKeyboardView) {
         view.syncSettings()
         view.designOverride = settings.design
+        view.engine.typrBottomRow = settings.bottomRow
+        view.engine.showsStrip = settings.showsStrip
+        view.setNeedsLayout()
         view.appearanceOverride = settings.isDark
         view.orientationOverride = settings.orientation
     }

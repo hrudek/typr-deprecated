@@ -646,8 +646,15 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         numberRow: Bool = false,
         joinsUnfoldedKeyboard: Bool = false,
         dvorakPunctuation: Bool = false,
-        availableHeight: CGFloat? = nil
+        availableHeight: CGFloat? = nil,
+        typrBottomRow: BottomRow? = nil,
+        showsStrip: Bool = true
     ) {
+        let typrAdapts = Self.typrAdaptsRows(posture: posture, pad: pad)
+        let typrBottomRow = typrAdapts ? typrBottomRow : nil
+        let showsStrip = showsStrip || !typrAdapts
+        let hexPlacement = Self.typrHexPlacement(hexPlacement, bottomRow: typrBottomRow, showsStrip: showsStrip)
+        let showsEmoji = typrBottomRow.map { $0.emojiKey } ?? showsEmoji
         self.width = width
         // Apple's docked iPad German is QWERTZ without ü, ö and ä, which it holds on u, o and a
         // (iPad mini, iPadOS 27.2), as Hex's plain QWERTZ does.
@@ -672,6 +679,7 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
             orientation, innerWidth: innerWidth, posture: posture, windowInset: windowInset, phoneSize: phoneSize, pad: pad,
             numberRow: numberRow, joinsUnfoldedKeyboard: joinsUnfoldedKeyboard
         )
+        if !showsStrip { metrics = metrics.typrWithoutStrip(orientation) }
         if let availableHeight { metrics = metrics.fitted(toHeight: availableHeight) }
         self.metrics = metrics
         if metrics.pad?.isDocked == true {
@@ -713,7 +721,8 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
                 letters: letters,
                 hexPlacement: hexPlacement,
                 joinedUnfoldedWide: joinsUnfoldedKeyboard && posture == .unfoldedWide && orientation == .portrait,
-                dvorakPunctuation: self.dvorakPunctuation
+                dvorakPunctuation: self.dvorakPunctuation,
+                typrBottomRow: typrBottomRow
             )
             self.split = nil
         }
@@ -744,9 +753,12 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         posture: KeyboardPosture = .phone,
         phoneSize: KeyboardPhoneSize = .regular,
         pad: KeyboardPadPlacement? = nil,
-        numberRow: Bool = false
+        numberRow: Bool = false,
+        showsStrip: Bool = true
     ) -> CGFloat {
-        KeyboardMetrics.for(orientation, posture: posture, phoneSize: phoneSize, pad: pad, numberRow: numberRow).totalHeight
+        let metrics = KeyboardMetrics.for(orientation, posture: posture, phoneSize: phoneSize, pad: pad, numberRow: numberRow)
+        guard !showsStrip, typrAdaptsRows(posture: posture, pad: pad) else { return metrics.totalHeight }
+        return metrics.typrWithoutStrip(orientation).totalHeight
     }
 
     /// `KeyboardKey.row` for Settings › Keyboard › Number row's digits (row 1 is 0, the strip's
@@ -950,7 +962,8 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         letters: KeyboardLetterLayout,
         hexPlacement placement: HexKeyPlacement,
         joinedUnfoldedWide: Bool,
-        dvorakPunctuation: Bool
+        dvorakPunctuation: Bool,
+        typrBottomRow: BottomRow? = nil
     ) -> [KeyboardKey] {
         let innerWidth = width - 2 * inset
         let rows = characterRows(for: layer, language: language, letters: letters)
@@ -1096,7 +1109,23 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
             trailing.append((.dismiss, referenceW, "dismiss"))
         }
 
-        if field == .text, let returnColumn = m.bottomRowReturnColumn {
+        if field == .text, let typrBottomRow {
+            let row = typrBottomRowKeys(typrBottomRow, leading: leading, returnWidth: returnW, periodWidth: referenceW, typrWidth: modW)
+            let fixed = (row.leading + row.trailing).reduce(0) { $0 + $1.1 }
+            let itemCount = CGFloat(row.leading.count + row.trailing.count + 1)
+            let spaceW = max(lw, (right - left) - fixed - (itemCount - 1) * m.gap)
+            var x = left
+            for (kind, w, label) in row.leading {
+                add(kind, row: 3, x: x, w: w, label: label)
+                x += w + m.gap
+            }
+            add(.space, row: 3, x: x, w: spaceW, label: "space")
+            x += spaceW + m.gap
+            for (kind, w, label) in row.trailing {
+                add(kind, row: 3, x: x, w: w, label: label)
+                x += w + m.gap
+            }
+        } else if field == .text, let returnColumn = m.bottomRowReturnColumn {
             // Turned, and on the Duo folded: the page key, the globe and emoji on row 1's
             // columns (`bottomRowLeadColumn`), space up to return's column (on the Duo, Apple's
             // dictation key sits just before return: Hex has none, so space runs on) and a Hex
