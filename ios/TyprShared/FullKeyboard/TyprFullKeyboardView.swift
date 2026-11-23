@@ -846,7 +846,7 @@ final class TyprFullKeyboardView: UIView, UIInputViewAudioFeedback {
             if model.hostNotice == notice {
                 model.hostNotice = nil
             } else if model.resultNote == notice {
-                model.resultNote = nil
+                model.translationNote = nil
             } else {
                 dismissedNotice = notice
             }

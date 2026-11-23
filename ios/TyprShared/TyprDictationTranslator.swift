@@ -2,35 +2,24 @@ import Foundation
 import NaturalLanguage
 @preconcurrency import Translation
 
-/// What Translate what I say made of a dictation.
-nonisolated enum TranslationOutcome: Equatable, Sendable {
-    /// Nothing to translate, or already in the target language.
-    case skipped
-    case translated(String)
-    /// Goes in as spoken.
-    case failed(TranslationFailure)
-}
-
-/// Apple's Translation framework behind a seam tests stand in for. Adapted from Hex
-/// (anomalyco/hex #2015, #2176, `DictationTranslation.swift`).
-struct DictationTranslator {
-    var status: @MainActor @Sendable (Locale.Language, Locale.Language) async -> LanguageAvailability.Status
-    var translate: @MainActor @Sendable (String, Locale.Language, Locale.Language) async throws -> String
+/// Typr translation policy: Translate what I say between German and English only, on iOS 26,
+/// with `deadline` over both attempts (Hex #2015, #2176 as Typr adapted them before Hex's
+/// multilingual translation, `DictationTranslator`).
+struct TyprDictationTranslator {
+    var engine: TranslationEngine
     var sleep: @MainActor @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     /// Covers both attempts; a dictation never waits longer for its translation.
     var deadline: Duration = .seconds(5)
 
     /// iOS 26's sessions on installed languages, usable without a SwiftUI host; nil before.
-    static var system: DictationTranslator? {
+    static var system: TyprDictationTranslator? {
         guard #available(iOS 26.0, *) else { return nil }
-        return DictationTranslator(
-            status: { source, target in await LanguageAvailability().status(from: source, to: target) },
-            translate: { text, source, target in
-                // A session whose translation service went away (Typr suspended, the service
-                // restarted) can't be used again, so every attempt gets a new one.
-                try await TranslationSession(installedSource: source, target: target).translate(text).targetText
-            }
-        )
+        return TyprDictationTranslator(engine: .apple)
+    }
+
+    /// German for a German target (BCP 47), English for any other.
+    static func target(for identifier: String) -> DictationLanguage {
+        Locale(identifier: identifier).language.languageCode == .german ? .german : .english
     }
 
     /// `source` is the captured dictation language; Automatic guesses German or English from
@@ -47,7 +36,7 @@ struct DictationTranslator {
         let work = Task { @MainActor in settle.resume(await attempt(trimmed, from: from, to: to)) }
         let timer = Task { @MainActor in
             guard (try? await sleep(deadline)) != nil else { return }
-            settle.resume(.failed(.failed))
+            settle.resume(.failed(TranslationFailure(.failed, source: from, target: to)))
         }
         let outcome = await withTaskCancellationHandler {
             await withCheckedContinuation { settle.wait($0) }
@@ -61,21 +50,23 @@ struct DictationTranslator {
 
     @MainActor
     private func attempt(_ text: String, from source: Locale.Language, to target: Locale.Language) async -> TranslationOutcome {
-        switch await status(source, target) {
+        let failed = TranslationOutcome.failed(TranslationFailure(.failed, source: source, target: target))
+        let notDownloaded = TranslationOutcome.failed(TranslationFailure(.notDownloaded, source: source, target: target))
+        switch await engine.status(source, target) {
         case .installed: break
-        case .supported: return .failed(.notDownloaded)
-        default: return .failed(.failed)
+        case .supported: return notDownloaded
+        default: return failed
         }
         for _ in 0..<2 {
             do {
-                let translated = try await translate(text, source, target).trimmingCharacters(in: .whitespacesAndNewlines)
+                let translated = try await engine.translate(text, source, target).trimmingCharacters(in: .whitespacesAndNewlines)
                 if !translated.isEmpty { return .translated(translated) }
             } catch {
-                if Task.isCancelled { return .failed(.failed) }
-                if #available(iOS 26.0, *), TranslationError.notInstalled ~= error { return .failed(.notDownloaded) }
+                if Task.isCancelled { return failed }
+                if #available(iOS 26.0, *), TranslationError.notInstalled ~= error { return notDownloaded }
             }
         }
-        return .failed(.failed)
+        return failed
     }
 
     static func detectedLanguage(of text: String) -> DictationLanguage? {

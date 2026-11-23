@@ -135,35 +135,71 @@ struct DictationLanguageSettingsCard: View {
     }
 }
 
-/// Translate what I say (Hex #2015, #2176): the switch, German or English as the language to
-/// insert, the one-time download of Apple's language pack, and why the last dictation went in
-/// as spoken.
+/// Translate what I say (Hex's `TranslateDictationRow`): the switch, the language to insert,
+/// the one-time download of Apple's on-device language pack, and why the last dictation went in
+/// as spoken, with its fix. The keyboard's note after such a dictation opens this page. Typr
+/// offers German and English only.
 @MainActor
 struct TranslateDictationSettingsCard: View {
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var enabled = TyprSettings().translateDictation
-    @State private var target = TyprSettings().translationTarget
-    @State private var failure = TyprSettings().translationFailure
+    @State private var enabled = DictationTranslationSettings().isEnabled
+    @State private var target = DictationTranslationSettings().targetLanguage
+    @State private var lastFailure = DictationTranslationSettings().lastFailure
+    @State private var languages: [Locale.Language] = []
     @State private var status: LanguageAvailability.Status?
     @State private var download: TranslationSession.Configuration?
-    private let available = DictationTranslator.system != nil
+    private let typrPolicy = TyprSettings()[experiment: .typrTranslationPolicy]
+
+    /// What the dictation is translated into: German or English under the Typr policy.
+    private var effectiveTarget: Locale.Language {
+        Locale.Language(identifier: typrPolicy ? TyprDictationTranslator.target(for: target).rawValue : target)
+    }
+
+    /// What you dictate in: the language of the dictation that last went in as spoken, else
+    /// Settings › Language, or the language it last resolved.
+    private var source: Locale.Language {
+        if let lastFailure, lastFailure.target == effectiveTarget.minimalIdentifier {
+            return Locale.Language(identifier: lastFailure.source)
+        }
+        if typrPolicy {
+            return Locale.Language(identifier: effectiveTarget.languageCode == .german ? "en" : "de")
+        }
+        let language = TyprSettings().dictationLanguage.whisperLanguageCode ?? LanguageSettings().effectiveDictationLanguage()
+        return language.map { Locale(identifier: $0).language } ?? Locale.current.language
+    }
 
     var body: some View {
         SettingsSection(title: "Translate what I say") {
-            SettingsToggle(title: "Translate what I say", detail: toggleDetail, isOn: $enabled)
-                .disabled(!available)
-                .onChange(of: enabled) { _, value in TyprSettings().translateDictation = value }
-            if enabled && available {
-                SettingsDivider()
-                Picker("Insert in", selection: $target) {
-                    Text(DictationLanguage.german.label).tag(DictationLanguage.german)
-                    Text(DictationLanguage.english.label).tag(DictationLanguage.english)
+            SettingsToggle(title: "Translate what I say", detail: "Speak one language, insert another", isOn: $enabled)
+                .onChange(of: enabled) { _, value in
+                    let settings = DictationTranslationSettings()
+                    if settings.isEnabled != value { settings.isEnabled = value }
                 }
-                .pickerStyle(.segmented)
+            if enabled {
+                SettingsDivider()
+                HStack {
+                    Text("Insert in").font(.subheadline).foregroundStyle(TyprTheme.textMuted)
+                    Spacer()
+                    Menu {
+                        ForEach(languages, id: \.minimalIdentifier) { language in
+                            Button {
+                                target = language.minimalIdentifier
+                            } label: {
+                                if effectiveTarget.minimalIdentifier == language.minimalIdentifier {
+                                    Label(name(of: language), systemImage: "checkmark")
+                                } else {
+                                    Text(name(of: language))
+                                }
+                            }
+                        }
+                    } label: {
+                        Text(name(of: effectiveTarget))
+                    }
+                    .accessibilityLabel("Insert in")
+                    .accessibilityIdentifier("translation-target")
+                }
                 .padding(.horizontal, 16).padding(.vertical, 12)
-                .accessibilityIdentifier("translation-target")
                 .onChange(of: target) { _, value in
-                    TyprSettings().translationTarget = value
+                    DictationTranslationSettings().targetLanguage = value
                     Task { await refreshStatus() }
                 }
                 SettingsDivider()
@@ -175,60 +211,87 @@ struct TranslateDictationSettingsCard: View {
             try? await session.prepareTranslation()
             await refreshStatus()
         }
-        .task { await refreshStatus() }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            failure = TyprSettings().translationFailure
+        .onAppear(perform: reload)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // The keyboard may have failed to translate, and the pack may have been removed in
+            // iOS Settings meanwhile.
+            reload()
             Task { await refreshStatus() }
+        }
+        .task {
+            languages = [Locale.Language(identifier: "de"), Locale.Language(identifier: "en")]
+                .sorted { name(of: $0) < name(of: $1) }
+            await refreshStatus()
         }
     }
 
-    private var toggleDetail: String {
-        available ? "Speak German, insert English, or the other way round. Works offline once the languages are downloaded."
-            : "Needs iOS 26."
-    }
-
-    private var source: DictationLanguage { target == .english ? .german : .english }
-
     @ViewBuilder private var packStatus: some View {
         VStack(alignment: .leading, spacing: 8) {
-            switch status {
-            case .installed:
-                Text(failure == .failed ? "Couldn't translate the last dictation; it went in as spoken." : "Ready. Works offline.")
-                    .font(.subheadline).foregroundStyle(TyprTheme.textMuted)
-            case .supported:
-                Text(failure == nil ? "Download German and English once to translate offline."
-                     : TranslationFailure.notDownloaded.note)
-                    .font(.subheadline).foregroundStyle(TyprTheme.textMuted)
-                Button("Download languages") {
-                    let configuration = TranslationSession.Configuration(
-                        source: Locale.Language(identifier: source.rawValue),
-                        target: Locale.Language(identifier: target.rawValue))
-                    if download == configuration {
-                        download?.invalidate()
-                    } else {
-                        download = configuration
-                    }
+            if effectiveTarget.languageCode == source.languageCode {
+                note("You dictate in this language already. Choose another dictation language above.")
+            } else {
+                switch status {
+                case .installed where lastFailure?.reason == .needsTyprOpen:
+                    // Before iOS 26 the session lives in Typr's window (TranslationSessionHost).
+                    note("On iOS 18, dictations translate only with Typr open.")
+                case .installed where lastFailure?.reason == .failed:
+                    // Apple's own pack is there but translating failed, as when its Translate
+                    // app was removed.
+                    note("Couldn't translate the last dictation. If it keeps happening, reinstall Apple's Translate app.")
+                    downloadButton(again: true)
+                case .installed:
+                    note("Ready. Works offline.")
+                case .supported:
+                    if lastFailure != nil { note(TranslationFailure.note) }
+                    downloadButton(again: false)
+                case .unsupported:
+                    note("Apple can't translate between these languages.")
+                default:
+                    EmptyView()
                 }
-                .accessibilityIdentifier("download-translation")
-            case .unsupported:
-                Text("Apple can't translate between German and English on this iPhone.")
-                    .font(.subheadline).foregroundStyle(TyprTheme.textMuted)
-            default:
-                EmptyView()
             }
         }
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func refreshStatus() async {
-        let current = await LanguageAvailability().status(
-            from: Locale.Language(identifier: source.rawValue), to: Locale.Language(identifier: target.rawValue))
-        status = current
-        if current == .installed, failure == .notDownloaded {
-            TyprSettings().translationFailure = nil
-            failure = nil
+    private func note(_ text: String) -> some View {
+        Text(text).font(.subheadline).foregroundStyle(TyprTheme.textMuted)
+    }
+
+    private func reload() {
+        let settings = DictationTranslationSettings()
+        enabled = settings.isEnabled
+        target = settings.targetLanguage
+        lastFailure = settings.lastFailure
+    }
+
+    /// Asks Apple to download the pair. Asking again for the same pair invalidates the last
+    /// request, or `translationTask` would not run it again after a cancelled download.
+    private func downloadButton(again: Bool) -> some View {
+        let language = name(of: Locale.Language(identifier: lastFailure?.language ?? effectiveTarget.minimalIdentifier))
+        return Button(again ? "Download \(language) again" : "Download \(language)") {
+            let configuration = TranslationSession.Configuration(source: source, target: effectiveTarget)
+            if download == configuration {
+                download?.invalidate()
+            } else {
+                download = configuration
+            }
         }
+        .accessibilityIdentifier("download-translation")
+    }
+
+    private func refreshStatus() async {
+        let current = await LanguageAvailability().status(from: source, to: effectiveTarget)
+        status = current
+        // Downloaded now: the note about a missing pack is out of date.
+        if current == .installed, lastFailure?.reason == .notDownloaded {
+            DictationTranslationSettings().lastFailure = nil
+            lastFailure = nil
+        }
+    }
+
+    private func name(of language: Locale.Language) -> String {
+        Locale.current.localizedString(forIdentifier: language.minimalIdentifier) ?? language.minimalIdentifier
     }
 }

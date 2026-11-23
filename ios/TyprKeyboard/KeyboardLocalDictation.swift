@@ -217,6 +217,10 @@ final class KeyboardLocalDictation {
         speech = nil
         if let capture { listenWhileIdle(capture) }
         let style = KeyboardBridge().style
+        let settings = TyprSettings()
+        let translationSettings = DictationTranslationSettings()
+        let translation = DictationTranslationPlan(settings: translationSettings,
+                                                   typrPolicy: settings[experiment: .typrTranslationPolicy])
         transcription = Task { [weak self] in
             let heard: String
             do {
@@ -228,10 +232,18 @@ final class KeyboardLocalDictation {
                 return
             }
             guard let self, !Task.isCancelled else { return }
-            let text = await KeyboardLocalCapture.text(from: heard, style: style, settings: TyprSettings())
+            var outcome = TranslationOutcome.skipped
+            let translate: ((String) async -> DictationPipeline.Translation)? = translation.map { plan in
+                { text in
+                    outcome = await plan.translate(text, source: settings.dictationLanguage, settings: translationSettings)
+                    guard !Task.isCancelled, let translated = outcome.text else { return .asSpoken }
+                    return .translated(translated, language: plan.target)
+                }
+            }
+            let text = await KeyboardLocalCapture.text(from: heard, style: style, settings: settings, translate: translate)
             guard !Task.isCancelled else { return }
             self.transcription = nil
-            self.state.finish(jobID: jobID, transcript: text, resultID: UUID().uuidString)
+            self.state.finish(jobID: jobID, transcript: text, resultID: UUID().uuidString, translation: outcome)
         }
     }
 }

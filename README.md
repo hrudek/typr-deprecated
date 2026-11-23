@@ -108,7 +108,7 @@ or load finishes stopping.
   resume using the saved AI & vocabulary settings.
 - Formatting is Hex's shared `DictationPipeline`, the same in the app and in in-keyboard
   dictation: learned fixes, vocabulary and glossary, Clean up what I say, AI cleanup (app
-  only), translation (app only), the style, the vocabulary's spellings again, Lowercase and
+  only), translation, the style, the vocabulary's spellings again, Lowercase and
   French spacing. Style offers Hex's Polished, Casual (texting: lowercase start, no final
   period on a short message), Notes and Verbatim. Style › Format lists (on by default) writes
   "first … second …" and "bullet" as lines, in English and Spanish; German lists stay as
@@ -131,11 +131,14 @@ or load finishes stopping.
   later dictations write it so, before Custom vocabulary. Undo dictation and translated
   dictations teach nothing.
   AI & vocabulary lists the learned fixes to delete. Language › **Translate what
-  I say** (off by default, iOS 26+) inserts German dictations in English or English ones in
-  German with Apple's on-device Translation, after cleanup and before formatting in the
-  output language. The languages are downloaded once from that page; a failed attempt is
-  retried once in a new session, and both together get 5 s. Without the languages, on
-  failure or timeout the dictation goes in as spoken and the keyboard says so for 8 s.
+  I say** (Hex's, off by default) inserts dictations in English or German (English until
+  German is picked) with Apple's on-device Translation, after cleanup and before formatting
+  in that language, in the app and in in-keyboard dictation. Each language pair is
+  downloaded once from that page. A failed attempt is retried once in a new session; on
+  iOS 18 translation runs only while Typr is open. Without the languages or on failure the
+  dictation goes in as spoken and the keyboard says why for 8 s, with the fix; its Open
+  Typr goes to that page. Experimental › **Typr translation policy** restores Typr's
+  German ↔ English translation from iOS 26, with 5 s for both attempts.
   The full keyboard is Hex's, with Typr's compact keys and wide suggestion slots.
   Keyboard › Languages picks its languages and each one's layout (Dvorak for English);
   Keyboard › Spatial autocorrect, Auto-capitalization and Swipe typing are Hex's (spatial

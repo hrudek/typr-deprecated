@@ -206,11 +206,11 @@ final class FullKeyboardView: UIView {
         stripView.onOpenNotice = { [weak self] in
             guard let self else { return }
             self.keyFeedback()
-            // Typr: the vocabulary offer is the strip's only notice until D7 brings Hex's
-            // translation note.
             if let word = self.vocabularyOffer {
                 self.addToVocabulary(word)
+                return
             }
+            self.model.onOpenURL?(KeyboardLaunchRequest.translationSettings.url)
         }
         stripView.onNextKeyboard = { [weak self] in
             // Never where Apple's keyboard is split, where the strip doesn't offer it either.
@@ -947,8 +947,12 @@ final class FullKeyboardView: UIView {
         )
     }
 
-    /// Typr: Hex's translation failure note arrives with its translation controls (D7).
-    private var translationNotice: KeyboardStripNotice? { nil }
+    /// The last dictation went in as spoken while Translate what I say was on: what happened,
+    /// the fix, and Open Typr, which opens Settings › Language.
+    private var translationNotice: KeyboardStripNotice? {
+        guard model.hasFullAccess, let note = model.translationNote else { return nil }
+        return KeyboardStripNotice(title: TranslationFailure.note, detail: note.fix, button: String(localized: "Open Typr"))
+    }
 
     private func refreshRecordingPanel() {
         guard let panel = recordingPanel, showsRecording else { return }

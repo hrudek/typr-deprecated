@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -168,7 +168,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrTranslationPolicy = ExperimentalSwitch(
         name: "variant.translationPolicy",
         title: "Typr translation policy",
-        detail: "Translate what I say only between German and English, with Typr's five-second limit."
+        detail: "Translate what I say only between German and English, from iOS 26, with Typr's five-second limit."
     )
 
     static let typrAlwaysDictateInApp = ExperimentalSwitch(
@@ -322,22 +322,6 @@ nonisolated struct ExperimentalSwitch: Hashable {
     )
 }
 
-/// Why the last dictation went in as spoken while Translate what I say was on.
-nonisolated enum TranslationFailure: String, Sendable {
-    /// Apple's German or English pack is not on the iPhone.
-    case notDownloaded
-    /// Translating failed twice or took too long.
-    case failed
-
-    /// What the keyboard says after pasting as spoken.
-    var note: String {
-        switch self {
-        case .notDownloaded: "Pasted as spoken: download the languages in Typr"
-        case .failed: "Couldn't translate, pasted as spoken"
-        }
-    }
-}
-
 /// Typr switches, stored in the App Group so the keyboard reads them too.
 /// Each switch documents its default. Dictation log deliberately retains saved history while off;
 /// other switches keep upstream's behavior when off.
@@ -357,9 +341,6 @@ nonisolated struct TyprSettings {
         static let dictationFormatLists = "typr.dictationFormatLists"
         static let dictationSpokenPunctuation = "typr.dictationSpokenPunctuation"
         static let dictationSpokenCleanup = "typr.dictationSpokenCleanup"
-        static let translateDictation = "typr.translateDictation"
-        static let translationTarget = "typr.translationTarget"
-        static let translationFailure = "typr.translationFailure"
     }
 
     private let defaults: UserDefaults?
@@ -467,24 +448,6 @@ nonisolated struct TyprSettings {
                 defaults?.removeObject(forKey: Key.preferredSpeechEngine)
             }
         }
-    }
-
-    /// Translate what I say (Hex #2015): dictations go in as `translationTarget`. Off by default.
-    var translateDictation: Bool {
-        get { defaults?.object(forKey: Key.translateDictation) as? Bool ?? false }
-        nonmutating set { defaults?.set(newValue, forKey: Key.translateDictation) }
-    }
-
-    /// German or English; English by default and for any other stored value.
-    var translationTarget: DictationLanguage {
-        get { defaults?.string(forKey: Key.translationTarget) == DictationLanguage.german.rawValue ? .german : .english }
-        nonmutating set { defaults?.set(newValue.rawValue, forKey: Key.translationTarget) }
-    }
-
-    /// Why the last translated dictation went in as spoken, until one translates.
-    var translationFailure: TranslationFailure? {
-        get { defaults?.string(forKey: Key.translationFailure).flatMap(TranslationFailure.init(rawValue:)) }
-        nonmutating set { defaults?.set(newValue?.rawValue, forKey: Key.translationFailure) }
     }
 
     /// Read in the keyboard, written by Settings > Experimental.

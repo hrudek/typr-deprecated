@@ -45,6 +45,8 @@ struct ContentView: View {
     @Binding var openedFromKeyboard: Bool
     @Binding var showSetup: Bool
     var setupRequestID: UUID? = nil
+    /// The keyboard's translation note asked for Settings › Language.
+    var translationRequestID: UUID? = nil
     @State private var setupMonitor = KeyboardSetupMonitor()
     @State private var feedbackRouter = TyprFeedbackRouter.shared
     @State private var practiceText = ""
@@ -190,6 +192,9 @@ struct ContentView: View {
         .onChange(of: setupRequestID) { _, _ in
             // Each explicit setup URL is a new request, even when showSetup was already true.
             settingsPath = []
+        }
+        .onChange(of: translationRequestID) { _, _ in
+            settingsPath = [.language]
         }
         .onAppear {
             if showSetup { settingsPath = [] }
@@ -507,7 +512,7 @@ struct ContentView: View {
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if let failure = dictation.translationFailure {
-                Text(failure.note).font(.footnote).foregroundStyle(TyprTheme.textMuted)
+                Text("\(TranslationFailure.note). \(failure.fix)").font(.footnote).foregroundStyle(TyprTheme.textMuted)
             }
 
             HStack(spacing: 6) {

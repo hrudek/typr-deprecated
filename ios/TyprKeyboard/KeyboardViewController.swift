@@ -484,7 +484,7 @@ final class KeyboardViewController: UIInputViewController {
            bridge.lastInsertedResultID != resultID,
            local != nil || bridge.lastInsertedAppResultID != resultID {
             insertDictation(rawTranscript, resultID: resultID, translated: snap.translated == true, fromApp: local == nil)
-            viewModel.resultNote = snap.resultNote
+            viewModel.translationNote = snap.translationFailure
             insertedResult = true
             if feedbackBridge.switchesEnabled, snap.state != .recording, snap.state != .transcribing {
                 viewModel.feedback = DictationFeedbackPresentation.inserted(offer: snap.feedbackOffer,

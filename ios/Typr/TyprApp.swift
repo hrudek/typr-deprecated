@@ -9,6 +9,7 @@ struct TyprApp: App {
     @State private var openedFromKeyboard = Self.initialOpenedFromKeyboard
     @State private var showSetup = false
     @State private var setupRequestID: UUID?
+    @State private var translationRequestID: UUID?
 
     private static var initialOpenedFromKeyboard: Bool {
         let args = ProcessInfo.processInfo.arguments
@@ -33,8 +34,16 @@ struct TyprApp: App {
                     dictation: dictation,
                     openedFromKeyboard: $openedFromKeyboard,
                     showSetup: $showSetup,
-                    setupRequestID: setupRequestID
+                    setupRequestID: setupRequestID,
+                    translationRequestID: translationRequestID
                 )
+                .background {
+                    if #available(iOS 26.0, *) {
+                        EmptyView()
+                    } else {
+                        TranslationSessionHostView()
+                    }
+                }
                 .task {
                     AnthropicKeyStore().syncKeyboardCopy()
                     PersonalLexiconImporter.shared.refresh(force: true)
@@ -60,6 +69,9 @@ struct TyprApp: App {
                         openedFromKeyboard = false
                         showSetup = true
                         setupRequestID = UUID()
+                    } else if case .translationSettings = request {
+                        openedFromKeyboard = false
+                        translationRequestID = UUID()
                     } else {
                         openedFromKeyboard = true
                     }
