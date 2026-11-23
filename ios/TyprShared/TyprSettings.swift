@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -126,7 +126,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrFixedDictationLanguage = ExperimentalSwitch(
         name: "variant.fixedDictationLanguage",
         title: "Typr fixed dictation language",
-        detail: "Dictation uses Typr's Automatic, German or English choice instead of following the keyboard and iPhone languages."
+        detail: "Dictation uses Typr's own Automatic, German or English choice, kept apart from Hex's, and doesn't follow the keyboard's language."
     )
 
     static let typrStrictDictationLanguage = ExperimentalSwitch(
@@ -414,8 +414,11 @@ nonisolated struct TyprSettings {
         nonmutating set { defaults?.set(newValue, forKey: Key.personalLearning) }
     }
 
-    /// The dictation language (a picker, not a switch). Automatic, the default, keeps the
-    /// previous speech-locale and cleanup-language behavior.
+    /// Hex's language settings in the same store.
+    var hexLanguage: LanguageSettings { LanguageSettings(defaults: defaults) }
+
+    /// Typr fixed dictation language's choice (a picker, not a switch); otherwise Settings ›
+    /// Language is Hex's (`LanguageSettings.typrDictationChoice`).
     var dictationLanguage: DictationLanguage {
         get { defaults?.string(forKey: Key.dictationLanguage).flatMap(DictationLanguage.init(rawValue:)) ?? .automatic }
         nonmutating set { defaults?.set(newValue.rawValue, forKey: Key.dictationLanguage) }

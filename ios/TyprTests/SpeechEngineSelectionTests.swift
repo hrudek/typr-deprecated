@@ -290,7 +290,7 @@ private final class EngineFixture {
         settings = TyprSettings(defaults: defaults)
         if existing == nil {
             settings.preferredSpeechEngine = preferred
-            settings.dictationLanguage = language
+            settings.chooseDictationLanguage(language)
         }
         let vocabulary = CustomVocabularySettings(defaults: defaults)
         if !vocabularyTerms.isEmpty {

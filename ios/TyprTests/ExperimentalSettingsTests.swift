@@ -78,6 +78,7 @@ final class ExperimentalSettingsTests: XCTestCase {
         XCTAssertEqual(ExperimentalSwitch.typrVariants.map(\.key), [
             "typr.experimental.variant.exclusiveAudioSession", "typr.experimental.variant.keepSelectedWarmMicrophone",
             "typr.experimental.variant.audioActivationRetries", "typr.experimental.variant.strictDictationLanguage",
+            "typr.experimental.variant.fixedDictationLanguage",
             "typr.experimental.variant.germanFormattingRules", "typr.experimental.variant.conservativeSpokenCleanup",
             "typr.experimental.spokenPunctuation", "typr.experimental.variant.typrKeyboard",
             "typr.experimental.variant.typrTyping", "typr.experimental.variant.cursorSliding", "typr.experimental.variant.deleteSliding",
@@ -98,7 +99,7 @@ final class ExperimentalSettingsTests: XCTestCase {
         XCTAssertEqual(Set(overrides.map(\.key)).count, overrides.count)
         let audio: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries]
         let formatting: [ExperimentalSwitch] = [.typrGermanFormattingRules, .typrConservativeSpokenCleanup]
-        XCTAssertEqual(overrides.filter { ExperimentalSwitch.all.contains($0) }, audio + [.typrStrictDictationLanguage] + formatting + [.typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard])
+        XCTAssertEqual(overrides.filter { ExperimentalSwitch.all.contains($0) }, audio + [.typrStrictDictationLanguage, .typrFixedDictationLanguage] + formatting + [.typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard])
         XCTAssertFalse(ExperimentalSwitch.all.contains(.warmMicOnIPhone), "retired by Typr keep selected warm microphone")
         XCTAssertFalse(ExperimentalSwitch.all.contains(.mixWithOtherAudio), "retired by Typr exclusive audio session")
         XCTAssertFalse(ExperimentalSwitch.all.contains(.cleanUpWhatISay), "retired by Clean up what I say in Dictation")

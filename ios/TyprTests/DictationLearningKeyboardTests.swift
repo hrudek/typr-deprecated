@@ -117,7 +117,7 @@ final class DictationLearningPipelineTests: XCTestCase {
             let defaults = UserDefaults(suiteName: suite)!
             defer { defaults.removePersistentDomain(forName: suite) }
             let settings = TyprSettings(defaults: defaults)
-            settings.dictationLanguage = .german
+            settings.chooseDictationLanguage(.german)
             settings[experiment: .learnFromEdits] = switchOn
             let store = DictationLearningStore(defaults: defaults)
             for _ in 0..<2 {

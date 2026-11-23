@@ -25,10 +25,14 @@ struct DictationTranslationSettings {
         nonmutating set { defaults?.set(newValue, forKey: Key.enabled) }
     }
 
-    /// BCP 47 language code, such as `de`. English by default: Typr offers German and English
-    /// (Hex's default is Japanese).
+    /// BCP 47 language code, `de` or `en`. English by default and for any other stored target:
+    /// Typr offers German and English (Hex's default is Japanese).
     var targetLanguage: String {
-        get { defaults?.string(forKey: Key.target) ?? "en" }
+        get {
+            guard let stored = defaults?.string(forKey: Key.target),
+                  Locale(identifier: stored).language.languageCode == .german else { return "en" }
+            return stored
+        }
         nonmutating set { defaults?.set(newValue, forKey: Key.target) }
     }
 

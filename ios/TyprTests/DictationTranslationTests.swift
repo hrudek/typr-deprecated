@@ -102,11 +102,25 @@ final class DictationTranslationSettingsTests: XCTestCase {
         XCTAssertNil(DictationTranslationSettings(defaults: defaults).lastFailure)
     }
 
+    func testAnotherStoredTargetReadsAsEnglishAndStaysStored() {
+        let defaults = isolatedDefaults(self)
+        let settings = DictationTranslationSettings(defaults: defaults)
+        for stored in ["fr", "ja", "zh-TW"] {
+            defaults.set(stored, forKey: "experiments.translateDictation.target")
+            XCTAssertEqual(settings.targetLanguage, "en", stored)
+            settings.isEnabled = true
+            XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: false)?.target, "en", stored)
+            XCTAssertEqual(defaults.string(forKey: "experiments.translateDictation.target"), stored, "nothing rewritten")
+        }
+        defaults.set("de-AT", forKey: "experiments.translateDictation.target")
+        XCTAssertEqual(settings.targetLanguage, "de-AT")
+    }
+
     func testThePlanKeepsTheTargetOrGermanOrEnglishUnderTheTyprPolicy() {
         let settings = DictationTranslationSettings(defaults: isolatedDefaults(self))
         settings.isEnabled = true
         settings.targetLanguage = "ja"
-        XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: false)?.target, "ja")
+        XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: false)?.target, "en")
         XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: true)?.target, "en")
         settings.targetLanguage = "de-AT"
         XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: true)?.target, "de")
@@ -322,6 +336,7 @@ private actor TranslationASR: LocalTranscribing {
 final class DictationTranslationPipelineTests: XCTestCase {
     private struct Fixture {
         let controller: DictationController
+        let settings: TyprSettings
         let translation: DictationTranslationSettings
         let bridge: KeyboardBridge
         let model: CleanupTestSession
@@ -329,10 +344,16 @@ final class DictationTranslationPipelineTests: XCTestCase {
     }
 
     private func makeFixture(spoken: String, translate: Bool, target: String = "en", typrPolicy: Bool = false,
-                             apple: StandInTranslation, aiCleanup: Bool = false, cleaned: String = "") async throws -> Fixture {
+                             keyboard: KeyboardLanguage? = nil, apple: StandInTranslation, aiCleanup: Bool = false,
+                             cleaned: String = "") async throws -> Fixture {
         let defaults = isolatedDefaults(self)
         let settings = TyprSettings(defaults: defaults)
-        settings.dictationLanguage = .german
+        if let keyboard {
+            settings.hexLanguage.keyboardLanguages = [.german, .english]
+            settings.hexLanguage.currentKeyboardLanguage = keyboard
+        } else {
+            settings.chooseDictationLanguage(.german)
+        }
         settings[experiment: .typrTranslationPolicy] = typrPolicy
         let translation = DictationTranslationSettings(defaults: defaults)
         translation.isEnabled = translate
@@ -350,7 +371,8 @@ final class DictationTranslationPipelineTests: XCTestCase {
             languageSettings: settings, translationSettings: translation, translationEngine: apple.engine)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
-        return Fixture(controller: controller, translation: translation, bridge: bridge, model: model, clock: clock)
+        return Fixture(controller: controller, settings: settings, translation: translation, bridge: bridge,
+                       model: model, clock: clock)
     }
 
     private func dictate(_ f: Fixture, style: DictationStyle = .polished) async throws {
@@ -410,6 +432,24 @@ final class DictationTranslationPipelineTests: XCTestCase {
         try await waitForState("delivered") { f.controller.isIdleForTest }
         XCTAssertEqual(apple.calls.map(\.target), ["en"])
         XCTAssertEqual(f.controller.transcript, "See you tomorrow at the office.")
+        try await drain(f)
+    }
+
+    func testAutomaticDictatesInTheKeyboardsLanguageWhenEachDictationStarts() async throws {
+        let apple = StandInTranslation()
+        apple.replies = [.success("bis morgen"), .success("see you tomorrow")]
+        let f = try await makeFixture(spoken: "see you tomorrow", translate: true, target: "de", keyboard: .english, apple: apple)
+        XCTAssertEqual(f.controller.dictationLanguageChoice, .automatic)
+        try await dictate(f)
+        try await waitForState("delivered") { f.controller.isIdleForTest }
+        XCTAssertEqual(f.controller.dictationLanguage, .english)
+
+        f.settings.hexLanguage.currentKeyboardLanguage = .german
+        f.translation.targetLanguage = "en"
+        try await dictate(f)
+        try await waitForState("second delivered") { f.controller.isIdleForTest && apple.calls.count == 2 }
+        XCTAssertEqual(f.controller.dictationLanguage, .german)
+        XCTAssertEqual(apple.calls.map(\.source), ["en", "de"])
         try await drain(f)
     }
 

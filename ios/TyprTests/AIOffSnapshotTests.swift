@@ -159,7 +159,7 @@ final class AIOffSnapshotTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
-        settings.dictationLanguage = .german
+        settings.chooseDictationLanguage(.german)
         settings[experiment: .typrGermanFormattingRules] = true
         let clock = CleanupTestSleeper()
         let deps = TranscriptCleanupDependencies(cleaner: CleanupTestCleaner(session: CleanupTestSession()),
@@ -214,7 +214,7 @@ final class AIOffSnapshotTests: XCTestCase {
             (.german, "Einkaufsliste: erstens Milch, zweitens Eier.", true),
         ]
         for (language, heard, enabled) in runs {
-            settings.dictationLanguage = language
+            settings.chooseDictationLanguage(language)
             settings.dictationFormatLists = enabled
             await asr.set(heard)
             controller.startRecording(styleOverride: .polished)
@@ -304,7 +304,7 @@ final class AIOffSnapshotTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
-        settings.dictationLanguage = .german
+        settings.chooseDictationLanguage(.german)
         let vocabulary = CustomVocabularySettings(defaults: defaults)
         vocabulary.isEnabled = true
         vocabulary.terms = ["GitHub"]

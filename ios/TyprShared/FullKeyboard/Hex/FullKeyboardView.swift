@@ -541,7 +541,8 @@ final class FullKeyboardView: UIView {
         selectionFeedback()
         syncLanguage()
         guard languageSettings.dictationFollowsKeyboard, model.hasFullAccess,
-              languageSettings.dictationLanguage != nil else { return }
+              languageSettings.dictationLanguage != nil,
+              !TyprSettings(defaults: settingsDefaults)[experiment: .typrFixedDictationLanguage] else { return }
         model.onLanguageSelected?(nil)
     }
 
@@ -1325,10 +1326,11 @@ final class FullKeyboardView: UIView {
             self?.model.onLanguageSelected?(language)
             self?.dismissStyleMenu()
         }
-        // The menu stays open, so the language is seen to go.
-        menu.onRemoveLanguage = { [weak self] language in
-            self?.typingLog?.ui("dictation_language_removed", [TypingLogField("language", .string(language))])
-            self?.model.onLanguageRemoved?(language)
+        if model.onLanguageRemoved != nil {
+            menu.onRemoveLanguage = { [weak self] language in
+                self?.typingLog?.ui("dictation_language_removed", [TypingLogField("language", .string(language))])
+                self?.model.onLanguageRemoved?(language)
+            }
         }
         menu.onTranslationToggle = { [weak self] on in
             self?.typingLog?.ui("translate", [TypingLogField("on", .bool(on))])

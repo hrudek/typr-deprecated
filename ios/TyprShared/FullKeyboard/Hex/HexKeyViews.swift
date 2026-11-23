@@ -527,18 +527,20 @@ final class HexStyleMenuView: UIView {
                         self?.onRemoveLanguage?(id)
                     }
                 }
-                row.onLongPress = { [weak self] in
-                    guard let self, self.removingLanguage != id else { return }
-                    self.onHoverChanged?()
-                    self.removingLanguage = id
-                    self.rebuild()
+                if onRemoveLanguage != nil {
+                    row.onLongPress = { [weak self] in
+                        guard let self, self.removingLanguage != id else { return }
+                        self.onHoverChanged?()
+                        self.removingLanguage = id
+                        self.rebuild()
+                    }
+                    row.accessibilityCustomActions = [
+                        UIAccessibilityCustomAction(name: String(localized: "Remove")) { [weak self] _ in
+                            self?.onRemoveLanguage?(id)
+                            return true
+                        },
+                    ]
                 }
-                row.accessibilityCustomActions = [
-                    UIAccessibilityCustomAction(name: String(localized: "Remove")) { [weak self] _ in
-                        self?.onRemoveLanguage?(id)
-                        return true
-                    },
-                ]
                 rows.append(row)
             }
             if !moreLanguages.isEmpty {

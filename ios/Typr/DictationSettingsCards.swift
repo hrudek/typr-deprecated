@@ -102,19 +102,31 @@ struct DictationStyleSettingsCard: View {
     }
 }
 
+/// Hex's Dictation language rows, German and English only: Automatic follows the keyboard
+/// while it switches between them, and Switch dictation too moves a hand-picked language back
+/// to Automatic when the space bar switches.
 @MainActor
 struct DictationLanguageSettingsCard: View {
     @Bindable var dictation: DictationController
+    @State private var switchDictation = LanguageSettings().dictationFollowsKeyboard
+    private let fixed = TyprSettings()[experiment: .typrFixedDictationLanguage]
+    private let keyboardSwitches = LanguageSettings().keyboardLanguages.count > 1
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsSection {
                 ForEach(DictationLanguage.allCases, id: \.self) { language in
                     if language != DictationLanguage.allCases.first { SettingsDivider() }
-                    SettingsChoiceRow(title: language.label,
-                                      isSelected: dictation.dictationLanguage == language) {
+                    SettingsChoiceRow(title: title(of: language),
+                                      isSelected: dictation.dictationLanguageChoice == language) {
                         dictation.setDictationLanguage(language)
                     }
+                }
+                if !fixed && keyboardSwitches {
+                    SettingsDivider()
+                    SettingsToggle(title: "Switch dictation too", detail: "Dictate in the keyboard's language",
+                                   isOn: $switchDictation)
+                        .onChange(of: switchDictation) { _, value in LanguageSettings().dictationFollowsKeyboard = value }
                 }
             }
             if let warning = SpeechEngineRowState.languageWarning(
@@ -132,6 +144,13 @@ struct DictationLanguageSettingsCard: View {
                 .padding(.horizontal, 16)
             TranslateDictationSettingsCard()
         }
+        .onAppear { dictation.followDictationLanguage() }
+    }
+
+    private func title(of language: DictationLanguage) -> String {
+        guard language == .automatic, !fixed, dictation.dictationLanguageChoice == .automatic,
+              dictation.dictationLanguage != .automatic else { return language.label }
+        return "Automatic (\(dictation.dictationLanguage.label), follows the keyboard)"
     }
 }
 
@@ -163,7 +182,8 @@ struct TranslateDictationSettingsCard: View {
         if typrPolicy {
             return Locale.Language(identifier: effectiveTarget.languageCode == .german ? "en" : "de")
         }
-        let language = TyprSettings().dictationLanguage.whisperLanguageCode ?? LanguageSettings().effectiveDictationLanguage()
+        let language = LanguageSettings().typrDictationLanguage(typr: TyprSettings()).whisperLanguageCode
+            ?? LanguageSettings().effectiveDictationLanguage()
         return language.map { Locale(identifier: $0).language } ?? Locale.current.language
     }
 

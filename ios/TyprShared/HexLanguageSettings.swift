@@ -145,14 +145,16 @@ nonisolated struct LanguageSettings {
     /// language picked by hand, with one keyboard language, and while the iPhone's own language
     /// (what Automatic picks otherwise) has no layout to type it (`hasLayout`, Hebrew), where
     /// dictating is how that language gets written, unless `dictationFollowsKeyboard` asks for it.
+    /// `ignoringPick`: as on Automatic, whatever the setting holds.
     func keyboardDictationLanguage(
         keyboard: [String],
         current: String?,
         preferred: [String] = Locale.preferredLanguages,
         region: String? = Locale.current.region?.identifier,
-        hasLayout: (String) -> Bool = LanguageSettings.hexHasLayout
+        hasLayout: (String) -> Bool = LanguageSettings.hexHasLayout,
+        ignoringPick: Bool = false
     ) -> String? {
-        guard dictationLanguage == nil, keyboard.count > 1 else { return nil }
+        guard ignoringPick || dictationLanguage == nil, keyboard.count > 1 else { return nil }
         if !dictationFollowsKeyboard,
            let own = automaticDictationLanguage ?? preferred.first,
            !hasLayout(own) {
@@ -320,12 +322,42 @@ nonisolated struct LanguageSettings {
 }
 
 extension LanguageSettings {
-    /// The dictation language picked by hand, for the engine choice: Typr's German or English
-    /// (Settings › Dictation language), else Hex's BCP 47 choice; nil is Automatic. Hex also
-    /// follows the keyboard's languages here (`keyboardDictationLanguage`); Typr does from the
-    /// language-follow cutover.
+    /// The dictation language for the engine choice: German or English
+    /// (`typrDictationLanguage`, which follows the keyboard on Automatic); nil is Automatic.
     func explicitDictationLanguage(typr: DictationLanguage) -> String? {
-        typr.speechLocaleIdentifier ?? dictationLanguage
+        typr.speechLocaleIdentifier
+    }
+
+    /// The languages Typr offers to dictate in.
+    static let typrDictationLanguages = ["de-DE", "en-US"]
+
+    /// Settings › Language's choice: German, English or Automatic (Hex's setting; Typr's own
+    /// under the Typr fixed dictation language). Any other language stored there reads as
+    /// Automatic; nothing is rewritten.
+    func typrDictationChoice(typr: TyprSettings) -> DictationLanguage {
+        typr[experiment: .typrFixedDictationLanguage] ? typr.dictationLanguage : DictationLanguage(identifier: dictationLanguage)
+    }
+
+    /// The language the next dictation uses: the choice, and on Automatic the keyboard's
+    /// language while it switches between German and English (`keyboardDictationLanguage`).
+    /// Typr fixed dictation language: Typr's choice only.
+    func typrDictationLanguage(typr: TyprSettings) -> DictationLanguage {
+        let choice = typrDictationChoice(typr: typr)
+        guard choice == .automatic, !typr[experiment: .typrFixedDictationLanguage] else { return choice }
+        return DictationLanguage(identifier: keyboardDictationLanguage(
+            keyboard: keyboardLanguages.map(\.inputModeLanguage),
+            current: currentKeyboardLanguage?.inputModeLanguage,
+            ignoringPick: true
+        ))
+    }
+
+    /// A choice from Settings or the Typr key menu, into the store `typrDictationChoice` reads.
+    func chooseTyprDictationLanguage(_ language: DictationLanguage, typr: TyprSettings) {
+        if typr[experiment: .typrFixedDictationLanguage] {
+            typr.dictationLanguage = language
+        } else {
+            chooseDictationLanguage(language.speechLocaleIdentifier)
+        }
     }
 }
 

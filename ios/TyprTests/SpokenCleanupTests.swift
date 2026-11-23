@@ -252,7 +252,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
             let defaults = UserDefaults(suiteName: suite)!
             defer { defaults.removePersistentDomain(forName: suite) }
             let settings = TyprSettings(defaults: defaults)
-            settings.dictationLanguage = .german
+            settings.chooseDictationLanguage(.german)
             settings.dictationSpokenCleanup = switchOn
             let model = CleanupTestSession()
             model.result = "Am Mittwoch."
@@ -457,7 +457,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
-        settings.dictationLanguage = .german
+        settings.chooseDictationLanguage(.german)
         settings.dictationSpokenCleanup = false
         let asr = SpokenASR()
         let controller = DictationController(audio: SpokenAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
@@ -539,7 +539,7 @@ final class AppleIntelligenceDictationTests: XCTestCase {
         suite = "apple.intelligence.dictation.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
         settings = TyprSettings(defaults: defaults)
-        settings.dictationLanguage = .german
+        settings.chooseDictationLanguage(.german)
         settings.dictationSpokenCleanup = false
     }
 

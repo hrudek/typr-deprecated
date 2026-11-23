@@ -66,10 +66,11 @@ nonisolated struct MultilingualParakeetSettings {
     /// The language (BCP 47) Parakeet Ultra dictates in, or nil while it doesn't dictate: the
     /// experiment off, an iPhone without the memory, or a language it doesn't know, which
     /// stays with the engine Typr uses without it. The one set, else the iPhone's first
-    /// language (`DictationController.wantedLanguage`; Hex also follows the keyboard's
-    /// language here, Typr does from the language-follow cutover).
+    /// language (`DictationController.wantedLanguage`). On Automatic the one set follows the
+    /// keyboard's (`LanguageSettings.typrDictationLanguage`).
     func language(
-        set: String? = LanguageSettings().explicitDictationLanguage(typr: TyprSettings().dictationLanguage),
+        set: String? = LanguageSettings().explicitDictationLanguage(
+            typr: LanguageSettings().typrDictationLanguage(typr: TyprSettings())),
         preferred: [String] = Locale.preferredLanguages,
         physicalMemory: UInt64 = ProcessInfo.processInfo.physicalMemory
     ) -> String? {

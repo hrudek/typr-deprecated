@@ -239,8 +239,14 @@ final class DictationController {
     private(set) var handoffNotice: String?
     var engineName = "Local speech"
     var transcriptionLanguage = "English"
-    /// The chosen dictation language (Typr settings); Automatic keeps the previous behavior.
+    /// The language the next dictation uses (`LanguageSettings.typrDictationLanguage`): on
+    /// Automatic it follows the keyboard between German and English.
     private(set) var dictationLanguage: DictationLanguage
+    /// Settings › Language's choice.
+    private(set) var dictationLanguageChoice: DictationLanguage
+    let hexLanguageSettings: LanguageSettings
+    /// The iPhone's languages, which Automatic dictates in without a keyboard to follow.
+    let preferredLanguages: () -> [String]
     /// The engine the user explicitly chose (persisted). nil: never chosen, the original
     /// automatic choice applies. An explicit engine is never replaced by another one.
     var preferredEngine: SpeechEngineChoice?
@@ -307,6 +313,8 @@ final class DictationController {
         statistics: UsageDictationRecorder? = nil,
         liveActivity: (any LiveActivityPresenting)? = nil,
         languageSettings: TyprSettings = TyprSettings(),
+        hexLanguageSettings: LanguageSettings? = nil,
+        preferredLanguages: @escaping () -> [String] = { Locale.preferredLanguages },
         engineProvider: (any SpeechEngineProviding)? = nil,
         audioActivationRetryDelays: [Duration] = DictationController.audioActivationRetryDelays,
         modelBackground: (any ModelPreparationScheduling)? = nil,
@@ -332,7 +340,11 @@ final class DictationController {
         self.statistics = statistics
         self.liveActivity = liveActivity
         self.languageSettings = languageSettings
-        self.dictationLanguage = languageSettings.dictationLanguage
+        let hexLanguage = hexLanguageSettings ?? languageSettings.hexLanguage
+        self.preferredLanguages = preferredLanguages
+        self.hexLanguageSettings = hexLanguage
+        self.dictationLanguage = hexLanguage.typrDictationLanguage(typr: languageSettings)
+        self.dictationLanguageChoice = hexLanguage.typrDictationChoice(typr: languageSettings)
         self.audio = resolvedAudio
         self.keyboardBridge = resolvedBridge
         self.transcriber = initialTranscriber
@@ -431,13 +443,20 @@ final class DictationController {
         keyboardBridge.style = newStyle
     }
 
-    /// The language picker: stored for the next recording's cleanup. Apple Speech holds one locale,
-    /// so an idle, prepared Apple Speech engine is prepared again for the new language; otherwise the
-    /// next preparation (relaunch, retry) uses it.
+    /// The language picker: stored for the next recording.
     func setDictationLanguage(_ language: DictationLanguage) {
+        hexLanguageSettings.chooseTyprDictationLanguage(language, typr: languageSettings)
+        followDictationLanguage()
+    }
+
+    /// Reads the choice and the keyboard's language again. Apple Speech holds one locale, so an
+    /// idle, prepared Apple Speech engine is prepared again for a new language; otherwise the
+    /// next preparation (relaunch, retry) uses it.
+    func followDictationLanguage() {
+        dictationLanguageChoice = hexLanguageSettings.typrDictationChoice(typr: languageSettings)
+        let language = hexLanguageSettings.typrDictationLanguage(typr: languageSettings)
         guard language != dictationLanguage else { return }
         dictationLanguage = language
-        languageSettings.dictationLanguage = language
         languageNotice = nil
         // Apple Speech prepares one locale. Do not mutate the current capture; reprepare when
         // idle, including after a cancelled inference has really released its snapshot.
@@ -574,6 +593,7 @@ final class DictationController {
 
     func noteSceneDidBecomeActive() {
         isInBackground = false
+        if activeCapture == nil { followDictationLanguage() }
         multilingualDownload.appBecameActive(canRetry: canDownloadMultilingualModel)
         if preparationFailedInBackground {
             // Picks up a download that iOS cut off while Typr was in the background; FluidAudio
@@ -852,6 +872,7 @@ final class DictationController {
         keyboardContext: CleanupContext? = nil
     ) {
         guard activeCapture == nil else { return }
+        followDictationLanguage()
         // Never begin a new Apple capture with the previous locale. The current capture is
         // unaffected, but the next waits for the deferred local preparation.
         if pendingAppleLanguageChange {
@@ -1429,6 +1450,7 @@ final class DictationController {
             discardArmedCapture()
         }
         dictationLog?.drainKeyboardFeedback()
+        if activeCapture == nil { followDictationLanguage() }
         guard let command = keyboardBridge.latestCommand(),
               command.id != lastKeyboardCommandID else { return }
         lastKeyboardCommandID = command.id

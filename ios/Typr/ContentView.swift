@@ -567,7 +567,7 @@ struct ContentView: View {
 
             NavigationLink(value: SettingsDestination.language) {
                 SettingsLink(title: "Language", detail: "Recognition language and engine compatibility",
-                             value: dictation.dictationLanguage.label)
+                             value: dictation.dictationLanguageChoice.label)
             }
             .buttonStyle(.plain)
 
