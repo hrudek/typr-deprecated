@@ -81,6 +81,7 @@ struct TyprApp: App {
                     if phase == .active {
                         DictationLogStore.shared.purgeExpired()
                         PersonalLexiconImporter.shared.refresh(force: true)
+                        dictation.endStaleLiveActivities()
                         dictation.noteSceneDidBecomeActive()
                     }
                     if phase == .background {

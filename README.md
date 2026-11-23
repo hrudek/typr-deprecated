@@ -71,6 +71,11 @@ or load finishes stopping.
   **Typr audio activation retries** tries a refused activation again for about five
   seconds, as iOS refuses it briefly after another app's audio (seen after WhatsApp
   voice messages).
+- **Live Activity** shows, as in Hex, only for dictations that copy their text (Action
+  Button, Control Center, Siri and Shortcuts): Recording, Transcribing, then Copied
+  for 2 s. Keyboard and in-app dictations show none. Launching Typr or returning to it
+  ends any activity no dictation owns. Experimental › **Typr Live Activity for all
+  dictations** shows it for keyboard and in-app dictations too, as Typr did before Hex.
 - **Microphone** picks the input. Automatic (default) records from a wired or USB
   headset, from the car in CarPlay, else from the iPhone; iPhone always uses the
   iPhone's. Neither turns on Bluetooth hands-free (HFP), so headphones and car kits

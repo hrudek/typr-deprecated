@@ -86,7 +86,8 @@ final class ExperimentalSettingsTests: XCTestCase {
             "typr.experimental.formatLists", "typr.experimental.deleteSlide", "typr.experimental.learnFromEdits",
             "typr.experimental.wordsFromContext", "typr.experimental.variant.translationPolicy",
             "typr.experimental.variant.alwaysDictateInApp",
-            "typr.experimental.variant.automaticHostReturn", "typr.experimental.learnEachLanguage",
+            "typr.experimental.variant.automaticHostReturn", "typr.experimental.variant.liveActivityForAllDictations",
+            "typr.experimental.learnEachLanguage",
         ])
         XCTAssertEqual(ExperimentalSwitch.all, ExperimentalSwitch.hexExperiments + ExperimentalSwitch.hexKeyboardExperiments + ExperimentalSwitch.typrVariants)
     }
@@ -96,7 +97,7 @@ final class ExperimentalSettingsTests: XCTestCase {
         XCTAssertEqual(Set(overrides.map(\.key)).count, overrides.count)
         let audio: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries]
         let formatting: [ExperimentalSwitch] = [.typrGermanFormattingRules, .typrConservativeSpokenCleanup]
-        XCTAssertEqual(overrides.filter { ExperimentalSwitch.all.contains($0) }, audio + [.typrStrictDictationLanguage] + formatting + [.typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip])
+        XCTAssertEqual(overrides.filter { ExperimentalSwitch.all.contains($0) }, audio + [.typrStrictDictationLanguage] + formatting + [.typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip])
         XCTAssertFalse(ExperimentalSwitch.all.contains(.warmMicOnIPhone), "retired by Typr keep selected warm microphone")
         XCTAssertFalse(ExperimentalSwitch.all.contains(.mixWithOtherAudio), "retired by Typr exclusive audio session")
         XCTAssertFalse(ExperimentalSwitch.all.contains(.cleanUpWhatISay), "retired by Clean up what I say in Dictation")

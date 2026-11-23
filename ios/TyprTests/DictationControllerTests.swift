@@ -160,6 +160,8 @@ private actor ControlledTranscriber: LocalTranscribing {
     private(set) var transcribedURLs: [URL] = []
     private(set) var vocabularyArguments: [[String]] = []
     private var suspendNext = false
+    private var suspendPrepare = false
+    private var prepareGate: CheckedContinuation<Void, Never>?
 
     func armSuspension() {
         suspendNext = true
@@ -183,7 +185,23 @@ private actor ControlledTranscriber: LocalTranscribing {
         }
     }
 
+    func armPrepareSuspension() {
+        suspendPrepare = true
+    }
+
+    func isPreparing() -> Bool { prepareGate != nil }
+
+    func resumePrepare() {
+        suspendPrepare = false
+        prepareGate?.resume()
+        prepareGate = nil
+    }
+
     func prepare(progressHandler: @escaping @Sendable (ModelPreparationProgress) -> Void) async throws {
+        if suspendPrepare {
+            suspendPrepare = false
+            await withCheckedContinuation { prepareGate = $0 }
+        }
         progressHandler(ModelPreparationProgress(fractionCompleted: 1, detail: "Ready"))
     }
 
@@ -205,6 +223,42 @@ private actor ControlledTranscriber: LocalTranscribing {
     func transcribe(_ audioURL: URL, vocabulary: [String]) async throws -> String {
         vocabularyArguments.append(vocabulary)
         return try await transcribe(audioURL)
+    }
+}
+
+@MainActor
+private final class ClockReads {
+    private(set) var count = 0
+
+    func read() -> TimeInterval {
+        count += 1
+        return Date().timeIntervalSince1970
+    }
+}
+
+@MainActor
+private final class RecordingLiveActivity: LiveActivityPresenting {
+    enum Event: Equatable { case start, transcribing, copied, end }
+    private(set) var events: [Event] = []
+    private var showing = false
+
+    func startRecording(startedAt: Date) {
+        showing = true
+        events.append(.start)
+    }
+
+    func markTranscribing(startedAt: Date) {
+        if showing { events.append(.transcribing) }
+    }
+
+    func finishCopied() {
+        if showing { events.append(.copied) }
+        showing = false
+    }
+
+    func endImmediately() {
+        showing = false
+        events.append(.end)
     }
 }
 
@@ -1584,19 +1638,165 @@ final class DictationControllerTests: XCTestCase {
     private static let meterCycle = Duration.milliseconds(33)
     private static let sessionLoopTick = Duration.milliseconds(100)
 
+    func testOnlyCopyingDictationsShowALiveActivity() async throws {
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let liveActivity = RecordingLiveActivity()
+        let controller = try await readyController(audio: audio, transcriber: transcriber, liveActivity: liveActivity)
+
+        controller.startRecording(keyboardJobID: "keyboard-job")
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        controller.cancelCurrentJob()
+        XCTAssertEqual(liveActivity.events, [.end])
+
+        await transcriber.setCannedOutput("")
+        try await dictateInApp(controller)
+        XCTAssertEqual(liveActivity.events, [.end, .end])
+
+        controller.startRecording(copyToPasteboard: true)
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        controller.finishRecording()
+        try await transcribed(controller)
+        XCTAssertEqual(liveActivity.events, [.end, .end, .start, .transcribing, .end])
+    }
+
+    func testCopiedDictationFinishesItsLiveActivityOnce() async throws {
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let liveActivity = RecordingLiveActivity()
+        let controller = try await readyController(audio: audio, transcriber: transcriber, liveActivity: liveActivity)
+
+        controller.startRecording(copyToPasteboard: true)
+        try await activationSettled(controller)
+        controller.finishRecording()
+        try await transcribed(controller)
+
+        XCTAssertEqual(controller.transcript, "Ship the build.")
+        XCTAssertEqual(liveActivity.events, [.start, .transcribing, .copied])
+    }
+
+    func testCancelledTranscriptionEndsTheLiveActivityAndItsLateResultLeavesItEnded() async throws {
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let liveActivity = RecordingLiveActivity()
+        let controller = try await readyController(audio: audio, transcriber: transcriber, liveActivity: liveActivity)
+
+        await transcriber.armSuspension()
+        controller.startRecording(copyToPasteboard: true)
+        try await activationSettled(controller)
+        controller.finishRecording()
+        try await asrSuspended(transcriber)
+        controller.cancelCurrentJob()
+        XCTAssertEqual(liveActivity.events, [.start, .transcribing, .end])
+
+        await transcriber.resumeSuspended(with: "too late")
+        try await transcribed(controller)
+        XCTAssertEqual(liveActivity.events, [.start, .transcribing, .end])
+        XCTAssertEqual(controller.transcript, "")
+    }
+
+    func testStaleLiveActivitiesEndOnlyWhenNoDictationOwnsThem() async throws {
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let liveActivity = RecordingLiveActivity()
+        let controller = try await readyController(audio: audio, transcriber: transcriber, liveActivity: liveActivity)
+
+        controller.endStaleLiveActivities()
+        XCTAssertEqual(liveActivity.events, [.end])
+
+        await transcriber.armSuspension()
+        controller.startRecording(copyToPasteboard: true)
+        try await activationSettled(controller)
+        controller.endStaleLiveActivities()
+        controller.finishRecording()
+        try await asrSuspended(transcriber)
+        controller.endStaleLiveActivities()
+        XCTAssertEqual(liveActivity.events, [.end, .start, .transcribing])
+
+        await transcriber.resumeSuspended(with: "")
+        try await transcribed(controller)
+        XCTAssertEqual(liveActivity.events, [.end, .start, .transcribing, .end])
+    }
+
+    func testTyprLiveActivityForAllDictationsShowsItForKeyboardAndInAppDictations() async throws {
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let liveActivity = RecordingLiveActivity()
+        let settings = typrSettings(.typrLiveActivityForAllDictations)
+        let controller = try await readyController(audio: audio, transcriber: transcriber, settings: settings,
+                                                   liveActivity: liveActivity)
+
+        await transcriber.setCannedOutput("")
+        controller.startRecording(keyboardJobID: "keyboard-job")
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        controller.finishRecording()
+        try await transcribed(controller)
+        XCTAssertEqual(liveActivity.events, [.start, .transcribing, .end])
+
+        try await dictateInApp(controller)
+        XCTAssertEqual(liveActivity.events, [.start, .transcribing, .end, .start, .transcribing, .end])
+    }
+
+    private func dictateInApp(_ controller: DictationController) async throws {
+        controller.performPrimaryAction()
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        controller.performPrimaryAction()
+        try await transcribed(controller)
+    }
+
+    func testDictateToggleWaitsForAModelThatIsAlreadyPreparing() async throws {
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let liveActivity = RecordingLiveActivity()
+        let clock = ClockReads()
+        let controller = DictationController(
+            audio: audio, keyboardBridge: KeyboardBridge(defaults: defaults), transcriber: transcriber,
+            transcriberFactory: { transcriber }, now: { clock.read() }, autoPrepareOnInit: false,
+            liveActivity: liveActivity, languageSettings: TyprSettings(defaults: defaults))
+        controllers.append(controller)
+        await transcriber.armPrepareSuspension()
+        controller.prepareModel()
+        try await waitForState("model preparation suspended") { await transcriber.isPreparing() }
+        XCTAssertEqual(controller.phase, .preparingModel)
+        let marker = UUID().uuidString
+        controller.transcript = marker
+        try await waitForState("this controller handles system commands") {
+            await TyprSystemCommandBus.shared.dispatch(.stopDictation) == marker
+        }
+        controller.transcript = ""
+
+        let readsBefore = clock.count
+        let toggle = Task { await TyprSystemCommandBus.shared.dispatch(.toggleDictation) }
+        try await waitForState("toggle waits for the model") { clock.count > readsBefore }
+        XCTAssertEqual(controller.phase, .preparingModel)
+        await transcriber.resumePrepare()
+        let result = await toggle.value
+
+        XCTAssertEqual(result, "")
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        XCTAssertEqual(liveActivity.events, [.start])
+        controller.cancelCurrentJob()
+    }
+
     private func readyController(
         audio: FakeAudioManager, bridge: KeyboardBridge? = nil, transcriber: ControlledTranscriber = ControlledTranscriber(),
         now: @escaping () -> TimeInterval = { Date().timeIntervalSince1970 }, hostReturner: HostReturner? = nil,
         vocabulary: CustomVocabularySettings = CustomVocabularySettings(),
         retryDelays: [Duration] = DictationController.audioActivationRetryDelays, onPrepare: @escaping () -> Void = {},
-        settings: TyprSettings? = nil, background: (any BackgroundTaskStarting)? = nil
+        settings: TyprSettings? = nil, background: (any BackgroundTaskStarting)? = nil,
+        liveActivity: (any LiveActivityPresenting)? = nil
     ) async throws -> DictationController {
         let settings = settings ?? TyprSettings(defaults: defaults)
         let controller = DictationController(
             audio: audio, keyboardBridge: bridge ?? KeyboardBridge(defaults: defaults), transcriber: transcriber,
             transcriberFactory: { onPrepare(); return transcriber }, now: now, autoPrepareOnInit: false,
             hostReturner: hostReturner, customVocabularySettings: vocabulary, transcriptionBackground: background,
-            languageSettings: settings, audioActivationRetryDelays: retryDelays)
+            liveActivity: liveActivity, languageSettings: settings, audioActivationRetryDelays: retryDelays)
         controllers.append(controller)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }

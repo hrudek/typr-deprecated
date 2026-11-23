@@ -112,7 +112,7 @@ final class DictationController {
     let keyboardBridge: KeyboardBridge
     private let fileManager: FileManager
     let now: () -> TimeInterval
-    private let liveActivity: LiveActivityCoordinator?
+    private let liveActivity: (any LiveActivityPresenting)?
     let hostReturner: HostReturner
     /// The app the current cold-start handoff came from, by bundle ID; nil when the keyboard could not name it.
     var returnHost: String?
@@ -305,7 +305,7 @@ final class DictationController {
         transcriptionBackground: (any BackgroundTaskStarting)? = nil,
         dictationLog: DictationLogStore? = nil,
         statistics: UsageDictationRecorder? = nil,
-        liveActivity: LiveActivityCoordinator? = nil,
+        liveActivity: (any LiveActivityPresenting)? = nil,
         languageSettings: TyprSettings = TyprSettings(),
         engineProvider: (any SpeechEngineProviding)? = nil,
         audioActivationRetryDelays: [Duration] = DictationController.audioActivationRetryDelays,
@@ -362,6 +362,9 @@ final class DictationController {
         wireSystemIntentBus()
         self.multilingualDownload.onDownloaded = { [weak self] in
             self?.syncMultilingualParakeet()
+        }
+        if autoPrepareOnInit {
+            liveActivity?.endImmediately()
         }
 
         if Self.applyLaunchFixtureIfPresent(to: self) {
@@ -562,6 +565,11 @@ final class DictationController {
 
         publishKeyboardSnapshot()
         preparePendingAppleLanguageIfIdle()
+    }
+
+    func endStaleLiveActivities() {
+        guard activeCapture == nil, phase != .recording, phase != .transcribing else { return }
+        liveActivity?.endImmediately()
     }
 
     func noteSceneDidBecomeActive() {
@@ -954,7 +962,9 @@ final class DictationController {
             loudestAverageDBFS = nil
             recordingDuration = 0
             phase = .recording
-            liveActivity?.startRecording(startedAt: Date(timeIntervalSince1970: startedAt))
+            if copyToPasteboard || languageSettings[experiment: .typrLiveActivityForAllDictations] {
+                liveActivity?.startRecording(startedAt: Date(timeIntervalSince1970: startedAt))
+            }
             startMetering(for: captureGeneration)
             publishKeyboardSnapshot()
 
