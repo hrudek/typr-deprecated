@@ -81,6 +81,67 @@ final class KeyboardKeyPlaneViewTests: XCTestCase {
         XCTAssertEqual(plane.engine.shift.state, .locked)
     }
 
+    func testOverlappingShiftLiftCannotCommitTheCancelledOwner() throws {
+        for cancelOwnerFirst in [true, false] {
+            for typeLetterFirst in [true, false] {
+                let (plane, target) = makePlane()
+                let shift = try sample(.shift, in: plane)
+                let a = try sample(.character("a"), in: plane)
+                var now: TimeInterval = 10
+                plane.engine.clock = { now }
+                plane.began(id: 1, sample: shift)
+                plane.began(id: 2, sample: shift)
+
+                if cancelOwnerFirst {
+                    plane.cancelled(id: 1, sample: shift)
+                    XCTAssertFalse(plane.engine.shift.isHeld)
+                    plane.ended(id: 2, sample: shift)
+                } else {
+                    plane.ended(id: 2, sample: shift)
+                    XCTAssertTrue(plane.engine.shift.isHeld)
+                    plane.cancelled(id: 1, sample: shift)
+                }
+                XCTAssertFalse(plane.engine.shift.isHeld)
+                XCTAssertEqual(plane.engine.shift.state, .off)
+
+                now = 10.1
+                if typeLetterFirst {
+                    plane.began(id: 3, sample: a)
+                    plane.ended(id: 3, sample: a)
+                    XCTAssertEqual(target.text, "a")
+                } else {
+                    plane.began(id: 3, sample: shift)
+                    plane.ended(id: 3, sample: shift)
+                    XCTAssertEqual(plane.engine.shift.state, .on)
+                }
+            }
+        }
+    }
+
+    func testOverlappingShiftCannotTypeOnSlideOrChangeAutomaticShiftOnCancellation() throws {
+        let (plane, target) = makePlane()
+        target.autocapitalizationType = .sentences
+        plane.engine.configureForField()
+        XCTAssertEqual(plane.engine.shift.state, .on)
+        XCTAssertFalse(plane.engine.shift.isUserShift)
+
+        let shift = try sample(.shift, in: plane)
+        let a = try sample(.character("a"), in: plane)
+        plane.began(id: 1, sample: shift)
+        plane.began(id: 2, sample: shift)
+        plane.moved(id: 2, sample: a)
+        plane.ended(id: 2, sample: a)
+        XCTAssertEqual(target.text, "")
+        XCTAssertTrue(plane.engine.shift.isHeld)
+
+        plane.cancelled(id: 1, sample: shift)
+        XCTAssertEqual(plane.engine.shift.state, .on)
+        XCTAssertFalse(plane.engine.shift.isUserShift)
+        plane.began(id: 3, sample: a)
+        plane.ended(id: 3, sample: a)
+        XCTAssertEqual(target.text, "A")
+    }
+
     func testCancelAllRestoresCapsLockAndKeepsSubsequentTypingUppercase() throws {
         let (plane, target) = makePlane()
         let shift = try sample(.shift, in: plane)

@@ -377,10 +377,9 @@ final class HexStyleMenuView: UIView {
     var dictationLanguage: String? { didSet { if dictationLanguage != oldValue { rebuild() } } }
     var automaticLanguage: String? { didSet { if automaticLanguage != oldValue { rebuild() } } }
     var languageChoices: [String] = [] { didSet { if languageChoices != oldValue { rebuild() } } }
-    /// Every other language Apple Speech has (`KeyboardViewModel.moreLanguages`).
+    /// Additional languages offered on the More languages page.
     var moreLanguages: [String] = [] { didSet { if moreLanguages != oldValue { rebuild() } } }
-    /// Translate what I say's target, on or off; nil hides its rows
-    /// (`KeyboardViewModel.showsTranslationSwitch`).
+    /// The translation target. A nil target hides the translation rows.
     var translationTarget: String? { didSet { if translationTarget != oldValue { rebuild() } } }
     var isTranslating = false { didSet { if isTranslating != oldValue { rebuild() } } }
     /// The targets the Translate to page lists; with one or none it has no row.
@@ -393,7 +392,7 @@ final class HexStyleMenuView: UIView {
     var onTranslationTarget: ((String) -> Void)?
     var onDismiss: (() -> Void)?
     var onHoverChanged: (() -> Void)?
-    /// The Typr key's keycap, in this view's coordinates; the panel opens above it.
+    /// The keycap in this view's coordinates. The menu opens below it in the top half, above it otherwise.
     var anchor: CGRect = .zero { didSet { setNeedsLayout() } }
 
     private var page: Page = .styles
