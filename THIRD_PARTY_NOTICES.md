@@ -903,6 +903,18 @@ word endings, and the finished-word strip emoji placement
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (#2051, #2142, #2189).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
+## Hex iOS emoji library and suggestions
+
+`EmojiLibrary.swift`, `EmojiSuggester.swift` and `EmojiUsageStore.swift` in
+`ios/TyprShared/FullKeyboard/Hex/Emoji/` come from
+[`ios/HEXShared/FullKeyboard/Emoji/`](https://github.com/anomalyco/hex/tree/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXShared/FullKeyboard/Emoji)
+in Hex. Typr's app-only `ios/Typr/EmojiSemanticIndex.swift` comes from
+[`ios/HEXMobile/EmojiSemanticIndex.swift`](https://github.com/anomalyco/hex/blob/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXMobile/EmojiSemanticIndex.swift).
+All four are from Hex revision `0c1c13d71b853ac3113d9a622e4fd9af3755d068`,
+MIT, © Christopher Langton ([LICENSE](LICENSE)). Typr loads the locale files from
+`EmojiData`, keys the locale cache by bundle, and uses `hex.emoji.*` usage and tone
+keys in Typr's existing App Group.
+
 ## Hex iOS Code from Messages chip
 
 The Code from Messages chip in one-time-code fields and the check for Apple's keyboard among
