@@ -311,21 +311,16 @@ final class ModelPreparationTests: XCTestCase {
     }
 
     func testBesideLoadDiscardsUltraWhenLanguageBecomesIneligible() async throws {
-        let languageSettings = LanguageSettings()
-        let previousLanguage = languageSettings.dictationLanguage
-        defer {
-            clearMultilingualSwitch()
-            languageSettings.dictationLanguage = previousLanguage
-        }
+        defer { clearMultilingualSwitch() }
         let (controller, working) = readyParakeetV2()
         let candidate = PrepTranscriber(.gated, name: ParakeetUltraTranscriber.name)
-        languageSettings.dictationLanguage = "ja-JP"
+        controller.hexLanguageSettings.dictationLanguage = "ja-JP"
         let settings = MultilingualParakeetSettings()
         settings.isEnabled = true
 
         controller.loadMultilingualParakeetBeside(language: "en-US") { _ in candidate }
         try await waitForState("Ultra load entered") { await candidate.entered }
-        controller.setDictationLanguage(.automatic)
+        controller.followDictationLanguage()
         await candidate.release()
         await controller.preparationTask?.value
 
@@ -336,24 +331,21 @@ final class ModelPreparationTests: XCTestCase {
     }
 
     func testLanguagePickerPausesAndResumesUltraDownloadWithoutReloadingV2() async throws {
-        let languageSettings = LanguageSettings()
-        let previousLanguage = languageSettings.dictationLanguage
         let writer = GatedMultilingualDownload()
         let download = ParakeetUltraDownload(fetch: { _ in try await writer.fetch() })
         defer {
             download.cancel()
             writer.releaseFirstAttempt()
             clearMultilingualSwitch()
-            languageSettings.dictationLanguage = previousLanguage
         }
 
         let (controller, working) = readyParakeetV2(download: download)
-        languageSettings.dictationLanguage = "ja-JP"
+        controller.hexLanguageSettings.dictationLanguage = "ja-JP"
         MultilingualParakeetSettings().isEnabled = true
         controller.multilingualParakeetChanged()
         try await waitForState("first writer started") { writer.attempts == 1 }
 
-        controller.setDictationLanguage(.automatic)
+        controller.followDictationLanguage()
         XCTAssertNil(controller.multilingualLanguage())
         XCTAssertEqual(download.state, .idle)
         XCTAssertFalse(download.isRunning)

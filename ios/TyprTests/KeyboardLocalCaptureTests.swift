@@ -140,7 +140,7 @@ final class KeyboardLocalCaptureTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
-        settings.dictationLanguage = .german
+        settings.chooseDictationLanguage(.german)
         let vocabulary = CustomVocabularySettings(defaults: defaults)
         let learning = DictationLearningStore(defaults: defaults)
         func text(_ heard: String, _ style: DictationStyle = .polished) async -> String {
@@ -175,7 +175,7 @@ final class KeyboardLocalCaptureTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
-        settings.dictationLanguage = .german
+        settings.chooseDictationLanguage(.german)
         settings[experiment: .typrGermanFormattingRules] = true
         let vocabulary = CustomVocabularySettings(defaults: defaults)
         let learning = DictationLearningStore(defaults: defaults)

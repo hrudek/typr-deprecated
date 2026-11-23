@@ -4,7 +4,13 @@ Typr is a standalone iPhone dictation keyboard with a containing app, widgets an
 Live Activity. Speech recognition runs on-device: Apple Speech (iOS 26+), Parakeet
 V2 (iOS 18+), Whisper Large V3 Turbo, Parakeet V3, Orukeet or Cohere Transcribe
 (explicit model downloads).
-An explicit engine choice never silently falls back to another. A German or English
+An explicit engine choice never silently falls back to another. Settings › Language
+offers German, English and Automatic (Hex's setting); Automatic dictates in the
+keyboard's language while it switches between German and English, read when each
+dictation starts, and Switch dictation too moves a hand-picked language back to Automatic
+when the space bar switches. The Typr key menu offers the same choices and Translate to
+German or English. Experimental › **Typr fixed dictation language** keeps Typr's own
+choice, which doesn't follow the keyboard. A German or English
 dictation language that Apple's speech recognition lacks falls back to the language
 it picks automatically, as in Hex; Experimental › Typr strict dictation language
 keeps the choice strict instead. With no engine chosen, Typr picks one as Hex does:

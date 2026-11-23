@@ -10,6 +10,15 @@ nonisolated enum DictationLanguage: String, CaseIterable, Codable, Sendable {
     case german = "de"
     case english = "en"
 
+    /// German or English for a BCP 47 identifier of either; Automatic for any other or none.
+    init(identifier: String?) {
+        self = switch identifier.flatMap({ Locale(identifier: $0).language.languageCode }) {
+        case .german?: .german
+        case .english?: .english
+        default: .automatic
+        }
+    }
+
     /// The picker label, matching the English settings UI.
     var label: String {
         switch self {

@@ -44,7 +44,7 @@ final class KeyboardLocalDictation {
             keyboardEnabled: enabled && !unavailable,
             warm: warm,
             supported: Self.isSupported,
-            speechReady: prepared?.language == TyprSettings().dictationLanguage,
+            speechReady: prepared?.language == Self.language,
             microphoneAllowed: AVAudioApplication.shared.recordPermission != .denied,
             availableMemory: os_proc_available_memory(),
             captureLoaded: capture != nil
@@ -61,12 +61,24 @@ final class KeyboardLocalDictation {
             listenWhileIdle(capture)
             self.capture = capture
         }
-        let language = TyprSettings().dictationLanguage
+        checkLanguage()
+    }
+
+    /// The dictation language, German or English, which on Automatic follows the keyboard's.
+    static var language: DictationLanguage {
+        LanguageSettings().typrDictationLanguage(typr: TyprSettings())
+    }
+
+    /// Checks Apple Speech for the dictation language once it changes, as when the space bar
+    /// switches the keyboard's language.
+    func checkLanguage() {
+        guard Self.isSupported, !unavailable, !state.isActive else { return }
+        let language = Self.language
         guard #available(iOS 26.0, *), checkedLanguage != language else { return }
         checkedLanguage = language
         Task { [weak self] in
             let ready = await KeyboardSpeechStream.prepare(language: language)
-            guard let self else { return }
+            guard let self, self.checkedLanguage == language else { return }
             self.prepared = ready.map { (language, $0.locale, $0.format) }
         }
     }
@@ -225,6 +237,7 @@ final class KeyboardLocalDictation {
         let settings = TyprSettings()
         let translationSettings = DictationTranslationSettings()
         let translation = state.translation
+        let language = prepared?.language ?? Self.language
         transcription = Task { [weak self] in
             let heard: String
             do {
@@ -239,12 +252,13 @@ final class KeyboardLocalDictation {
             var outcome = TranslationOutcome.skipped
             let translate: ((String) async -> DictationPipeline.Translation)? = translation.map { plan in
                 { text in
-                    outcome = await plan.translate(text, source: settings.dictationLanguage, settings: translationSettings)
+                    outcome = await plan.translate(text, source: language, settings: translationSettings)
                     guard !Task.isCancelled, let translated = outcome.text else { return .asSpoken }
                     return .translated(translated, language: plan.target)
                 }
             }
-            let text = await KeyboardLocalCapture.text(from: heard, style: style, settings: settings, translate: translate)
+            let text = await KeyboardLocalCapture.text(from: heard, style: style, settings: settings, language: language,
+                                                       translate: translate)
             guard !Task.isCancelled else { return }
             self.transcription = nil
             self.state.finish(jobID: jobID, transcript: text, resultID: UUID().uuidString, translation: outcome)

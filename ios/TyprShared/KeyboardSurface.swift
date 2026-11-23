@@ -80,7 +80,7 @@ final class KeyboardViewModel: ObservableObject {
     @Published var languageChoices: [String] = []
     @Published var moreLanguages: [String] = []
     /// Translate what I say's target while it is on, its target whether on or off, and the
-    /// menu's targets; all nil or empty until the Typr key menu offers translation.
+    /// menu's targets.
     @Published var translationTarget: String?
     @Published var translationLanguage: String?
     @Published var translationTargetChoices: [String] = []

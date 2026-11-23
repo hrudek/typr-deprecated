@@ -314,7 +314,7 @@ final class CleanupRewriteTests: XCTestCase {
         for customEnabled in [false, true] {
             let env = LogTestEnvironment()
             try await LogTestEnvironment.waitUntilLoaded(env.store)
-            env.settings.dictationLanguage = .german
+            env.settings.chooseDictationLanguage(.german)
             let vocabulary = CustomVocabularySettings(defaults: env.defaults)
             vocabulary.isEnabled = customEnabled
             vocabulary.terms = ["herdr"]

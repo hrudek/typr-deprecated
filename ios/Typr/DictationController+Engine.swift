@@ -180,7 +180,7 @@ extension DictationController {
 
     func multilingualLanguage() -> String? {
         guard preferredEngine == nil else { return nil }
-        let explicit = LanguageSettings().explicitDictationLanguage(typr: dictationLanguage)
+        let explicit = hexLanguageSettings.explicitDictationLanguage(typr: dictationLanguage)
         return MultilingualParakeetSettings().language(set: explicit)
     }
 
@@ -270,7 +270,7 @@ extension DictationController {
     private func prepareAutomaticAtLaunch(parakeetInterrupted: Bool) {
         let hasCachedModel = ParakeetTranscriber.hasCachedModel
         let policy = HexSpeechEnginePolicy.current
-        let explicit = LanguageSettings().explicitDictationLanguage(typr: dictationLanguage)
+        let explicit = hexLanguageSettings.explicitDictationLanguage(typr: dictationLanguage)
         guard #available(iOS 26.0, *) else {
             switch policy.engine(for: Self.wantedLanguage(explicit: explicit), appleSpeechPicks: false) {
             case .parakeet:

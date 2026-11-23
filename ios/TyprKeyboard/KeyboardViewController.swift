@@ -239,6 +239,20 @@ final class KeyboardViewController: UIInputViewController {
         }
         viewModel.onColdStart = { [weak self] in self?.coldStart() }
         viewModel.onPasteDictation = { [weak self] in self?.pasteOfferedDictation() }
+        viewModel.onLanguageSelected = { [weak self] identifier in
+            LanguageSettings().chooseTyprDictationLanguage(DictationLanguage(identifier: identifier), typr: TyprSettings())
+            self?.syncLanguageState()
+        }
+        viewModel.onTranslationToggled = { [weak self] on in
+            DictationTranslationSettings().isEnabled = on
+            self?.syncLanguageState()
+        }
+        viewModel.onTranslationTargetSelected = { [weak self] target in
+            let settings = DictationTranslationSettings()
+            settings.targetLanguage = target
+            settings.isEnabled = true
+            self?.syncLanguageState()
+        }
         localDictation.onHandOff = { [weak self] in self?.coldStart() }
         viewModel.onFeedbackRating = { [weak self] rating, issues in self?.queueFeedback(rating: rating, issues: issues) }
         viewModel.onSpace = { [weak self] in self?.viewModel.dismissFeedback(); self?.textDocumentProxy.insertText(" ") }
@@ -519,6 +533,8 @@ final class KeyboardViewController: UIInputViewController {
             snap = localDictation.snapshot(now: now) ?? bridge.snapshot()
         }
         refreshOfferedDictation(now: now)
+        syncLanguageState()
+        if keyboardDictationEnabled { localDictation.checkLanguage() }
         viewModel.armsWhenCold = localDictationRoute == .keyboard
 
         viewModel.applyBridgeState(
@@ -549,6 +565,27 @@ final class KeyboardViewController: UIInputViewController {
                                          learns: TyprSettings()[experiment: .learnFromEdits] && !translated)
         hexKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "")
         bridge.markInserted(resultID: resultID, fromApp: fromApp)
+    }
+
+    /// The Typr key menu's Settings › Language choice, what Automatic dictates in, German and
+    /// English to pick from, and Translate what I say's switch and targets (iOS 26, where the
+    /// keyboard translates).
+    private func syncLanguageState() {
+        let settings = LanguageSettings()
+        let typr = TyprSettings()
+        let explicit = settings.typrDictationChoice(typr: typr).speechLocaleIdentifier
+        let automatic = settings.typrDictationLanguage(typr: typr).speechLocaleIdentifier
+        let translation = DictationTranslationSettings()
+        let target = translation.isEnabled ? translation.targetLanguage : nil
+        let translationLanguage: String? = if #available(iOS 26.0, *) { translation.targetLanguage } else { nil }
+        let choices = LanguageSettings.typrDictationLanguages
+        let targets = translationLanguage == nil ? [] : choices.map { Locale.Language(identifier: $0).minimalIdentifier }
+        if viewModel.dictationLanguage != explicit { viewModel.dictationLanguage = explicit }
+        if viewModel.automaticLanguage != automatic { viewModel.automaticLanguage = automatic }
+        if viewModel.languageChoices != choices { viewModel.languageChoices = choices }
+        if viewModel.translationTarget != target { viewModel.translationTarget = target }
+        if viewModel.translationLanguage != translationLanguage { viewModel.translationLanguage = translationLanguage }
+        if viewModel.translationTargetChoices != targets { viewModel.translationTargetChoices = targets }
     }
 
     private func refreshOfferedDictation(now: TimeInterval) {
