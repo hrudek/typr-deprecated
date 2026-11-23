@@ -1,9 +1,7 @@
-import CoreGraphics
 import UIKit
 
-/// What Hex's `FullKeyboardEngine` and `FullKeyboardView` ask of their autocorrect backend.
-/// Hex's `AutocorrectEngine` is the default; Typr's backend conforms through an adapter (K10e2).
-/// `layoutLetters` is here for `FullKeyboardEngineTests`.
+/// What Hex's `FullKeyboardEngine` and `FullKeyboardView` ask of their autocorrect backend;
+/// Hex's `AutocorrectEngine` is the default.
 @MainActor
 protocol KeyboardAutocorrecting: AnyObject {
     var checker: TextChecking { get }
