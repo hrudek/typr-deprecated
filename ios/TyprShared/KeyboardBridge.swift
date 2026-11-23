@@ -335,8 +335,7 @@ nonisolated struct KeyboardSnapshot: Codable, Equatable, Sendable {
         return max(0, now - recordingStartedAt)
     }
 
-    /// How long a finished dictation the keyboard didn't insert by itself stays on offer as
-    /// Paste dictation (Hex). Inserting it, or a newer one, ends the offer.
+    /// How long after `resultExpiresAt` a finished dictation stays on offer as Paste dictation (Hex).
     static let resultOfferWindow: TimeInterval = 10 * 60
 
     /// A finished dictation still on offer as Paste dictation: past its time to insert by
@@ -468,8 +467,6 @@ struct KeyboardBridge {
         }
     }
 
-    /// The app's result stays in its snapshot after an in-keyboard result replaced
-    /// `lastInsertedResultID`, so the app's last inserted one is kept apart.
     var lastInsertedAppResultID: String? {
         get { defaults?.string(forKey: Key.lastInsertedAppResultID) }
         nonmutating set { defaults?.set(newValue, forKey: Key.lastInsertedAppResultID) }
@@ -480,7 +477,6 @@ struct KeyboardBridge {
         if fromApp { lastInsertedAppResultID = resultID }
     }
 
-    /// The app's result the strip offers as Paste dictation, if any.
     func offeredAppResult(at now: TimeInterval) -> KeyboardSnapshot? {
         let app = snapshot()
         return app.isOffered(lastInserted: lastInsertedAppResultID, at: now) ? app : nil

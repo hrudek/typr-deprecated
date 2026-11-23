@@ -294,10 +294,6 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "25 languages, even mixed in one sentence, with Automatic as the speech engine. 632 MB download, deleted when you turn this off. Once ready, keyboard dictation opens Typr."
     )
 
-    /// Retired: Hex's in-keyboard dictation (anomalyco/hex #1999, #2089, #2045) is the default
-    /// since its handoff cutover; Typr always dictate in app restores the old behavior. Kept for
-    /// its stored key only, which nothing reads, so a stored value never changes the default or
-    /// an override.
     static let keyboardDictation = ExperimentalSwitch(
         name: "keyboardDictationAppleSpeech",
         title: "Keyboard dictation: Apple Speech in the keyboard",

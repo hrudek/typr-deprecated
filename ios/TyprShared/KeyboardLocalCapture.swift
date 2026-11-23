@@ -1,8 +1,8 @@
 import Foundation
 
 /// Where a Typr key dictation runs: the Typr app (its selected engine, warm mic or cold-start
-/// handoff) or, with Settings > Experimental's Apple Speech switch, the keyboard itself
-/// (`KeyboardLocalDictation`, Hex's KeyboardLocalDictation, anomalyco/hex #1999 #2089 #2045).
+/// handoff) or the keyboard itself (`KeyboardLocalDictation`, Hex's KeyboardLocalDictation,
+/// anomalyco/hex #1999 #2089 #2045).
 enum KeyboardDictationRoute: Equatable {
     case app
     case keyboard
