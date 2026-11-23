@@ -238,12 +238,12 @@ private actor SpokenASR: LocalTranscribing {
 
 @MainActor
 final class SpokenCleanupPipelineTests: XCTestCase {
-    /// The rules run on the transcript before AI cleanup sees it, and Verbatim or the switch
-    /// turned off skips them.
+    /// Hex's hesitation rule runs on the transcript before AI cleanup sees it, the correction
+    /// stays as said, and Verbatim or the switch turned off skips the rule.
     func testRulesRunBeforeAICleanupAndVerbatimBypasses() async throws {
         let cases: [(Bool, Bool, DictationStyle, String, String?)] = [
-            (true, true, .polished, "Am Mittwoch.", "Am Mittwoch"),
-            (true, false, .polished, "Am Mittwoch.", nil),
+            (true, true, .polished, "Am Mittwoch.", "Am Dienstag, ich meine, Mittwoch"),
+            (true, false, .polished, "Am Dienstag, ich meine, Mittwoch.", nil),
             (true, true, .verbatim, "Am Dienstag, äh, ich meine, Mittwoch", nil),
             (false, false, .polished, "Am Dienstag, ich meine, Mittwoch.", nil),
         ]
@@ -274,7 +274,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
             if let modelInput {
                 XCTAssertEqual(model.prompts.count, 1)
                 XCTAssertTrue(model.prompts[0].contains(modelInput))
-                XCTAssertFalse(model.prompts[0].contains("Dienstag"))
+                XCTAssertFalse(model.prompts[0].contains("äh"))
             } else {
                 XCTAssertTrue(model.prompts.isEmpty)
             }
@@ -576,11 +576,11 @@ final class AppleIntelligenceDictationTests: XCTestCase {
         settings.dictationSpokenCleanup = true
         let enabled = try await deliver(using: apple)
         XCTAssertEqual(enabled, "Am Donnerstag.")
-        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(apple.inputs, ["Am Dienstag, ich meine, Mittwoch"])
 
         let verbatim = try await deliver(using: apple, style: .verbatim)
         XCTAssertEqual(verbatim, "Am Dienstag, äh, ich meine, Mittwoch")
-        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(apple.inputs, ["Am Dienstag, ich meine, Mittwoch"])
     }
 
     func testExperimentKeepsTheTextIfTheModelCannotCleanIt() async throws {
@@ -592,20 +592,20 @@ final class AppleIntelligenceDictationTests: XCTestCase {
 
         apple.isAvailable = false
         let unavailable = try await deliver(using: apple, typrModel: typrModel)
-        XCTAssertEqual(unavailable, "Am Mittwoch.")
+        XCTAssertEqual(unavailable, "Am Dienstag, ich meine, Mittwoch.")
         XCTAssertTrue(apple.inputs.isEmpty)
 
         apple.isAvailable = true
         apple.supportedLanguage = "en"
         let unsupported = try await deliver(using: apple, typrModel: typrModel)
-        XCTAssertEqual(unsupported, "Am Mittwoch.")
+        XCTAssertEqual(unsupported, "Am Dienstag, ich meine, Mittwoch.")
         XCTAssertTrue(apple.inputs.isEmpty)
 
         apple.supportedLanguage = "de"
         apple.answer = nil
         let noAnswer = try await deliver(using: apple, typrModel: typrModel)
-        XCTAssertEqual(noAnswer, "Am Mittwoch.")
-        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(noAnswer, "Am Dienstag, ich meine, Mittwoch.")
+        XCTAssertEqual(apple.inputs, ["Am Dienstag, ich meine, Mittwoch"])
         XCTAssertEqual(typrModel.prepareCount, 0)
         XCTAssertEqual(typrModel.cleanCount, 0)
 
@@ -613,7 +613,7 @@ final class AppleIntelligenceDictationTests: XCTestCase {
         typrModel.result = "Am Freitag"
         let restored = try await deliver(using: apple, typrModel: typrModel)
         XCTAssertEqual(restored, "Am Freitag.")
-        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(apple.inputs, ["Am Dienstag, ich meine, Mittwoch"])
         XCTAssertEqual(typrModel.cleanCount, 1)
         XCTAssertTrue(settings.aiCleanup)
     }
