@@ -120,6 +120,32 @@ final class TyprTypingVariantTests: XCTestCase {
             XCTAssertEqual(target.text, "the ", label)
         }
     }
+
+    func testTyprTypingOnTyprSplitKeyboard() throws {
+        let settings = TyprSettings(defaults: defaults)
+        settings[experiment: .typrTyping] = true
+        settings[experiment: .typrSplitKeyboard] = true
+        let keyboard = TyprFullKeyboardSettings(defaults: defaults)
+        for split in [false, true] {
+            keyboard.splitKeyboard = split
+            keyboard.splitColumns = split
+            let target = HexFixtureTextTarget()
+            target.autocapitalizationType = UITextAutocapitalizationType.none
+            let backend = FullKeyboardView.typrTypingBackend(settings) { typrEngine() }
+            let view = FullKeyboardView(model: KeyboardViewModel(), target: target, autocorrect: backend, defaults: defaults)
+            view.hexPlacementOverride = .stripTrailing
+            view.engine.showsNumberRow = false
+            view.engine.posture = .unfoldedWide
+            view.engine.windowInset = 75
+            view.syncTyprVariants(settings)
+            view.frame = CGRect(x: 0, y: 0, width: 801, height: view.preferredHeight)
+            view.layoutIfNeeded()
+            XCTAssertEqual(view.engine.layout.split != nil, split)
+            XCTAssertTrue(view.engine.autocorrect is TyprAutocorrectAdapter)
+            try type("teh ", on: view.engine)
+            XCTAssertEqual(target.text, "the ", "split \(split)")
+        }
+    }
 }
 
 private final class Checker: TyprTextChecking {
