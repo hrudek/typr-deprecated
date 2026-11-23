@@ -19,14 +19,14 @@ nonisolated enum HexSpokenHesitations {
         var result = ""
         var start = text.startIndex
         for index in text.indices where text[index].isNewline {
-            result += remove(in: text[start..<index], matching: hesitation)
+            result += remove(in: text[start..<index], matching: hesitation, endsTranscript: false)
             result.append(text[index])
             start = text.index(after: index)
         }
-        return result + remove(in: text[start...], matching: hesitation)
+        return result + remove(in: text[start...], matching: hesitation, endsTranscript: true)
     }
 
-    private static func remove(in line: Substring, matching hesitation: NSRegularExpression) -> String {
+    private static func remove(in line: Substring, matching hesitation: NSRegularExpression, endsTranscript: Bool) -> String {
         let words = line.split(whereSeparator: \.isWhitespace)
         var index = 0
         var cursor = line.startIndex
@@ -37,39 +37,37 @@ nonisolated enum HexSpokenHesitations {
                 index += 1
                 continue
             }
-            var suffix = String(firstSuffix)
+            var combined: String? = String(firstSuffix)
             let start = index
             index += 1
-            var multipleClosures = false
             while index < words.count, let next = self.suffix(of: words[index], matching: hesitation) {
-                if suffix.contains(where: closers.contains), next.contains(where: closers.contains) {
-                    multipleClosures = true
-                }
-                suffix = joining(suffix, with: next)
+                combined = combined.flatMap { joining($0, with: next) }
                 index += 1
             }
-            guard !multipleClosures else { continue }
+            guard var suffix = combined else { continue }
 
             if start == 0 {
-                // A quote or bracket that opened on a preceding line may close here.
-                guard !suffix.contains(where: closers.contains) else { continue }
+                guard suffix.isEmpty || (suffix == "," && index < words.count) else { continue }
                 result += line[cursor..<words[start].startIndex]
                 cursor = index < words.count ? words[index].startIndex : words[index - 1].endIndex
             } else {
                 let previous = words[start - 1]
                 let end = previous.endIndex
                 let mark = previous.last
+                guard !previous.allSatisfy(\.isPunctuation) else { continue }
+                let atEnd = endsTranscript && index == words.count
                 let previousHasPause = mark.map(pauses.contains) == true
                 let previousEndsSentence = previous.reversed().drop(while: closers.contains).first
                     .map(sentenceMarks.contains) ?? false
                 let hasBoundary = suffix.contains(where: sentenceMarks.contains)
                 if previousEndsSentence {
+                    guard !hasEllipsis(suffix) else { continue }
                     suffix = String(suffix.drop(while: { sentenceMarks.contains($0) || pauses.contains($0) }))
-                } else if suffix == ",", previousHasPause || index == words.count {
+                } else if suffix == ",", previousHasPause || atEnd {
                     suffix = ""
                 }
-                let replacePause = (hasBoundary || suffix.first.map(pauses.contains) == true) && previousHasPause
-                    || (index == words.count && mark == "," && suffix.isEmpty)
+                let replacePause = ((hasBoundary || suffix.first.map(pauses.contains) == true) && previousHasPause)
+                    || (atEnd && mark == "," && suffix.isEmpty)
                 result += line[cursor..<(replacePause ? line.index(before: end) : end)]
                 result += suffix
                 cursor = words[index - 1].endIndex
@@ -78,16 +76,28 @@ nonisolated enum HexSpokenHesitations {
         return result + line[cursor...]
     }
 
-    private static func joining(_ suffix: String, with next: Substring) -> String {
+    private static func joining(_ suffix: String, with next: Substring) -> String? {
         let endsSentence = suffix.contains(where: sentenceMarks.contains)
         let nextEndsSentence = next.contains(where: sentenceMarks.contains)
+        let nextCloses = next.contains(where: closers.contains)
         if suffix.contains(where: closers.contains) {
+            guard !nextCloses, !hasEllipsis(next) else { return nil }
             return !endsSentence && nextEndsSentence ? suffix + next : suffix
         }
-        if next.contains(where: closers.contains), endsSentence, !nextEndsSentence {
+        if hasEllipsis(suffix), nextEndsSentence {
+            let closure = next.dropFirst()
+            guard next.first == ".", !closure.isEmpty, closure.allSatisfy(closers.contains) else { return nil }
+            return suffix + closure
+        }
+        if endsSentence, hasEllipsis(next) { return nil }
+        if nextCloses, endsSentence, !nextEndsSentence {
             return suffix + next
         }
-        return !next.isEmpty && (!endsSentence || next.contains(where: closers.contains)) ? String(next) : suffix
+        return !next.isEmpty && (!endsSentence || nextCloses) ? String(next) : suffix
+    }
+
+    private static func hasEllipsis(_ suffix: some StringProtocol) -> Bool {
+        suffix.contains("…") || suffix.contains("...")
     }
 
     private static func suffix(of word: Substring, matching hesitation: NSRegularExpression) -> Substring? {

@@ -70,4 +70,52 @@ final class HexSpokenHesitationsTests: XCTestCase {
         XCTAssertEqual(TranscriptFormatter.format(clean, style: .notes, language: "de"),
                        "- Wir sehen uns am 3. Oktober gegen ca. zehn\n- Bring z. B. die Unterlagen mit")
     }
+
+    func testKeepsAClauseCommaBeforeAnExactLineSeparator() {
+        for separator in ["\n", "\r\n", "\r", "\u{2028}", "\u{2029}"] {
+            for hesitation in ["äh", "äh,"] {
+                let heard = "Wenn du Zeit hast, " + hesitation + separator + "komm vorbei."
+                let expected = "Wenn du Zeit hast," + separator + "komm vorbei."
+                XCTAssertEqual(Array(HexSpokenHesitations.remove(from: heard, language: "de").utf8),
+                               Array(expected.utf8))
+            }
+        }
+    }
+
+    func testKeepsUnattachedPunctuationAndQuotedHesitations() {
+        for heard in [
+            "Danke\r\näh…\r\nBis dann.",
+            "Danke\r\näh.\r\nBis dann.",
+            "Sie sagte: « äh. » Danach schwieg sie.",
+            "Sie sagte: \" ähm... \" Danach schwieg sie.",
+            "Sie sagte: ( äh. ) Danach schwieg sie.",
+        ] {
+            XCTAssertEqual(Array(HexSpokenHesitations.remove(from: heard, language: "de").utf8), Array(heard.utf8))
+        }
+    }
+
+    func testPreservesEllipsesAcrossRepeatedHesitations() {
+        for ellipsis in ["…", "..."] {
+            let heard = "Er sagte: „Danke äh\(ellipsis) ähm.“ Bis dann."
+            XCTAssertEqual(HexSpokenHesitations.remove(from: heard, language: "de"),
+                           "Er sagte: „Danke\(ellipsis)“ Bis dann.")
+            let distinct = "Er sagte: „Danke äh.“ ähm\(ellipsis) Bis dann."
+            XCTAssertEqual(HexSpokenHesitations.remove(from: distinct, language: "de"), distinct)
+        }
+    }
+
+    func testPreservationCasesThroughPolishedFormatting() {
+        let pipeline = DictationPipeline(style: .polished, language: "de")
+        let cases = [
+            ("Wenn du Zeit hast, äh,\nkomm vorbei.", "Wenn du Zeit hast,\nkomm vorbei."),
+            ("Danke\r\näh.\r\nBis dann.", "Danke\r\näh.\r\nBis dann."),
+            ("Er sagte: „Danke äh… ähm.“ Bis dann.", "Er sagte: „Danke…“ Bis dann."),
+            ("Er sagte: „Danke äh.“ ähm… Bis dann.", "Er sagte: „Danke äh.“ ähm… Bis dann."),
+            ("Sie sagte: « äh. » Danach schwieg sie.", "Sie sagte: « äh. » Danach schwieg sie."),
+        ]
+        for (heard, expected) in cases {
+            let cleaned = HexSpokenHesitations.remove(from: heard, language: "de")
+            XCTAssertEqual(pipeline.format(cleaned, language: "de"), pipeline.format(expected, language: "de"), heard)
+        }
+    }
 }
