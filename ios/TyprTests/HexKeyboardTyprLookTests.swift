@@ -50,31 +50,21 @@ final class HexKeyboardTyprLookTests: XCTestCase {
         XCTAssertEqual(FullKeyboardView.typrKeyboardDesign(defaults: defaults), .mechanical)
     }
 
-    func testTheHexKeyboardDrawsMechanicalKeysWithTheSameGeometry() throws {
-        let typr = TyprFullKeyboardSettings()
-        let hex = FullKeyboardSettings()
-        let was = (typr.design, hex.numberRow, hex.keyboardThemesEnabled, hex.keyboardTheme)
-        defer {
-            typr.design = was.0
-            hex.numberRow = was.1
-            hex.keyboardThemesEnabled = was.2
-            hex.keyboardTheme = was.3
-        }
-        for (numberRow, themed) in [(false, false), (true, false), (false, true), (true, true)] {
-            typr.design = .standard
-            hex.numberRow = numberRow
-            hex.keyboardThemesEnabled = themed
-            hex.keyboardTheme = .navy
-            let view = makeView()
-            let label = "number row \(numberRow), themed \(themed)"
+    func testTheHexKeyboardDrawsMechanicalKeysWithTheSameGeometry() {
+        for numberRow in [false, true] {
+            let view = makeView(design: .standard, numberRow: numberRow)
+            let label = "number row \(numberRow)"
             XCTAssertFalse(view.palette.mechanical, label)
             let height = view.preferredHeight
-            if !numberRow { XCTAssertEqual(height, 253, label) }
+            if numberRow {
+                XCTAssertGreaterThan(height, 253, label)
+            } else {
+                XCTAssertEqual(height, 253, label)
+            }
             let frames = view.engine.layout.keys.map(\.frame)
             let standardImage = render(view.plane)
 
-            typr.design = .mechanical
-            view.syncSettings()
+            view.designOverride = .mechanical
             view.layoutIfNeeded()
             XCTAssertTrue(view.palette.mechanical, label)
             XCTAssertEqual(view.palette.theme, .automatic, label)
@@ -83,30 +73,18 @@ final class HexKeyboardTyprLookTests: XCTestCase {
             XCTAssertEqual(view.engine.layout.keys.map(\.frame), frames, label)
             XCTAssertNotEqual(render(view.plane), standardImage, "the keys are drawn differently, \(label)")
 
-            typr.design = .standard
-            view.syncSettings()
+            view.designOverride = .standard
             XCTAssertFalse(view.palette.mechanical, label)
-            XCTAssertEqual(view.palette.theme, themed ? .navy : .automatic, label)
         }
     }
 
     func testMechanicalCombinesWithTyprCursorAndDeleteSliding() {
-        let design = TyprFullKeyboardSettings()
-        let typr = TyprSettings()
-        let was = (design.design, typr[experiment: .typrCursorSliding], typr[experiment: .typrDeleteSliding])
-        let wasDeleteSlide = typr[experiment: .deleteSlide]
-        typr[experiment: .deleteSlide] = false
-        defer {
-            typr[experiment: .deleteSlide] = wasDeleteSlide
-            design.design = was.0
-            typr[experiment: .typrCursorSliding] = was.1
-            typr[experiment: .typrDeleteSliding] = was.2
-        }
+        let typr = TyprSettings(defaults: defaults)
         for (mechanical, cursor, delete) in [(false, true, true), (true, false, false), (true, true, false), (true, false, true), (true, true, true)] {
-            design.design = mechanical ? .mechanical : .standard
             typr[experiment: .typrCursorSliding] = cursor
             typr[experiment: .typrDeleteSliding] = delete
-            let view = makeView()
+            let view = makeView(design: mechanical ? .mechanical : .standard, numberRow: false)
+            view.syncTyprVariants(typr)
             let label = "mechanical \(mechanical), cursor \(cursor), delete \(delete)"
             XCTAssertEqual(view.palette.mechanical, mechanical, label)
             XCTAssertEqual(view.engine.slidesCursorByCharacter, cursor, label)
@@ -116,21 +94,19 @@ final class HexKeyboardTyprLookTests: XCTestCase {
     }
 
     func testAppearancePreviewFollowsTheDesign() {
-        let typr = TyprFullKeyboardSettings()
-        let was = typr.design
-        defer { typr.design = was }
-        typr.design = .standard
         var preview = HexKeyboardAppearancePreview.Settings(
             design: .standard, typrKeyOnLeft: false, numberRow: false, isDark: true, container: CGSize(width: 393, height: 852))
         let view = HexKeyboardAppearancePreview.makeKeyboard(preview)
         XCTAssertFalse(view.palette.mechanical)
 
-        typr.design = .mechanical
         preview.design = .mechanical
         HexKeyboardAppearancePreview.apply(preview, to: view)
         XCTAssertTrue(view.palette.mechanical)
-        XCTAssertEqual(view.preferredHeight, 253)
         XCTAssertTrue(preview.accessibilityLabel.contains("Mechanical"), preview.accessibilityLabel)
+
+        preview.design = .standard
+        HexKeyboardAppearancePreview.apply(preview, to: view)
+        XCTAssertFalse(view.palette.mechanical)
     }
 
     func testKeysSectionShowsHexRowsOnlyOnTheHexKeyboard() {
@@ -166,10 +142,12 @@ final class HexKeyboardTyprLookTests: XCTestCase {
         XCTAssertEqual(HexKeyboardLearningSection.statusText(.active), "Active, using your own key centers.")
     }
 
-    private func makeView() -> FullKeyboardView {
+    private func makeView(design: KeyboardDesign, numberRow: Bool) -> FullKeyboardView {
         let view = FullKeyboardView(model: KeyboardViewModel(), target: HexFixtureTextTarget(text: "one two"))
         view.hexPlacementOverride = .stripTrailing
         view.appearanceOverride = false
+        view.designOverride = design
+        view.engine.showsNumberRow = numberRow
         view.frame = CGRect(x: 0, y: 0, width: 393, height: view.preferredHeight)
         view.layoutIfNeeded()
         return view

@@ -155,6 +155,7 @@ struct HexKeyboardAppearancePreview: UIViewRepresentable {
 
     static func apply(_ settings: Settings, to view: FullKeyboardView) {
         view.syncSettings()
+        view.designOverride = settings.design
         view.appearanceOverride = settings.isDark
         view.orientationOverride = settings.orientation
     }

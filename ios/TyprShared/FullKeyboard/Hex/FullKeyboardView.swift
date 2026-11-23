@@ -121,6 +121,12 @@ final class FullKeyboardView: UIView {
     /// palette when it changes.
     private var keyboardTheme = FullKeyboardView.typrKeyboardTheme()
     private var keyboardDesign = FullKeyboardView.typrKeyboardDesign()
+    var designOverride: KeyboardDesign? {
+        didSet {
+            keyboardDesign = designOverride ?? Self.typrKeyboardDesign()
+            applyAppearance()
+        }
+    }
     /// A paste iOS asked about or refused: the strip points to the setting that stops it.
     var showsAllowPasteHint = false
     var allowPasteHintHideWork: DispatchWorkItem?
@@ -566,7 +572,7 @@ final class FullKeyboardView: UIView {
             refreshStrip()
         }
         let theme = Self.typrKeyboardTheme()
-        let design = Self.typrKeyboardDesign()
+        let design = designOverride ?? Self.typrKeyboardDesign()
         if theme != keyboardTheme || design != keyboardDesign {
             keyboardTheme = theme
             keyboardDesign = design

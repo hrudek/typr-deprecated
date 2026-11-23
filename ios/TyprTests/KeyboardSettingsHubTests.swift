@@ -36,12 +36,12 @@ final class KeyboardSettingsHubTests: XCTestCase {
     }
 
     func testWordsAndPrivacyHoldsLearningAndBothImports() async throws {
-        let typr = TyprSettings()
-        let wasTyprKeyboard = typr[experiment: .typrKeyboard]
-        defer { typr[experiment: .typrKeyboard] = wasTyprKeyboard }
-        typr[experiment: .typrKeyboard] = true
-        let switches = try await mountedSwitches(KeyboardWordsPrivacyCard(), count: 3)
-        XCTAssertEqual(switches.map(\.isOn), [TyprSettings().personalLearning,
+        let suite = "typr.tests.keyboard-hub.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        TyprSettings(defaults: defaults)[experiment: .typrKeyboard] = true
+        let switches = try await mountedSwitches(KeyboardWordsPrivacyCard(defaults: defaults), count: 3)
+        XCTAssertEqual(switches.map(\.isOn), [TyprSettings(defaults: defaults).personalLearning,
                                               PersonalLexiconImporter.shared.contactsEnabled,
                                               PersonalLexiconImporter.shared.vocabularyEnabled],
                        "Learn from my typing, Import contacts, Import dictation words")
@@ -49,12 +49,13 @@ final class KeyboardSettingsHubTests: XCTestCase {
     }
 
     func testWordsAndPrivacyLeadsWithHexLearningOnTheHexKeyboard() async throws {
-        let typr = TyprSettings()
-        let wasTyprKeyboard = typr[experiment: .typrKeyboard]
-        defer { typr[experiment: .typrKeyboard] = wasTyprKeyboard }
-        typr[experiment: .typrKeyboard] = false
-        let switches = try await mountedSwitches(KeyboardWordsPrivacyCard(), count: 4)
-        XCTAssertEqual(switches.map(\.isOn), [TypingJournalSettings().isEnabled, TyprSettings().personalLearning,
+        let suite = "typr.tests.keyboard-hub.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        TypingJournalSettings(defaults: defaults).isEnabled = false
+        TyprSettings(defaults: defaults).personalLearning = true
+        let switches = try await mountedSwitches(KeyboardWordsPrivacyCard(defaults: defaults), count: 4)
+        XCTAssertEqual(switches.map(\.isOn), [false, true,
                                               PersonalLexiconImporter.shared.contactsEnabled,
                                               PersonalLexiconImporter.shared.vocabularyEnabled],
                        "Learn how I type, Learn from my typing, Import contacts, Import dictation words")
