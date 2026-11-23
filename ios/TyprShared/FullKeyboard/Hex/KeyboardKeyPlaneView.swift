@@ -736,8 +736,11 @@ final class KeyboardKeyPlaneView: UIView {
     private func startDeleteRepeat(for id: Int) {
         deleteStartedAt = CACurrentMediaTime()
         let timer = Timer(timeInterval: FullKeyboardEngine.repeatInterval, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
             MainActor.assumeIsolated {
-                guard let self else { return timer.invalidate() }
                 guard self.engine.touches[id]?.key.kind == .delete else { return self.stopDeleteRepeat() }
                 let held = CACurrentMediaTime() - self.deleteStartedAt
                 guard held >= FullKeyboardEngine.repeatDelay else { return }
