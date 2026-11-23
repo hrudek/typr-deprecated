@@ -73,7 +73,7 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.discardTouchEvidence()
         fullKeyboard?.flushLearning()
         fullKeyboard?.finishDictationEdits()
-        typrTypingLearning.flush()
+        learning.flush()
         hexKeyboard?.engine.commitHangulComposition()
         pollTimer?.invalidate()
         pollTimer = nil
@@ -110,9 +110,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private var hexTypr: TyprAutocorrectAdapter? { hexKeyboard?.engine.autocorrect as? TyprAutocorrectAdapter }
     private var protectedLexicon = ProtectedPersonalLexicon.empty
-    private lazy var typrTypingLearning = TyprTypingLearning { [unowned self] in
-        self.learningSession(store: self.learningStore())
-    }
+    private lazy var learning = SharedKeyboardLearning { [unowned self] in self.learningSession() }
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
@@ -288,7 +286,6 @@ final class KeyboardViewController: UIInputViewController {
         surface?.removeFromSuperview()
         fullKeyboard?.flushLearning()
         fullKeyboard?.finishDictationEdits()
-        if !wantsTyprTyping { typrTypingLearning.retire() }
         fullKeyboard = nil
         hexKeyboard = nil
         handOffWaitsForPosture = false
@@ -301,17 +298,15 @@ final class KeyboardViewController: UIInputViewController {
             mounted = keyboard
             heightConstraint?.constant = keyboard.preferredHeight
         } else if wantsFull {
-            let store = learningStore()
-            let learning = learningSession(store: store)
             let keyboard = TyprFullKeyboardView(
                 model: viewModel,
                 target: TyprDocumentProxyTextTarget { [unowned self] in self.textDocumentProxy },
-                autocorrect: TyprAutocorrectEngine(learning: learning),
+                autocorrect: TyprAutocorrectEngine(learning: learning.session(fullAccess: hasFullAccess)),
                 statistics: UsageStatisticsSession(
-                    store: UsageStatisticsStore(directory: store == nil ? nil : KeyboardLearningStore.sharedDirectory),
+                    store: UsageStatisticsStore(directory: persistsLearning ? KeyboardLearningStore.sharedDirectory : nil),
                     allowsPersistence: { [weak self] in self?.hasFullAccess == true }
                 ),
-                typingLog: typingLog(persistent: store != nil)
+                typingLog: typingLog(persistent: persistsLearning)
             )
             keyboard.hostController = self
             keyboard.dictationEdits.onResult = { [weak self] result in
@@ -357,19 +352,19 @@ final class KeyboardViewController: UIInputViewController {
         schedulePoll(force: false)
     }
 
-    /// Learning files are written only with real Full Access on a device; otherwise RAM for
-    /// this keyboard session.
-    private func learningStore() -> KeyboardLearningStore? {
+    /// Learning files are written only with real Full Access on a device; otherwise RAM while
+    /// the keyboard runs.
+    private var persistsLearning: Bool {
         #if targetEnvironment(simulator)
-        nil
+        false
         #else
-        hasFullAccess ? KeyboardLearningStore() : nil
+        hasFullAccess
         #endif
     }
 
-    private func learningSession(store: KeyboardLearningStore?) -> KeyboardLearningSession {
+    private func learningSession() -> KeyboardLearningSession {
         KeyboardLearningSession(
-            store: store,
+            store: persistsLearning ? KeyboardLearningStore() : nil,
             defaults: UserDefaults(suiteName: KeyboardBridge.appGroup),
             allowsPersistence: { [weak self] in self?.hasFullAccess == true }
         )
@@ -377,7 +372,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func makeHexKeyboard() -> FullKeyboardView {
         let typr = FullKeyboardView.typrTypingBackend {
-            TyprAutocorrectEngine(learning: typrTypingLearning.session(fullAccess: hasFullAccess))
+            TyprAutocorrectEngine(learning: learning.session(fullAccess: hasFullAccess))
         }
         typr?.engine.loadProtectedLexicon(protectedLexicon)
         let keyboard = FullKeyboardView(
