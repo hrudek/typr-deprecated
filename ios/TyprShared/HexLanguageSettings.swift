@@ -10,6 +10,9 @@ nonisolated struct LanguageSettings {
         static let recent = "settings.dictationLanguage.recent"
         static let removed = "settings.dictationLanguage.removed"
         static let supported = "settings.dictationLanguage.supported"
+        static let keyboardLanguages = "settings.keyboardLanguages"
+        static let currentKeyboardLanguage = "settings.keyboardLanguages.current"
+        static let letterLayouts = "settings.keyboardLanguages.layouts"
         static let dictationFollowsKeyboard = "settings.keyboardLanguages.switchDictation"
         static let speechModuleFailed = "settings.dictationLanguage.speechModuleFailed"
         static let unavailable = "settings.dictationLanguage.unavailable"
@@ -82,6 +85,36 @@ nonisolated struct LanguageSettings {
     var supportedDictationLanguages: [String] {
         get { defaults?.stringArray(forKey: Key.supported) ?? [] }
         nonmutating set { defaults?.set(newValue, forKey: Key.supported) }
+    }
+
+    /// The Hex keyboard's languages in order, the space bar switching between them; empty is
+    /// Automatic (the dictation language's layout).
+    var keyboardLanguages: [KeyboardLanguage] {
+        let stored = defaults?.stringArray(forKey: Key.keyboardLanguages) ?? []
+        var seen = Set<KeyboardLanguage>()
+        let koreanEnabled = KoreanKeyboardExperiment.isEnabled(in: defaults)
+        return stored.compactMap(KeyboardLanguage.init(rawValue:))
+            .filter { seen.insert($0).inserted }
+            // 한국어 is ignored while its experiment is off, even if it was stored before.
+            .filter { $0 != .korean || koreanEnabled }
+    }
+
+    /// How a language arranges its letters (`KeyboardLetterLayout`). A language never set, or
+    /// set to one it no longer offers, types on its own layout.
+    func letterLayout(for language: KeyboardLanguage) -> KeyboardLetterLayout {
+        let layouts = defaults?.dictionary(forKey: Key.letterLayouts) as? [String: String] ?? [:]
+        return language.offered(layouts[language.rawValue].flatMap(KeyboardLetterLayout.init(rawValue:)))
+    }
+
+    /// The language the space bar last switched to, so the keyboard comes back in it.
+    var currentKeyboardLanguage: KeyboardLanguage? {
+        get {
+            guard let language = defaults?.string(forKey: Key.currentKeyboardLanguage)
+                .flatMap(KeyboardLanguage.init(rawValue:)) else { return nil }
+            let koreanEnabled = KoreanKeyboardExperiment.isEnabled(in: defaults)
+            return language == .korean && !koreanEnabled ? nil : language
+        }
+        nonmutating set { defaults?.set(newValue?.rawValue, forKey: Key.currentKeyboardLanguage) }
     }
 
     /// Switching the keyboard's language switches the dictation language to it. Off by default.
