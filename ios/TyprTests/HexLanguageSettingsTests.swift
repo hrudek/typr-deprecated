@@ -152,7 +152,6 @@ final class HexLanguageSettingsTests: XCTestCase {
 }
 
 extension TyprSettings {
-    /// Settings › Language's choice, into the store the switch selects.
     func chooseDictationLanguage(_ language: DictationLanguage) {
         hexLanguage.chooseTyprDictationLanguage(language, typr: self)
     }

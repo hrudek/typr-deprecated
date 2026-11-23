@@ -1326,7 +1326,6 @@ final class FullKeyboardView: UIView {
             self?.model.onLanguageSelected?(language)
             self?.dismissStyleMenu()
         }
-        // The menu stays open, so the language is seen to go. Without a handler it offers no Remove.
         if model.onLanguageRemoved != nil {
             menu.onRemoveLanguage = { [weak self] language in
                 self?.typingLog?.ui("dictation_language_removed", [TypingLogField("language", .string(language))])

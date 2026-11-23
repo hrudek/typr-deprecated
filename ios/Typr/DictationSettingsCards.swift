@@ -147,7 +147,6 @@ struct DictationLanguageSettingsCard: View {
         .onAppear { dictation.followDictationLanguage() }
     }
 
-    /// Automatic names the keyboard's language while dictation follows it.
     private func title(of language: DictationLanguage) -> String {
         guard language == .automatic, !fixed, dictation.dictationLanguageChoice == .automatic,
               dictation.dictationLanguage != .automatic else { return language.label }

@@ -567,9 +567,6 @@ final class KeyboardViewController: UIInputViewController {
         bridge.markInserted(resultID: resultID, fromApp: fromApp)
     }
 
-    /// The Typr key menu's Settings › Language choice, what Automatic dictates in, German and
-    /// English to pick from, and Translate what I say's switch and targets (iOS 26, where the
-    /// keyboard translates).
     private func syncLanguageState() {
         let settings = LanguageSettings()
         let typr = TyprSettings()

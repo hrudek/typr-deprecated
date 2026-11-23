@@ -242,7 +242,6 @@ final class ModelPreparationTests: XCTestCase {
         try await waitForState("deleted") { !FileManager.default.fileExists(atPath: folder.path) }
     }
 
-    /// `preferredLanguages`: the iPhone's, which Automatic dictates in.
     private func readyParakeetV2(
         download: ParakeetUltraDownload? = nil,
         preferredLanguages: [String] = Locale.preferredLanguages
