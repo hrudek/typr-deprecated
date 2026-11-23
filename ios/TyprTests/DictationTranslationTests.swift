@@ -526,3 +526,96 @@ final class KeyboardSnapshotTranslationTests: XCTestCase {
         XCTAssertFalse(request.isHandoffExpired(at: 1_000_000))
     }
 }
+
+@MainActor
+private final class StandInSession {
+    private(set) var texts: [String] = []
+    private var gate: CheckedContinuation<Void, Never>?
+    var isWaiting: Bool { gate != nil }
+
+    func release() {
+        gate?.resume()
+        gate = nil
+    }
+
+    func translate(_ text: String, into target: String, holds: Bool) async -> String {
+        texts.append(text)
+        if holds { await withCheckedContinuation { gate = $0 } }
+        return "\(target): \(text)"
+    }
+}
+
+@MainActor
+final class TranslationSessionHostTests: XCTestCase {
+    func testReversedPairsBackToBackEachGetTheirOwnSession() async throws {
+        let host = TranslationSessionHost()
+        let german = Locale.Language(identifier: "de"), english = Locale.Language(identifier: "en")
+        let first = Task { try await host.translate("Bis morgen.", from: german, to: english) }
+        try await waitForState("first pair asked for") { host.configuration?.target == english }
+        let toEnglish = StandInSession()
+        let stale = Task { await host.serve(.init(german, english)) { await toEnglish.translate($0, into: "en", holds: true) } }
+        try await waitForState("first in the session") { toEnglish.isWaiting }
+
+        let second = Task { try await host.translate("See you tomorrow.", from: english, to: german) }
+        try await waitForState("reversed pair asked for") { host.configuration?.target == german }
+        toEnglish.release()
+        await stale.value
+        let firstText = try await first.value
+        XCTAssertEqual(firstText, "en: Bis morgen.")
+        XCTAssertEqual(toEnglish.texts, ["Bis morgen."], "the German to English session never takes English text")
+
+        let toGerman = StandInSession()
+        await host.serve(.init(english, german)) { await toGerman.translate($0, into: "de", holds: false) }
+        let secondText = try await second.value
+        XCTAssertEqual(secondText, "de: See you tomorrow.")
+        XCTAssertEqual(toGerman.texts, ["See you tomorrow."])
+    }
+
+    func testTextsLeftForAnotherPairAskForTheirSessionNext() async throws {
+        let host = TranslationSessionHost()
+        let german = Locale.Language(identifier: "de"), english = Locale.Language(identifier: "en")
+        let first = Task { try await host.translate("Bis morgen.", from: german, to: english) }
+        try await waitForState("first queued") { host.configuration?.target == english }
+        let second = Task { try await host.translate("See you.", from: english, to: german) }
+        try await waitForState("second queued") { host.configuration?.target == german }
+        let toGerman = StandInSession()
+        await host.serve(.init(english, german)) { await toGerman.translate($0, into: "de", holds: false) }
+        let secondText = try await second.value
+        XCTAssertEqual(secondText, "de: See you.")
+        XCTAssertEqual(host.configuration?.target, english, "German to English is asked for again")
+        let toEnglish = StandInSession()
+        await host.serve(.init(german, english)) { await toEnglish.translate($0, into: "en", holds: false) }
+        let firstText = try await first.value
+        XCTAssertEqual(firstText, "en: Bis morgen.")
+    }
+}
+
+@MainActor
+final class KeyboardLocalTranslationPlanTests: XCTestCase {
+    func testThePlanIsReadWhenTheDictationStarts() {
+        let settings = DictationTranslationSettings(defaults: isolatedDefaults(self))
+        settings.isEnabled = true
+        settings.targetLanguage = "en"
+        var capture = KeyboardLocalCapture()
+        XCTAssertEqual(capture.start(jobID: "j", at: 1, translation: DictationTranslationPlan(settings: settings, typrPolicy: false)),
+                       .begin(jobID: "j"))
+        settings.targetLanguage = "de"
+        settings.isEnabled = false
+        XCTAssertEqual(capture.stop(), "j")
+        XCTAssertEqual(capture.translation?.target, "en", "a change while recording applies to the next dictation")
+        capture.cancel()
+        XCTAssertNil(capture.translation)
+    }
+
+    func testAKeptCaptureKeepsThePlanReadAtTouchDown() {
+        let settings = DictationTranslationSettings(defaults: isolatedDefaults(self))
+        settings.isEnabled = true
+        settings.targetLanguage = "de"
+        var capture = KeyboardLocalCapture()
+        XCTAssertTrue(capture.arm(jobID: "j", at: 1, translation: DictationTranslationPlan(settings: settings, typrPolicy: false)))
+        settings.targetLanguage = "en"
+        XCTAssertEqual(capture.start(jobID: "other", at: 2, translation: DictationTranslationPlan(settings: settings, typrPolicy: false)),
+                       .kept(jobID: "j"))
+        XCTAssertEqual(capture.translation?.target, "de")
+    }
+}

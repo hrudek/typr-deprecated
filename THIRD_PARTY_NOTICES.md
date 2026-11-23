@@ -739,7 +739,9 @@ Translate what I say (`ios/TyprShared/DictationTranslation.swift`,
 [anomalyco/hex](https://github.com/anomalyco/hex) at
 `0c1c13d71b853ac3113d9a622e4fd9af3755d068` (`HEXShared/DictationTranslation.swift`,
 `HEXMobile/TranslationSessionHost.swift`, `HEXMobile/TranslateDictationRow.swift`), covered by
-the Hex base pin. Typr's earlier German and English adaptation of Hex #2015 and #2176 at
+the Hex base pin, and modified: Typr names, German and English targets only with English by
+default, the target passed per dictation, no failure kept for a cancelled dictation, and a
+session host that translates each text only in a session for its own language pair. Typr's earlier German and English adaptation of Hex #2015 and #2176 at
 `d65b02d36efbaf1ff771420e89c0632dea4706cb`, with its deadline, stays as the Typr translation
 policy (`ios/TyprShared/TyprDictationTranslator.swift`). MIT, © Christopher Langton, the same
 license as this repository ([LICENSE](LICENSE)).

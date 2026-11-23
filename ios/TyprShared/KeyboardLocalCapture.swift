@@ -70,6 +70,9 @@ struct KeyboardLocalCapture {
     static let failureShownFor: TimeInterval = 6
 
     private(set) var phase: Phase = .idle
+    /// Translate what I say for the running job, read when it began: a change during the
+    /// recording applies to the next dictation.
+    private(set) var translation: DictationTranslationPlan?
 
     var isActive: Bool {
         switch phase {
@@ -93,19 +96,22 @@ struct KeyboardLocalCapture {
         return isCapturing(jobID)
     }
 
-    mutating func arm(jobID: String, at now: TimeInterval) -> Bool {
+    mutating func arm(jobID: String, at now: TimeInterval, translation: DictationTranslationPlan? = nil) -> Bool {
         guard !isActive, !hasUndeliveredResult else { return false }
         phase = .armed(jobID: jobID, at: now)
+        self.translation = translation
         return true
     }
 
-    mutating func start(jobID: String, at now: TimeInterval) -> StartAction {
+    /// A kept capture keeps the translation read when it was armed.
+    mutating func start(jobID: String, at now: TimeInterval, translation: DictationTranslationPlan? = nil) -> StartAction {
         if case .armed(let armed, let at) = phase {
             phase = .recording(jobID: armed, at: at)
             return .kept(jobID: armed)
         }
         guard !isActive, !hasUndeliveredResult else { return .ignored }
         phase = .recording(jobID: jobID, at: now)
+        self.translation = translation
         return .begin(jobID: jobID)
     }
 
@@ -113,6 +119,7 @@ struct KeyboardLocalCapture {
     mutating func discard() -> String? {
         guard case .armed(let jobID, _) = phase else { return nil }
         phase = .idle
+        translation = nil
         return jobID
     }
 
@@ -121,6 +128,7 @@ struct KeyboardLocalCapture {
         guard case .armed(let current, let at) = phase, current == jobID,
               now - at >= Self.armedTimeout else { return false }
         phase = .idle
+        translation = nil
         return true
     }
 
@@ -133,6 +141,7 @@ struct KeyboardLocalCapture {
 
     mutating func cancel() {
         phase = .idle
+        translation = nil
     }
 
     /// An empty transcript ends quietly.
