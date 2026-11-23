@@ -723,6 +723,12 @@ in `SpokenCleanupRules.swift`, and the comma and capital repair of `CleanupRecon
 Typr adds English rules, stutter removal and stricter repair conditions.
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
+`ios/TyprShared/HexSpokenHesitations.swift` stages the standalone hesitation rule and
+German, Spanish, and Norwegian locale gates from Hex's
+[`SpokenCleanupRules.swift`](https://github.com/anomalyco/hex/blob/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXShared/SpokenCleanupRules.swift)
+at `0c1c13d71b853ac3113d9a622e4fd9af3755d068`. Typr preserves source line separators
+and punctuation through local edits. MIT, © Christopher Langton.
+
 ## Hex iOS dictation translation
 
 Translate what I say (`ios/Typr/DictationTranslation.swift`, `TranslateDictationSettingsCard` in
