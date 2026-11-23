@@ -17,11 +17,17 @@ final class KeyboardViewController: UIInputViewController {
     private var lastRemountBucket: Int = 0
     private var lastFullAccessNote: TimeInterval = 0
     private var surface: UIView?
+    /// The full keyboard: Hex's by default (`hexKeyboard`), Typr's own while Settings ›
+    /// Experimental › Typr keyboard is on (`fullKeyboard`). At most one is mounted.
     private var fullKeyboard: TyprFullKeyboardView?
+    private var hexKeyboard: FullKeyboardView?
+    private var hasFullKeyboard: Bool { fullKeyboard != nil || hexKeyboard != nil }
     private var heightConstraint: NSLayoutConstraint?
     private var pollInterval: TimeInterval = 0
     private var didHandOffCurrentField = false
     private var didWarmLexicon = false
+    /// A number pad's hand-off waits for the Duo's posture, which needs the keyboard's window.
+    private var handOffWaitsForPosture = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -50,6 +56,7 @@ final class KeyboardViewController: UIInputViewController {
         mountSurface()
         refreshProtectedLexicon()
         fullKeyboard?.prepareForField()
+        hexKeyboard?.prepareForField()
         handOffNumericPadIfNeeded()
         syncFromBridge(animated: false)
         schedulePoll(force: true)
@@ -68,6 +75,7 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.discardTouchEvidence()
         fullKeyboard?.flushLearning()
         fullKeyboard?.finishDictationEdits()
+        hexKeyboard?.engine.commitHangulComposition()
         pollTimer?.invalidate()
         pollTimer = nil
         disarmWarmDictation()
@@ -99,6 +107,7 @@ final class KeyboardViewController: UIInputViewController {
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         fullKeyboard?.handleMemoryWarning()
+        hexKeyboard?.handleMemoryWarning()
         localDictation.releaseIfIdle()
     }
 
@@ -106,10 +115,12 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillLayoutSubviews()
         // The keyboard's own window is only as tall as the keyboard; the scene's screen is the display it is on.
         fullKeyboard?.containerSize = view.window?.windowScene?.screen.bounds.size
-        if let fullKeyboard, heightConstraint?.constant != fullKeyboard.preferredHeight {
-            heightConstraint?.constant = fullKeyboard.preferredHeight
-            preferredContentSize.height = fullKeyboard.preferredHeight
+        if let height = fullKeyboard?.preferredHeight ?? hexKeyboard?.preferredHeight,
+           heightConstraint?.constant != height {
+            heightConstraint?.constant = height
+            preferredContentSize.height = height
         }
+        if handOffWaitsForPosture { handOffNumericPadIfNeeded() }
     }
 
     override func textWillChange(_ textInput: UITextInput?) {
@@ -123,6 +134,7 @@ final class KeyboardViewController: UIInputViewController {
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
         fullKeyboard?.selectionDidChange()
+        hexKeyboard?.engine.commitHangulIfHostMoved()
         KeyboardHost.harvest()
     }
 
@@ -131,6 +143,7 @@ final class KeyboardViewController: UIInputViewController {
         KeyboardHost.harvest()
         updateKeyboardTraits()
         fullKeyboard?.textDidChange()
+        hexKeyboard?.textDidChange()
         handOffNumericPadIfNeeded()
     }
 
@@ -144,6 +157,10 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func handOffNumericPadIfNeeded() {
+        if let hexKeyboard {
+            handOffNumericPad(hexKeyboard)
+            return
+        }
         guard fullKeyboard != nil else { return }
         if TyprKeyboardFieldRouting.route(for: textDocumentProxy.keyboardType) == .handOff {
             guard !didHandOffCurrentField else { return }
@@ -156,7 +173,38 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    /// Hex's number pad routing: to the next keyboard where iOS asks for a globe, except where
+    /// Apple's keyboard is split.
+    private func handOffNumericPad(_ keyboard: FullKeyboardView) {
+        guard KeyboardFieldRouting.route(for: textDocumentProxy.keyboardType) == .handOff else {
+            didHandOffCurrentField = false
+            return
+        }
+        guard !didHandOffCurrentField else { return }
+        // The Duo's posture needs the keyboard's window: layout asks again once it has one.
+        guard let posture = keyboard.currentPosture else {
+            handOffWaitsForPosture = true
+            return
+        }
+        handOffWaitsForPosture = false
+        didHandOffCurrentField = true
+        if KeyboardFieldRouting.handsOffNumberPad(needsInputModeSwitchKey: needsInputModeSwitchKey, posture: posture) {
+            advanceToNextInputMode()
+        }
+    }
+
     private func warmFullKeyboardLexiconIfNeeded() {
+        if let hexKeyboard {
+            hexKeyboard.warmUpTextCheckerAsync()
+            guard !didWarmLexicon else { return }
+            didWarmLexicon = true
+            // UIKit calls back on its lexicon-request queue: the callback is nonisolated and
+            // hops to the main actor itself (Hex's TestFlight build 3 crash).
+            requestSupplementaryLexicon { @Sendable [weak self] lexicon in
+                Task { @MainActor in self?.hexKeyboard?.loadLexicon(lexicon) }
+            }
+            return
+        }
         guard let fullKeyboard else { return }
         fullKeyboard.warmUpTextCheckerAsync()
         guard !didWarmLexicon else { return }
@@ -194,6 +242,9 @@ final class KeyboardViewController: UIInputViewController {
             ContainingAppOpener.open(url, from: self)
         }
         viewModel.onShowFullKeyboard = { [weak self] in self?.switchSurface(toCompactBar: false) }
+        // The Hex key's press arms the warm mic as the Typr key's does; a slide or cancel disarms.
+        viewModel.onHexKeyPress = { [weak self] _ in self?.armHexKeyDictation() }
+        viewModel.onHexKeyAbandon = { [weak self] in self?.disarmWarmDictation() }
         viewModel.onNextKeyboard = { [weak self] in self?.advanceToNextInputMode() }
 
         let heightConstraint = view.heightAnchor.constraint(equalToConstant: 140)
@@ -213,7 +264,8 @@ final class KeyboardViewController: UIInputViewController {
             viewModel.showsFullKeyboardSwitch = isPhone
         }
         fullKeyboard?.allowsCompactBar = isPhone
-        guard surface == nil || wantsFull != (fullKeyboard != nil) else { return }
+        let wantsTypr = wantsFull && TyprSettings()[experiment: .typrKeyboard]
+        guard surface == nil || wantsFull != hasFullKeyboard || wantsTypr != (fullKeyboard != nil) else { return }
         guard surface == nil || viewModel.stagePhase == .idle || viewModel.stagePhase == .failed else { return }
 
         children.forEach { child in
@@ -222,14 +274,22 @@ final class KeyboardViewController: UIInputViewController {
         }
         fullKeyboard?.suspendSuggestions()
         fullKeyboard?.discardTouchEvidence()
+        hexKeyboard?.engine.commitHangulComposition()
         surface?.removeFromSuperview()
         fullKeyboard?.flushLearning()
         fullKeyboard?.finishDictationEdits()
         fullKeyboard = nil
+        hexKeyboard = nil
+        handOffWaitsForPosture = false
         didWarmLexicon = false
 
         let mounted: UIView
-        if wantsFull {
+        if wantsFull, !wantsTypr {
+            let keyboard = makeHexKeyboard()
+            hexKeyboard = keyboard
+            mounted = keyboard
+            heightConstraint?.constant = keyboard.preferredHeight
+        } else if wantsFull {
             // Learning files are written only with real Full Access on a device; otherwise RAM
             // for this keyboard session.
             #if targetEnvironment(simulator)
@@ -296,6 +356,24 @@ final class KeyboardViewController: UIInputViewController {
         schedulePoll(force: false)
     }
 
+    /// Hex's full keyboard, the default (`FullKeyboardView`), with Typr's compact metrics (K5)
+    /// and the Typr variants that act on it (`FullKeyboardView+Typr`).
+    private func makeHexKeyboard() -> FullKeyboardView {
+        let keyboard = FullKeyboardView(
+            model: viewModel,
+            target: DocumentProxyTextTarget { [weak self] in self?.textDocumentProxy }
+        )
+        keyboard.hostController = self
+        keyboard.onPreferredHeightChange = { [weak self] in
+            self?.view.setNeedsLayout()
+            self?.view.layoutIfNeeded()
+        }
+        keyboard.allowsHaptics = { [weak self] in
+            self?.hasFullAccess == true && FullKeyboardSettings().haptics
+        }
+        return keyboard
+    }
+
     /// Typr: the compact bar's keyboard key or a slide down on the Typr key picked a surface.
     /// Only while idle.
     private func switchSurface(toCompactBar compact: Bool) {
@@ -309,6 +387,7 @@ final class KeyboardViewController: UIInputViewController {
             }
             self.mountSurface()
             self.fullKeyboard?.prepareForField()
+            self.hexKeyboard?.prepareForField()
             self.warmFullKeyboardLexiconIfNeeded()
             self.syncFromBridge(animated: false)
             self.schedulePoll(force: true)
@@ -318,7 +397,7 @@ final class KeyboardViewController: UIInputViewController {
     private func schedulePoll(force: Bool) {
         let busy = viewModel.stagePhase == .recording || viewModel.stagePhase == .transcribing
             || viewModel.pendingCommand != nil || armedJobID != nil || localDictation.isActive
-        let interval: TimeInterval = fullKeyboard == nil ? 0.04 : (busy ? 1.0 / 30 : 0.25)
+        let interval: TimeInterval = !hasFullKeyboard ? 0.04 : (busy ? 1.0 / 30 : 0.25)
         guard force || (pollTimer != nil && interval != pollInterval) else { return }
         pollInterval = interval
         pollTimer?.invalidate()
@@ -366,6 +445,7 @@ final class KeyboardViewController: UIInputViewController {
         let now = Date().timeIntervalSince1970
         updateKeyboardTraits()
         fullKeyboard?.syncSettings()
+        hexKeyboard?.syncSettings()
         let keyDesign = TyprFullKeyboardSettings().design
         if viewModel.keyDesign != keyDesign { viewModel.keyDesign = keyDesign }
 
@@ -417,6 +497,7 @@ final class KeyboardViewController: UIInputViewController {
             textDocumentProxy.insertText(insertion)
             fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "",
                                              learns: TyprSettings()[experiment: .learnFromEdits] && snap.translated != true)
+            hexKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "")
             bridge.lastInsertedResultID = resultID
             viewModel.resultNote = snap.resultNote
             insertedResult = true
@@ -446,7 +527,7 @@ final class KeyboardViewController: UIInputViewController {
         schedulePoll(force: false)
     }
 
-    /// Picks up a changed keyboard setting (full keyboard) every 2 s.
+    /// Picks up a changed keyboard setting (full keyboard, Typr keyboard) every 2 s.
     private func remountIfNeeded(now: TimeInterval) {
         let bucket = Int(now / 2.0)
         guard bucket != lastRemountBucket else { return }
@@ -531,6 +612,12 @@ final class KeyboardViewController: UIInputViewController {
         armedJobID = jobID
         bridge.send(.arm, jobID: jobID, style: viewModel.style, sentAt: now)
         schedulePoll(force: false)
+    }
+
+    /// The Typr key arms while warm or while keyboard dictation may start cold (`armsWhenCold`).
+    private func armHexKeyDictation() {
+        guard viewModel.isWarmAvailable || viewModel.armsWhenCold else { return }
+        armWarmDictation()
     }
 
     private func disarmWarmDictation() {

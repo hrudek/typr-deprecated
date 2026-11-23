@@ -18,10 +18,21 @@ final class KeyboardSettingsHubTests: XCTestCase {
         defaults.set(false, forKey: "experiments.fullKeyboard")
         let stored = defaults.persistentDomain(forName: suite) as NSDictionary?
 
-        let switches = try await mountedSwitches(KeyboardSettingsCard(defaults: defaults), count: 3)
-        XCTAssertEqual(switches.map(\.isOn), [true, false, true], "Autocorrect, Suggest swear words, Swipe typing")
+        let switches = try await mountedSwitches(KeyboardSettingsCard(defaults: defaults), count: 5)
+        XCTAssertEqual(switches.map(\.isOn), [true, true, true, false, true],
+                       "Hex's keyboard: Auto-capitalization, Autocorrect, Spatial autocorrect, Suggest swear words, Swipe typing")
         XCTAssertTrue(switches.allSatisfy(\.isEnabled), "a retired Full keyboard value disables nothing")
         XCTAssertEqual(defaults.persistentDomain(forName: suite) as NSDictionary?, stored, "opening the page writes nothing")
+    }
+
+    func testTyprKeyboardShowsTyprsTypingAssistance() async throws {
+        let suite = "typr.tests.keyboard-hub.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        TyprSettings(defaults: defaults)[experiment: .typrKeyboard] = true
+
+        let switches = try await mountedSwitches(KeyboardSettingsCard(defaults: defaults), count: 3)
+        XCTAssertEqual(switches.map(\.isOn), [true, false, true], "Autocorrect, Suggest swear words, Swipe typing")
     }
 
     func testWordsAndPrivacyHoldsLearningAndBothImports() async throws {

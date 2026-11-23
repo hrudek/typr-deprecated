@@ -36,3 +36,14 @@ extension FullKeyboardView {
         )
     }
 }
+
+/// Typr variants that act on the Hex keyboard (Settings › Experimental › Typr variants).
+extension FullKeyboardView {
+    /// Slide delete to remove words (S3, #351): a held delete deletes one letter and never
+    /// repeats; only sliding deletes or restores words. Off, Hex's hold-to-repeat. Every
+    /// layout, split included, shares the one key plane.
+    func syncTyprVariants(_ settings: TyprSettings = TyprSettings()) {
+        let repeats = !settings[experiment: .deleteSlide]
+        if plane.repeatsHeldDelete != repeats { plane.repeatsHeldDelete = repeats }
+    }
+}

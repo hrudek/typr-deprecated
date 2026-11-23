@@ -277,6 +277,7 @@ final class FullKeyboardView: UIView {
         refreshLanguageSignals()
         syncLanguage()
         syncSwipeTyping()
+        syncTyprVariants()  // Typr
         engine.configureForField()
         applyAppearance()
         refreshFromModel()
@@ -591,6 +592,7 @@ final class FullKeyboardView: UIView {
         }
         syncSpatialAutocorrect()
         syncSwipeTyping()
+        syncTyprVariants()  // Typr
     }
 
     /// Fixtures pin where the Hex key sits; otherwise Settings › Keyboard › Hex key.

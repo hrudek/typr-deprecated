@@ -3,7 +3,7 @@ import SwiftUI
 struct ExperimentalSettingsCard: View {
     static let hexTitle = "Hex experiments"
     static let hexKeyboardTitle = "Hex keyboard experiments"
-    static let hexKeyboardNotice = "These apply to the Hex keyboard, which replaces the current keyboard in a coming update."
+    static let hexKeyboardNotice = "These apply to the full keyboard, except while Typr keyboard is on under Typr variants."
     static let typrTitle = "Typr variants"
     static let emptyNotice = "No experiments right now."
 

@@ -11,55 +11,52 @@ struct KeyboardSettingsCard: View {
     @State private var autocorrectGerman: Bool
     @State private var autocorrectEnglish: Bool
     @State private var autocorrectLanguageOrder: [SpatialWordDecoder.Language]
+    /// Settings › Experimental › Typr keyboard: on, these rows set Typr's keyboard; off, Hex's.
+    @State private var typrKeyboard: Bool
+    @State private var spatialAutocorrect: Bool
+    @State private var autoCapitalization: Bool
+    @State private var hexSwipeTyping: Bool
 
     static let swipeNotice = "Swipe typing powered by FUTO Swipe."
+    static let hexSwipeDetail = "Slide across the letters to type a word. English and Spanish only."
+    static let spatialAutocorrectDetail = "Reads where you tap to find the word you meant. English and Spanish only."
+    static let hexAppearanceDetail = "Typr key, number row and preview"
+    static let typrAppearanceDetail = "Design, suggestion bar, globe key and bottom row"
 
     init(defaults: UserDefaults? = UserDefaults(suiteName: KeyboardBridge.appGroup)) {
         self.defaults = defaults
         let keyboard = TyprFullKeyboardSettings(defaults: defaults)
         let typr = TyprSettings(defaults: defaults)
+        let hex = FullKeyboardSettings(defaults: defaults)
         _autocorrect = State(initialValue: keyboard.autocorrect)
         _swipeTyping = State(initialValue: keyboard.swipeTyping)
         _suggestSwearWords = State(initialValue: keyboard.suggestSwearWords)
         _autocorrectGerman = State(initialValue: typr.autocorrectGerman)
         _autocorrectEnglish = State(initialValue: typr.autocorrectEnglish)
         _autocorrectLanguageOrder = State(initialValue: typr.autocorrectLanguageOrder)
+        _typrKeyboard = State(initialValue: typr[experiment: .typrKeyboard])
+        _spatialAutocorrect = State(initialValue: hex.spatialAutocorrect)
+        _autoCapitalization = State(initialValue: hex.autoCapitalization)
+        _hexSwipeTyping = State(initialValue: hex.swipeTyping)
     }
 
     private var keyboardSettings: TyprFullKeyboardSettings { TyprFullKeyboardSettings(defaults: defaults) }
     private var typrSettings: TyprSettings { TyprSettings(defaults: defaults) }
+    private var hexSettings: FullKeyboardSettings { FullKeyboardSettings(defaults: defaults) }
 
     var body: some View {
         VStack(spacing: 24) {
             SettingsSection {
                 NavigationLink(value: SettingsDestination.keyboardAppearance) {
-                    SettingsLink(title: "Appearance", detail: "Design, suggestion bar, globe key and bottom row")
+                    SettingsLink(title: "Appearance", detail: typrKeyboard ? Self.typrAppearanceDetail : Self.hexAppearanceDetail)
                 }
                 .buttonStyle(.plain)
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                SettingsSection(title: "Typing assistance") {
-                    SettingsToggle(title: "Autocorrect", detail: "Correct contractions, shortcuts and small typos on space.", isOn: $autocorrect)
-                        .onChange(of: autocorrect) { _, enabled in keyboardSettings.autocorrect = enabled }
-                    SettingsDivider()
-                    NavigationLink(value: SettingsDestination.autocorrectLanguages) {
-                        SettingsLink(title: "Autocorrect languages", detail: "Choose the languages autocorrect uses",
-                                     value: AutocorrectLanguageSettingsCard.summary(
-                                        order: autocorrectLanguageOrder, german: autocorrectGerman,
-                                        english: autocorrectEnglish))
-                    }
-                    .buttonStyle(.plain)
-                    .enabled(autocorrect)
-                    SettingsDivider()
-                    SettingsToggle(title: "Suggest swear words", detail: "Slurs are never suggested.", isOn: $suggestSwearWords)
-                        .onChange(of: suggestSwearWords) { _, enabled in keyboardSettings.suggestSwearWords = enabled }
-                    SettingsDivider()
-                    SettingsToggle(title: "Swipe typing", detail: "Slide across the letters to type a word.", isOn: $swipeTyping)
-                        .onChange(of: swipeTyping) { _, enabled in keyboardSettings.swipeTyping = enabled }
-                }
-                // Required end-user notice of the FUTO Model Weights License (SwipeModel/LICENSE-FUTO-SWIPE.txt).
-                SettingsFooter(Self.swipeNotice)
+            if typrKeyboard {
+                typrTypingAssistance
+            } else {
+                hexTypingAssistance
             }
 
             SettingsSection {
@@ -85,6 +82,56 @@ struct KeyboardSettingsCard: View {
         .onChange(of: scenePhase) { _, phase in if phase == .active { refresh() } }
     }
 
+    /// Hex's keyboard (anomalyco/hex 0c1c13d7 Settings › Keyboard), under Hex's keys.
+    private var hexTypingAssistance: some View {
+        SettingsSection(title: "Typing assistance") {
+            KeyboardLanguagesRow()
+            SettingsDivider()
+            SettingsToggle(title: "Auto-capitalization", detail: "Capitalizes the first word of a sentence.", isOn: $autoCapitalization)
+                .onChange(of: autoCapitalization) { _, enabled in hexSettings.autoCapitalization = enabled }
+            SettingsDivider()
+            SettingsToggle(title: "Autocorrect", detail: "Fixes typos when you press space.", isOn: $autocorrect)
+                .onChange(of: autocorrect) { _, enabled in hexSettings.autocorrect = enabled }
+            if autocorrect {
+                SettingsDivider()
+                SettingsToggle(title: "Spatial autocorrect", detail: Self.spatialAutocorrectDetail, isOn: $spatialAutocorrect)
+                    .onChange(of: spatialAutocorrect) { _, enabled in hexSettings.spatialAutocorrect = enabled }
+            }
+            SettingsDivider()
+            SettingsToggle(title: "Suggest swear words", detail: "Slurs are never suggested.", isOn: $suggestSwearWords)
+                .onChange(of: suggestSwearWords) { _, enabled in hexSettings.suggestSwearWords = enabled }
+            SettingsDivider()
+            SettingsToggle(title: "Swipe typing", detail: Self.hexSwipeDetail, isOn: $hexSwipeTyping)
+                .onChange(of: hexSwipeTyping) { _, enabled in hexSettings.swipeTyping = enabled }
+        }
+    }
+
+    private var typrTypingAssistance: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSection(title: "Typing assistance") {
+                SettingsToggle(title: "Autocorrect", detail: "Correct contractions, shortcuts and small typos on space.", isOn: $autocorrect)
+                    .onChange(of: autocorrect) { _, enabled in keyboardSettings.autocorrect = enabled }
+                SettingsDivider()
+                NavigationLink(value: SettingsDestination.autocorrectLanguages) {
+                    SettingsLink(title: "Autocorrect languages", detail: "Choose the languages autocorrect uses",
+                                 value: AutocorrectLanguageSettingsCard.summary(
+                                    order: autocorrectLanguageOrder, german: autocorrectGerman,
+                                    english: autocorrectEnglish))
+                }
+                .buttonStyle(.plain)
+                .enabled(autocorrect)
+                SettingsDivider()
+                SettingsToggle(title: "Suggest swear words", detail: "Slurs are never suggested.", isOn: $suggestSwearWords)
+                    .onChange(of: suggestSwearWords) { _, enabled in keyboardSettings.suggestSwearWords = enabled }
+                SettingsDivider()
+                SettingsToggle(title: "Swipe typing", detail: "Slide across the letters to type a word.", isOn: $swipeTyping)
+                    .onChange(of: swipeTyping) { _, enabled in keyboardSettings.swipeTyping = enabled }
+            }
+            // Required end-user notice of the FUTO Model Weights License (SwipeModel/LICENSE-FUTO-SWIPE.txt).
+            SettingsFooter(Self.swipeNotice)
+        }
+    }
+
     private func refresh() {
         autocorrect = keyboardSettings.autocorrect
         swipeTyping = keyboardSettings.swipeTyping
@@ -92,6 +139,10 @@ struct KeyboardSettingsCard: View {
         autocorrectGerman = typrSettings.autocorrectGerman
         autocorrectEnglish = typrSettings.autocorrectEnglish
         autocorrectLanguageOrder = typrSettings.autocorrectLanguageOrder
+        typrKeyboard = typrSettings[experiment: .typrKeyboard]
+        spatialAutocorrect = hexSettings.spatialAutocorrect
+        autoCapitalization = hexSettings.autoCapitalization
+        hexSwipeTyping = hexSettings.swipeTyping
     }
 }
 
