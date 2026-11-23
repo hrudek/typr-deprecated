@@ -1434,6 +1434,85 @@ final class FullKeyboardEngineTests: XCTestCase {
         XCTAssertEqual(target.cursorIndex, 5)
     }
 
+    func testGeometricSwipeUsesWholeWordDeleteByDefault() throws {
+        let settings = FullKeyboardSettings(defaults: defaults)
+        XCTAssertTrue(settings.swipeTyping)
+        XCTAssertFalse(settings.deletesSwipedWordsLetterByLetter)
+        XCTAssertFalse(settings.twoThumbSelection)
+        XCTAssertTrue(engine.language.supportsSwipeTyping)
+        XCTAssertFalse(KeyboardLanguage.german.supportsSwipeTyping)
+
+        let model = try XCTUnwrap(TypingDecoderModel.bundled(engine.language.rawValue))
+        let swipe = SwipeTyping(engine: engine, model: model)
+        let path = SwipePath.through("world", keys: engine.swipeKeys)
+        let start = try XCTUnwrap(path.first)
+        let end = try XCTUnwrap(path.last)
+        swipe.clock = { 0 }
+        target.insertText("hello")
+        engine.textDidChange()
+
+        engine.touchBegan(id: 1, at: start)
+        swipe.began(id: 1, at: start)
+        for point in path.dropFirst().dropLast() {
+            if !swipe.moved(id: 1, to: point) {
+                engine.touchMoved(id: 1, to: point)
+            }
+        }
+        XCTAssertTrue(swipe.owns(1))
+        XCTAssertTrue(swipe.trail.isShowing)
+        XCTAssertEqual(target.text, "hello")
+        swipe.ended(id: 1, at: end)
+        XCTAssertFalse(swipe.isSwiping)
+        XCTAssertEqual(target.text, "hello world")
+
+        engine.textDidChange()
+        tap(.delete)
+        XCTAssertEqual(target.text, "hello")
+    }
+
+    func testHexDeleteSlideRestoresOnlyWordsItRemoved() {
+        target.insertText("one two, three")
+        engine.textDidChange()
+        let start = point(.delete)
+        let pitch = engine.layout.letterWidth
+        engine.touchBegan(id: 1, at: start)
+        let slide = DeleteWordSwipe(engine: engine, touchID: 1, startX: start.x)
+        XCTAssertEqual(target.text, "one two, thre")
+        XCTAssertFalse(slide.move(to: start.x - 0.5 * pitch))
+        XCTAssertEqual(target.text, "one two, thre")
+
+        XCTAssertTrue(slide.move(to: start.x - 2.2 * pitch))
+        XCTAssertEqual(target.text, "one ")
+        XCTAssertTrue(slide.move(to: start.x - 1.2 * pitch))
+        XCTAssertEqual(target.text, "one two, ")
+        XCTAssertTrue(slide.move(to: start.x))
+        XCTAssertEqual(target.text, "one two, thre")
+        XCTAssertTrue(slide.move(to: start.x - 1.2 * pitch))
+        slide.finish()
+        engine.touchEnded(id: 1, at: start)
+        XCTAssertEqual(target.text, "one two, ")
+    }
+
+    func testSelectionStripHidesClipboardActionsWithoutFullAccess() {
+        let strip = TrackpadSelectionStripView()
+        let selection = TrackpadSelectionSession.Presentation(
+            phase: .actions, before: "one ", selected: "two", after: " three"
+        )
+        func visibleActions() -> [String] {
+            strip.subviews.compactMap { view in
+                guard let button = view as? UIButton, !button.isHidden else { return nil }
+                return button.currentTitle
+            }
+        }
+
+        strip.update(selection, canUseClipboard: false)
+        XCTAssertEqual(visibleActions(), ["Delete", "Dictate", "Cancel"])
+        strip.update(selection, canUseClipboard: true)
+        XCTAssertEqual(visibleActions(), ["Delete", "Cut", "Copy", "Dictate", "Cancel"])
+        strip.update(nil, canUseClipboard: true)
+        XCTAssertTrue(strip.isHidden)
+    }
+
     func testASwipedWordFollowsSpacingAndPunctuationAsApplesDoes() {
         for (before, after) in [("Hi.", "Hi. "), ("(", "("), ("¿", "¿"), ("say \"", "say \""), ("3", "3 "), ("x\n", "x\n")] {
             XCTAssertEqual(SwipeTyping.needsSpace(before: before), after != before, before)
