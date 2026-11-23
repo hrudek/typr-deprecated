@@ -6,7 +6,7 @@ import UIKit
 @MainActor
 final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     let engine: TyprAutocorrectEngine
-    private let makeGerman: () -> GermanAutocorrect
+    private let makeGerman: @MainActor () -> GermanAutocorrect
     let checker: TextChecking
 
     var isEnabled: Bool {
@@ -53,7 +53,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
 
     private static let languages: Set<KeyboardLanguage> = [.english, .german]
 
-    init(engine: TyprAutocorrectEngine, makeGerman: @escaping () -> GermanAutocorrect = GermanAutocorrect.system) {
+    init(engine: TyprAutocorrectEngine, makeGerman: @escaping @MainActor () -> GermanAutocorrect = GermanAutocorrect.system) {
         self.engine = engine
         self.makeGerman = makeGerman
         checker = TyprTextCheckerBridge(engine.checker)
