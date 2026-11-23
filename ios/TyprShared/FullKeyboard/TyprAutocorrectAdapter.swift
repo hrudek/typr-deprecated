@@ -47,7 +47,6 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
 
     private var correction: AutocorrectEngine.AppliedCorrection?
     private var undos: [String: TyprAutocorrectEngine.AppliedCorrection] = [:]
-    /// `undos` of a correction being reverted: Hex forgets it, then keeps each typed word.
     private var reverting: [String: TyprAutocorrectEngine.AppliedCorrection] = [:]
     private var lastRevision: (from: String, to: String, context: String?)?
 
@@ -113,13 +112,15 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         let finishedWord = TyprAutocorrectEngine.currentToken(in: beforeInput) == nil
         return engine.suggestions(beforeInput: beforeInput, field: Self.field(field), autocorrectionType: autocorrectionType)
             .compactMap { suggestion in
-                guard suggestion.boundary == nil, !suggestion.isSwipe, suggestion.kind != .revert else { return nil }
-                let kind: KeyboardSuggestion.Kind = switch suggestion.kind {
-                case _ where suggestion.isEmoji: .emoji
-                case _ where finishedWord: .nextWord
-                case .keepLiteral: .keepLiteral
-                case .primary(let autoReplace): .primary(autoReplace: autoReplace)
-                case .secondary, .revert: .secondary
+                guard suggestion.boundary == nil, !suggestion.isSwipe else { return nil }
+                let kind: KeyboardSuggestion.Kind
+                switch suggestion.kind {
+                case .revert: return nil
+                case _ where suggestion.isEmoji: kind = .emoji
+                case _ where finishedWord: kind = .nextWord
+                case .keepLiteral: kind = .keepLiteral
+                case .primary(let autoReplace): kind = .primary(autoReplace: autoReplace)
+                case .secondary: kind = .secondary
                 }
                 return KeyboardSuggestion(displayText: suggestion.displayText, replacement: suggestion.replacement, kind: kind)
             }
