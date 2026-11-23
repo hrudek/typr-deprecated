@@ -119,11 +119,11 @@ final class FullKeyboardView: UIView {
     /// Settings › Experiments › Keyboard themes: Automatic keeps iOS's glass; another theme
     /// paints the keyboard's own colours. Read again by `syncSettings`, which rebuilds the
     /// palette when it changes.
-    private var keyboardTheme = FullKeyboardView.typrKeyboardTheme()
-    private var keyboardDesign = FullKeyboardView.typrKeyboardDesign()
+    private var keyboardTheme = KeyboardTheme.automatic
+    private var keyboardDesign = KeyboardDesign.standard
     var designOverride: KeyboardDesign? {
         didSet {
-            keyboardDesign = designOverride ?? Self.typrKeyboardDesign()
+            keyboardDesign = designOverride ?? Self.typrKeyboardDesign(defaults: settingsDefaults)
             applyAppearance()
         }
     }
@@ -156,10 +156,22 @@ final class FullKeyboardView: UIView {
     /// Exposed so unit tests can verify lazy allocation and teardown of the Metal recording panel.
     var hasAllocatedRecordingPanel: Bool { recordingPanel != nil }
 
-    init(model: KeyboardViewModel, target: KeyboardTextTarget, autocorrect: (any KeyboardAutocorrecting)? = nil) {
+    let settingsDefaults: UserDefaults?
+
+    init(
+        model: KeyboardViewModel,
+        target: KeyboardTextTarget,
+        autocorrect: (any KeyboardAutocorrecting)? = nil,
+        defaults: UserDefaults? = UserDefaults(suiteName: KeyboardBridge.appGroup)
+    ) {
+        settingsDefaults = defaults
+        keyboardTheme = Self.typrKeyboardTheme(defaults: defaults)
+        keyboardDesign = Self.typrKeyboardDesign(defaults: defaults)
+        languageSettings = LanguageSettings(defaults: defaults)
+        makeEmojiUsage = { EmojiUsageStore(defaults: defaults) }
         self.model = model
         routedTarget = EmojiRoutedTarget(document: target)
-        engine = FullKeyboardEngine(target: routedTarget, autocorrect: autocorrect)
+        engine = FullKeyboardEngine(target: routedTarget, autocorrect: autocorrect ?? AutocorrectEngine(learnedWords: LearnedWordsStore(defaults: defaults)) as any KeyboardAutocorrecting)
         plane = KeyboardKeyPlaneView(engine: engine)
         super.init(frame: .zero)
         backgroundColor = .clear
@@ -267,14 +279,14 @@ final class FullKeyboardView: UIView {
             view.setNeedsLayout()
         }
 
-        engine.autocorrect.isEnabled = FullKeyboardSettings().autocorrect
-        engine.autocorrect.allowsSwearing = FullKeyboardSettings().suggestSwearWords
-        engine.autocorrect.setVocabulary(CustomVocabularySettings().terms)
-        engine.autoCapitalizes = FullKeyboardSettings().autoCapitalization
-        engine.showsKeyPopups = FullKeyboardSettings().keyPopups
-        engine.trackpadSelectionState.enabled = FullKeyboardSettings().twoThumbSelection
-        engine.deletesSwipedWordsLetterByLetter = FullKeyboardSettings().deletesSwipedWordsLetterByLetter
-        hidesWordSuggestions = FullKeyboardSettings().hideWordSuggestions
+        engine.autocorrect.isEnabled = FullKeyboardSettings(defaults: settingsDefaults).autocorrect
+        engine.autocorrect.allowsSwearing = FullKeyboardSettings(defaults: settingsDefaults).suggestSwearWords
+        engine.autocorrect.setVocabulary(CustomVocabularySettings(defaults: settingsDefaults).terms)
+        engine.autoCapitalizes = FullKeyboardSettings(defaults: settingsDefaults).autoCapitalization
+        engine.showsKeyPopups = FullKeyboardSettings(defaults: settingsDefaults).keyPopups
+        engine.trackpadSelectionState.enabled = FullKeyboardSettings(defaults: settingsDefaults).twoThumbSelection
+        engine.deletesSwipedWordsLetterByLetter = FullKeyboardSettings(defaults: settingsDefaults).deletesSwipedWordsLetterByLetter
+        hidesWordSuggestions = FullKeyboardSettings(defaults: settingsDefaults).hideWordSuggestions
         syncHexPlacement()
         syncNumberRow()
         syncJoinsUnfoldedKeyboard()
@@ -543,59 +555,59 @@ final class FullKeyboardView: UIView {
         syncLanguage()
         // Learn each language separately: each keyboard language's own learned words, and the
         // partner's own; Learn how I type's journal filters its fixes the same way.
-        let learnsPerLanguage = TypingJournalSettings().learnsPerLanguage
+        let learnsPerLanguage = TypingJournalSettings(defaults: settingsDefaults).learnsPerLanguage
         if engine.autocorrect.learnsPerLanguage != learnsPerLanguage {
             engine.autocorrect.learnsPerLanguage = learnsPerLanguage
             engine.refreshSuggestions()
         }
-        let journal = TypingJournal.sharedIfEnabled()
+        let journal = TypingJournal.sharedIfEnabled(settings: TypingJournalSettings(defaults: settingsDefaults))
         if engine.journal !== journal {
             engine.journal = journal
         }
         // Adaptive touch keeps its averages on disk only with Full Access; without, in memory.
-        let adaptive = AdaptiveTouch.sharedIfEnabled(persistent: hostController?.hasFullAccess == true)
+        let adaptive = AdaptiveTouch.sharedIfEnabled(settings: AdaptiveTouchSettings(defaults: settingsDefaults), persistent: hostController?.hasFullAccess == true)
         if engine.adaptiveTouch !== adaptive {
             engine.adaptiveTouch = adaptive
         }
-        engine.korean.isEnabled = FullKeyboardSettings().koreanKeyboard
-        engine.showsKeyPopups = FullKeyboardSettings().keyPopups
-        engine.autoCapitalizes = FullKeyboardSettings().autoCapitalization
-        engine.deletesSwipedWordsLetterByLetter = FullKeyboardSettings().deletesSwipedWordsLetterByLetter
-        let selectionEnabled = FullKeyboardSettings().twoThumbSelection
+        engine.korean.isEnabled = FullKeyboardSettings(defaults: settingsDefaults).koreanKeyboard
+        engine.showsKeyPopups = FullKeyboardSettings(defaults: settingsDefaults).keyPopups
+        engine.autoCapitalizes = FullKeyboardSettings(defaults: settingsDefaults).autoCapitalization
+        engine.deletesSwipedWordsLetterByLetter = FullKeyboardSettings(defaults: settingsDefaults).deletesSwipedWordsLetterByLetter
+        let selectionEnabled = FullKeyboardSettings(defaults: settingsDefaults).twoThumbSelection
         engine.trackpadSelectionState.enabled = selectionEnabled
         // Turned off mid-selection: end it now rather than let a thumb keep picking.
         if !selectionEnabled, engine.isSelectionActive {
             plane.cancelAllTouches()
         }
-        let hidesSuggestions = FullKeyboardSettings().hideWordSuggestions
+        let hidesSuggestions = FullKeyboardSettings(defaults: settingsDefaults).hideWordSuggestions
         if hidesSuggestions != hidesWordSuggestions {
             hidesWordSuggestions = hidesSuggestions
             refreshStrip()
         }
-        let theme = Self.typrKeyboardTheme()
-        let design = designOverride ?? Self.typrKeyboardDesign()
+        let theme = Self.typrKeyboardTheme(defaults: settingsDefaults)
+        let design = designOverride ?? Self.typrKeyboardDesign(defaults: settingsDefaults)
         if theme != keyboardTheme || design != keyboardDesign {
             keyboardTheme = theme
             keyboardDesign = design
             applyAppearance()
         }
-        hapticStrength = FullKeyboardSettings().hapticStrength
+        hapticStrength = FullKeyboardSettings(defaults: settingsDefaults).hapticStrength
         syncHexPlacement()
         syncNumberRow()
         syncJoinsUnfoldedKeyboard()
         syncDvorakPunctuation()
         refreshEmojiKey()
-        let wantsAutocorrect = FullKeyboardSettings().autocorrect
+        let wantsAutocorrect = FullKeyboardSettings(defaults: settingsDefaults).autocorrect
         if engine.autocorrect.isEnabled != wantsAutocorrect {
             engine.autocorrect.isEnabled = wantsAutocorrect
             engine.refreshSuggestions()
         }
-        let vocabulary = CustomVocabularySettings().terms
+        let vocabulary = CustomVocabularySettings(defaults: settingsDefaults).terms
         if engine.autocorrect.vocabulary != vocabulary {
             engine.autocorrect.setVocabulary(vocabulary)
             engine.refreshSuggestions()
         }
-        let wantsSwearing = FullKeyboardSettings().suggestSwearWords
+        let wantsSwearing = FullKeyboardSettings(defaults: settingsDefaults).suggestSwearWords
         if engine.autocorrect.allowsSwearing != wantsSwearing {
             engine.autocorrect.allowsSwearing = wantsSwearing
             engine.refreshSuggestions()
@@ -616,7 +628,7 @@ final class FullKeyboardView: UIView {
     /// Off under VoiceOver, which has its own way to type. German stays out of it:
     /// `supportsSwipeTyping` lists English and Spanish only, and the experiment does not add it.
     private func syncSwipeTyping() {
-        let settings = FullKeyboardSettings()
+        let settings = FullKeyboardSettings(defaults: settingsDefaults)
         let on = (swipeOverride ?? settings.swipeTyping) && engine.language.supportsSwipeTyping
             && !UIAccessibility.isVoiceOverRunning
         let model = on ? settings.typingModel(for: engine.language) : nil
@@ -634,7 +646,7 @@ final class FullKeyboardView: UIView {
     /// letter claim a few points of its neighbour's touch target whether or not Spatial
     /// autocorrect is on (`FullKeyboardEngine.letterOdds`; only while autocorrecting).
     private func syncSpatialAutocorrect() {
-        let settings = FullKeyboardSettings()
+        let settings = FullKeyboardSettings(defaults: settingsDefaults)
         let words = settings.typingModel(for: engine.language)
         if engine.letterOdds !== words {
             engine.letterOdds = words

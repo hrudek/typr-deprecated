@@ -247,7 +247,7 @@ final class HexKeyboardTyprBottomRowTests: XCTestCase {
     func testAppearancePreviewShowsTheTyprRows() {
         var preview = HexKeyboardAppearancePreview.Settings(
             typrKeyOnLeft: false, numberRow: false, isDark: true, container: CGSize(width: 393, height: 852))
-        let view = HexKeyboardAppearancePreview.makeKeyboard(preview)
+        let view = HexKeyboardAppearancePreview.makeKeyboard(preview, defaults: defaults)
         preview.bottomRow = BottomRow(order: [.typr, .space, .period])
         preview.showsStrip = false
         HexKeyboardAppearancePreview.apply(preview, to: view)
@@ -262,7 +262,7 @@ final class HexKeyboardTyprBottomRowTests: XCTestCase {
 
     private func makeView() -> FullKeyboardView {
         target = HexFixtureTextTarget(text: "one two ")
-        let view = FullKeyboardView(model: KeyboardViewModel(), target: target)
+        let view = FullKeyboardView(model: KeyboardViewModel(), target: target, defaults: defaults)
         view.hexPlacementOverride = .stripTrailing
         view.engine.showsNumberRow = false
         sync(view)
@@ -272,7 +272,7 @@ final class HexKeyboardTyprBottomRowTests: XCTestCase {
     }
 
     private func sync(_ view: FullKeyboardView) {
-        view.syncTyprVariants(TyprSettings(defaults: defaults), keyboard: TyprFullKeyboardSettings(defaults: defaults))
+        view.syncTyprVariants()
     }
 
     private func bottomKinds(_ layout: KeyboardLayout) -> [KeyKind] {

@@ -67,7 +67,12 @@ extension CGContext {
 }
 
 extension FullKeyboardView {
-    func syncTyprVariants(_ settings: TyprSettings = TyprSettings(), keyboard: TyprFullKeyboardSettings = TyprFullKeyboardSettings()) {
+    func syncTyprVariants() {
+        syncTyprVariants(TyprSettings(defaults: settingsDefaults), keyboard: TyprFullKeyboardSettings(defaults: settingsDefaults))
+    }
+
+    func syncTyprVariants(_ settings: TyprSettings, keyboard: TyprFullKeyboardSettings? = nil) {
+        let keyboard = keyboard ?? TyprFullKeyboardSettings(defaults: settingsDefaults)
         let bottomRow = settings[experiment: .typrBottomRow] ? keyboard.bottomRow : nil
         if engine.typrBottomRow != bottomRow {
             engine.typrBottomRow = bottomRow

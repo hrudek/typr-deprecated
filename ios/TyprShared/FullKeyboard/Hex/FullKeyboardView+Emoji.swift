@@ -10,7 +10,7 @@ import UIKit
 /// from memory warnings; the panel, its grid and the search go when the panel closes.
 extension FullKeyboardView {
     var emojiEnabled: Bool {
-        emojiOverride ?? FullKeyboardSettings().emoji
+        emojiOverride ?? FullKeyboardSettings(defaults: settingsDefaults).emoji
     }
 
     /// Emoji in text fields that take any text: not web addresses, email addresses or
@@ -217,7 +217,7 @@ extension FullKeyboardView {
             // it at the plane's frame (the lift is zero then); the ABC experiment puts the
             // panel's ABC under it. Searching lifts the panel and hides it, and shows ABC
             // nowhere, so there is no key to sit under.
-            let underEmojiKey = emojiLettersUnderEmojiKeyOverride ?? FullKeyboardSettings().emojiLettersUnderEmojiKey
+            let underEmojiKey = emojiLettersUnderEmojiKeyOverride ?? FullKeyboardSettings(defaults: settingsDefaults).emojiLettersUnderEmojiKey
             panel.emojiKeyFrame = underEmojiKey && !routedTarget.isSearching
                 ? layout.key(.emoji)?.frame.offsetBy(dx: 0, dy: lift)
                 : nil

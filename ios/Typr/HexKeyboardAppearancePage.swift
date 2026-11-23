@@ -184,10 +184,13 @@ struct HexKeyboardAppearancePreview: UIViewRepresentable {
         Self.apply(settings, to: view)
     }
 
-    static func makeKeyboard(_ settings: Settings) -> FullKeyboardView {
+    static func makeKeyboard(
+        _ settings: Settings,
+        defaults: UserDefaults? = UserDefaults(suiteName: KeyboardBridge.appGroup)
+    ) -> FullKeyboardView {
         let model = KeyboardViewModel()
         model.needsGlobeKey = true
-        let view = FullKeyboardView(model: model, target: HexKeyboardPreviewTextTarget())
+        let view = FullKeyboardView(model: model, target: HexKeyboardPreviewTextTarget(), defaults: defaults)
         view.drawsBackdrop = true
         view.isUserInteractionEnabled = false
         view.accessibilityElementsHidden = true
