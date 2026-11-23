@@ -8,35 +8,51 @@ struct TestStateTimeout: Error, CustomStringConvertible {
 /// Waits for a named state instead of a fixed delay. Returns as soon as the state holds; a
 /// timeout fails and throws, so the test stops instead of asserting or tearing down files and
 /// defaults while work is still running. Time lost to a stalled main actor (a poll far longer than
-/// its 5 ms sleep, e.g. on a cold CI simulator) is credited to the deadline, at most three timeouts
-/// in total: work queued behind the stall has not had its turn yet.
+/// its 5 ms sleep) is credited to the deadline, for at most `maxCreditedStalls` polls: work queued
+/// behind the stall has not had its turn yet. Each stall counts in full, because the CI runner can
+/// freeze the whole simulator for 60–90 s (app and xcodebuild silent alike).
 @MainActor
 func waitForState(_ description: String, timeout: Duration = .seconds(10),
                   file: StaticString = #filePath, line: UInt = #line,
                   _ condition: @MainActor () async -> Bool) async throws {
-    guard try await pollState(timeout: timeout, condition) else {
-        XCTFail("Timed out waiting for: \(description)", file: file, line: line)
+    let result = try await pollState(timeout: timeout, condition)
+    guard result.holds else {
+        let detail = "\(description) (longest stall \(result.longestStall), \(result.stalls) stalls)"
+        XCTFail("Timed out waiting for: \(detail)", file: file, line: line)
         throw TestStateTimeout(description: description)
     }
 }
 
-/// `waitForState` without the failure report: false once the (stall-extended) deadline passed.
+let maxCreditedStalls = 10
+
+struct PollResult {
+    var holds = false
+    var stalls = 0
+    var longestStall = Duration.zero
+}
+
+/// `waitForState` without the failure report: `holds` is false once the (stall-extended)
+/// deadline passed.
 @MainActor
-func pollState(timeout: Duration, _ condition: @MainActor () async -> Bool) async throws -> Bool {
+func pollState(timeout: Duration, _ condition: @MainActor () async -> Bool) async throws -> PollResult {
     let poll = Duration.milliseconds(5)
     var deadline = ContinuousClock.now.advanced(by: timeout)
-    var credit = Duration.zero
+    var result = PollResult()
     var lastTick = ContinuousClock.now
     while true {
-        if await condition() { return true }
+        if await condition() {
+            result.holds = true
+            return result
+        }
         let now = ContinuousClock.now
-        let stall = min(lastTick.duration(to: now) - poll, timeout * 3 - credit)
+        let stall = lastTick.duration(to: now) - poll
         if stall > .milliseconds(100) {
-            deadline = deadline.advanced(by: stall)
-            credit += stall
+            result.longestStall = max(result.longestStall, stall)
+            if result.stalls < maxCreditedStalls { deadline = deadline.advanced(by: stall) }
+            result.stalls += 1
         }
         lastTick = now
-        guard now < deadline else { return false }
+        guard now < deadline else { return result }
         try await Task.sleep(for: poll)
     }
 }
