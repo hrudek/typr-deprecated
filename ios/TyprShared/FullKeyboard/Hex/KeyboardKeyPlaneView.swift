@@ -107,7 +107,7 @@ final class KeyboardKeyPlaneView: UIView {
         var pressed = engine.pressedKinds
         if let lingeringKind { pressed.insert(lingeringKind) }
         pressed.formUnion(lingeringFunctionKinds)
-        // Like Apple's spacebar trackpad, key glyphs fade out while sliding the cursor, and the
+        // Apple's spacebar trackpad fades the glyphs and dims the keycaps.
         let hideGlyphs = engine.isTrackpadActive || (engine.isSelectionActive && !engine.selectionActionsShown)
         let glyphAlpha = currentGlyphAlpha()
         let keycapAlpha = 1 - (1 - Self.trackpadKeycapAlpha) * (1 - glyphAlpha)
@@ -511,7 +511,7 @@ final class KeyboardKeyPlaneView: UIView {
         }
     }
 
-    // One finger's samples, from UIKit or a test. Record typing logs writes the touch line
+    // UIKit and simulator fixtures share these touch entry points.
 
     func began(id: Int, sample: TypingLogTouchSample) {
         if engine.selectionActionsShown {
@@ -526,7 +526,7 @@ final class KeyboardKeyPlaneView: UIView {
             return
         }
         swipe?.touchWillBegin()
-        // The key's tick and click go first, on touch-down as Apple's do: the press's own work
+        // Play feedback before rollover and autocorrection so it stays on touch-down.
         if let kind = engine.keyKind(at: sample.point) {
             onKeyDown?(kind)
         }

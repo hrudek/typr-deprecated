@@ -466,7 +466,6 @@ final class HexStyleMenuView: UIView {
     }
 
     private func rebuild() {
-        // Apple Speech's languages here, for labels: More languages holds every one the
         let supported = languageChoices + moreLanguages
         panel.backgroundColor = palette.popupFill
         panel.layer.borderColor = palette.popupBorder.cgColor
