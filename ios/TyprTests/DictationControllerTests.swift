@@ -1636,12 +1636,15 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertEqual(liveActivity.events, [.end])
 
         await transcriber.setCannedOutput("")
+        try await dictateInApp(controller)
+        XCTAssertEqual(liveActivity.events, [.end, .end])
+
         controller.startRecording(copyToPasteboard: true)
         try await activationSettled(controller)
         XCTAssertEqual(controller.phase, .recording)
         controller.finishRecording()
         try await transcribed(controller)
-        XCTAssertEqual(liveActivity.events, [.end, .start, .transcribing, .end])
+        XCTAssertEqual(liveActivity.events, [.end, .end, .start, .transcribing, .end])
     }
 
     func testCopiedDictationFinishesItsLiveActivityOnce() async throws {
@@ -1702,7 +1705,7 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertEqual(liveActivity.events, [.end, .start, .transcribing, .end])
     }
 
-    func testTyprLiveActivityForAllDictationsShowsItForKeyboardDictations() async throws {
+    func testTyprLiveActivityForAllDictationsShowsItForKeyboardAndInAppDictations() async throws {
         let audio = FakeAudioManager()
         let transcriber = ControlledTranscriber()
         let liveActivity = RecordingLiveActivity()
@@ -1717,6 +1720,17 @@ final class DictationControllerTests: XCTestCase {
         controller.finishRecording()
         try await transcribed(controller)
         XCTAssertEqual(liveActivity.events, [.start, .transcribing, .end])
+
+        try await dictateInApp(controller)
+        XCTAssertEqual(liveActivity.events, [.start, .transcribing, .end, .start, .transcribing, .end])
+    }
+
+    private func dictateInApp(_ controller: DictationController) async throws {
+        controller.performPrimaryAction()
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        controller.performPrimaryAction()
+        try await transcribed(controller)
     }
 
     func testDictateToggleWaitsForAModelThatIsAlreadyPreparing() async throws {
@@ -1733,6 +1747,12 @@ final class DictationControllerTests: XCTestCase {
         controller.prepareModel()
         try await waitForState("model preparation suspended") { await transcriber.isPreparing() }
         XCTAssertEqual(controller.phase, .preparingModel)
+        let marker = UUID().uuidString
+        controller.transcript = marker
+        try await waitForState("this controller handles system commands") {
+            await TyprSystemCommandBus.shared.dispatch(.stopDictation) == marker
+        }
+        controller.transcript = ""
 
         let readsBefore = clock.count
         let toggle = Task { await TyprSystemCommandBus.shared.dispatch(.toggleDictation) }
