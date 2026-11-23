@@ -286,7 +286,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let learnFromEdits = ExperimentalSwitch(
         name: "learnFromEdits",
         title: "Learn from my edits",
-        detail: "Only with Typr keyboard. Needs Typr dictation edit learning. For a minute after a dictation, Typr's keyboard notes words you replace with similar ones, like “Wal” with “Wahl”. Fixed the same way twice, Typr writes it that way in later dictations. Needs Full Access; manage them in AI & vocabulary."
+        detail: "With Typr dictation edit learning. For a minute after a dictation, the keyboard notes words you replace with similar ones, like “Wal” with “Wahl”. Fixed the same way twice, Typr writes it that way in later dictations. Needs Full Access; manage them in AI & vocabulary."
     )
 
     /// Hex's context words (anomalyco/hex #2144): its/it's, your/you're, there/their/they're,

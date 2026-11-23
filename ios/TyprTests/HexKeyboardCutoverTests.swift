@@ -33,7 +33,7 @@ final class HexKeyboardCutoverTests: XCTestCase {
         XCTAssertTrue(ExperimentalSwitch.typrVariants.contains(typrKeyboard))
         XCTAssertTrue(ExperimentalSwitch.typrOverrides.contains(typrKeyboard))
         XCTAssertFalse(TyprSettings(defaults: defaults)[experiment: typrKeyboard], "off: Hex's keyboard")
-        for onlyTypr in [ExperimentalSwitch.spaceTrackpad, .learnFromEdits, .wordsFromContext, .learnEachLanguage] {
+        for onlyTypr in [ExperimentalSwitch.spaceTrackpad, .wordsFromContext, .learnEachLanguage] {
             XCTAssertTrue(onlyTypr.detail.hasPrefix("Only with Typr keyboard."), onlyTypr.key)
         }
         XCTAssertFalse(ExperimentalSwitch.deleteSlide.detail.hasPrefix("Only"), "acts on both keyboards")
