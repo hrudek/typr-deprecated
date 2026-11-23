@@ -18,6 +18,18 @@ enum KeyboardDictationRoute: Equatable {
         available == 0 || available >= (captureLoaded ? restartHeadroomNeeded : startHeadroomNeeded)
     }
 
+    /// Hex's in-keyboard dictation is on by default, except with Typr always dictate in app or
+    /// while Typr dictates the language with the multilingual model (Hex's `keyboardNeedsHex`):
+    /// it can't load in a keyboard.
+    static func keyboardAllowed(
+        fullAccess: Bool,
+        settings: TyprSettings = TyprSettings(),
+        multilingual: MultilingualParakeetSettings = MultilingualParakeetSettings()
+    ) -> Bool {
+        guard fullAccess, !settings[experiment: .typrAlwaysDictateInApp] else { return false }
+        return !multilingual.keyboardOpensTypr(language: multilingual.language())
+    }
+
     /// A running warm mic keeps the selected engine; anything the keyboard lacks hands off to Typr.
     static func choose(
         keyboardEnabled: Bool,

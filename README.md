@@ -34,16 +34,19 @@ or load finishes stopping.
 ## How it works
 
 - The app records and transcribes; the keyboard sends commands and inserts text
-  through an App Group. The keyboard needs Full Access but never accesses the
-  microphone or speech model, except with Experimental › **Keyboard dictation: Apple
-  Speech in the keyboard** (off by default, iOS 26): without a warm mic, the keyboard
-  records through a hidden web view (Hex's approach) and transcribes with Apple Speech,
-  not Orukeet, streaming the audio into Apple Speech without storing it. A warm mic keeps
-  the selected engine; low memory, a refused microphone or no Apple Speech model for the
-  dictation language opens Typr as before.
-- From a cold start, Dictate opens Typr to record, then returns to the host app.
-  Host detection and return use private APIs with fallbacks. Transient surfaces
-  such as share sheets require **Keep mic warm** instead.
+  through an App Group. The keyboard needs Full Access. As in Hex (iOS 26), without a
+  warm mic the keyboard dictates itself: it records through a hidden web view and
+  transcribes with Apple Speech, not Orukeet, streaming the audio into Apple Speech
+  without storing it. A warm mic keeps the selected engine; low memory, a refused
+  microphone or no Apple Speech model for the dictation language opens Typr instead.
+  Experimental › **Typr always dictate in app** (off by default) always opens Typr with
+  the selected engine.
+- When Typr opened from the keyboard, the swipe-back cue leads back to the host app, as
+  in Hex. A result that arrives after the keyboard's 30 s to insert it stays offered as
+  **Paste dictation** in the Hex keyboard's strip for 10 minutes. Experimental ›
+  **Typr automatic host return** (off by default) returns to the host app by itself
+  (private APIs with fallbacks); transient surfaces such as share sheets then require
+  **Keep mic warm** instead.
 - **Keep mic warm** keeps microphone input running so repeated dictations can start
   without leaving the keyboard. The duration is 5 minutes, 15 minutes or 1 hour.
   While it runs, touching the Typr key already holds the running input's audio in

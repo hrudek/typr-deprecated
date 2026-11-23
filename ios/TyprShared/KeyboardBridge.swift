@@ -334,6 +334,23 @@ nonisolated struct KeyboardSnapshot: Codable, Equatable, Sendable {
         guard state == .recording, let recordingStartedAt else { return 0 }
         return max(0, now - recordingStartedAt)
     }
+
+    /// How long a finished dictation the keyboard didn't insert by itself stays on offer as
+    /// Paste dictation (Hex). Inserting it, or a newer one, ends the offer.
+    static let resultOfferWindow: TimeInterval = 10 * 60
+
+    /// A finished dictation still on offer as Paste dictation: past its time to insert by
+    /// itself (`hasDeliverableResult`), within `resultOfferWindow` of it.
+    func hasOfferableResult(at now: TimeInterval = Date().timeIntervalSince1970) -> Bool {
+        guard let resultID, !resultID.isEmpty, let transcript, !transcript.isEmpty else { return false }
+        guard let resultExpiresAt else { return true }
+        return now < resultExpiresAt + Self.resultOfferWindow
+    }
+
+    /// Paste dictation offers this result: too late to go in by itself, not inserted yet.
+    func isOffered(lastInserted: String?, at now: TimeInterval) -> Bool {
+        !hasDeliverableResult(at: now) && hasOfferableResult(at: now) && resultID != lastInserted
+    }
 }
 
 @MainActor

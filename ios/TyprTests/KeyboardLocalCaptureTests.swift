@@ -21,16 +21,29 @@ final class KeyboardLocalCaptureTests: XCTestCase {
     }
 
     @MainActor
-    func testTheSwitchIsOffByDefaultSoTheTyprAppDictates() {
+    func testHexDefaultDictatesInTheKeyboardUnlessTyprAlwaysDictateInApp() {
         let suite = "keyboard.local.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        XCTAssertTrue(ExperimentalSwitch.all.contains(.keyboardDictation))
-        let enabled = TyprSettings(defaults: defaults)[experiment: .keyboardDictation]
-        XCTAssertFalse(enabled)
-        XCTAssertEqual(route(enabled: enabled), .app)
-        XCTAssertTrue(ExperimentalSwitch.keyboardDictation.title.contains("Apple Speech"))
-        XCTAssertTrue(ExperimentalSwitch.keyboardDictation.detail.contains("not Orukeet"))
+        let settings = TyprSettings(defaults: defaults)
+        let multilingual = MultilingualParakeetSettings(defaults: defaults)
+        func allowed(fullAccess: Bool = true) -> Bool {
+            KeyboardDictationRoute.keyboardAllowed(fullAccess: fullAccess, settings: settings, multilingual: multilingual)
+        }
+
+        settings[experiment: .keyboardDictation] = false
+        XCTAssertTrue(allowed(), "the retired switch's stored value is never read")
+        XCTAssertEqual(route(enabled: allowed()), .keyboard)
+        XCTAssertFalse(allowed(fullAccess: false))
+
+        settings[experiment: .typrAlwaysDictateInApp] = true
+        XCTAssertFalse(allowed())
+        XCTAssertEqual(route(enabled: allowed()), .app)
+        settings[experiment: .typrAlwaysDictateInApp] = false
+
+        multilingual.isEnabled = true
+        multilingual.isModelReady = true
+        XCTAssertEqual(allowed(), multilingual.language() == nil, "the multilingual model opens Typr once ready")
     }
 
     func testRouteKeepsWarmOrukeetAndFallsBackToTheAppWhenAnythingIsMissing() {
