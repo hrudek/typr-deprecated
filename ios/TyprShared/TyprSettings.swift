@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -183,6 +183,18 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "The full keyboard is Typr's own: its autocorrect and suggestions, swipe typing, design, letter layouts, split keyboard, globe key and bottom row, as set in Keyboard settings."
     )
 
+    static let typrCursorSliding = ExperimentalSwitch(
+        name: "variant.cursorSliding",
+        title: "Typr cursor sliding",
+        detail: "Hold the space bar, then slide left or right: the cursor moves one character each step along the line, never up or down, at the same pace however fast you slide."
+    )
+
+    static let typrDeleteSliding = ExperimentalSwitch(
+        name: "variant.deleteSliding",
+        title: "Typr delete sliding",
+        detail: "A held delete key keeps deleting letters, then words, even when your finger slides off it. With Slide delete to remove words on, that switch decides."
+    )
+
     static let typrAutomaticHostReturn = ExperimentalSwitch(
         name: "variant.automaticHostReturn",
         title: "Typr automatic host return",
@@ -195,7 +207,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
         .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
-        .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrKeyboard,
+        .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding,
     ]
 
     /// Retired: Hex's warm session (anomalyco/hex #2179) is the default since its audio cutover;

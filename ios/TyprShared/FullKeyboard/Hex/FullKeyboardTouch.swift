@@ -32,6 +32,8 @@ extension FullKeyboardEngine {
         var trackpad: TrackpadCursor.State?
         /// UTF-16 units the trackpad has moved the cursor, for Record typing logs.
         var trackpadOffset = 0
+        var isHeldToSlideCursor = false
+        var cursorSlideAnchorX: CGFloat = 0
         /// True when the likelier next letter claimed this touch from the key under it; a
         /// small move then keeps it rather than sliding back (`letterReach`).
         var claimed = false

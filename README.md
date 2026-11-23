@@ -160,6 +160,11 @@ or load finishes stopping.
   With Experimental › **Slide delete to remove words** on, on either keyboard, pressing
   Delete removes one letter in ordinary text and holding it does not repeat. Slide left to
   delete words and back right to restore them. This also works in the split layout.
+  On Hex's keyboard, Experimental › **Typr cursor sliding** (off by default) brings back
+  Typr's space bar slide: held, then slid, it moves the cursor one character per step
+  along the line only. **Typr delete sliding** (off by default) keeps a held Delete
+  repeating when the finger slides off it instead of Hex's word slide; Slide delete to
+  remove words wins when both are on.
 - While learning is on, Typr keyboard keeps a typing log on the iPhone: taps,
   corrections and the final word of the most recent 10,000 to 20,000 words, never
   from secure, URL or email fields. Keyboard › Words and privacy exports it as
