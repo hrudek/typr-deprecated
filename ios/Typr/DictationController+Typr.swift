@@ -145,11 +145,10 @@ extension DictationController {
         scheduleModelMaintenance()
     }
 
-    /// Back to the app the dictation came from, else the swipe-back cue.
     /// A field inside Typr itself needs no return.
     func maybeAutoReturnAfterActivation(allowed: Bool) {
         guard allowed else { return }
-        guard let host = returnHost else {
+        guard languageSettings[experiment: .typrAutomaticHostReturn], let host = returnHost else {
             autoReturnState = .swipeFallback
             return
         }

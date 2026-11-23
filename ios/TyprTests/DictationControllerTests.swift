@@ -321,11 +321,28 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertEqual(snap.transcript, "ship it tonight")
     }
 
+    func testHexDefaultNeverOpensTheHostAfterAColdStart() async throws {
+        let now = 4_000.0
+        var opened: [String] = []
+        let returner = HostReturner(openByBundleID: { id in opened.append(id); return true }, openURL: { _ in true })
+        let controller = try await readyController(audio: FakeAudioManager(), now: { now }, hostReturner: returner)
+
+        controller.handleKeyboardLaunch(
+            .startRecording(jobID: "hex-job", requestedAt: now - 0.4, style: .polished, host: "com.openai.chat")
+        )
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        XCTAssertEqual(controller.autoReturnState, .swipeFallback)
+        XCTAssertTrue(opened.isEmpty)
+        controller.cancelCurrentJob()
+    }
+
     func testTenSecondHandoffWindowAndAutoReturnBehavior() async throws {
         var now = 5_000.0
         let audio = FakeAudioManager()
         let transcriber = ControlledTranscriber()
         let bridge = KeyboardBridge(defaults: defaults)
+        TyprSettings(defaults: defaults)[experiment: .typrAutomaticHostReturn] = true
         var openedBundleIDs: [String] = []
         var openedURLs: [URL] = []
 
@@ -739,6 +756,8 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertEqual(nextKeyboard.transcript, controller.transcript)
         XCTAssertTrue(nextKeyboard.hasDeliverableResult(at: now + 29))
         XCTAssertFalse(nextKeyboard.hasDeliverableResult(at: now + 31))
+        XCTAssertTrue(nextKeyboard.hasOfferableResult(at: now + 31))
+        XCTAssertFalse(nextKeyboard.hasOfferableResult(at: now + 30 + KeyboardSnapshot.resultOfferWindow + 1))
     }
 
     func testMeterRecoversAfterCaptureStartsTemporarilyNotRecording() async throws {

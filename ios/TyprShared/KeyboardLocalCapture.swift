@@ -1,8 +1,8 @@
 import Foundation
 
 /// Where a Typr key dictation runs: the Typr app (its selected engine, warm mic or cold-start
-/// handoff) or, with Settings > Experimental's Apple Speech switch, the keyboard itself
-/// (`KeyboardLocalDictation`, Hex's KeyboardLocalDictation, anomalyco/hex #1999 #2089 #2045).
+/// handoff) or the keyboard itself (`KeyboardLocalDictation`, Hex's KeyboardLocalDictation,
+/// anomalyco/hex #1999 #2089 #2045).
 enum KeyboardDictationRoute: Equatable {
     case app
     case keyboard
@@ -16,6 +16,16 @@ enum KeyboardDictationRoute: Equatable {
     /// Where iOS doesn't say (0, the simulator), there is memory.
     static func hasMemory(available: Int, captureLoaded: Bool) -> Bool {
         available == 0 || available >= (captureLoaded ? restartHeadroomNeeded : startHeadroomNeeded)
+    }
+
+    /// The multilingual model can't load in a keyboard, so while it dictates, Typr does (Hex's `keyboardNeedsHex`).
+    static func keyboardAllowed(
+        fullAccess: Bool,
+        settings: TyprSettings = TyprSettings(),
+        multilingual: MultilingualParakeetSettings = MultilingualParakeetSettings()
+    ) -> Bool {
+        guard fullAccess, !settings[experiment: .typrAlwaysDictateInApp] else { return false }
+        return !multilingual.keyboardOpensTypr(language: multilingual.language())
     }
 
     /// A running warm mic keeps the selected engine; anything the keyboard lacks hands off to Typr.

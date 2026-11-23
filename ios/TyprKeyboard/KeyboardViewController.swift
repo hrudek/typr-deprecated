@@ -25,6 +25,7 @@ final class KeyboardViewController: UIInputViewController {
     private var didHandOffCurrentField = false
     private var didWarmLexicon = false
     private var handOffWaitsForPosture = false
+    private var offeredDictation: KeyboardSnapshot?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -227,6 +228,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         viewModel.onColdStart = { [weak self] in self?.coldStart() }
+        viewModel.onPasteDictation = { [weak self] in self?.pasteOfferedDictation() }
         localDictation.onHandOff = { [weak self] in self?.coldStart() }
         viewModel.onFeedbackRating = { [weak self] rating, issues in self?.queueFeedback(rating: rating, issues: issues) }
         viewModel.onSpace = { [weak self] in self?.viewModel.dismissFeedback(); self?.textDocumentProxy.insertText(" ") }
@@ -467,7 +469,8 @@ final class KeyboardViewController: UIInputViewController {
             bridge.fullAccessSeenAt = now
         }
 
-        var snap = localDictation.snapshot(now: now) ?? bridge.snapshot()
+        let local = localDictation.snapshot(now: now)
+        var snap = local ?? bridge.snapshot()
         let permission = feedbackBridge.permission
         if !feedbackBridge.switchesEnabled || permission?.enabled != true || snap.state == .recording || snap.state == .transcribing
             || (viewModel.feedback.map { $0.offer.expiresAt < Date() || $0.offer.generation != permission?.generation } ?? false) {
@@ -478,19 +481,9 @@ final class KeyboardViewController: UIInputViewController {
         if snap.hasDeliverableResult(at: now),
            let resultID = snap.resultID,
            let rawTranscript = snap.transcript,
-           bridge.lastInsertedResultID != resultID {
-            let before = textDocumentProxy.documentContextBeforeInput
-            let after = textDocumentProxy.documentContextAfterInput
-            let insertion = TranscriptFormatter.insertionText(
-                for: rawTranscript,
-                beforeContext: before,
-                afterContext: after
-            )
-            textDocumentProxy.insertText(insertion)
-            fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "",
-                                             learns: TyprSettings()[experiment: .learnFromEdits] && snap.translated != true)
-            hexKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "")
-            bridge.lastInsertedResultID = resultID
+           bridge.lastInsertedResultID != resultID,
+           local != nil || bridge.lastInsertedAppResultID != resultID {
+            insertDictation(rawTranscript, resultID: resultID, translated: snap.translated == true, fromApp: local == nil)
             viewModel.resultNote = snap.resultNote
             insertedResult = true
             if feedbackBridge.switchesEnabled, snap.state != .recording, snap.state != .transcribing {
@@ -502,6 +495,7 @@ final class KeyboardViewController: UIInputViewController {
             localDictation.delivered(resultID: resultID)
             snap = localDictation.snapshot(now: now) ?? bridge.snapshot()
         }
+        refreshOfferedDictation(now: now)
         viewModel.armsWhenCold = localDictationRoute == .keyboard
 
         viewModel.applyBridgeState(
@@ -519,6 +513,36 @@ final class KeyboardViewController: UIInputViewController {
         schedulePoll(force: false)
     }
 
+    private func insertDictation(_ rawTranscript: String, resultID: String, translated: Bool, fromApp: Bool) {
+        let before = textDocumentProxy.documentContextBeforeInput
+        let after = textDocumentProxy.documentContextAfterInput
+        let insertion = TranscriptFormatter.insertionText(
+            for: rawTranscript,
+            beforeContext: before,
+            afterContext: after
+        )
+        textDocumentProxy.insertText(insertion)
+        fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "",
+                                         learns: TyprSettings()[experiment: .learnFromEdits] && !translated)
+        hexKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "")
+        bridge.markInserted(resultID: resultID, fromApp: fromApp)
+    }
+
+    private func refreshOfferedDictation(now: TimeInterval) {
+        let offer = bridge.offeredAppResult(at: now)
+        offeredDictation = offer
+        if viewModel.offeredDictation != offer?.transcript {
+            viewModel.offeredDictation = offer?.transcript
+        }
+    }
+
+    private func pasteOfferedDictation() {
+        guard let offer = offeredDictation, let resultID = offer.resultID, let transcript = offer.transcript else { return }
+        insertDictation(transcript, resultID: resultID, translated: offer.translated == true, fromApp: true)
+        offeredDictation = nil
+        viewModel.offeredDictation = nil
+    }
+
     /// Picks up a changed keyboard setting (full keyboard) every 2 s.
     private func remountIfNeeded(now: TimeInterval) {
         let bucket = Int(now / 2.0)
@@ -527,9 +551,8 @@ final class KeyboardViewController: UIInputViewController {
         mountSurface()
     }
 
-    /// Opens Typr to start the microphone, naming the app to return to (`KeyboardHost`).
     /// A share sheet, a notification's reply or Spotlight closes once left, taking its text
-    /// with it, so from there Typr is not opened; dictation needs a warm mic instead.
+    /// with it, so with Typr automatic host return Typr is not opened from there.
     private func coldStart() {
         if localDictation.isArmed || localDictationRoute == .keyboard, localDictation.start(in: view) {
             viewModel.hostNotice = nil
@@ -537,7 +560,7 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         let host = KeyboardHost.app(of: self)
-        guard KeyboardHost.canReturn(to: host) else {
+        guard !TyprSettings()[experiment: .typrAutomaticHostReturn] || KeyboardHost.canReturn(to: host) else {
             viewModel.hostNotice = "Turn on Keep mic warm in Typr first"
             return
         }
@@ -552,12 +575,8 @@ final class KeyboardViewController: UIInputViewController {
         ContainingAppOpener.open(request.url, from: self)
     }
 
-    /// Keyboard dictation: Apple Speech in the keyboard, except while Typr dictates the language
-    /// with the multilingual model (Hex's `keyboardNeedsHex`): it can't load in a keyboard.
     private var keyboardDictationEnabled: Bool {
-        guard hasFullAccess, TyprSettings()[experiment: .keyboardDictation] else { return false }
-        let multilingual = MultilingualParakeetSettings()
-        return !multilingual.keyboardOpensTypr(language: multilingual.language())
+        KeyboardDictationRoute.keyboardAllowed(fullAccess: hasFullAccess)
     }
 
     private var localDictationRoute: KeyboardDictationRoute {

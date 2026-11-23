@@ -174,6 +174,33 @@ final class KeyboardBridgeTests: XCTestCase {
         XCTAssertNil(KeyboardLaunchRequest(url: URL(string: "typr://keyboard/record")!), "recording needs a job")
     }
 
+    func testALateResultIsOfferedAsPasteDictationUntilInsertedOrTenMinutesPass() {
+        let now = 1_000.0
+        let result = snapshot(state: .ready, heartbeat: now, expiresAt: now)
+        let expires = now + 30
+        XCTAssertFalse(result.isOffered(lastInserted: nil, at: expires - 1), "still goes in by itself")
+        XCTAssertTrue(result.isOffered(lastInserted: nil, at: expires))
+        XCTAssertFalse(result.isOffered(lastInserted: "result", at: expires), "already inserted")
+        XCTAssertTrue(result.isOffered(lastInserted: nil, at: expires + KeyboardSnapshot.resultOfferWindow - 1))
+        XCTAssertFalse(result.isOffered(lastInserted: nil, at: expires + KeyboardSnapshot.resultOfferWindow))
+    }
+
+    func testAnInKeyboardResultNeverReopensTheOfferOfAnInsertedAppResult() {
+        let suite = "typr.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let now = 1_000.0
+        let bridge = KeyboardBridge(defaults: defaults)
+        bridge.publish(snapshot(state: .ready, heartbeat: now, expiresAt: now))
+        bridge.markInserted(resultID: "result", fromApp: true)
+        bridge.markInserted(resultID: "local", fromApp: false)
+        XCTAssertNil(bridge.offeredAppResult(at: now + 31))
+
+        bridge.publish(KeyboardSnapshot(state: .ready, heartbeat: now, expiresAt: now, resultID: "later",
+                                        resultExpiresAt: now + 30, transcript: "später"))
+        XCTAssertEqual(bridge.offeredAppResult(at: now + 31)?.resultID, "later")
+    }
+
     @MainActor
     func testFullAccessSeenAtIsStoredInTheAppGroup() {
         let suiteName = "typr.tests.fullAccess.\(UUID().uuidString)"

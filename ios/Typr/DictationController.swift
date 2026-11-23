@@ -1483,7 +1483,7 @@ final class DictationController {
     func publishKeyboardSnapshot(minInterval: TimeInterval = 0) {
         let currentTime = now()
 
-        if let expires = keyboardResultExpiresAt, expires <= currentTime {
+        if let expires = keyboardResultExpiresAt, expires + KeyboardSnapshot.resultOfferWindow <= currentTime {
             keyboardResultID = nil
             keyboardFeedbackOffer = nil
             keyboardResult = nil

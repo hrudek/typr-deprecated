@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -174,7 +174,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrAlwaysDictateInApp = ExperimentalSwitch(
         name: "variant.alwaysDictateInApp",
         title: "Typr always dictate in app",
-        detail: "The Typr key always dictates in the Typr app, never in the keyboard."
+        detail: "Without a warm mic, the Typr key opens the Typr app and dictates with your selected engine, such as Orukeet, instead of recording in the keyboard with Apple Speech."
     )
 
     static let typrKeyboard = ExperimentalSwitch(
@@ -198,7 +198,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrAutomaticHostReturn = ExperimentalSwitch(
         name: "variant.automaticHostReturn",
         title: "Typr automatic host return",
-        detail: "After dictating in the Typr app, Typr goes back to the app you came from."
+        detail: "When the Typr key opens Typr, Typr goes back to the app you came from. A share sheet, a notification's reply or Spotlight doesn't open Typr; dictate there with a warm mic."
     )
 
     /// Typr overrides of Hex defaults: off is Hex's behavior, on restores Typr's. Each joins
@@ -294,7 +294,6 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "25 languages, even mixed in one sentence, with Automatic as the speech engine. 632 MB download, deleted when you turn this off. Once ready, keyboard dictation opens Typr."
     )
 
-    /// Hex's in-keyboard dictation (anomalyco/hex #1999, #2089, #2045): off, the Typr app dictates.
     static let keyboardDictation = ExperimentalSwitch(
         name: "keyboardDictationAppleSpeech",
         title: "Keyboard dictation: Apple Speech in the keyboard",
