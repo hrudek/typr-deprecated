@@ -112,40 +112,28 @@ final class SpokenPunctuationTests: XCTestCase {
 
     func testStyles() {
         let heard = "Hallo Komma wie geht es dir Fragezeichen ich bin gleich da Punkt bis bald"
-        let formatted = DictationStyle.choices(typrStyles: true).map {
-            TyprTranscriptFormatter.format(heard, style: $0, language: .german, punctuation: true)
+        let formatted = DictationStyle.allCases.map {
+            TranscriptFormatter.typrRules(heard, style: $0, language: .german, punctuation: true)
         }
         XCTAssertEqual(formatted, [
             "Hallo, wie geht es dir? Ich bin gleich da. Bis bald.",
-            "Hallo, wie geht es dir? Ich bin gleich da. Bis bald",
             "hallo, wie geht es dir? ich bin gleich da. bis bald",
-            "Hallo, wie geht es dir? Ich bin gleich da. Bis bald",
+            "- Hallo, wie geht es dir?\n- Ich bin gleich da\n- Bis bald",
             heard,
         ])
         XCTAssertEqual(
-            TyprTranscriptFormatter.format("Okay comma see you there exclamation point", style: .polished, language: .english, punctuation: true),
+            TranscriptFormatter.typrRules("Okay comma see you there exclamation point", style: .polished, language: .english, punctuation: true),
             "Okay, see you there!"
         )
         XCTAssertEqual(
-            TyprTranscriptFormatter.format("Das ist ein wichtiger Punkt", style: .polished, language: .german, punctuation: true),
+            TranscriptFormatter.typrRules("Das ist ein wichtiger Punkt", style: .polished, language: .german, punctuation: true),
             "Das ist ein wichtiger Punkt."
         )
     }
 
     func testNotesMarkersKeepWorking() {
         XCTAssertEqual(
-            TyprTranscriptFormatter.format(
-                "Einkaufen bullet Milch Komma Butter bullet Eier Punkt new paragraph danke dir Ausrufezeichen",
-                style: .notes, language: .german, punctuation: true
-            ),
-            "Einkaufen\n- Milch, Butter\n- Eier.\n\nDanke dir!"
-        )
-        XCTAssertEqual(
-            TyprTranscriptFormatter.format("Milch Punkt new line Eier", style: .notes, language: .german, punctuation: true),
-            "Milch.\nEier"
-        )
-        XCTAssertEqual(
-            TyprTranscriptFormatter.format("First item bullet check signing bullet test keyboard", style: .notes, punctuation: true),
+            TranscriptFormatter.typrRules("First item bullet check signing bullet test keyboard", style: .notes, punctuation: true),
             "First item\n- Check signing\n- Test keyboard"
         )
     }
@@ -157,10 +145,10 @@ final class SpokenPunctuationTests: XCTestCase {
             "Das ist ein wichtiger Punkt.",
             "Der Wert ist 2,5.",
         ] {
-            XCTAssertEqual(TyprTranscriptFormatter.format(cleaned, style: .polished, language: .german, punctuation: true), cleaned)
+            XCTAssertEqual(TranscriptFormatter.typrRules(cleaned, style: .polished, language: .german, punctuation: true), cleaned)
         }
         XCTAssertEqual(
-            TyprTranscriptFormatter.format("Hallo, Komma, wie geht es dir, Fragezeichen?", style: .polished, language: .german, punctuation: true),
+            TranscriptFormatter.typrRules("Hallo, Komma, wie geht es dir, Fragezeichen?", style: .polished, language: .german, punctuation: true),
             "Hallo, wie geht es dir?"
         )
     }
@@ -221,11 +209,11 @@ final class SpokenPunctuationTests: XCTestCase {
         ]
         for (heard, expected) in cases {
             XCTAssertEqual(
-                TyprTranscriptFormatter.format(heard, style: .polished, language: .german, punctuation: true), expected, heard
+                TranscriptFormatter.typrRules(heard, style: .polished, language: .german, punctuation: true), expected, heard
             )
         }
         XCTAssertEqual(
-            TyprTranscriptFormatter.format("Er sagte „Hallo“", style: .polished, language: .german),
+            TranscriptFormatter.typrRules("Er sagte „Hallo“", style: .polished, language: .german),
             "Er sagte „Hallo“."
         )
     }
@@ -333,10 +321,10 @@ final class SpokenPunctuationTests: XCTestCase {
             + Self.englishNounPhrases.map { ($0, DictationLanguage.english) }
         XCTAssertGreaterThanOrEqual(cases.count, 60)
         for (sentence, language) in cases {
-            for style in DictationStyle.choices(typrStyles: true) {
+            for style in DictationStyle.allCases {
                 XCTAssertEqual(
-                    TyprTranscriptFormatter.format(sentence, style: style, language: language, punctuation: true),
-                    TyprTranscriptFormatter.format(sentence, style: style, language: language),
+                    TranscriptFormatter.typrRules(sentence, style: style, language: language, punctuation: true),
+                    TranscriptFormatter.typrRules(sentence, style: style, language: language),
                     "\(style) \(sentence)"
                 )
             }
@@ -364,7 +352,7 @@ final class SpokenPunctuationTests: XCTestCase {
         ]
         for (heard, language, expected) in cases {
             XCTAssertEqual(
-                TyprTranscriptFormatter.format(heard, style: .polished, language: language, punctuation: true), expected, heard
+                TranscriptFormatter.typrRules(heard, style: .polished, language: language, punctuation: true), expected, heard
             )
         }
     }

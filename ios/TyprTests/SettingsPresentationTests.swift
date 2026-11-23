@@ -239,19 +239,15 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertLessThanOrEqual(accessible.width, 320.5)
     }
 
-    func testEveryDictationStyleExplainsItsBehavior() {
-        for typrStyles in [false, true] {
-            for style in DictationStyle.choices(typrStyles: typrStyles) {
-                XCTAssertFalse(style.settingsDescription(typrStyles: typrStyles).isEmpty, style.rawValue)
-            }
-            XCTAssertTrue(DictationStyle.verbatim.settingsDescription(typrStyles: typrStyles).contains("Skips AI cleanup"))
-            XCTAssertTrue(DictationStyle.verbatim.settingsDescription(typrStyles: typrStyles).contains("Vocabulary corrections"))
-        }
-        XCTAssertTrue(DictationStyle.notes.settingsDescription(typrStyles: true).contains("new line"))
-        XCTAssertTrue(DictationStyle.notes.settingsDescription(typrStyles: true).contains("new paragraph"))
-        XCTAssertEqual(TyprTranscriptFormatter.format("first new line second", style: .notes), "First\nSecond")
-        XCTAssertEqual(TyprTranscriptFormatter.format("first new paragraph second", style: .notes), "First\n\nSecond")
-        XCTAssertEqual(TyprTranscriptFormatter.format("bullet first bullet second", style: .notes), "- First\n- Second")
+    /// Hex's Style settings defaults: Lowercase off, End with a period on.
+    func testStyleSettingsUseHexDefaults() {
+        let suite = "settings.style.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = TyprSettings(defaults: defaults)
+        XCTAssertFalse(settings.dictationLowercase)
+        XCTAssertTrue(settings.dictationEndsWithPeriod)
+        XCTAssertFalse(ExperimentalSwitch.all.contains { $0.title == "Typr dictation styles" })
     }
 
     @MainActor
@@ -273,36 +269,10 @@ final class SettingsPresentationTests: XCTestCase {
     }
 
     @MainActor
-    func testDictationChoiceDescriptionsWrapAtCompactWidthAndLargerText() {
-        let choices = [false, true].flatMap { typrStyles in
-            DictationStyle.choices(typrStyles: typrStyles).map {
-                ($0.label(typrStyles: typrStyles), $0.settingsDescription(typrStyles: typrStyles))
-            }
-        }
-        for (title, detail) in choices {
-            func size(_ type: DynamicTypeSize, selected: Bool) -> CGSize {
-                let host = UIHostingController(rootView:
-                    SettingsChoiceRow(title: title, detail: detail, isSelected: selected, onSelect: {})
-                        .dynamicTypeSize(type)
-                )
-                return host.sizeThatFits(in: CGSize(width: 280, height: 10_000))
-            }
-            let regular = size(.large, selected: true)
-            let accessible = size(.accessibility3, selected: true)
-            XCTAssertGreaterThanOrEqual(regular.height, 64, title)
-            XCTAssertGreaterThan(accessible.height, regular.height, title)
-            XCTAssertLessThanOrEqual(accessible.width, 280.5, title)
-            XCTAssertLessThan(accessible.height, 10_000, title)
-            XCTAssertEqual(size(.large, selected: false).height, regular.height, accuracy: 0.5, title)
-        }
-    }
-
-    @MainActor
     func testLanguageChoicesUseSingleLineRowsWithoutDescriptions() {
         for language in DictationLanguage.allCases {
             for selected in [true, false] {
                 let row = SettingsChoiceRow(title: language.label, isSelected: selected, onSelect: {})
-                XCTAssertNil(row.detail)
                 let host = UIHostingController(rootView: row.dynamicTypeSize(.large))
                 let size = host.sizeThatFits(in: CGSize(width: 280, height: 10_000))
                 XCTAssertEqual(size.height, 64, accuracy: 0.5, language.rawValue)

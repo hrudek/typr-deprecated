@@ -87,19 +87,18 @@ final class DictationPipelineTests: XCTestCase {
         XCTAssertEqual(DictationLanguage.german.formattingIdentifier, "de")
     }
 
-    /// Off by default: Hex's styles and rules. On, Typr's formatter and German lists.
-    func testTyprVariantsSelectTyprsFormatterAndRules() {
+    /// Off by default: Hex's rules. On, Typr's German lists.
+    func testTyprGermanFormattingRulesSelectTyprsRules() {
         let suite = "pipeline.variants.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
         let vocabulary = DictationVocabulary(userTerms: [])
         let heard = "Einkaufsliste: erstens Milch, zweitens Eier."
-        func pipeline(_ style: DictationStyle = .polished) -> DictationPipeline {
-            DictationPipeline(style: style, language: .german, vocabulary: vocabulary, settings: settings)
+        func pipeline() -> DictationPipeline {
+            DictationPipeline(style: .polished, language: .german, vocabulary: vocabulary, settings: settings)
         }
 
-        XCTAssertFalse(pipeline().typrStyles)
         XCTAssertFalse(pipeline().typrFormattingRules)
         XCTAssertTrue(pipeline().formatLists, "Hex's Format lists is on by default")
         XCTAssertTrue(pipeline().spokenPunctuation, "Hex's Spoken punctuation is on by default")
@@ -112,12 +111,6 @@ final class DictationPipelineTests: XCTestCase {
         settings[experiment: .formatLists] = true
         let listed = pipeline().format(heard, language: "de")
         XCTAssertTrue(listed.contains("\n1. Milch") && listed.contains("\n2. Eier"), listed)
-
-        settings[experiment: .typrDictationStyles] = true
-        XCTAssertEqual(pipeline(.typrCasual).style, .typrCasual)
-        XCTAssertEqual(pipeline(.casual).format("Ich komme. Du auch.", language: "de"),
-                       TyprTranscriptFormatter.format("Ich komme. Du auch.", style: .casual, language: .german,
-                                                      lists: true, punctuation: false))
     }
 
     /// Typr fix on the Hex base: German abbreviations end no sentence, on the default path.

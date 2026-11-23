@@ -39,8 +39,8 @@ private actor SnapshotASR: LocalTranscribing {
 
 /// AI cleanup off must deliver byte for byte what Typr delivered before the Hex-style rewrite of
 /// AI cleanup, in every style. The expected texts were recorded from the code before that change;
-/// never update them to make a cleanup change pass. Since Hex's pipeline became the default they
-/// pin Typr's variants: Typr dictation styles and Typr German formatting rules.
+/// never update them to make a cleanup change pass. They pin Hex's four styles with Typr German
+/// formatting rules, re-recorded when Typr's own styles were removed.
 @MainActor
 final class AIOffSnapshotTests: XCTestCase {
     static let corpus: [String] = [
@@ -59,37 +59,26 @@ final class AIOffSnapshotTests: XCTestCase {
 
     /// Recorded from the pre-change code: "<style>|<corpus index>" -> delivered transcript.
     static let expected: [String: String] = [
-        "casual|0": "die katze sitzt auf der mathe",
-        "casual|1": "ich ich brauche mehr daten um einen schluss zu ziehen",
-        "casual|2": "erstelle einen pull request für das feature flag und pushe auf github",
+        "casual|0": "die Katze sitzt auf der Mathe",
+        "casual|1": "ich ich brauche mehr Daten um einen Schluss zu ziehen",
+        "casual|2": "erstelle einen Pull Request für das Feature Flag und pushe auf GitHub",
         "casual|3": "bullet milk bullet eggs new line call mom new paragraph done",
         "casual|4": "can we meet at 3 pm, no wait, 4 pm?",
-        "casual|5": "das know how aus Baden-Württemberg. und dann ok",
+        "casual|5": "das Know how aus Baden-Württemberg. und dann OK",
         "casual|6": "i think iphone and ios are great",
-        "casual|7": "so, we need 1,000 users by q3 — right",
-        "casual|8": "kannst du den branch rebasen und dann pushen? danke!",
-        "casual|9": "öffne das in einem neuen herdr tab",
+        "casual|7": "so we need 1,000 users by Q3 — right",
+        "casual|8": "kannst du den Branch rebasen und dann pushen? danke!",
+        "casual|9": "öffne das in einem neuen herdr Tab",
         "casual|10": "line one\nline two",
-        "casualCapitalized|0": "Die Katze sitzt auf der Mathe",
-        "casualCapitalized|1": "Ich ich brauche mehr Daten um einen Schluss zu ziehen",
-        "casualCapitalized|2": "Erstelle einen Pull Request für das Feature Flag und pushe auf GitHub",
-        "casualCapitalized|3": "Bullet milk bullet eggs new line call mom new paragraph done",
-        "casualCapitalized|4": "Can we meet at 3 pm, no wait, 4 pm?",
-        "casualCapitalized|5": "Das Know how aus Baden-Württemberg. Und dann OK",
-        "casualCapitalized|6": "I think iphone and ios are great",
-        "casualCapitalized|7": "So, we need 1,000 users by Q3 — right",
-        "casualCapitalized|8": "Kannst du den Branch rebasen und dann pushen? Danke!",
-        "casualCapitalized|9": "Öffne das in einem neuen herdr Tab",
-        "casualCapitalized|10": "Line one\nLine two",
         "notes|0": "Die Katze sitzt auf der Mathe",
         "notes|1": "Ich ich brauche mehr Daten um einen Schluss zu ziehen",
         "notes|2": "Erstelle einen Pull Request für das Feature Flag und pushe auf GitHub",
         "notes|3": "- Milk\n- Eggs\nCall mom\n\nDone",
         "notes|4": "Can we meet at 3 pm, no wait, 4 pm?",
-        "notes|5": "Das Know how aus Baden-Württemberg. Und dann OK.",
+        "notes|5": "- Das Know how aus Baden-Württemberg\n- Und dann OK",
         "notes|6": "I think iphone and ios are great",
-        "notes|7": "So, we need 1,000 users by Q3 — right",
-        "notes|8": "Kannst du den Branch rebasen und dann pushen? Danke!",
+        "notes|7": "We need 1,000 users by Q3 — right",
+        "notes|8": "- Kannst du den Branch rebasen und dann pushen?\n- Danke!",
         "notes|9": "Öffne das in einem neuen herdr Tab",
         "notes|10": "Line one\nLine two",
         "polished|0": "Die Katze sitzt auf der Mathe.",
@@ -102,7 +91,7 @@ final class AIOffSnapshotTests: XCTestCase {
         "polished|7": "So, we need 1,000 users by Q3 — right.",
         "polished|8": "Kannst du den Branch rebasen und dann pushen? Danke!",
         "polished|9": "Öffne das in einem neuen herdr Tab.",
-        "polished|10": "Line one\nLine two.",
+        "polished|10": "Line one.\nLine two.",
         "verbatim|0": "Die Katze sitzt auf der Mathe",
         "verbatim|1": "Ähm ich ich brauche mehr Daten um einen Schluss zu ziehen",
         "verbatim|2": "Erstelle einen Pull Request für das Feature Flag und pushe auf GitHub",
@@ -120,7 +109,6 @@ final class AIOffSnapshotTests: XCTestCase {
         let suite = "ai-off.snapshot.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        TyprSettings(defaults: defaults)[experiment: .typrDictationStyles] = true
         TyprSettings(defaults: defaults)[experiment: .typrGermanFormattingRules] = true
         let vocabulary = CustomVocabularySettings(defaults: defaults)
         vocabulary.isEnabled = true
@@ -138,7 +126,7 @@ final class AIOffSnapshotTests: XCTestCase {
         try await waitForState("model ready") { controller.phase == .ready }
 
         var actual: [String: String] = [:]
-        for style in DictationStyle.choices(typrStyles: true) {
+        for style in DictationStyle.allCases {
             for (index, raw) in Self.corpus.enumerated() {
                 await asr.set(raw)
                 controller.startRecording(styleOverride: style)
@@ -165,15 +153,13 @@ final class AIOffSnapshotTests: XCTestCase {
         await mainActorBarrier()
     }
 
-    /// Typr's styles and German formatting rules: German lists, switched by the old Format lists
-    /// experiment.
+    /// Typr German formatting rules: German lists, switched by the old Format lists experiment.
     func testTyprFormatListsAppliesFromTheNextDictation() async throws {
         let suite = "format-lists.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
         settings.dictationLanguage = .german
-        settings[experiment: .typrDictationStyles] = true
         settings[experiment: .typrGermanFormattingRules] = true
         let clock = CleanupTestSleeper()
         let deps = TranscriptCleanupDependencies(cleaner: CleanupTestCleaner(session: CleanupTestSession()),
@@ -279,7 +265,6 @@ final class AIOffSnapshotTests: XCTestCase {
                 $0.dictationLowercase = true
             }),
             ("Typr variants", {
-                $0[experiment: .typrDictationStyles] = true
                 $0[experiment: .typrGermanFormattingRules] = true
                 $0[experiment: .formatLists] = true
                 $0[experiment: .spokenPunctuation] = true
@@ -295,8 +280,7 @@ final class AIOffSnapshotTests: XCTestCase {
         for (name, apply) in variants {
             apply(settings)
             controller.setDictationLanguage(settings.dictationLanguage)
-            let styles = DictationStyle.choices(typrStyles: settings[experiment: .typrDictationStyles])
-            for style in styles {
+            for style in DictationStyle.allCases {
                 for (index, heard) in corpus.enumerated() {
                     await asr.set(heard)
                     controller.startRecording(styleOverride: style)
@@ -339,25 +323,19 @@ final class AIOffSnapshotTests: XCTestCase {
             (.polished, true, false), (.polished, false, false), (.polished, false, true), (.verbatim, false, true),
         ]
         let sentences = "Ich lade den Bericht auf GitHub hoch. Danach rufe ich Anna an"
-        // Typr dictation styles keeps Verbatim as the model wrote it; Hex lowercases it too.
-        let expected: [Bool: [String]] = [
-            true: [sentences + ".", sentences, sentences.lowercased(), sentences + "."],
-            false: [sentences + ".", sentences, sentences.lowercased(), sentences.lowercased() + "."],
-        ]
-        for typrStyles in [true, false] {
-            settings[experiment: .typrDictationStyles] = typrStyles
-            var delivered: [String] = []
-            for (style, endsWithPeriod, lowercase) in runs {
-                settings.dictationEndsWithPeriod = endsWithPeriod
-                settings.dictationLowercase = lowercase
-                controller.startRecording(styleOverride: style)
-                try await waitForState("recording \(style) \(typrStyles)") { controller.phase == .recording }
-                controller.finishRecording()
-                try await waitForState("finished \(style) \(typrStyles)") { controller.isIdleForTest }
-                delivered.append(controller.transcript)
-            }
-            XCTAssertEqual(delivered, expected[typrStyles], "Typr dictation styles \(typrStyles)")
+        // As in Hex, Lowercase applies to Verbatim too.
+        let expected = [sentences + ".", sentences, sentences.lowercased(), sentences.lowercased() + "."]
+        var delivered: [String] = []
+        for (style, endsWithPeriod, lowercase) in runs {
+            settings.dictationEndsWithPeriod = endsWithPeriod
+            settings.dictationLowercase = lowercase
+            controller.startRecording(styleOverride: style)
+            try await waitForState("recording \(style)") { controller.phase == .recording }
+            controller.finishRecording()
+            try await waitForState("finished \(style)") { controller.isIdleForTest }
+            delivered.append(controller.transcript)
         }
+        XCTAssertEqual(delivered, expected)
         controller.cancelCurrentJob()
         try await waitForState("controller idle") { controller.isIdleForTest }
         clock.fire()

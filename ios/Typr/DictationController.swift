@@ -856,8 +856,7 @@ final class DictationController {
         case .cohereTranscribe: CohereTranscriber.languageName(for: captureLanguage)
         default: transcriptionLanguage
         }
-        let effectiveStyle = (styleOverride ?? style)
-            .resolved(typrStyles: languageSettings[experiment: .typrDictationStyles])
+        let effectiveStyle = styleOverride ?? style
         let vocabularyEnabled = customVocabularySettings.isEnabled
         let savedVocabularyTerms = customVocabularySettings.terms
         let vocabularyTerms = vocabularyEnabled ? savedVocabularyTerms : []

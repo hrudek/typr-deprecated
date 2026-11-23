@@ -28,11 +28,11 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
 
     func testOnKeepsEveryStyleAsBefore() {
         for raw in Self.germanInputs + Self.englishInputs {
-            for style in DictationStyle.choices(typrStyles: true) {
+            for style in DictationStyle.allCases {
                 for lists in [false, true] {
                     XCTAssertEqual(
-                        TyprTranscriptFormatter.format(raw, style: style, lists: lists, endsWithPeriod: true),
-                        TyprTranscriptFormatter.format(raw, style: style, lists: lists),
+                        TranscriptFormatter.typrRules(raw, style: style, lists: lists, endsWithPeriod: true),
+                        TranscriptFormatter.typrRules(raw, style: style, lists: lists),
                         "\(style) \(raw)"
                     )
                 }
@@ -42,8 +42,8 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
 
     func testOffLeavesVerbatimUnchanged() {
         for raw in Self.germanInputs + Self.englishInputs {
-            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: .verbatim, endsWithPeriod: false),
-                           TyprTranscriptFormatter.format(raw, style: .verbatim), raw)
+            XCTAssertEqual(TranscriptFormatter.typrRules(raw, style: .verbatim, endsWithPeriod: false),
+                           TranscriptFormatter.typrRules(raw, style: .verbatim), raw)
         }
     }
 
@@ -51,20 +51,16 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
         let cases: [(String, DictationStyle, String)] = [
             ("ich komme morgen", .polished, "Ich komme morgen"),
             ("Ich komme. Du auch.", .polished, "Ich komme. Du auch"),
-            ("Ich komme. Du auch.", .notes, "Ich komme. Du auch"),
-            ("Ich komme. Du auch.", .typrCasual, "Ich komme. Du auch"),
+            ("Ich komme. Du auch.", .notes, "- Ich komme\n- Du auch"),
             ("Ich komme. Du auch.", .casual, "ich komme. du auch"),
             ("Wir treffen uns um 13 Uhr bzw. später.", .polished, "Wir treffen uns um 13 Uhr bzw. später"),
-            ("Er sagte „Hallo.“", .notes, "Er sagte „Hallo“"),
-            ("Er sagte „Hallo.“", .typrCasual, "Er sagte „Hallo“"),
+            ("Er sagte „Hallo.“", .notes, "Er sagte „Hallo.“"),
             ("Hallo bullet Milch. bullet Brot.", .notes, "Hallo\n- Milch\n- Brot"),
             ("Ich treffe Anna im Büro. Danach komme ich.\nGegen 13 Uhr bin ich zurück.", .polished,
              "Ich treffe Anna im Büro. Danach komme ich\nGegen 13 Uhr bin ich zurück"),
-            ("Ich treffe Anna im Büro.\nGegen 13 Uhr bin ich zurück.", .typrCasual,
-             "Ich treffe Anna im Büro\nGegen 13 Uhr bin ich zurück"),
         ]
         for (raw, style, expected) in cases {
-            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: style, language: .german, endsWithPeriod: false),
+            XCTAssertEqual(TranscriptFormatter.typrRules(raw, style: style, language: .german, endsWithPeriod: false),
                            expected, "\(style) \(raw)")
         }
     }
@@ -81,7 +77,7 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
             ("Das gilt auch für Teile, Schrauben o. ä.", .polished, "Das gilt auch für Teile, Schrauben o. ä."),
         ]
         for (raw, style, expected) in cases {
-            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: style, language: .german, endsWithPeriod: false),
+            XCTAssertEqual(TranscriptFormatter.typrRules(raw, style: style, language: .german, endsWithPeriod: false),
                            expected, "\(style) \(raw)")
         }
     }
@@ -90,8 +86,7 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
         let cases: [(String, DictationStyle, String)] = [
             ("see you tomorrow", .polished, "See you tomorrow"),
             ("Sounds good. See you tomorrow.", .polished, "Sounds good. See you tomorrow"),
-            ("Sounds good. See you tomorrow.", .notes, "Sounds good. See you tomorrow"),
-            ("Sounds good. See you tomorrow.\nBring the keys.", .typrCasual, "Sounds good. See you tomorrow\nBring the keys"),
+            ("Sounds good. See you tomorrow.", .notes, "- Sounds good\n- See you tomorrow"),
             ("She said \"hi.\"", .notes, "She said \"hi\""),
             ("Are you coming?", .polished, "Are you coming?"),
             ("That's great!", .notes, "That's great!"),
@@ -100,54 +95,75 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
             ("Use a fork, e.g.", .notes, "Use a fork, e.g."),
         ]
         for (raw, style, expected) in cases {
-            XCTAssertEqual(TyprTranscriptFormatter.format(raw, style: style, language: .english, endsWithPeriod: false),
+            XCTAssertEqual(TranscriptFormatter.typrRules(raw, style: style, language: .english, endsWithPeriod: false),
                            expected, "\(style) \(raw)")
         }
     }
 
+    /// Typr fix on the Hex base: an abbreviation's or initialism's period stays, inside quotes and
+    /// brackets too.
     func testOffKeepsAbbreviationsAndInitialismsInsideQuotesAndBrackets() {
-        let kept = [
+        let german = [
             "Wir waren in den (U.S.)", "Wir waren in den \"U.S.\"", "Er sagte „U.S.“", "Sie schrieb «U.S.»",
             "Er sagte ‚z.B.‘", "Das ist ein Beispiel (z.B.)", "Das heißt „d.h.“", "Das heißt [d.h.]",
             "Brot, Milch (usw.)", "Brot, Milch „usw.“", "Morgen oder übermorgen (bzw.)", "Frag bitte „Dr.“",
-            "We met in the (U.S.)", "She wrote \"e.g.\"", "Bring pens ('etc.')",
+            "Das ist z.B.", "Das ist d.h.", "Bring Brot usw.", "Heute bzw.", "Frag Dr.",
         ]
-        let dropped: [(String, String)] = [
-            ("Er sagte „Hallo.“", "Er sagte „Hallo“"),
-            ("Sie schrieb «Bis morgen.»", "Sie schrieb «Bis morgen»"),
-            ("Ich komme (wahrscheinlich.)", "Ich komme (wahrscheinlich)"),
-            ("She said \"see you.\"", "She said \"see you\""),
-        ]
-        for style in [DictationStyle.polished, .typrCasual, .notes] {
-            for text in kept {
-                XCTAssertEqual(TyprTranscriptFormatter.format(text, style: style, endsWithPeriod: false), text, "\(style) \(text)")
-            }
-            for (text, expected) in dropped {
-                XCTAssertEqual(TyprTranscriptFormatter.format(text, style: style, endsWithPeriod: false), expected, "\(style) \(text)")
-            }
-        }
+        let english = ["We met in the (U.S.)", "She wrote \"e.g.\"", "Bring pens ('etc.')", "We met in the U.S."]
         for style in [DictationStyle.polished, .notes] {
-            for text in ["Das ist z.B.", "Das ist d.h.", "Bring Brot usw.", "Heute bzw.", "Frag Dr."] {
-                XCTAssertEqual(TyprTranscriptFormatter.format(text, style: style, endsWithPeriod: false), text, "\(style) \(text)")
+            for (texts, language) in [(german, DictationLanguage.german), (english, .english)] {
+                for text in texts {
+                    XCTAssertEqual(TranscriptFormatter.typrRules(text, style: style, language: language, endsWithPeriod: false),
+                                   text, "\(style) \(text)")
+                }
             }
         }
     }
 
+    /// Typr fix on the Hex base: in German, Notes splits no sentence at an abbreviation's or a
+    /// date's period, and Casual lowercases no word after one.
+    func testGermanAbbreviationsAndDatesEndNoSentenceInNotesAndCasual() {
+        let notes: [(String, String)] = [
+            ("Wir treffen uns um 13 Uhr bzw. später.", "Wir treffen uns um 13 Uhr bzw. später"),
+            ("Das kostet ca. 5 Euro, d. h. nicht viel. Danke.", "- Das kostet ca. 5 Euro, d. h. nicht viel\n- Danke"),
+            ("Wir sehen uns am 3. Oktober. Bis dann.", "- Wir sehen uns am 3. Oktober\n- Bis dann"),
+            ("Es fehlen noch 50. März ist schon vorbei.", "- Es fehlen noch 50\n- März ist schon vorbei"),
+            ("Die Temperatur steigt auf +5. März bleibt kühl.", "- Die Temperatur steigt auf +5\n- März bleibt kühl"),
+            ("Ich habe u.a. Milch gekauft. Und Brot.", "- Ich habe u.a. Milch gekauft\n- Und Brot"),
+            ("Bring Brot, Milch usw.", "Bring Brot, Milch usw."),
+        ]
+        for (raw, expected) in notes {
+            XCTAssertEqual(TranscriptFormatter.typrRules(raw, style: .notes, language: .german), expected, raw)
+        }
+        let casual: [(String, String)] = [
+            ("Ich treffe Anna z. B. morgen. Danach komme ich.", "ich treffe Anna z. B. morgen. danach komme ich"),
+            ("Ich habe u.a. Milch gekauft. Und Brot.", "ich habe u.a. Milch gekauft. und Brot"),
+            ("Wir sehen uns am 3. Oktober. Bis dann.", "wir sehen uns am 3. Oktober. bis dann"),
+            ("Bring Brot usw.", "bring Brot usw."),
+        ]
+        for (raw, expected) in casual {
+            XCTAssertEqual(TranscriptFormatter.typrRules(raw, style: .casual, language: .german), expected, raw)
+        }
+        // A number that ends a sentence still ends it.
+        XCTAssertEqual(TranscriptFormatter.typrRules("Wir kommen um 13. Danach weiter.", style: .casual, language: .german),
+                       "wir kommen um 13. danach weiter")
+    }
+
     func testOffAppliesToEveryListLine() {
         XCTAssertEqual(
-            TyprTranscriptFormatter.format("Einkaufsliste: erstens Milch, zweitens Eier.", style: .polished,
+            TranscriptFormatter.typrRules("Einkaufsliste: erstens Milch, zweitens Eier.", style: .polished,
                                        language: .german, lists: true, endsWithPeriod: false),
             "Einkaufsliste:\n1. Milch\n2. Eier"
         )
         XCTAssertEqual(
-            TyprTranscriptFormatter.format("My list: first milk, second eggs.", style: .polished,
+            TranscriptFormatter.typrRules("My list: first milk, second eggs.", style: .polished,
                                        language: .english, lists: true, endsWithPeriod: false),
             "My list:\n1. Milk\n2. Eggs"
         )
     }
 
     /// Lowercase runs after the style on every path (`DictationPipeline.finish`). As in Hex it
-    /// lowercases Verbatim too; Typr dictation styles keeps Typr's Verbatim as the model wrote it.
+    /// lowercases Verbatim too.
     func testLowercaseLowersEverythingAfterTheStyle() {
         let cases: [(String, String)] = [
             ("Ich treffe Anna im Büro. Danach komme ich.", "ich treffe anna im büro. danach komme ich."),
@@ -156,13 +172,9 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
             ("Einkaufsliste:\n1. Milch\n2. Eier", "einkaufsliste:\n1. milch\n2. eier"),
         ]
         for (text, lowered) in cases {
-            for typrStyles in [false, true] {
-                for style in DictationStyle.choices(typrStyles: typrStyles) {
-                    var pipeline = DictationPipeline(style: style, language: "de-DE", lowercase: true)
-                    pipeline.typrStyles = typrStyles
-                    let expected = typrStyles && style == .verbatim ? text : lowered
-                    XCTAssertEqual(pipeline.finish(text, language: "de-DE"), expected, "\(style) \(typrStyles) \(text)")
-                }
+            for style in DictationStyle.allCases {
+                let pipeline = DictationPipeline(style: style, language: "de-DE", lowercase: true)
+                XCTAssertEqual(pipeline.finish(text, language: "de-DE"), lowered, "\(style) \(text)")
             }
         }
     }

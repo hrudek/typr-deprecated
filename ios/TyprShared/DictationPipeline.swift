@@ -15,10 +15,9 @@ import Foundation
 /// `refine` and translation every step is a string rule with no model, so in-keyboard dictation
 /// needs no more memory to run them.
 ///
-/// Typr variants (Settings › Experimental): Typr dictation styles formats with
-/// `TyprTranscriptFormatter`; Typr German formatting rules writes lists and punctuation with
-/// `TyprSpokenLists` and `TyprSpokenPunctuation`, switched by the old Format lists and Spoken
-/// punctuation experiments instead of the Dictation settings.
+/// Typr variant (Settings › Experimental): Typr German formatting rules writes lists and
+/// punctuation with `TyprSpokenLists` and `TyprSpokenPunctuation`, switched by the old Format
+/// lists and Spoken punctuation experiments instead of the Dictation settings.
 nonisolated struct DictationPipeline: Sendable {
     var style: DictationStyle
     /// The dictation language (BCP 47); nil is Typr's Automatic: German unless the text reads as
@@ -34,8 +33,6 @@ nonisolated struct DictationPipeline: Sendable {
     var spokenPunctuation = false
     /// End with a period; off, no line ends with a full stop.
     var endsWithPeriod = true
-    /// Typr dictation styles: `TyprTranscriptFormatter` instead of Hex's `TranscriptFormatter`.
-    var typrStyles = false
     /// Typr German formatting rules: Typr's list and punctuation rules instead of Hex's.
     var typrFormattingRules = false
 
@@ -60,21 +57,18 @@ nonisolated struct DictationPipeline: Sendable {
         self.endsWithPeriod = endsWithPeriod
     }
 
-    /// The pipeline for one dictation, from the settings at its start. A style that isn't on
-    /// offer (Typr's Casual while Typr dictation styles is off) writes as Polished.
+    /// The pipeline for one dictation, from the settings at its start.
     init(
         style: DictationStyle,
         language: DictationLanguage,
         vocabulary: DictationVocabulary,
         settings: TyprSettings
     ) {
-        let typrStyles = settings[experiment: .typrDictationStyles]
         let typrFormattingRules = settings[experiment: .typrGermanFormattingRules]
         self.init(
-            style: style.resolved(typrStyles: typrStyles),
+            style: style,
             language: language.formattingIdentifier
         )
-        self.typrStyles = typrStyles
         self.typrFormattingRules = typrFormattingRules
         self.vocabulary = vocabulary
         spokenCleanup = settings[experiment: .cleanUpWhatISay] && self.style != .verbatim
@@ -151,13 +145,6 @@ nonisolated struct DictationPipeline: Sendable {
 
     /// `text` in the style and language (BCP 47; nil is Automatic).
     func applyStyle(_ text: String, language: String?) -> String {
-        if typrStyles {
-            return TyprTranscriptFormatter.format(
-                text, style: style, language: DictationLanguage(formattingLanguage: language),
-                lists: formatLists, punctuation: spokenPunctuation, endsWithPeriod: endsWithPeriod,
-                rules: typrFormattingRules ? .typr : .hex
-            )
-        }
         return TranscriptFormatter.format(
             text, style: style, language: Self.resolved(language, for: text),
             lists: formatLists, punctuation: spokenPunctuation, endsWithPeriod: endsWithPeriod,
@@ -169,15 +156,14 @@ nonisolated struct DictationPipeline: Sendable {
     /// lowercase a term or capitalize a sentence start: "iPhone" -> "IPhone"), then Lowercase,
     /// with Unicode's context-aware mapping, then, in French, the spaces before `? ! ; :` and
     /// inside `« »` that the styles take out (`FrenchSpacing`). Verbatim keeps the model's
-    /// spacing; as in Hex, Lowercase applies to it too, except with Typr dictation styles.
+    /// spacing; as in Hex, Lowercase applies to it too.
     func finish(
         _ styled: String,
         language: String?,
         onReplacement: ((_ before: String, _ after: String, _ term: String) -> Void)? = nil
     ) -> String {
         let spelled = vocabulary.afterFormatting(styled, onReplacement: onReplacement)
-        let lowercases = lowercase && !(typrStyles && style == .verbatim)
-        let cased = lowercases ? spelled.lowercased(with: nil) : spelled
+        let cased = lowercase ? spelled.lowercased(with: nil) : spelled
         return style == .verbatim ? cased : FrenchSpacing.apply(cased, language: Self.resolved(language, for: cased))
     }
 
