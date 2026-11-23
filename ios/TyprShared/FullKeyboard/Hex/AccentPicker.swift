@@ -1,6 +1,4 @@
-import CoreGraphics
-
-// Hex's file without `AccentCalloutView`, which arrives with Hex's palette and key views.
+import UIKit
 
 /// The options a held key offers after 400 ms: the language's letters on its layout
 /// (`KeyboardLanguage.letterHolds(on:)`),
@@ -343,5 +341,139 @@ nonisolated struct AccentMenu: Equatable, Sendable {
     /// The nearest cell along a one-row callout (or the base's row) for `x`.
     func index(for x: CGFloat) -> Int {
         index(for: CGPoint(x: x, y: cellFrames.indices.contains(selectedIndex) ? cellFrames[selectedIndex].midY : 0))
+    }
+}
+
+/// Floating callout view that renders an active `AccentMenu` over the key plane.
+@MainActor
+final class AccentCalloutView: UIView {
+    var palette = FullKeyboardPalette(isDark: false) { didSet { if palette != oldValue { setNeedsDisplay() } } }
+    private(set) var menu: AccentMenu?
+    /// The skin-tone picker's options' size (fixed cells).
+    var optionFontSize: CGFloat = 22 { didSet { setNeedsDisplay() } }
+    /// An option set apart from the rest by a hairline (an emoji's untoned form).
+    var separatedOption: String? { didSet { setNeedsDisplay() } }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isOpaque = false
+        backgroundColor = .clear
+        isUserInteractionEnabled = false
+        contentMode = .redraw
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+
+    func show(_ menu: AccentMenu?) {
+        guard menu != self.menu else { return }
+        self.menu = menu
+        isHidden = menu == nil
+        setNeedsDisplay()
+    }
+
+    /// Apple's options are 21.5 pt, selected or not.
+    static let font = UIFont.systemFont(ofSize: 21.5, weight: .regular)
+
+    override func draw(_ rect: CGRect) {
+        guard let menu, let context = UIGraphicsGetCurrentContext() else { return }
+        if menu.fixedCells { return drawFixed(menu, in: context) }
+        let pill = UIBezierPath(roundedRect: menu.bubbleFrame, cornerRadius: AccentMenu.cornerRadius)
+
+        context.saveGState()
+        context.setShadow(offset: CGSize(width: 0, height: 1), blur: 6, color: palette.bubbleShadow.cgColor)
+        context.addPath(pill.cgPath)
+        context.setFillColor(palette.bubbleFill.cgColor)
+        context.fillPath()
+        context.restoreGState()
+        // The system cutout's lightening gradient only makes sense on the system look;
+        // a theme paints its own flat bubble.
+        if palette.theme == .automatic, palette.isDark {
+            // Apple's dark callout lightens toward its bottom, as its key pop-up does.
+            context.saveGState()
+            context.addPath(pill.cgPath)
+            context.clip()
+            let colors = [palette.bubbleFill.cgColor, UIColor(white: 0.33, alpha: 1).cgColor] as CFArray
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
+                context.drawLinearGradient(
+                    gradient,
+                    start: CGPoint(x: 0, y: menu.bubbleFrame.minY),
+                    end: CGPoint(x: 0, y: menu.bubbleFrame.maxY),
+                    options: []
+                )
+            }
+            context.restoreGState()
+        }
+
+        for (idx, option) in menu.options.enumerated() {
+            let cell = menu.cellFrames[idx]
+            if idx == menu.selectedIndex {
+                let highlight = UIBezierPath(
+                    roundedRect: cell.insetBy(dx: AccentMenu.highlightInset, dy: 0),
+                    cornerRadius: AccentMenu.highlightRadius
+                )
+                context.saveGState()
+                context.addPath(highlight.cgPath)
+                context.setFillColor(palette.accentSelectFill.cgColor)
+                context.fillPath()
+                context.restoreGState()
+            }
+            let attributes: [NSAttributedString.Key: Any] = [.font: Self.font, .foregroundColor: palette.textBase]
+            let size = (option as NSString).size(withAttributes: attributes)
+            (option as NSString).draw(
+                at: CGPoint(x: cell.midX - size.width / 2, y: cell.midY - size.height / 2),
+                withAttributes: attributes
+            )
+        }
+    }
+
+    /// The skin-tone picker, drawn as it was.
+    private func drawFixed(_ menu: AccentMenu, in context: CGContext) {
+        let pill = UIBezierPath(roundedRect: menu.bubbleFrame, cornerRadius: 12)
+
+        context.saveGState()
+        context.setShadow(offset: CGSize(width: 0, height: 3), blur: 10, color: palette.popupShadow.cgColor)
+        context.addPath(pill.cgPath)
+        context.setFillColor(palette.popupFill.cgColor)
+        context.fillPath()
+        context.restoreGState()
+
+        let scale = max(1, traitCollection.displayScale)
+        context.saveGState()
+        context.addPath(pill.cgPath)
+        context.setLineWidth(1 / scale)
+        context.setStrokeColor(palette.popupBorder.cgColor)
+        context.strokePath()
+        context.restoreGState()
+
+        if let separatedOption, let idx = menu.options.firstIndex(of: separatedOption), menu.options.count > 1 {
+            let cell = menu.cellFrames[idx]
+            let x = idx == 0 ? cell.maxX : cell.minX
+            context.saveGState()
+            context.setFillColor(palette.separator.cgColor)
+            context.fill(CGRect(x: x - 0.5 / scale, y: cell.minY + 9, width: 1 / scale, height: cell.height - 18))
+            context.restoreGState()
+        }
+        for (idx, option) in menu.options.enumerated() {
+            let cell = menu.cellFrames[idx]
+            let isSelected = idx == menu.selectedIndex
+            if isSelected {
+                context.saveGState()
+                let highlight = UIBezierPath(roundedRect: cell.insetBy(dx: 1.5, dy: 2), cornerRadius: 8)
+                context.addPath(highlight.cgPath)
+                context.setFillColor(palette.actionFill.cgColor)
+                context.fillPath()
+                context.restoreGState()
+            }
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: optionFontSize, weight: isSelected ? .medium : .regular),
+                .foregroundColor: isSelected ? UIColor.white : palette.textBase,
+            ]
+            let size = (option as NSString).size(withAttributes: attributes)
+            (option as NSString).draw(
+                at: CGPoint(x: cell.midX - size.width / 2, y: cell.midY - size.height / 2),
+                withAttributes: attributes
+            )
+        }
     }
 }

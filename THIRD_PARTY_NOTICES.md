@@ -921,6 +921,17 @@ MIT, © Christopher Langton ([LICENSE](LICENSE)). Typr loads the locale files fr
 `EmojiData`, keys the locale cache by bundle, and uses `hex.emoji.*` usage and tone
 keys in Typr's existing App Group.
 
+## Hex iOS emoji panel
+
+`EmojiPanelView.swift`, `EmojiViews.swift` and `EmojiGlyphs.swift` in
+`ios/TyprShared/FullKeyboard/Hex/Emoji/` come from
+[`ios/HEXShared/FullKeyboard/Emoji/`](https://github.com/anomalyco/hex/tree/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXShared/FullKeyboard/Emoji)
+in Hex at `0c1c13d71b853ac3113d9a622e4fd9af3755d068`. `EmojiRoutedTarget.swift` there is the
+`EmojiRoutedTarget` class from Hex's `EmojiUsageStore.swift`, and `AccentCalloutView` in
+`ios/TyprShared/FullKeyboard/Hex/AccentPicker.swift` completes Hex's `AccentPicker.swift`, both
+at the same revision. Typr drops two comments naming Hex settings. MIT, © Christopher Langton
+([LICENSE](LICENSE)).
+
 ## Hex iOS Code from Messages chip
 
 The Code from Messages chip in one-time-code fields and the check for Apple's keyboard among
