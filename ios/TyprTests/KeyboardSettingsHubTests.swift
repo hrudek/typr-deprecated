@@ -18,9 +18,9 @@ final class KeyboardSettingsHubTests: XCTestCase {
         defaults.set(false, forKey: "experiments.fullKeyboard")
         let stored = defaults.persistentDomain(forName: suite) as NSDictionary?
 
-        let switches = try await mountedSwitches(KeyboardSettingsCard(defaults: defaults), count: 5)
-        XCTAssertEqual(switches.map(\.isOn), [true, true, true, false, true],
-                       "Hex's keyboard: Auto-capitalization, Autocorrect, Spatial autocorrect, Suggest swear words, Swipe typing")
+        let switches = try await mountedSwitches(KeyboardSettingsCard(defaults: defaults), count: 8)
+        XCTAssertEqual(switches.map(\.isOn), [true, true, true, false, true, true, true, true],
+                       "Hex's keyboard: Auto-capitalization, Autocorrect, Spatial autocorrect, Suggest swear words, Swipe typing, Key pop-ups, Haptics, Emoji")
         XCTAssertTrue(switches.allSatisfy(\.isEnabled), "a retired Full keyboard value disables nothing")
         XCTAssertEqual(defaults.persistentDomain(forName: suite) as NSDictionary?, stored, "opening the page writes nothing")
     }
@@ -36,12 +36,28 @@ final class KeyboardSettingsHubTests: XCTestCase {
     }
 
     func testWordsAndPrivacyHoldsLearningAndBothImports() async throws {
+        let typr = TyprSettings()
+        let wasTyprKeyboard = typr[experiment: .typrKeyboard]
+        defer { typr[experiment: .typrKeyboard] = wasTyprKeyboard }
+        typr[experiment: .typrKeyboard] = true
         let switches = try await mountedSwitches(KeyboardWordsPrivacyCard(), count: 3)
         XCTAssertEqual(switches.map(\.isOn), [TyprSettings().personalLearning,
                                               PersonalLexiconImporter.shared.contactsEnabled,
                                               PersonalLexiconImporter.shared.vocabularyEnabled],
                        "Learn from my typing, Import contacts, Import dictation words")
         XCTAssertTrue(switches.allSatisfy(\.isEnabled))
+    }
+
+    func testWordsAndPrivacyLeadsWithHexLearningOnTheHexKeyboard() async throws {
+        let typr = TyprSettings()
+        let wasTyprKeyboard = typr[experiment: .typrKeyboard]
+        defer { typr[experiment: .typrKeyboard] = wasTyprKeyboard }
+        typr[experiment: .typrKeyboard] = false
+        let switches = try await mountedSwitches(KeyboardWordsPrivacyCard(), count: 4)
+        XCTAssertEqual(switches.map(\.isOn), [TypingJournalSettings().isEnabled, TyprSettings().personalLearning,
+                                              PersonalLexiconImporter.shared.contactsEnabled,
+                                              PersonalLexiconImporter.shared.vocabularyEnabled],
+                       "Learn how I type, Learn from my typing, Import contacts, Import dictation words")
     }
 
     func testDeleteImportedWordsAsksForConfirmation() async throws {

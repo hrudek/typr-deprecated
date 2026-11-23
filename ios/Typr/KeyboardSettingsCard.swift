@@ -56,6 +56,7 @@ struct KeyboardSettingsCard: View {
                 typrTypingAssistance
             } else {
                 hexTypingAssistance
+                HexKeyboardKeysSection(defaults: defaults)
             }
 
             SettingsSection {

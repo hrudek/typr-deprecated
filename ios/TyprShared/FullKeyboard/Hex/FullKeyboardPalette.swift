@@ -12,9 +12,12 @@ struct FullKeyboardPalette: Equatable {
     /// Settings › Experiments › Keyboard themes: Automatic keeps iOS's glass, every other
     /// theme supplies its own opaque colours.
     let theme: KeyboardTheme
+    let mechanical: Bool
 
-    init(isDark: Bool, theme: KeyboardTheme = .automatic) {
+    init(isDark: Bool, theme: KeyboardTheme = .automatic, mechanical: Bool = false) {
+        let theme = mechanical ? .automatic : theme
         self.theme = theme
+        self.mechanical = mechanical
         // A theme decides light or dark for itself: White is light whatever the field asked
         // for, and every dark theme is dark.
         self.isDark = theme.colors?.isDark ?? isDark
@@ -48,16 +51,16 @@ struct FullKeyboardPalette: Equatable {
 
     /// Unified iOS 26 Liquid Glass keycap fill across letters and modifiers:
     /// `white @ 0.16` composites to `(61,61,63)` on dark `(23,24,26)` and `(94,94,96)` on dark-field `(64,64,66)`.
-    var keyFill: UIColor { colors?.keyFill ?? (isDark ? UIColor(white: 1, alpha: 0.16) : .white) }
-    var keyPressedFill: UIColor { colors?.keyPressedFill ?? (isDark ? UIColor(white: 1, alpha: 0.28) : Self.rgb(0xD8DCE4)) }
+    var keyFill: UIColor { typrMechanicalKeyFill ?? colors?.keyFill ?? (isDark ? UIColor(white: 1, alpha: 0.16) : .white) }
+    var keyPressedFill: UIColor { typrMechanicalPressedFill ?? colors?.keyPressedFill ?? (isDark ? UIColor(white: 1, alpha: 0.28) : Self.rgb(0xD8DCE4)) }
     /// A held key on the key plane, under its pop-up: Apple's grey (222 on white keys; 105 on
     /// dark ones, iOS 27.2).
-    var keyHeldFill: UIColor { colors?.keyHeldFill ?? (isDark ? UIColor(white: 1, alpha: 0.32) : Self.rgb(0xDEDEDE)) }
+    var keyHeldFill: UIColor { typrMechanicalPressedFill ?? colors?.keyHeldFill ?? (isDark ? UIColor(white: 1, alpha: 0.32) : Self.rgb(0xDEDEDE)) }
     /// A held shift, delete, globe, emoji or return key: Apple's darker grey (197, 197, 201;
     /// 131 on dark keys).
-    var functionHeldFill: UIColor { colors?.functionHeldFill ?? (isDark ? UIColor(white: 1, alpha: 0.44) : Self.rgb(0xC5C5C9)) }
+    var functionHeldFill: UIColor { typrMechanicalPressedFill ?? colors?.functionHeldFill ?? (isDark ? UIColor(white: 1, alpha: 0.44) : Self.rgb(0xC5C5C9)) }
     /// A held space bar: only a shade darker (242, 242, 247; 56 on dark keys).
-    var spaceHeldFill: UIColor { colors?.spaceHeldFill ?? (isDark ? UIColor(white: 1, alpha: 0.1) : Self.rgb(0xF2F2F7)) }
+    var spaceHeldFill: UIColor { typrMechanicalPressedFill ?? colors?.spaceHeldFill ?? (isDark ? UIColor(white: 1, alpha: 0.1) : Self.rgb(0xF2F2F7)) }
     /// Secondary fill for non-key chips and the recording panel's cancel pill.
     var functionFill: UIColor { isDark ? UIColor(white: 1, alpha: 0.09) : UIColor(white: 0, alpha: 0.065) }
     var keyShadow: UIColor { colors?.keyShadow ?? .clear }

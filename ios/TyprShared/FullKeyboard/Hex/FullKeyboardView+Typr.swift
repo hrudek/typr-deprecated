@@ -35,6 +35,35 @@ extension FullKeyboardView {
             hexTheme: FullKeyboardSettings(defaults: defaults).effectiveKeyboardTheme
         )
     }
+
+    static func typrKeyboardDesign(defaults: UserDefaults? = UserDefaults(suiteName: KeyboardBridge.appGroup)) -> KeyboardDesign {
+        TyprFullKeyboardSettings(defaults: defaults).design
+    }
+}
+
+extension FullKeyboardPalette {
+    private var typrMechanical: TyprFullKeyboardPalette? {
+        mechanical ? TyprFullKeyboardPalette(isDark: isDark, design: .mechanical) : nil
+    }
+
+    var typrMechanicalKeyFill: UIColor? { typrMechanical?.keyFill }
+    var typrMechanicalPressedFill: UIColor? { typrMechanical?.keyPressedFill }
+
+    var keyInk: UIColor { typrMechanical?.keyLabel ?? textBase }
+
+    func inkFrame(_ cap: CGRect) -> CGRect {
+        mechanical ? MechanicalKeycap(isDark: isDark).inkFrame(cap) : cap
+    }
+}
+
+extension CGContext {
+    func fillKeycap(_ rect: CGRect, palette: FullKeyboardPalette, fill: UIColor, radius: CGFloat) {
+        if palette.mechanical {
+            MechanicalKeycap(isDark: palette.isDark).draw(in: self, rect: rect, face: fill, radius: radius)
+        } else {
+            fillKeycap(rect, fill: fill, shadow: palette.keyShadow, radius: radius)
+        }
+    }
 }
 
 extension FullKeyboardView {

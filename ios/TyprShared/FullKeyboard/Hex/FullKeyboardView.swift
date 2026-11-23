@@ -120,6 +120,7 @@ final class FullKeyboardView: UIView {
     /// paints the keyboard's own colours. Read again by `syncSettings`, which rebuilds the
     /// palette when it changes.
     private var keyboardTheme = FullKeyboardView.typrKeyboardTheme()
+    private var keyboardDesign = FullKeyboardView.typrKeyboardDesign()
     /// A paste iOS asked about or refused: the strip points to the setting that stops it.
     var showsAllowPasteHint = false
     var allowPasteHintHideWork: DispatchWorkItem?
@@ -565,8 +566,10 @@ final class FullKeyboardView: UIView {
             refreshStrip()
         }
         let theme = Self.typrKeyboardTheme()
-        if theme != keyboardTheme {
+        let design = Self.typrKeyboardDesign()
+        if theme != keyboardTheme || design != keyboardDesign {
             keyboardTheme = theme
+            keyboardDesign = design
             applyAppearance()
         }
         hapticStrength = FullKeyboardSettings().hapticStrength
@@ -788,7 +791,7 @@ final class FullKeyboardView: UIView {
     private func applyAppearance() {
         let isDark = appearanceOverride
             ?? FullKeyboardPalette.isDark(traits: traitCollection)
-        let next = FullKeyboardPalette(isDark: isDark, theme: keyboardTheme)
+        let next = FullKeyboardPalette(isDark: isDark, theme: keyboardTheme, mechanical: keyboardDesign == .mechanical)
         // A theme paints its own opaque panel, so the system glass behind the keys never
         // shows through. The panel, not this view, keeps the glass panel's corners;
         // Automatic leaves both clear as before.

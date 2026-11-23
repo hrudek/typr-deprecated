@@ -151,8 +151,8 @@ final class HexKeyControl: UIControl {
         if !inStrip {
             context.fillKeycap(
                 cap,
+                palette: palette,
                 fill: isHighlighted ? palette.keyPressedFill : palette.keyFill,
-                shadow: palette.keyShadow,
                 radius: cornerRadius
             )
         } else if isHighlighted {
