@@ -635,10 +635,10 @@ final class FullKeyboardView: UIView {
             engine.refreshSuggestions()
         }
         // Bilingual autocorrect reads the same taps with the other language's model, where it has one.
-        if let partner = engine.autocorrect.partner {
-            let theirs = settings.spatialAutocorrect ? settings.typingModel(for: partner.language) : nil
-            if partner.decoder?.model !== theirs {
-                partner.decoder = theirs.map { TypingDecoder(model: $0) }
+        if let partnerLanguage = engine.autocorrect.partnerLanguage {
+            let theirs = settings.spatialAutocorrect ? settings.typingModel(for: partnerLanguage) : nil
+            if engine.autocorrect.partnerDecoder?.model !== theirs {
+                engine.autocorrect.partnerDecoder = theirs.map { TypingDecoder(model: $0) }
                 engine.refreshSuggestions()
             }
         }
