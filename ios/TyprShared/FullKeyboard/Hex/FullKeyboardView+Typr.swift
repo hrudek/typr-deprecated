@@ -67,10 +67,47 @@ extension CGContext {
 }
 
 extension FullKeyboardView {
-    func syncTyprVariants(_ settings: TyprSettings = TyprSettings()) {
+    func syncTyprVariants() {
+        syncTyprVariants(TyprSettings(defaults: settingsDefaults), keyboard: TyprFullKeyboardSettings(defaults: settingsDefaults))
+    }
+
+    func syncTyprVariants(_ settings: TyprSettings, keyboard: TyprFullKeyboardSettings? = nil) {
+        let keyboard = keyboard ?? TyprFullKeyboardSettings(defaults: settingsDefaults)
+        let bottomRow = settings[experiment: .typrBottomRow] ? keyboard.bottomRow : nil
+        if engine.typrBottomRow != bottomRow {
+            engine.typrBottomRow = bottomRow
+            refreshEmojiKey()
+            setNeedsLayout()
+        }
+        let showsStrip = !(settings[experiment: .typrCompactStrip] && settings.hideSuggestionBar)
+        if engine.showsStrip != showsStrip {
+            engine.showsStrip = showsStrip
+            setNeedsLayout()
+            onPreferredHeightChange?()
+        }
         let repeats = !settings[experiment: .deleteSlide]
         if plane.repeatsHeldDelete != repeats { plane.repeatsHeldDelete = repeats }
         plane.slidesDeleteByWord = !repeats || !settings[experiment: .typrDeleteSliding]
         engine.slidesCursorByCharacter = settings[experiment: .typrCursorSliding]
+    }
+}
+
+extension FullKeyboardView {
+    var stripBandMetrics: KeyboardMetrics {
+        let metrics = engine.layout.metrics
+        guard !engine.showsStrip else { return metrics }
+        return metrics.typrWithStrip(engine.orientation == .landscape ? .typrLandscape : .typrPortrait)
+    }
+
+    var emojiSearchRowHeight: CGFloat { stripBandMetrics.stripHeight }
+
+    var emojiSearchLiftHeight: CGFloat {
+        engine.showsStrip ? engine.layout.metrics.stripHeight : 2 * emojiSearchRowHeight
+    }
+
+    func emojiSearchFieldTop(lift: CGFloat) -> CGFloat {
+        let m = stripBandMetrics
+        let rowTop = engine.showsStrip ? m.stripTop + lift : emojiSearchRowHeight
+        return rowTop + m.stripLineBand.top
     }
 }

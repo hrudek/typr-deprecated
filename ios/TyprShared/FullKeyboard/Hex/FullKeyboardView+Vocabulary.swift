@@ -34,7 +34,7 @@ extension FullKeyboardView {
     /// write there, without Full Access) and uses it at once.
     func addToVocabulary(_ word: String) {
         typingLog?.ui("vocabulary_add")
-        let settings = CustomVocabularySettings()
+        let settings = CustomVocabularySettings(defaults: settingsDefaults)
         let terms = CustomVocabularySettings.sanitize(settings.terms + engine.autocorrect.vocabulary + [word])
         settings.terms = terms
         engine.autocorrect.setVocabulary(terms)

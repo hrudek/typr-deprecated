@@ -10,7 +10,7 @@ import UIKit
 /// from memory warnings; the panel, its grid and the search go when the panel closes.
 extension FullKeyboardView {
     var emojiEnabled: Bool {
-        emojiOverride ?? FullKeyboardSettings().emoji
+        emojiOverride ?? FullKeyboardSettings(defaults: settingsDefaults).emoji
     }
 
     /// Emoji in text fields that take any text: not web addresses, email addresses or
@@ -21,7 +21,7 @@ extension FullKeyboardView {
             guard case .keys(.text, _) = KeyboardFieldRouting.route(for: document.keyboardType) else { return false }
             return document.keyboardType != .asciiCapable
         }()
-        let shows = emojiEnabled && takesEmoji
+        let shows = (engine.typrBottomRow?.emojiKey ?? emojiEnabled) && takesEmoji
         guard engine.showsEmoji != shows else { return }
         engine.showsEmoji = shows
         plane.setNeedsDisplay()
@@ -158,7 +158,7 @@ extension FullKeyboardView {
         emojiResults = results
 
         plane.isHidden = false
-        emojiSearchLift = engine.layout.metrics.stripHeight
+        emojiSearchLift = emojiSearchLiftHeight
         onPreferredHeightChange?()
         engine.configureForField()
         refreshReturnKey()
@@ -208,7 +208,7 @@ extension FullKeyboardView {
 
     func layoutEmoji(content: CGRect, lift: CGFloat) {
         let layout = engine.layout
-        let m = layout.metrics
+        let m = stripBandMetrics
         if let panel = emojiPanel {
             panel.frame = routedTarget.isSearching ? content : bounds
             panel.metrics = m
@@ -217,7 +217,7 @@ extension FullKeyboardView {
             // it at the plane's frame (the lift is zero then); the ABC experiment puts the
             // panel's ABC under it. Searching lifts the panel and hides it, and shows ABC
             // nowhere, so there is no key to sit under.
-            let underEmojiKey = emojiLettersUnderEmojiKeyOverride ?? FullKeyboardSettings().emojiLettersUnderEmojiKey
+            let underEmojiKey = emojiLettersUnderEmojiKeyOverride ?? FullKeyboardSettings(defaults: settingsDefaults).emojiLettersUnderEmojiKey
             panel.emojiKeyFrame = underEmojiKey && !routedTarget.isSearching
                 ? layout.key(.emoji)?.frame.offsetBy(dx: 0, dy: lift)
                 : nil
@@ -225,8 +225,9 @@ extension FullKeyboardView {
         let inset = layout.horizontalInset
         // Centred on the strip's words' line, as the emoji panel's top row.
         let band = m.stripLineBand
-        emojiSearchField?.frame = CGRect(x: inset, y: m.stripTop + lift + band.top, width: bounds.width - 2 * inset, height: band.height)
-        emojiResults?.frame = CGRect(x: inset + m.side, y: 0, width: bounds.width - 2 * (inset + m.side), height: lift)
+        emojiSearchField?.frame = CGRect(x: inset, y: emojiSearchFieldTop(lift: lift), width: bounds.width - 2 * inset, height: band.height)
+        let resultsHeight = engine.showsStrip ? lift : emojiSearchRowHeight
+        emojiResults?.frame = CGRect(x: inset + m.side, y: 0, width: bounds.width - 2 * (inset + m.side), height: resultsHeight)
     }
 
     // MARK: - Strip

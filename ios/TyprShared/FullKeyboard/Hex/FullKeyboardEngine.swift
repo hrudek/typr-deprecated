@@ -123,6 +123,8 @@ final class FullKeyboardEngine {
     var width: CGFloat = 375 { didSet { if width != oldValue { rebuildLayout() } } }
     var orientation: KeyboardOrientation = .portrait { didSet { if orientation != oldValue { rebuildLayout() } } }
     var showsGlobe = false { didSet { if showsGlobe != oldValue { rebuildLayout() } } }
+    var typrBottomRow: BottomRow? { didSet { if typrBottomRow != oldValue { rebuildLayout(cause: "typr_bottom_row") } } }
+    var showsStrip = true { didSet { if showsStrip != oldValue { rebuildLayout(cause: "typr_compact_strip") } } }
     /// Settings › Keyboard › Emoji, in fields that take emoji.
     var showsEmoji = false { didSet { if showsEmoji != oldValue { rebuildLayout() } } }
     var horizontalInset: CGFloat = 0 { didSet { if horizontalInset != oldValue { rebuildLayout() } } }
@@ -1464,7 +1466,9 @@ final class FullKeyboardEngine {
             numberRow: hasNumberRow,
             joinsUnfoldedKeyboard: joinsUnfoldedKeyboard,
             dvorakPunctuation: dvorakPunctuation,
-            availableHeight: availableHeight
+            availableHeight: availableHeight,
+            typrBottomRow: typrBottomRow,
+            showsStrip: showsStrip
         )
         autocorrect.setKeys(layout.language, letters: layout.letters)
         syncDecoderKeys()

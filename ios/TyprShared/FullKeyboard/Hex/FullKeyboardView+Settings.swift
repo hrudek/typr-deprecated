@@ -9,7 +9,7 @@ extension FullKeyboardView {
     /// Settings › Keyboard › Hex key: Right (the strip's trailing end) or Left (its leading
     /// end), kept in `HexKeyPlacement.current` too for typing logs.
     func syncHexPlacement() {
-        let placement = hexPlacementOverride ?? FullKeyboardSettings().hexKeyPlacement
+        let placement = hexPlacementOverride ?? FullKeyboardSettings(defaults: settingsDefaults).hexKeyPlacement
         HexKeyPlacement.current = placement
         guard engine.hexPlacement != placement else { return }
         plane.cancelAllTouches()
@@ -21,7 +21,7 @@ extension FullKeyboardView {
     /// Settings › Keyboard › Number row: the keyboard grows by the row, so the host is asked
     /// for the new height.
     func syncNumberRow() {
-        let shows = FullKeyboardSettings().numberRow
+        let shows = FullKeyboardSettings(defaults: settingsDefaults).numberRow
         guard engine.showsNumberRow != shows else { return }
         plane.cancelAllTouches()
         dismissStyleMenu()
@@ -34,7 +34,7 @@ extension FullKeyboardView {
     /// one keyboard rather than the split one. The rows keep their heights, so the host is asked
     /// for nothing.
     func syncJoinsUnfoldedKeyboard() {
-        let joins = FullKeyboardSettings().joinsKeyboardWhenUnfolded
+        let joins = FullKeyboardSettings(defaults: settingsDefaults).joinsKeyboardWhenUnfolded
         guard engine.joinsUnfoldedKeyboard != joins else { return }
         plane.cancelAllTouches()
         dismissStyleMenu()
@@ -45,7 +45,7 @@ extension FullKeyboardView {
     /// Settings › Experiments › Dvorak punctuation keys: English's Dvorak letters gain comma,
     /// period and semicolon keys. No row changes height, so the host is asked for nothing.
     func syncDvorakPunctuation() {
-        let on = FullKeyboardSettings().dvorakPunctuation
+        let on = FullKeyboardSettings(defaults: settingsDefaults).dvorakPunctuation
         guard engine.dvorakPunctuation != on else { return }
         plane.cancelAllTouches()
         dismissStyleMenu()

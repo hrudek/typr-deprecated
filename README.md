@@ -143,7 +143,11 @@ or load finishes stopping.
   and, under Words and privacy, Learn how I type with Adaptive touch's status and reset.
   Appearance sets the design (Mechanical, off by default, draws Typr's mechanical keycaps
   and replaces a keyboard theme), the Typr key's side and the number row over a live
-  preview of it. Experimental › **Typr keyboard** (off by default) brings
+  preview of it. Experimental › **Typr bottom row** (off by default) puts the Typr key
+  beside the space bar with Typr's period and emoji keys in the order set on Appearance, and
+  **Typr compact strip** (off) lets Appearance hide the whole suggestion bar: the keyboard
+  gets shorter and the Typr key moves beside space. Both keep Hex's rows on an iPad and the
+  Duo's split keyboard. Experimental › **Typr keyboard** (off by default) brings
   back Typr's own keyboard with its own settings, described below; switches marked "Only
   with Typr keyboard" act only there.
   Typr keyboard adds German/English autocorrect and adaptive suggestions. With both
