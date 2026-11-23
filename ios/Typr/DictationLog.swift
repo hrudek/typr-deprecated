@@ -59,8 +59,6 @@ enum DictationLogStatus: String, Codable, Sendable {
     }
 }
 
-// `upstream` remains decodeable for durable logs from before the experiment was removed.
-// New dictations use only `typr` or `none`.
 enum DictationLogCleanupPath: String, Codable, Sendable { case typr, upstream, none }
 
 enum DictationLogASRFailure: String, Codable, Sendable {

@@ -11,6 +11,7 @@ final class DictationController {
     static let shared = DictationController(
         autoPrepareOnInit: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
         cleanup: TranscriptCleanupProduction.dependencies(),
+        appleIntelligenceCleaner: AppleIntelligenceCleaner(),
         dictationLog: .shared,
         statistics: UsageDictationRecorder(store: UsageStatisticsStore()),
         liveActivity: LiveActivityCoordinator(),
@@ -73,6 +74,7 @@ final class DictationController {
         let vocabulary: DictationVocabulary
         let vocabularyEnabled: Bool
         let typrCleanupEnabled: Bool
+        let appleIntelligenceCleanup: Bool
         /// Spelling, Clean up what I say and formatting, frozen at start.
         let pipeline: DictationPipeline
         let copyToPasteboard: Bool
@@ -116,6 +118,7 @@ final class DictationController {
     var returnHost: String?
 
     let cleanup: TranscriptCleanupDependencies?
+    private let appleIntelligenceCleaner: (any TranscriptCleaning)?
     private let transcriptionBackground: any BackgroundTaskStarting
     private let cleanupCoordinator = CleanupCoordinator()
     let statistics: UsageDictationRecorder?
@@ -283,6 +286,7 @@ final class DictationController {
         customVocabularySettings: CustomVocabularySettings = CustomVocabularySettings(),
         dictationLearning: DictationLearningStore = DictationLearningStore(),
         cleanup: TranscriptCleanupDependencies? = nil,
+        appleIntelligenceCleaner: (any TranscriptCleaning)? = nil,
         transcriptionBackground: (any BackgroundTaskStarting)? = nil,
         dictationLog: DictationLogStore? = nil,
         statistics: UsageDictationRecorder? = nil,
@@ -303,6 +307,7 @@ final class DictationController {
         let preferred = languageSettings.preferredSpeechEngine
 
         self.cleanup = cleanup
+        self.appleIntelligenceCleaner = appleIntelligenceCleaner
         self.transcriptionBackground = transcriptionBackground ?? SystemBackgroundTasks(name: "Transcription")
         self.dictationLog = dictationLog
         self.statistics = statistics
@@ -860,15 +865,17 @@ final class DictationController {
             settings: customVocabularySettings,
             learnedFixes: languageSettings[experiment: .learnFromEdits] ? dictationLearning.corrections : []
         )
-        let enabled = cleanup?.isEnabled() == true
+        let appleIntelligenceCleanup = effectiveStyle != .verbatim
+            && languageSettings[experiment: .appleIntelligenceCleanup]
+        let typrCleanupEnabled = !appleIntelligenceCleanup && cleanup?.isEnabled() == true
         let logToken = dictationLog?.token()
         let logCleanupPath: DictationLogCleanupPath = effectiveStyle == .verbatim ? .none
-            : (enabled ? .typr : .none)
-        let cleanupEnabled = enabled && effectiveStyle != .verbatim
+            : (appleIntelligenceCleanup ? .upstream : (typrCleanupEnabled ? .typr : .none))
+        let cleanupEnabled = typrCleanupEnabled && effectiveStyle != .verbatim
         let pipeline = DictationPipeline(style: effectiveStyle, language: captureLanguage,
                                          vocabulary: vocabulary, settings: languageSettings)
         let translationTarget = languageSettings.translateDictation && translator != nil ? languageSettings.translationTarget : nil
-        let disabledCleanupReason: CleanupSkipReason? = !enabled ? .off : (effectiveStyle == .verbatim ? .verbatim : nil)
+        let disabledCleanupReason: CleanupSkipReason? = !typrCleanupEnabled ? .off : (effectiveStyle == .verbatim ? .verbatim : nil)
         // The keyboard's caret text and host app; a cold start knows only the app it came from.
         var cleanupContext = keyboardContext ?? CleanupContext(application: attemptAutoReturnOnStart ? returnHost : nil)
         cleanupContext.language = captureLanguage
@@ -898,7 +905,8 @@ final class DictationController {
                 vocabularyTerms: vocabularyTerms,
                 vocabulary: vocabulary,
                 vocabularyEnabled: vocabularyEnabled,
-                typrCleanupEnabled: enabled,
+                typrCleanupEnabled: typrCleanupEnabled,
+                appleIntelligenceCleanup: appleIntelligenceCleanup,
                 pipeline: pipeline,
                 copyToPasteboard: copyToPasteboard,
                 cleanupJob: cleanupJob,
@@ -1033,7 +1041,7 @@ final class DictationController {
                 duration: finalDuration, loudestAverage: loudestAverageDBFS,
                 cleanupPath: session.logCleanupPath, vocabularyCount: session.vocabularyTerms.count,
                 vocabularyEnabled: session.vocabularyEnabled,
-                upstreamCleanupEnabled: false,
+                upstreamCleanupEnabled: session.appleIntelligenceCleanup,
                 typrCleanupEnabled: session.typrCleanupEnabled,
                 cleanupContext: session.cleanupContext),
                 stoppedAt: stoppedAt)
@@ -1112,6 +1120,12 @@ final class DictationController {
                             dependencies: cleanup, skipReason: session.cleanupSkipReason,
                             vocabulary: terms, context: session.cleanupContext, diagnostics: recording)
                     }
+                } else if session.appleIntelligenceCleanup, let cleaner = self.appleIntelligenceCleaner {
+                    refine = { text, _ in
+                        guard cleaner.isAvailable,
+                              cleaner.supports(language: session.language.formattingLanguage(for: text)) else { return text }
+                        return await cleaner.clean(text) ?? text
+                    }
                 }
                 var translationFailure: TranslationFailure?
                 var translated = false
@@ -1141,7 +1155,7 @@ final class DictationController {
                     onSpelled: { [weak self] spelled in
                         recording?.recognized(rawText, spelled: spelled, asrMilliseconds: asrMilliseconds,
                                               spellingPass: firstPass)
-                        if let skipped, let cleanup {
+                        if !session.appleIntelligenceCleanup, let skipped, let cleanup {
                             self?.cleanupCoordinator.recordSkip(skipped, dependencies: cleanup, diagnostics: recording)
                         }
                     },
