@@ -18,18 +18,30 @@ final class TestStateWaitingTests: XCTestCase {
     }
 
     func testAWaitThatNeverHoldsFailsAfterTheTimeout() async throws {
-        let holds = try await pollState(timeout: .milliseconds(50)) { false }
-        XCTAssertFalse(holds)
+        let result = try await pollState(timeout: .milliseconds(50)) { false }
+        XCTAssertFalse(result.holds)
     }
 
-    func testRepeatedStallsStopExtendingTheDeadlineAfterThreeTimeouts() async throws {
+    /// A frozen runner (one poll far beyond the timeout) is credited in full.
+    func testOneLongStallIsCreditedInFull() async throws {
         var polls = 0
-        let holds = try await pollState(timeout: .milliseconds(100)) {
+        let result = try await pollState(timeout: .milliseconds(100)) {
             polls += 1
-            block(milliseconds: 350)
+            if polls == 2 { block(milliseconds: 1_000) }
+            return polls >= 4
+        }
+        XCTAssertTrue(result.holds)
+        XCTAssertEqual(result.stalls, 1)
+    }
+
+    func testRepeatedStallsStopExtendingTheDeadline() async throws {
+        var polls = 0
+        let result = try await pollState(timeout: .milliseconds(100)) {
+            polls += 1
+            block(milliseconds: 150)
             return false
         }
-        XCTAssertFalse(holds)
-        XCTAssertLessThanOrEqual(polls, 3)
+        XCTAssertFalse(result.holds)
+        XCTAssertLessThanOrEqual(polls, maxCreditedStalls + 1)
     }
 }
