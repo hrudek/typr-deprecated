@@ -268,7 +268,7 @@ final class AIOffSnapshotTests: XCTestCase {
                 $0[experiment: .typrGermanFormattingRules] = true
                 $0[experiment: .formatLists] = true
                 $0[experiment: .spokenPunctuation] = true
-                $0[experiment: .cleanUpWhatISay] = true
+                $0[experiment: .typrConservativeSpokenCleanup] = true
             }),
         ]
         let corpus = Self.corpus + [
