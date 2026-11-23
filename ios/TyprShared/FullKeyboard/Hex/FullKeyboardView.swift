@@ -783,7 +783,7 @@ final class FullKeyboardView: UIView {
         if let panel = recordingPanel {
             panel.frame = recordingPanelFrame
             panel.horizontalInset = layout.horizontalInset
-            panel.metrics = recordingPanelMetrics
+            panel.metrics = stripBandMetrics
             panel.hexOnLeading = layout.hexOnLeading
         }
         if let menu = styleMenu, let hex = layout.key(.hex) {
@@ -984,7 +984,7 @@ final class FullKeyboardView: UIView {
     /// Where the recording panel sits: the suggestion strip, full width and its height, so
     /// neither the keyboard nor the keys move.
     private var recordingPanelFrame: CGRect {
-        let m = recordingPanelMetrics
+        let m = stripBandMetrics
         return CGRect(x: 0, y: m.stripTop + appliedLift, width: bounds.width, height: m.stripHeight)
     }
 

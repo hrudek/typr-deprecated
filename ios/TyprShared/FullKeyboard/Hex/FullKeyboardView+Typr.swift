@@ -87,8 +87,21 @@ extension FullKeyboardView {
 }
 
 extension FullKeyboardView {
-    var recordingPanelMetrics: KeyboardMetrics {
-        guard !engine.showsStrip else { return engine.layout.metrics }
-        return engine.orientation == .landscape ? .typrLandscape : .typrPortrait
+    var stripBandMetrics: KeyboardMetrics {
+        let metrics = engine.layout.metrics
+        guard !engine.showsStrip else { return metrics }
+        return metrics.typrWithStrip(engine.orientation == .landscape ? .typrLandscape : .typrPortrait)
+    }
+
+    var emojiSearchRowHeight: CGFloat { stripBandMetrics.stripHeight }
+
+    var emojiSearchLiftHeight: CGFloat {
+        engine.showsStrip ? engine.layout.metrics.stripHeight : 2 * emojiSearchRowHeight
+    }
+
+    func emojiSearchFieldTop(lift: CGFloat) -> CGFloat {
+        let m = stripBandMetrics
+        let rowTop = engine.showsStrip ? m.stripTop + lift : emojiSearchRowHeight
+        return rowTop + m.stripLineBand.top
     }
 }

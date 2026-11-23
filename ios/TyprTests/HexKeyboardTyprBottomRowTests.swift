@@ -139,14 +139,40 @@ final class HexKeyboardTyprBottomRowTests: XCTestCase {
         XCTAssertTrue(view.stripView.clipsToBounds)
         XCTAssertEqual(view.stripView.frame.height, 0)
         XCTAssertFalse(view.hexKey.inStrip)
-        XCTAssertEqual(view.recordingPanelMetrics.stripHeight, KeyboardMetrics.typrPortrait.stripHeight)
+        XCTAssertEqual(view.stripBandMetrics.stripHeight, KeyboardMetrics.typrPortrait.stripHeight)
 
         typr.hideSuggestionBar = false
         sync(view)
         XCTAssertTrue(view.engine.showsStrip)
         XCTAssertEqual(view.preferredHeight, 253)
         XCTAssertEqual(heightChanges, 2)
-        XCTAssertEqual(view.recordingPanelMetrics, view.engine.layout.metrics)
+        XCTAssertEqual(view.stripBandMetrics, view.engine.layout.metrics)
+    }
+
+    func testEmojiPanelAndSearchKeepAStripRowWithoutTheStrip() throws {
+        let typr = TyprSettings(defaults: defaults)
+        typr[experiment: .typrCompactStrip] = true
+        typr.hideSuggestionBar = true
+        let view = makeView()
+        view.emojiOverride = true
+        view.debugOpenEmoji()
+        view.layoutIfNeeded()
+        let panel = try XCTUnwrap(view.emojiPanel)
+        XCTAssertEqual(panel.metrics.stripHeight, KeyboardMetrics.typrPortrait.stripHeight, "the panel's top row keeps its room")
+        XCTAssertEqual(panel.metrics.keyHeight, view.engine.layout.metrics.keyHeight)
+
+        view.beginEmojiSearch()
+        view.frame.size.height = view.preferredHeight
+        view.layoutIfNeeded()
+        let row = KeyboardMetrics.typrPortrait.stripHeight
+        XCTAssertEqual(view.emojiSearchLift, 2 * row)
+        let results = try XCTUnwrap(view.emojiResults).frame
+        let field = try XCTUnwrap(view.emojiSearchField).frame
+        XCTAssertEqual(results.height, row)
+        XCTAssertGreaterThan(field.height, 0)
+        XCTAssertGreaterThanOrEqual(field.minY, results.maxY)
+        let firstKeyTop = try XCTUnwrap(view.engine.layout.keys.map(\.frame.minY).min()) + view.emojiSearchLift
+        XCTAssertLessThanOrEqual(field.maxY, firstKeyTop, "the search field sits above the keys")
     }
 
     func testCombinationsWithMechanicalSlidingAndSlideDelete() {

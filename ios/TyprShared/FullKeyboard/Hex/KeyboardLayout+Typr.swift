@@ -56,4 +56,16 @@ extension KeyboardMetrics {
             numberRowHeight: numberRowHeight
         )
     }
+
+    nonisolated func typrWithStrip(_ bar: KeyboardMetrics) -> KeyboardMetrics {
+        KeyboardMetrics(
+            side: side, gap: gap, rowGap: rowGap, keyHeight: keyHeight,
+            stripTop: bar.stripTop, stripHeight: bar.stripHeight, stripBottom: bar.stripBottom,
+            keysTop: keysTop, keysBottom: keysBottom, cornerRadius: cornerRadius,
+            bottomRowTrim: bottomRowTrim, bottomRowReturnColumn: bottomRowReturnColumn,
+            bottomRowLeadColumn: bottomRowLeadColumn,
+            modifierLetterRatio: modifierLetterRatio, pad: pad, accentCellWidth: accentCellWidth,
+            numberRowHeight: numberRowHeight
+        )
+    }
 }
