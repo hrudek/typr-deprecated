@@ -549,10 +549,8 @@ final class KeyboardViewController: UIInputViewController {
         mountSurface()
     }
 
-    /// In-keyboard dictation where it can run, else opens Typr to start the microphone, naming
-    /// the app to return to (`KeyboardHost`). With Typr automatic host return, a share sheet, a
-    /// notification's reply or Spotlight, which close once left, taking their text with them,
-    /// don't open Typr; dictation needs a warm mic instead.
+    /// A share sheet, a notification's reply or Spotlight closes once left, taking its text
+    /// with it, so with Typr automatic host return Typr is not opened from there.
     private func coldStart() {
         if localDictation.isArmed || localDictationRoute == .keyboard, localDictation.start(in: view) {
             viewModel.hostNotice = nil

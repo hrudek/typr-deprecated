@@ -347,7 +347,6 @@ nonisolated struct KeyboardSnapshot: Codable, Equatable, Sendable {
         return now < resultExpiresAt + Self.resultOfferWindow
     }
 
-    /// Paste dictation offers this result: too late to go in by itself, not inserted yet.
     func isOffered(lastInserted: String?, at now: TimeInterval) -> Bool {
         !hasDeliverableResult(at: now) && hasOfferableResult(at: now) && resultID != lastInserted
     }

@@ -18,9 +18,7 @@ enum KeyboardDictationRoute: Equatable {
         available == 0 || available >= (captureLoaded ? restartHeadroomNeeded : startHeadroomNeeded)
     }
 
-    /// Hex's in-keyboard dictation is on by default, except with Typr always dictate in app or
-    /// while Typr dictates the language with the multilingual model (Hex's `keyboardNeedsHex`):
-    /// it can't load in a keyboard.
+    /// The multilingual model can't load in a keyboard, so while it dictates, Typr does (Hex's `keyboardNeedsHex`).
     static func keyboardAllowed(
         fullAccess: Bool,
         settings: TyprSettings = TyprSettings(),
