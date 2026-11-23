@@ -451,7 +451,7 @@ final class FullKeyboardEngine {
 
     // MARK: - Touches
 
-    func touchBegan(id: Int, at point: CGPoint) {
+    func touchBegan(id: Int, at point: CGPoint, deleteTakesSwipeBack: Bool = true) {
         // A key while a selection's actions show only dismisses them: it types nothing, and
         // neither does a third finger while both thumbs are still down.
         if selectionActionsShown {
@@ -508,7 +508,7 @@ final class FullKeyboardEngine {
             shift.shiftDown(now: clock())
             logState("shift_key")
         case .delete:
-            deleteBackward()
+            deleteBackward(takesSwipeBack: deleteTakesSwipeBack)
         case .layerSwitch(let next):
             commitHangulComposition()
             touch.returnLayer = layerState.layer
@@ -793,8 +793,12 @@ final class FullKeyboardEngine {
             activeAccentTouchID = nil
             typingLog?.ui("accent_cancel", [TypingLogField("id", .int(id))])
         }
-        guard touches.removeValue(forKey: id) != nil else { return }
+        guard let touch = touches.removeValue(forKey: id) else { return }
         touchOrder.removeAll { $0 == id }
+        if touch.key.kind == .shift, !touches.values.contains(where: { $0.key.kind == .shift }) {
+            shift.shiftUp()
+            logState("cancel")
+        }
         onChange?()
     }
 
