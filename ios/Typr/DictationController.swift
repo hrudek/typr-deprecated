@@ -89,8 +89,8 @@ final class DictationController {
         let transcriber: any LocalTranscribing
         let language: DictationLanguage
         let speechLanguageName: String
-        /// Translate what I say's output language, frozen at start; nil inserts as spoken.
-        let translationTarget: DictationLanguage?
+        /// Translate what I say, frozen at start; nil inserts as spoken.
+        let translation: DictationTranslationPlan?
     }
 
     struct PendingKeyboardHandoff {
@@ -123,7 +123,9 @@ final class DictationController {
     private let cleanupCoordinator = CleanupCoordinator()
     let statistics: UsageDictationRecorder?
     let languageSettings: TyprSettings
-    private let translator: DictationTranslator?
+    private let translationSettings: DictationTranslationSettings
+    /// Apple's translation when nil (`DictationTranslationPlan.translate`).
+    private let translationEngine: TranslationEngine?
     var pendingCleanupJob: CleanupJob?
     private var transcriptionHeartbeat: Task<Void, Never>?
     private let dictationLog: DictationLogStore?
@@ -169,7 +171,7 @@ final class DictationController {
     private var keyboardFeedbackOffer: DictationFeedbackOffer?
     private var keyboardResultExpiresAt: TimeInterval?
     private var keyboardResult: String?
-    private var keyboardResultNote: String?
+    private var keyboardResultTranslationFailure: TranslationFailure?
     private var keyboardResultTranslated = false
     private var keyboardMessage: String?
     var pendingHandoff: PendingKeyboardHandoff?
@@ -309,10 +311,12 @@ final class DictationController {
         audioActivationRetryDelays: [Duration] = DictationController.audioActivationRetryDelays,
         modelBackground: (any ModelPreparationScheduling)? = nil,
         deferPreparationUntilActive: Bool = false,
-        translator: DictationTranslator? = .system,
+        translationSettings: DictationTranslationSettings = DictationTranslationSettings(),
+        translationEngine: TranslationEngine? = nil,
         multilingualDownload: ParakeetUltraDownload? = nil
     ) {
-        self.translator = translator
+        self.translationSettings = translationSettings
+        self.translationEngine = translationEngine
         self.multilingualDownload = multilingualDownload ?? ParakeetUltraDownload()
         self.audioRetryDelays = audioActivationRetryDelays
         let resolvedBridge = keyboardBridge ?? KeyboardBridge()
@@ -593,8 +597,9 @@ final class DictationController {
     // MARK: - Keyboard Launch & Auto-Return
 
     func handleKeyboardLaunch(_ request: KeyboardLaunchRequest) {
-        if case .setup = request {
-            return
+        switch request {
+        case .setup, .translationSettings: return
+        case .startSession, .startRecording: break
         }
         autoReturnFallbackTask?.cancel()
         autoReturnState = .idle
@@ -615,7 +620,7 @@ final class DictationController {
         }
 
         switch request {
-        case .setup:
+        case .setup, .translationSettings:
             break
 
         case .startSession:
@@ -897,7 +902,8 @@ final class DictationController {
         let cleanupEnabled = typrCleanupEnabled && effectiveStyle != .verbatim
         let pipeline = DictationPipeline(style: effectiveStyle, language: captureLanguage,
                                          vocabulary: vocabulary, settings: languageSettings)
-        let translationTarget = languageSettings.translateDictation && translator != nil ? languageSettings.translationTarget : nil
+        let translation = DictationTranslationPlan(settings: translationSettings,
+                                                   typrPolicy: languageSettings[experiment: .typrTranslationPolicy])
         let disabledCleanupReason: CleanupSkipReason? = !typrCleanupEnabled ? .off : (effectiveStyle == .verbatim ? .verbatim : nil)
         // The keyboard's caret text and host app; a cold start knows only the app it came from.
         var cleanupContext = keyboardContext ?? CleanupContext(application: attemptAutoReturnOnStart ? returnHost : nil)
@@ -940,7 +946,7 @@ final class DictationController {
                 transcriber: captureTranscriber,
                 language: captureLanguage,
                 speechLanguageName: captureLanguageName,
-                translationTarget: translationTarget
+                translation: translation
             )
             refreshWarmExpiry()
             audioLevel = 0
@@ -1153,19 +1159,18 @@ final class DictationController {
                 var translationFailure: TranslationFailure?
                 var translated = false
                 var translate: ((String) async -> DictationPipeline.Translation)?
-                if let target = session.translationTarget, let translator = self.translator {
+                if let plan = session.translation {
                     translate = { [weak self] text in
-                        guard let self, self.jobGeneration == captureGeneration, !Task.isCancelled,
-                              let outcome = await translator.translate(text, from: session.language, to: target),
-                              self.jobGeneration == captureGeneration, !Task.isCancelled else { return .asSpoken }
+                        guard let self, self.jobGeneration == captureGeneration, !Task.isCancelled else { return .asSpoken }
+                        let outcome = await plan.translate(text, source: session.language,
+                                                           settings: self.translationSettings, engine: self.translationEngine)
+                        guard self.jobGeneration == captureGeneration, !Task.isCancelled else { return .asSpoken }
                         switch outcome {
                         case .translated(let translation):
                             translated = true
-                            self.languageSettings.translationFailure = nil
-                            return .translated(translation, language: target.formattingIdentifier)
+                            return .translated(translation, language: plan.target)
                         case .failed(let failure):
                             translationFailure = failure
-                            self.languageSettings.translationFailure = failure
                             return .asSpoken
                         case .skipped:
                             return .asSpoken
@@ -1219,7 +1224,7 @@ final class DictationController {
                 if keyboardJobID != nil {
                     self.keyboardResultID = UUID().uuidString
                     self.keyboardResult = formatted
-                    self.keyboardResultNote = translationFailure?.note
+                    self.keyboardResultTranslationFailure = translationFailure
                     self.keyboardResultTranslated = translated
                     self.keyboardResultExpiresAt = self.now() + Self.resultDeliveryTTL
                     if let recording, let resultID = self.keyboardResultID, let keyboardJobID {
@@ -1487,7 +1492,7 @@ final class DictationController {
             keyboardResultID = nil
             keyboardFeedbackOffer = nil
             keyboardResult = nil
-            keyboardResultNote = nil
+            keyboardResultTranslationFailure = nil
             keyboardResultTranslated = false
             keyboardResultExpiresAt = nil
         }
@@ -1546,7 +1551,7 @@ final class DictationController {
                 resultID: keyboardResultID,
                 resultExpiresAt: keyboardResultExpiresAt,
                 transcript: keyboardResult,
-                resultNote: keyboardResultNote,
+                translationFailure: keyboardResultTranslationFailure,
                 translated: keyboardResultTranslated,
                 message: failureMessage,
                 feedbackOffer: keyboardFeedbackOffer?.resultID == keyboardResultID ? keyboardFeedbackOffer : nil

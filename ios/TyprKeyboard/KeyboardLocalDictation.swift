@@ -82,7 +82,7 @@ final class KeyboardLocalDictation {
     /// kept if the touch becomes a hold (`start`).
     func arm(in host: UIView) {
         let jobID = UUID().uuidString
-        guard state.arm(jobID: jobID, at: Date().timeIntervalSince1970) else { return }
+        guard state.arm(jobID: jobID, at: Date().timeIntervalSince1970, translation: Self.translationPlan()) else { return }
         begin(jobID: jobID, in: host)
         DispatchQueue.main.asyncAfter(deadline: .now() + KeyboardLocalCapture.armedTimeout) { [weak self] in
             guard let self, self.state.expireArmed(jobID: jobID, now: Date().timeIntervalSince1970) else { return }
@@ -92,7 +92,7 @@ final class KeyboardLocalDictation {
 
     /// Keeps an armed capture or starts a new one; false when nothing started.
     func start(in host: UIView) -> Bool {
-        switch state.start(jobID: UUID().uuidString, at: Date().timeIntervalSince1970) {
+        switch state.start(jobID: UUID().uuidString, at: Date().timeIntervalSince1970, translation: Self.translationPlan()) {
         case .kept:
             return true
         case .begin(let jobID):
@@ -211,12 +211,20 @@ final class KeyboardLocalDictation {
         speech = nil
     }
 
+    private static func translationPlan() -> DictationTranslationPlan? {
+        DictationTranslationPlan(settings: DictationTranslationSettings(),
+                                 typrPolicy: TyprSettings()[experiment: .typrTranslationPolicy])
+    }
+
     private func transcribe(_ jobID: String) {
         guard case .transcribing(let current) = state.phase, current == jobID, transcription == nil,
               #available(iOS 26.0, *), let stream = speech as? KeyboardSpeechStream else { return }
         speech = nil
         if let capture { listenWhileIdle(capture) }
         let style = KeyboardBridge().style
+        let settings = TyprSettings()
+        let translationSettings = DictationTranslationSettings()
+        let translation = state.translation
         transcription = Task { [weak self] in
             let heard: String
             do {
@@ -228,10 +236,18 @@ final class KeyboardLocalDictation {
                 return
             }
             guard let self, !Task.isCancelled else { return }
-            let text = await KeyboardLocalCapture.text(from: heard, style: style, settings: TyprSettings())
+            var outcome = TranslationOutcome.skipped
+            let translate: ((String) async -> DictationPipeline.Translation)? = translation.map { plan in
+                { text in
+                    outcome = await plan.translate(text, source: settings.dictationLanguage, settings: translationSettings)
+                    guard !Task.isCancelled, let translated = outcome.text else { return .asSpoken }
+                    return .translated(translated, language: plan.target)
+                }
+            }
+            let text = await KeyboardLocalCapture.text(from: heard, style: style, settings: settings, translate: translate)
             guard !Task.isCancelled else { return }
             self.transcription = nil
-            self.state.finish(jobID: jobID, transcript: text, resultID: UUID().uuidString)
+            self.state.finish(jobID: jobID, transcript: text, resultID: UUID().uuidString, translation: outcome)
         }
     }
 }

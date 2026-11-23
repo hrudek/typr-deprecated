@@ -130,6 +130,8 @@ nonisolated enum KeyboardLaunchRequest: Equatable, Sendable {
 
     /// Opens Typr's keyboard setup screen without starting a session.
     case setup
+    /// Opens Settings › Language, where Translate what I say is, without a session.
+    case translationSettings
     /// `host` is the bundle ID of the app the keyboard was typing in (`KeyboardHost`), when known.
     case startSession(requestedAt: TimeInterval?, host: String?)
     case startRecording(
@@ -158,6 +160,8 @@ nonisolated enum KeyboardLaunchRequest: Equatable, Sendable {
         switch url.path {
         case "/setup":
             self = .setup
+        case "/translation":
+            self = .translationSettings
         case "/start":
             self = .startSession(requestedAt: requestedAt, host: host)
         case "/record":
@@ -175,7 +179,7 @@ nonisolated enum KeyboardLaunchRequest: Equatable, Sendable {
 
     var requestedAt: TimeInterval? {
         switch self {
-        case .setup:
+        case .setup, .translationSettings:
             nil
         case .startSession(let ts, _), .startRecording(_, let ts, _, _):
             ts
@@ -184,7 +188,7 @@ nonisolated enum KeyboardLaunchRequest: Equatable, Sendable {
 
     var host: String? {
         switch self {
-        case .setup:
+        case .setup, .translationSettings:
             nil
         case .startSession(_, let host), .startRecording(_, _, _, let host):
             host
@@ -205,6 +209,8 @@ nonisolated enum KeyboardLaunchRequest: Equatable, Sendable {
         switch self {
         case .setup:
             components.path = "/setup"
+        case .translationSettings:
+            components.path = "/translation"
 
         case .startSession(let requestedAt, let host):
             components.path = "/start"
@@ -247,9 +253,9 @@ nonisolated struct KeyboardSnapshot: Codable, Equatable, Sendable {
     let resultID: String?
     let resultExpiresAt: TimeInterval?
     let transcript: String?
-    /// Shown briefly with `transcript` when it went in differently than asked, such as
-    /// Translate what I say pasting as spoken.
-    let resultNote: String?
+    /// Why `transcript` went in as spoken although Translate what I say was on; the keyboard
+    /// says so briefly, with the fix.
+    let translationFailure: TranslationFailure?
     /// `transcript` is a translation (Translate what I say): Learn from my edits skips it.
     let translated: Bool?
     let message: String?
@@ -266,7 +272,7 @@ nonisolated struct KeyboardSnapshot: Codable, Equatable, Sendable {
         resultID: String? = nil,
         resultExpiresAt: TimeInterval? = nil,
         transcript: String? = nil,
-        resultNote: String? = nil,
+        translationFailure: TranslationFailure? = nil,
         translated: Bool? = nil,
         message: String? = nil,
         feedbackOffer: DictationFeedbackOffer? = nil
@@ -281,7 +287,7 @@ nonisolated struct KeyboardSnapshot: Codable, Equatable, Sendable {
         self.resultID = resultID
         self.resultExpiresAt = resultExpiresAt
         self.transcript = transcript
-        self.resultNote = resultNote
+        self.translationFailure = translationFailure
         self.translated = translated
         self.message = message
         self.feedbackOffer = feedbackOffer

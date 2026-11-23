@@ -80,7 +80,7 @@ final class KeyboardViewModel: ObservableObject {
     @Published var languageChoices: [String] = []
     @Published var moreLanguages: [String] = []
     /// Translate what I say's target while it is on, its target whether on or off, and the
-    /// menu's targets; all nil or empty until Hex's translation controls arrive (D7).
+    /// menu's targets; all nil or empty until the Typr key menu offers translation.
     @Published var translationTarget: String?
     @Published var translationLanguage: String?
     @Published var translationTargetChoices: [String] = []
@@ -144,22 +144,27 @@ final class KeyboardViewModel: ObservableObject {
     var onFeedbackRating: ((String, [String]?) -> Void)?
     func dismissFeedback() { feedback = nil }
 
-    var resultNoteDuration: TimeInterval = 8
-    private var resultNoteWork: DispatchWorkItem?
-    /// The inserted dictation's `KeyboardSnapshot.resultNote`, for `resultNoteDuration` from
-    /// each insertion.
-    @Published var resultNote: String? {
+    var translationNoteDuration: TimeInterval = 8
+    private var translationNoteWork: DispatchWorkItem?
+    /// Translate what I say pasted the inserted dictation as spoken
+    /// (`KeyboardSnapshot.translationFailure`): shown with its fix for `translationNoteDuration`
+    /// from each insertion.
+    @Published var translationNote: TranslationFailure? {
         didSet {
-            resultNoteWork?.cancel()
-            guard let note = resultNote else { return }
-            UIAccessibility.post(notification: .announcement, argument: note)
+            translationNoteWork?.cancel()
+            guard let note = translationNote else { return }
+            UIAccessibility.post(notification: .announcement, argument: "\(TranslationFailure.note). \(note.fix)")
             let work = DispatchWorkItem { [weak self] in
-                guard let self, self.resultNote == note else { return }
-                self.resultNote = nil
+                guard let self, self.translationNote == note else { return }
+                self.translationNote = nil
             }
-            resultNoteWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + resultNoteDuration, execute: work)
+            translationNoteWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + translationNoteDuration, execute: work)
         }
+    }
+    /// `translationNote` on the Typr keyboard's bar.
+    var resultNote: String? {
+        translationNote.map { _ in TranslationFailure.note }
     }
 
     /// Shared rating behavior; queue failures restore a retry panel on either surface.

@@ -52,7 +52,7 @@ struct KeyboardLocalCapture {
         case armed(jobID: String, at: TimeInterval)
         case recording(jobID: String, at: TimeInterval)
         case transcribing(jobID: String)
-        case finished(jobID: String, resultID: String, transcript: String)
+        case finished(jobID: String, resultID: String, transcript: String, translation: TranslationOutcome = .skipped)
         case failed(message: String, until: TimeInterval)
     }
 
@@ -70,6 +70,9 @@ struct KeyboardLocalCapture {
     static let failureShownFor: TimeInterval = 6
 
     private(set) var phase: Phase = .idle
+    /// Translate what I say for the running job, read when it began: a change during the
+    /// recording applies to the next dictation.
+    private(set) var translation: DictationTranslationPlan?
 
     var isActive: Bool {
         switch phase {
@@ -93,19 +96,22 @@ struct KeyboardLocalCapture {
         return isCapturing(jobID)
     }
 
-    mutating func arm(jobID: String, at now: TimeInterval) -> Bool {
+    mutating func arm(jobID: String, at now: TimeInterval, translation: DictationTranslationPlan? = nil) -> Bool {
         guard !isActive, !hasUndeliveredResult else { return false }
         phase = .armed(jobID: jobID, at: now)
+        self.translation = translation
         return true
     }
 
-    mutating func start(jobID: String, at now: TimeInterval) -> StartAction {
+    /// A kept capture keeps the translation read when it was armed.
+    mutating func start(jobID: String, at now: TimeInterval, translation: DictationTranslationPlan? = nil) -> StartAction {
         if case .armed(let armed, let at) = phase {
             phase = .recording(jobID: armed, at: at)
             return .kept(jobID: armed)
         }
         guard !isActive, !hasUndeliveredResult else { return .ignored }
         phase = .recording(jobID: jobID, at: now)
+        self.translation = translation
         return .begin(jobID: jobID)
     }
 
@@ -113,6 +119,7 @@ struct KeyboardLocalCapture {
     mutating func discard() -> String? {
         guard case .armed(let jobID, _) = phase else { return nil }
         phase = .idle
+        translation = nil
         return jobID
     }
 
@@ -121,6 +128,7 @@ struct KeyboardLocalCapture {
         guard case .armed(let current, let at) = phase, current == jobID,
               now - at >= Self.armedTimeout else { return false }
         phase = .idle
+        translation = nil
         return true
     }
 
@@ -133,12 +141,14 @@ struct KeyboardLocalCapture {
 
     mutating func cancel() {
         phase = .idle
+        translation = nil
     }
 
     /// An empty transcript ends quietly.
-    mutating func finish(jobID: String, transcript: String, resultID: String) {
+    mutating func finish(jobID: String, transcript: String, resultID: String, translation: TranslationOutcome = .skipped) {
         guard case .transcribing(let current) = phase, current == jobID else { return }
-        phase = transcript.isEmpty ? .idle : .finished(jobID: jobID, resultID: resultID, transcript: transcript)
+        phase = transcript.isEmpty ? .idle
+            : .finished(jobID: jobID, resultID: resultID, transcript: transcript, translation: translation)
     }
 
     /// A failure while armed drops the capture silently: the kept touch then hands off to Typr.
@@ -151,7 +161,7 @@ struct KeyboardLocalCapture {
     }
 
     mutating func delivered(resultID: String) {
-        if case .finished(_, let current, _) = phase, current == resultID { phase = .idle }
+        if case .finished(_, let current, _, _) = phase, current == resultID { phase = .idle }
     }
 
     private var hasUndeliveredResult: Bool {
@@ -169,9 +179,10 @@ struct KeyboardLocalCapture {
                                     recordingStartedAt: at, loudnessDB: loudnessDB, jobID: jobID)
         case .transcribing(let jobID):
             return KeyboardSnapshot(state: .transcribing, heartbeat: now, expiresAt: now + 60, jobID: jobID)
-        case .finished(let jobID, let resultID, let transcript):
+        case .finished(let jobID, let resultID, let transcript, let translation):
             return KeyboardSnapshot(state: .offline, heartbeat: now, expiresAt: now, jobID: jobID,
-                                    resultID: resultID, transcript: transcript)
+                                    resultID: resultID, transcript: transcript,
+                                    translationFailure: translation.failure, translated: translation.text != nil)
         case .failed(let message, let until):
             guard until > now else {
                 phase = .idle
@@ -181,16 +192,17 @@ struct KeyboardLocalCapture {
         }
     }
 
-    /// The app's `DictationPipeline` without its model steps (AI cleanup, translation): learned
-    /// fixes, Custom vocabulary and the glossary, Clean up what I say, the style with Format
-    /// lists and Spoken punctuation, End with a period and Lowercase.
+    /// The app's `DictationPipeline` without AI cleanup: learned fixes, Custom vocabulary and
+    /// the glossary, Clean up what I say, Translate what I say (`translate`), the style with
+    /// Format lists and Spoken punctuation, End with a period and Lowercase.
     @MainActor
     static func text(
         from heard: String,
         style: DictationStyle,
         settings: TyprSettings,
         vocabulary: CustomVocabularySettings = CustomVocabularySettings(),
-        learning: DictationLearningStore = DictationLearningStore()
+        learning: DictationLearningStore = DictationLearningStore(),
+        translate: ((String) async -> DictationPipeline.Translation)? = nil
     ) async -> String {
         guard !heard.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
         let pipeline = DictationPipeline(
@@ -202,7 +214,7 @@ struct KeyboardLocalCapture {
             ),
             settings: settings
         )
-        return await pipeline.run(heard).formatted
+        return await pipeline.run(heard, translate: translate).formatted
     }
 }
 
