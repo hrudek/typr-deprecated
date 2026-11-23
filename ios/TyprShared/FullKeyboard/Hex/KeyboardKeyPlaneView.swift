@@ -34,6 +34,8 @@ final class KeyboardKeyPlaneView: UIView {
     var repeatsHeldDelete = true {
         didSet { if !repeatsHeldDelete { stopDeleteRepeat() } }
     }
+    /// False for Typr delete sliding: a held delete keeps repeating as the finger drifts.
+    var slidesDeleteByWord = true
     /// Hold delete and slide left to delete word by word (`DeleteWordSwipe`).
     private(set) var deleteSwipe: DeleteWordSwipe?
     /// Each held key's pending hold: a letter's accents, or the space bar's trackpad.
@@ -563,7 +565,7 @@ final class KeyboardKeyPlaneView: UIView {
                 armAccentTimer(for: id)
             }
         }
-        if let swipe = deleteSwipe, swipe.touchID == id, swipe.move(to: sample.point.x) {
+        if slidesDeleteByWord, let swipe = deleteSwipe, swipe.touchID == id, swipe.move(to: sample.point.x) {
             stopDeleteRepeat()
         }
     }

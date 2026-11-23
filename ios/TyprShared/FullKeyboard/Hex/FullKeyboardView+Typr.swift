@@ -41,5 +41,7 @@ extension FullKeyboardView {
     func syncTyprVariants(_ settings: TyprSettings = TyprSettings()) {
         let repeats = !settings[experiment: .deleteSlide]
         if plane.repeatsHeldDelete != repeats { plane.repeatsHeldDelete = repeats }
+        plane.slidesDeleteByWord = !repeats || !settings[experiment: .typrDeleteSliding]
+        engine.slidesCursorByCharacter = settings[experiment: .typrCursorSliding]
     }
 }
