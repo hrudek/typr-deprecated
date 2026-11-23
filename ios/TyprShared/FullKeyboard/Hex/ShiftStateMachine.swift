@@ -22,6 +22,13 @@ nonisolated struct ShiftStateMachine: Equatable, Sendable {
     private var pressTurnedOn = false
     /// Auto-capitalization turned this shift on, rather than a press of yours or caps lock.
     private var isAutomatic = false
+    private var beforePress: BeforePress?
+
+    private struct BeforePress: Equatable, Sendable {
+        var state: ShiftState
+        let lastTapDown: TimeInterval?
+        let isAutomatic: Bool
+    }
 
     init(state: ShiftState = .off) {
         self.state = state
@@ -40,6 +47,8 @@ nonisolated struct ShiftStateMachine: Equatable, Sendable {
     var pressShowsOff: Bool { isHeld && pressTurnedOn && !typedWhileHeld }
 
     mutating func shiftDown(now: TimeInterval) {
+        guard !isHeld else { return }
+        beforePress = BeforePress(state: state, lastTapDown: lastTapDown, isAutomatic: isAutomatic)
         isHeld = true
         typedWhileHeld = false
         pressTurnedOn = false
@@ -58,6 +67,7 @@ nonisolated struct ShiftStateMachine: Equatable, Sendable {
     }
 
     mutating func shiftUp() {
+        beforePress = nil
         isHeld = false
         pressTurnedOn = false
         if typedWhileHeld {
@@ -68,6 +78,14 @@ nonisolated struct ShiftStateMachine: Equatable, Sendable {
                 state = .off
             }
         }
+    }
+
+    mutating func cancelShiftPress() {
+        guard let beforePress else { return }
+        state = beforePress.state
+        lastTapDown = beforePress.lastTapDown
+        isAutomatic = beforePress.isAutomatic
+        shiftUp()
     }
 
     /// Call after a character key commits.
@@ -87,6 +105,9 @@ nonisolated struct ShiftStateMachine: Equatable, Sendable {
         didType()
         if state == .locked {
             state = .off
+        }
+        if beforePress?.state == .locked {
+            beforePress?.state = .off
         }
     }
 

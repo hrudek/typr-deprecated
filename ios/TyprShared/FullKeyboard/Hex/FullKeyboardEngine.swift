@@ -29,6 +29,7 @@ final class FullKeyboardEngine {
     static let languageSwipeDistance: CGFloat = 24
 
     private(set) var shift = ShiftStateMachine()
+    private var shiftTouchID: Int?
     var layerState = KeyboardLayerState()
     private(set) var field: KeyboardFieldKind = .text
     private(set) var touches: [Int: ActiveTouch] = [:]
@@ -265,7 +266,7 @@ final class FullKeyboardEngine {
             field = .text
             layerState.reset(to: .numbers)
         }
-        shift.reset()
+        resetShift()
         korean.reset()
         lastSpaceAt = nil
         suggestionSpaceBefore = nil
@@ -451,7 +452,7 @@ final class FullKeyboardEngine {
 
     // MARK: - Touches
 
-    func touchBegan(id: Int, at point: CGPoint) {
+    func touchBegan(id: Int, at point: CGPoint, deleteTakesSwipeBack: Bool = true) {
         // A key while a selection's actions show only dismisses them: it types nothing, and
         // neither does a third finger while both thumbs are still down.
         if selectionActionsShown {
@@ -465,7 +466,7 @@ final class FullKeyboardEngine {
         }
         let downPoint = point
         let point = pointOnKeys(point)
-        guard let key = key(at: point) else { return }
+        guard let key = key(at: point), key.kind != .shift || shiftTouchID == nil else { return }
         lastKeyTouchAt = clock()
         // Rollover: a new key going down commits any character, space or accent picker still held.
         for other in touchOrder {
@@ -505,15 +506,16 @@ final class FullKeyboardEngine {
         }
         switch key.kind {
         case .shift:
+            shiftTouchID = id
             shift.shiftDown(now: clock())
             logState("shift_key")
         case .delete:
-            deleteBackward()
+            deleteBackward(takesSwipeBack: deleteTakesSwipeBack)
         case .layerSwitch(let next):
             commitHangulComposition()
             touch.returnLayer = layerState.layer
             layerState.switchTo(next)
-            if next == .letters { shift.reset() }
+            if next == .letters { resetShift() }
             rebuildLayout(cause: "layer_key")
             if next == .letters { refreshAutoCapitalization() }
         case .character, .space, .returnKey, .hex, .globe, .emoji, .dismiss:
@@ -706,10 +708,12 @@ final class FullKeyboardEngine {
                 commitCharacter(touch.key, at: touch.startPoint, down: touch.downPoint)
             }
         case .shift:
+            guard shiftTouchID == id else { break }
             // Hold shift, slide to a letter, let go: a capital, as on Apple's keyboard.
             if let under = slideTarget(for: touch, at: point) {
                 commitCharacter(under, at: point)
             }
+            shiftTouchID = nil
             shift.shiftUp()
             logState("shift_key")
         case .space:
@@ -763,7 +767,7 @@ final class FullKeyboardEngine {
                     refreshAutoCapitalization()
                 } else if touch.hasSlid, layout.hitTest(point)?.kind == .layerSwitch(returnLayer) {
                     layerState.switchTo(returnLayer)
-                    if returnLayer == .letters { shift.reset() }
+                    if returnLayer == .letters { resetShift() }
                     rebuildLayout(cause: "layer_slide_back")
                     if returnLayer == .letters { refreshAutoCapitalization() }
                 }
@@ -795,6 +799,7 @@ final class FullKeyboardEngine {
         }
         guard touches.removeValue(forKey: id) != nil else { return }
         touchOrder.removeAll { $0 == id }
+        if shiftTouchID == id { cancelShiftTouch() }
         onChange?()
     }
 
@@ -813,11 +818,23 @@ final class FullKeyboardEngine {
         swipePreview = nil
         activeAccentMenu = nil
         activeAccentTouchID = nil
-        if shift.isHeld {
-            shift.shiftUp()
-            logState("cancel")
-        }
+        if shiftTouchID != nil { cancelShiftTouch() }
         if hadTouches { onChange?() }
+    }
+
+    private func cancelShiftTouch() {
+        shiftTouchID = nil
+        shift.cancelShiftPress()
+        logState("cancel")
+    }
+
+    private func resetShift() {
+        if let shiftTouchID {
+            touches.removeValue(forKey: shiftTouchID)
+            touchOrder.removeAll { $0 == shiftTouchID }
+            self.shiftTouchID = nil
+        }
+        shift.reset()
     }
 
     // MARK: - Delete
