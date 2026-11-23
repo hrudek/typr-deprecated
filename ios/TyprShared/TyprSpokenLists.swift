@@ -37,10 +37,15 @@ nonisolated enum TyprSpokenLists {
 
     /// `language` picks the word table; Automatic uses English only for text that reads as
     /// English (`TyprTranscriptFormatter.readsAsEnglish`), else German.
-    static func format(_ text: String, language: DictationLanguage) -> String {
+    static func format(
+        _ text: String, language: DictationLanguage, preservingNotePunctuation: Bool = false
+    ) -> String {
         guard !text.isEmpty else { return text }
         let table = Table.forLanguage(language, text: text)
-        return listing(breaking(text, table), table)
+        return listing(
+            breaking(text, table, preservingNotePunctuation: preservingNotePunctuation),
+            table, preservingNotePunctuation: preservingNotePunctuation
+        )
     }
 
     private struct Token {
@@ -158,7 +163,7 @@ nonisolated enum TyprSpokenLists {
         }
     }
 
-    private static func breaking(_ text: String, _ table: Table) -> String {
+    private static func breaking(_ text: String, _ table: Table, preservingNotePunctuation: Bool) -> String {
         let words = Words(tokens: tokenize(text), table: table)
         let tokens = words.tokens
         var out = ""
@@ -166,7 +171,7 @@ nonisolated enum TyprSpokenLists {
         var sawWord = false
         while index < tokens.count {
             if tokens[index].isWord, sawWord, let (breaks, end) = lineBreak(at: index, words) {
-                while let last = out.last, last == " " || last == "\t" || last == ";"
+                while let last = out.last, last == " " || last == "\t" || (last == ";" && !preservingNotePunctuation)
                     || (last == "," && !(table.keepsCommaBeforeBreak && breaks == "\n")) {
                     out.removeLast()
                 }
@@ -292,18 +297,19 @@ nonisolated enum TyprSpokenLists {
         return runs
     }
 
-    private static func listing(_ text: String, _ table: Table) -> String {
+    private static func listing(_ text: String, _ table: Table, preservingNotePunctuation: Bool) -> String {
         let words = Words(tokens: tokenize(text), table: table)
         for run in lists(markers(words)) {
-            if let formatted = format(run, words) { return formatted }
+            if let formatted = format(run, words, preservingNotePunctuation: preservingNotePunctuation) { return formatted }
         }
         return text
     }
 
-    private static func format(_ run: [Marker], _ words: Words) -> String? {
+    private static func format(_ run: [Marker], _ words: Words, preservingNotePunctuation: Bool) -> String? {
         let tokens = words.tokens
         let table = words.table
         guard let last = run.last else { return nil }
+        let isBullet = run[0].family == .bullet
 
         var itemsEnd = tokens.count
         var tailBreak = "\n"
@@ -330,7 +336,11 @@ nonisolated enum TyprSpokenLists {
                 let separator = tokens[itemsEnd].text
                 raw += separator.prefix { !$0.isWhitespace }
             }
-            let item = cleanItem(raw, table)
+            let endsAtBreak = end < tokens.count && tokens[end].text.contains("\n")
+            let meetsBullet = isBullet && number + 1 < run.count
+            let item = cleanItem(
+                raw, table, preservingNotePunctuation: preservingNotePunctuation && (endsAtBreak || meetsBullet)
+            )
             guard !item.isEmpty else { return nil }
             items.append(item)
         }
@@ -342,7 +352,8 @@ nonisolated enum TyprSpokenLists {
             output = leadTrimmed
         } else {
             var lead = stripTrailingConnectors(leadIn.trimmingCharacters(in: .whitespacesAndNewlines), table)
-            while let mark = lead.last, ",;-–—".contains(mark) {
+            let trailingMarks = preservingNotePunctuation && isBullet ? ",-–—" : ",;-–—"
+            while let mark = lead.last, trailingMarks.contains(mark) {
                 lead.removeLast()
                 lead = lead.trimmingCharacters(in: .whitespaces)
             }
@@ -352,7 +363,6 @@ nonisolated enum TyprSpokenLists {
             }
         }
 
-        let isBullet = run[0].family == .bullet
         output += items.enumerated()
             .map { isBullet ? "- " + $0.element : "\($0.offset + 1). " + $0.element }
             .joined(separator: "\n")
@@ -360,7 +370,7 @@ nonisolated enum TyprSpokenLists {
         if itemsEnd < tokens.count {
             let tail = joined(tokens[(itemsEnd + 1)...]).trimmingCharacters(in: .whitespacesAndNewlines)
             if !tail.isEmpty {
-                output += tailBreak + listing(tail, table)
+                output += tailBreak + listing(tail, table, preservingNotePunctuation: preservingNotePunctuation)
             }
         }
         return output
@@ -380,13 +390,14 @@ nonisolated enum TyprSpokenLists {
         return true
     }
 
-    private static func cleanItem(_ raw: String, _ table: Table) -> String {
+    private static func cleanItem(_ raw: String, _ table: Table, preservingNotePunctuation: Bool) -> String {
         var item = String(raw.drop { " \t\n,:.;)-–—".contains($0) })
+        let trailingMarks = preservingNotePunctuation ? ",." : ",;:."
         var previous = ""
         while previous != item {
             previous = item
             item = item.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !item.hasSuffix("..."), let mark = item.last, ",;:.".contains(mark) {
+            if !item.hasSuffix("..."), let mark = item.last, trailingMarks.contains(mark) {
                 item.removeLast()
             }
             item = stripTrailingConnectors(item, table)
