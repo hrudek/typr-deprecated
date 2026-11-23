@@ -925,6 +925,15 @@ and `KeyboardStripView.swift` in `ios/HEXShared/FullKeyboard/` of
 `d65b02d36efbaf1ff771420e89c0632dea4706cb` (#2187).
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
+## Hex iOS suggestion strip and clipboard
+
+The staged suggestion strip, status indicator and clipboard tracker adapt
+[`KeyboardStripView.swift`](https://github.com/anomalyco/hex/blob/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXShared/FullKeyboard/KeyboardStripView.swift)
+and [`KeyboardClipboard.swift`](https://github.com/anomalyco/hex/blob/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXShared/FullKeyboard/KeyboardClipboard.swift)
+from Hex revision `0c1c13d71b853ac3113d9a622e4fd9af3755d068`, MIT,
+© Christopher Langton ([LICENSE](LICENSE)). They use Typr's adaptive suggestion slots
+and existing Apple keyboard classifier in `ios/TyprShared/FullKeyboard/`.
+
 ## Unicode emoji data and CLDR annotations
 
 `ios/TyprShared/FullKeyboard/WordData/emoji-index.txt` is built by `ios/tools/emoji/build.py`

@@ -150,12 +150,12 @@ final class SuggestionBarTests: XCTestCase {
     }
 
     func testSlotWidthsGiveALongWordRoomAndAlwaysFillTheStrip() {
-        let equal = TyprKeyboardStripView.slotWidths(total: 393, wanted: [0, 0, 0])
+        let equal = SuggestionSlotLayout.widths(total: 393, wanted: [0, 0, 0])
         XCTAssertEqual(equal, [131, 131, 131])
-        let long = TyprKeyboardStripView.slotWidths(total: 393, wanted: [60, 150, 60])
+        let long = SuggestionSlotLayout.widths(total: 393, wanted: [60, 150, 60])
         XCTAssertEqual(long.reduce(0, +), 393, accuracy: 0.001)
         XCTAssertGreaterThanOrEqual(long[1], 150)
-        let crowded = TyprKeyboardStripView.slotWidths(total: 393, wanted: [150, 170, 150])
+        let crowded = SuggestionSlotLayout.widths(total: 393, wanted: [150, 170, 150])
         XCTAssertEqual(crowded.reduce(0, +), 393, accuracy: 0.001)
         XCTAssertEqual(crowded[0], 131, accuracy: 0.001)
     }
@@ -166,7 +166,7 @@ final class SuggestionBarTests: XCTestCase {
             for slot in 0..<3 {
                 var wanted: [CGFloat] = [70, 70, 70]
                 wanted[slot] = TyprKeyboardStripView.wantedWidth(for: suggestion)
-                let widths = TyprKeyboardStripView.slotWidths(total: 393, wanted: wanted)
+                let widths = SuggestionSlotLayout.widths(total: 393, wanted: wanted)
                 XCTAssertGreaterThanOrEqual(widths[slot], wanted[slot], "\(word) in slot \(slot) is cut")
             }
         }
