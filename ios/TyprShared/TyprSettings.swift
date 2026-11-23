@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -183,6 +183,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "The full keyboard is Typr's own: its autocorrect and suggestions, swipe typing, design, letter layouts, split keyboard, globe key and bottom row, as set in Keyboard settings."
     )
 
+    static let typrTyping = ExperimentalSwitch(
+        name: "variant.typrTyping",
+        title: "Typr typing and autocorrect",
+        detail: "Hex's keyboard uses Typr's autocorrect and suggestions for German and English, with your imported contacts and vocabulary protected and Words from context. Not yet: corrections from where you tap, joining words split by a stray space, learning from each typed letter and next-word predictions."
+    )
+
     static let typrCursorSliding = ExperimentalSwitch(
         name: "variant.cursorSliding",
         title: "Typr cursor sliding",
@@ -231,7 +237,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
         .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
-        .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrCursorSliding,
+        .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrTyping, .typrCursorSliding,
         .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard,
     ]
 
@@ -308,7 +314,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let wordsFromContext = ExperimentalSwitch(
         name: "wordsFromContext",
         title: "Words from context",
-        detail: "Only with Typr keyboard. Autocorrect picks its or it's, your or you're, then or than by the words around them, and writes geht's and gibt's with an apostrophe."
+        detail: "Only with Typr keyboard or Typr typing and autocorrect. Autocorrect picks its or it's, your or you're, then or than by the words around them, and writes geht's and gibt's with an apostrophe."
     )
 
     /// Hex's multilingual model (anomalyco/hex #2197, #2337): Parakeet Ultra

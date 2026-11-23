@@ -102,6 +102,7 @@ final class KeyboardLearningSession {
     }
 
     var isLearningEnabled: Bool { model.isLearningEnabled }
+    var hasUnsavedChanges: Bool { dirty && isPersistent }
     /// Keeps and rejected pairs protect regardless of the switch.
     var protections: PersonalLexiconSnapshot { model.lexicon }
     /// Personal word priors for the decoder: none while learning is off.
@@ -182,6 +183,8 @@ final class KeyboardLearningSession {
         // The store posts the change notification after a successful write.
         if store.save(model: model.state, diagnostics: &diagnostics) {
             dirty = false
+        } else if store.lockWasBusy {
+            markChanged()
         } else if !store.isPersistent {
             // Write failed (counted by the store): keep this session in RAM rather than retrying.
             stopPersistence()

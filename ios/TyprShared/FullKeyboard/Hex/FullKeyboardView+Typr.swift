@@ -91,6 +91,21 @@ extension FullKeyboardView {
         if plane.repeatsHeldDelete != repeats { plane.repeatsHeldDelete = repeats }
         plane.slidesDeleteByWord = !repeats || !settings[experiment: .typrDeleteSliding]
         engine.slidesCursorByCharacter = settings[experiment: .typrCursorSliding]
+        if let typr = engine.autocorrect as? TyprAutocorrectAdapter {
+            let wordsFromContext = settings[experiment: .wordsFromContext]
+            if typr.engine.choosesWordsFromContext != wordsFromContext {
+                typr.engine.choosesWordsFromContext = wordsFromContext
+                engine.refreshSuggestions()
+            }
+            typr.engine.syncLearning()
+        }
+    }
+
+    static func typrTypingBackend(
+        _ settings: TyprSettings = TyprSettings(),
+        engine: () -> TyprAutocorrectEngine
+    ) -> TyprAutocorrectAdapter? {
+        settings[experiment: .typrTyping] ? TyprAutocorrectAdapter(engine: engine()) : nil
     }
 }
 

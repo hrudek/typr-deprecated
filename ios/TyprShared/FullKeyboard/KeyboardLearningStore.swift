@@ -47,6 +47,8 @@ final class KeyboardLearningStore {
     private(set) var isPersistent: Bool
     /// A false save with this flag means reload/clear RAM, not a storage error.
     private(set) var resetObserved = false
+    /// A false save with this flag means another process held the lock: save again later.
+    private(set) var lockWasBusy = false
 
     static var sharedDirectory: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: KeyboardBridge.appGroup)?
@@ -107,6 +109,7 @@ final class KeyboardLearningStore {
     @discardableResult
     func save(model: PersonalTypingModel.State, diagnostics: inout KeyboardDiagnostics) -> Bool {
         resetObserved = false
+        lockWasBusy = false
         guard currentEpochs == loadedEpochs else { resetObserved = true; return false }
         var model = model
         let repaired = model.validated() == nil && model.discardInvalidTouchStats()
@@ -123,7 +126,7 @@ final class KeyboardLearningStore {
             return true
         }
         do {
-            let saved = try withLock { root -> Bool in
+            let saved = try withLock(waits: false) { root -> Bool in
                 guard currentEpochs == loadedEpochs else { resetObserved = true; return false }
                 var bounded = model
                 var modelData = try JSONEncoder().encode(Saved(epoch: loadedEpochs.learning, value: bounded))
@@ -143,6 +146,9 @@ final class KeyboardLearningStore {
             }
             if saved { isPersistent = true; Self.postChanged() }
             return saved
+        } catch is LockBusy {
+            lockWasBusy = true
+            return false
         } catch {
             diagnostics.increment(.storeWriteFailed)
             isPersistent = false
@@ -289,7 +295,10 @@ final class KeyboardLearningStore {
         try target.setResourceValues(values)
     }
 
-    private func withLock<T>(_ work: (URL) throws -> T) throws -> T {
+    nonisolated private struct LockBusy: Error {}
+
+    /// `waits: false` gives up at once on a held lock (`LockBusy`), never sleeping.
+    private func withLock<T>(waits: Bool = true, _ work: (URL) throws -> T) throws -> T {
         guard let directory else { throw CocoaError(.fileNoSuchFile) }
         try Self.protect(directory, directory: true)
         let file = directory.appendingPathComponent("learning.lock")
@@ -297,11 +306,12 @@ final class KeyboardLearningStore {
         guard fd >= 0 else { throw CocoaError(.fileWriteUnknown) }
         defer { close(fd) }
         var locked = false
-        for attempt in 0..<3 {
+        let attempts = waits ? 3 : 1
+        for attempt in 0..<attempts {
             if flock(fd, LOCK_EX | LOCK_NB) == 0 { locked = true; break }
-            if attempt < 2 { Thread.sleep(forTimeInterval: 0.005) }
+            if attempt < attempts - 1 { Thread.sleep(forTimeInterval: 0.005) }
         }
-        guard locked else { throw CocoaError(.fileWriteUnknown) }
+        guard locked else { throw waits ? CocoaError(.fileWriteUnknown) : LockBusy() }
         defer { _ = flock(fd, LOCK_UN) }
         try Self.protect(file)
         return try work(directory)

@@ -34,7 +34,7 @@ final class KeyboardAutocorrectingTests: XCTestCase {
 
     func testHexViewPassesTheBackendToItsEngine() {
         let backend: any KeyboardAutocorrecting = AutocorrectEngine(learnedWords: LearnedWordsStore(defaults: defaults))
-        let view = FullKeyboardView(model: KeyboardViewModel(), target: HexFixtureTextTarget(), autocorrect: backend)
+        let view = FullKeyboardView(model: KeyboardViewModel(), target: HexFixtureTextTarget(), autocorrect: backend, defaults: defaults)
         XCTAssertTrue(view.engine.autocorrect === backend)
     }
 }

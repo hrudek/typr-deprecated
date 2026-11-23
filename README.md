@@ -160,6 +160,11 @@ or load finishes stopping.
   split letters up in straight columns (Aligned columns). Experimental › **Typr keyboard** (off by default) brings
   back Typr's own keyboard with its own settings, described below; switches marked "Only
   with Typr keyboard" act only there.
+  Experimental › **Typr typing and autocorrect** (off by default) keeps Hex's keyboard but
+  uses Typr's autocorrect and suggestions for German and English, with your imported
+  contacts and vocabulary protected, Words from context and Typr's learning from kept and
+  reverted words. Not yet with it: corrections from where you tap, joining words split by a
+  stray space, learning from each typed letter and next-word predictions.
   Typr keyboard adds German/English autocorrect and adaptive suggestions. With both
   languages on, a word only English knows takes the German umlauts or ß once the next word
   is German ("fur dich" → "für dich", Hex); one Delete takes it back.

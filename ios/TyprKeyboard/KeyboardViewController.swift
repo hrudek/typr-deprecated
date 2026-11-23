@@ -73,6 +73,7 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.discardTouchEvidence()
         fullKeyboard?.flushLearning()
         fullKeyboard?.finishDictationEdits()
+        typrTypingLearning.flush()
         hexKeyboard?.engine.commitHangulComposition()
         pollTimer?.invalidate()
         pollTimer = nil
@@ -98,8 +99,19 @@ final class KeyboardViewController: UIInputViewController {
     private func refreshProtectedLexicon() {
         let lexicon = hasFullAccess
             ? ProtectedPersonalLexicon.load(directory: KeyboardLearningStore.sharedDirectory) : .empty
+        protectedLexicon = lexicon
         fullKeyboard?.engine.autocorrect.loadProtectedLexicon(lexicon)
         fullKeyboard?.engine.refreshSuggestions()
+        if let hexTypr {
+            hexTypr.engine.loadProtectedLexicon(lexicon)
+            hexKeyboard?.engine.refreshSuggestions()
+        }
+    }
+
+    private var hexTypr: TyprAutocorrectAdapter? { hexKeyboard?.engine.autocorrect as? TyprAutocorrectAdapter }
+    private var protectedLexicon = ProtectedPersonalLexicon.empty
+    private lazy var typrTypingLearning = TyprTypingLearning { [unowned self] in
+        self.learningSession(store: self.learningStore())
     }
 
     override func didReceiveMemoryWarning() {
@@ -261,7 +273,9 @@ final class KeyboardViewController: UIInputViewController {
         }
         fullKeyboard?.allowsCompactBar = isPhone
         let wantsTypr = wantsFull && TyprSettings()[experiment: .typrKeyboard]
-        guard surface == nil || wantsFull != hasFullKeyboard || wantsTypr != (fullKeyboard != nil) else { return }
+        let wantsTyprTyping = wantsFull && !wantsTypr && TyprSettings()[experiment: .typrTyping]
+        guard surface == nil || wantsFull != hasFullKeyboard || wantsTypr != (fullKeyboard != nil)
+            || wantsTyprTyping != (hexTypr != nil) else { return }
         guard surface == nil || viewModel.stagePhase == .idle || viewModel.stagePhase == .failed else { return }
 
         children.forEach { child in
@@ -274,6 +288,7 @@ final class KeyboardViewController: UIInputViewController {
         surface?.removeFromSuperview()
         fullKeyboard?.flushLearning()
         fullKeyboard?.finishDictationEdits()
+        if !wantsTyprTyping { typrTypingLearning.retire() }
         fullKeyboard = nil
         hexKeyboard = nil
         handOffWaitsForPosture = false
@@ -286,18 +301,8 @@ final class KeyboardViewController: UIInputViewController {
             mounted = keyboard
             heightConstraint?.constant = keyboard.preferredHeight
         } else if wantsFull {
-            // Learning files are written only with real Full Access on a device; otherwise RAM
-            // for this keyboard session.
-            #if targetEnvironment(simulator)
-            let store: KeyboardLearningStore? = nil
-            #else
-            let store = hasFullAccess ? KeyboardLearningStore() : nil
-            #endif
-            let learning = KeyboardLearningSession(
-                store: store,
-                defaults: UserDefaults(suiteName: KeyboardBridge.appGroup),
-                allowsPersistence: { [weak self] in self?.hasFullAccess == true }
-            )
+            let store = learningStore()
+            let learning = learningSession(store: store)
             let keyboard = TyprFullKeyboardView(
                 model: viewModel,
                 target: TyprDocumentProxyTextTarget { [unowned self] in self.textDocumentProxy },
@@ -352,10 +357,33 @@ final class KeyboardViewController: UIInputViewController {
         schedulePoll(force: false)
     }
 
+    /// Learning files are written only with real Full Access on a device; otherwise RAM for
+    /// this keyboard session.
+    private func learningStore() -> KeyboardLearningStore? {
+        #if targetEnvironment(simulator)
+        nil
+        #else
+        hasFullAccess ? KeyboardLearningStore() : nil
+        #endif
+    }
+
+    private func learningSession(store: KeyboardLearningStore?) -> KeyboardLearningSession {
+        KeyboardLearningSession(
+            store: store,
+            defaults: UserDefaults(suiteName: KeyboardBridge.appGroup),
+            allowsPersistence: { [weak self] in self?.hasFullAccess == true }
+        )
+    }
+
     private func makeHexKeyboard() -> FullKeyboardView {
+        let typr = FullKeyboardView.typrTypingBackend {
+            TyprAutocorrectEngine(learning: typrTypingLearning.session(fullAccess: hasFullAccess))
+        }
+        typr?.engine.loadProtectedLexicon(protectedLexicon)
         let keyboard = FullKeyboardView(
             model: viewModel,
-            target: DocumentProxyTextTarget { [weak self] in self?.textDocumentProxy }
+            target: DocumentProxyTextTarget { [weak self] in self?.textDocumentProxy },
+            autocorrect: typr
         )
         keyboard.hostController = self
         keyboard.onPreferredHeightChange = { [weak self] in
