@@ -182,6 +182,8 @@ final class KeyboardLearningSession {
         // The store posts the change notification after a successful write.
         if store.save(model: model.state, diagnostics: &diagnostics) {
             dirty = false
+        } else if store.lockWasBusy {
+            markChanged()
         } else if !store.isPersistent {
             // Write failed (counted by the store): keep this session in RAM rather than retrying.
             stopPersistence()
