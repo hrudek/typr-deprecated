@@ -103,6 +103,24 @@ final class HexKeyboardTyprSplitTests: XCTestCase {
         XCTAssertEqual(strip.minX, layout.horizontalInset, accuracy: 0.5)
     }
 
+    func testFlippingSplitWithTheCompactStripAsksForTheNewHeight() {
+        typr[experiment: .typrSplitKeyboard] = true
+        typr[experiment: .typrCompactStrip] = true
+        typr.hideSuggestionBar = true
+        let view = makeDuoView()
+        var heightChanges = 0
+        view.onPreferredHeightChange = { heightChanges += 1 }
+        for (split, expected) in [(true, 1), (false, 2)] {
+            keyboard.splitKeyboard = split
+            view.syncTyprVariants()
+            XCTAssertEqual(heightChanges, expected, "split \(split)")
+            XCTAssertEqual(view.preferredHeight, KeyboardLayout.height(
+                for: .portrait, posture: .unfoldedWide, showsStrip: false, joinsUnfoldedKeyboard: !split
+            ), "split \(split)")
+        }
+        XCTAssertLessThan(view.preferredHeight, KeyboardLayout.height(for: .portrait, posture: .unfoldedWide), "joined drops the strip")
+    }
+
     func testCombinationsWithBottomRowCompactStripMechanicalAndSliding() {
         keyboard.bottomRow = BottomRow(order: [.space, .period, .typr], periodKey: true)
         typr.hideSuggestionBar = true

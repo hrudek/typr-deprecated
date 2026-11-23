@@ -31,8 +31,8 @@ extension FullKeyboardView {
     }
 
     /// Settings › Experiments › Join the keyboard when unfolded: the Duo unfolded upright draws
-    /// one keyboard rather than the split one. The rows keep their heights, so the host is asked
-    /// for nothing.
+    /// one keyboard rather than the split one. The rows keep their heights, but Typr's compact
+    /// strip only applies joined, so the host is asked for the height again.
     func syncJoinsUnfoldedKeyboard() {
         let joins = typrJoinsUnfoldedKeyboard ?? FullKeyboardSettings(defaults: settingsDefaults).joinsKeyboardWhenUnfolded
         guard engine.joinsUnfoldedKeyboard != joins else { return }
@@ -40,6 +40,7 @@ extension FullKeyboardView {
         dismissStyleMenu()
         engine.joinsUnfoldedKeyboard = joins
         setNeedsLayout()
+        onPreferredHeightChange?()
     }
 
     /// Settings › Experiments › Dvorak punctuation keys: English's Dvorak letters gain comma,
