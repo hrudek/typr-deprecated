@@ -364,7 +364,6 @@ final class DictationController {
             self?.syncMultilingualParakeet()
         }
         if autoPrepareOnInit {
-            // At launch no dictation is running, so any Typr Live Activity is left over.
             liveActivity?.endImmediately()
         }
 
@@ -568,7 +567,6 @@ final class DictationController {
         preparePendingAppleLanguageIfIdle()
     }
 
-    /// Ends Live Activities no dictation owns, such as one a suspended or killed process left.
     func endStaleLiveActivities() {
         guard activeCapture == nil, phase != .recording, phase != .transcribing else { return }
         liveActivity?.endImmediately()
@@ -964,9 +962,7 @@ final class DictationController {
             loudestAverageDBFS = nil
             recordingDuration = 0
             phase = .recording
-            // Only the Action Button, Control Center, and Siri (the dictations that copy)
-            // get a Live Activity: the keyboard and the app show their own recording UI.
-            if copyToPasteboard {
+            if copyToPasteboard || languageSettings[experiment: .typrLiveActivityForAllDictations] {
                 liveActivity?.startRecording(startedAt: Date(timeIntervalSince1970: startedAt))
             }
             startMetering(for: captureGeneration)

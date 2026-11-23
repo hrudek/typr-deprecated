@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -213,14 +213,20 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "When the Typr key opens Typr, Typr goes back to the app you came from. A share sheet, a notification's reply or Spotlight doesn't open Typr; dictate there with a warm mic."
     )
 
+    static let typrLiveActivityForAllDictations = ExperimentalSwitch(
+        name: "variant.liveActivityForAllDictations",
+        title: "Typr Live Activity for all dictations",
+        detail: "Keyboard and in-app dictations also show the Live Activity, not only the Action Button, Control Center and Siri."
+    )
+
     /// Typr overrides of Hex defaults: off is Hex's behavior, on restores Typr's. Each joins
     /// `typrVariants` when its area switches to Hex.
     static let typrOverrides: [ExperimentalSwitch] = [
         .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
-        .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding,
-        .typrBottomRow, .typrCompactStrip,
+        .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrCursorSliding,
+        .typrDeleteSliding, .typrBottomRow, .typrCompactStrip,
     ]
 
     /// Retired: Hex's warm session (anomalyco/hex #2179) is the default since its audio cutover;

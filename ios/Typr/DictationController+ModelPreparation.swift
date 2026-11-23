@@ -330,8 +330,8 @@ extension DictationController {
     }
 }
 
-/// Background time from iOS while Typr finishes the multilingual model's download or load,
-/// ended when it's done or when iOS asks for it back (Hex's `BackgroundTime`).
+/// Background time from iOS, ended when the work is done or when iOS asks for it back
+/// (Hex's `BackgroundTime`).
 @MainActor
 final class BackgroundTime {
     private var id = UIBackgroundTaskIdentifier.invalid

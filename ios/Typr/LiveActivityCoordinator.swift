@@ -1,6 +1,5 @@
 import ActivityKit
 import Foundation
-import UIKit
 
 @MainActor
 protocol LiveActivityPresenting: AnyObject {
@@ -19,7 +18,7 @@ final class LiveActivityCoordinator: LiveActivityPresenting {
     private var currentActivityID: String?
     /// Holds the app awake from transcribing until the activity ends: the microphone, which
     /// kept it running in the background, is already released.
-    private var transcribingAssertion: BackgroundAssertion?
+    private var transcribingAssertion: BackgroundTime?
 
     func startRecording(startedAt: Date) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
@@ -48,7 +47,7 @@ final class LiveActivityCoordinator: LiveActivityPresenting {
     func markTranscribing(startedAt: Date) {
         guard let id = currentActivityID else { return }
         if transcribingAssertion == nil {
-            transcribingAssertion = BackgroundAssertion(name: "Typr transcription")
+            transcribingAssertion = BackgroundTime("Typr transcription")
         }
         let state = TyprDictationActivityAttributes.ContentState(
             stage: .transcribing,
@@ -100,7 +99,7 @@ final class LiveActivityCoordinator: LiveActivityPresenting {
     }
 
     private func runEnding(_ work: @escaping @Sendable () async -> Void) {
-        let assertion = BackgroundAssertion(name: "Typr Live Activity end")
+        let assertion = BackgroundTime("Typr Live Activity end")
         let transcribing = transcribingAssertion
         transcribingAssertion = nil
         Task { @MainActor in
@@ -156,23 +155,5 @@ final class LiveActivityCoordinator: LiveActivityPresenting {
                 dismissalPolicy: .immediate
             )
         }
-    }
-}
-
-/// A UIKit background task, ended once (or by the system's expiry).
-@MainActor
-private final class BackgroundAssertion {
-    private var id = UIBackgroundTaskIdentifier.invalid
-
-    init(name: String) {
-        id = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
-            MainActor.assumeIsolated { self?.end() }
-        }
-    }
-
-    func end() {
-        guard id != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(id)
-        id = .invalid
     }
 }

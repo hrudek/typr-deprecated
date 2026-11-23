@@ -160,6 +160,8 @@ private actor ControlledTranscriber: LocalTranscribing {
     private(set) var transcribedURLs: [URL] = []
     private(set) var vocabularyArguments: [[String]] = []
     private var suspendNext = false
+    private var suspendPrepare = false
+    private var prepareGate: CheckedContinuation<Void, Never>?
 
     func armSuspension() {
         suspendNext = true
@@ -183,7 +185,23 @@ private actor ControlledTranscriber: LocalTranscribing {
         }
     }
 
+    func armPrepareSuspension() {
+        suspendPrepare = true
+    }
+
+    func isPreparing() -> Bool { prepareGate != nil }
+
+    func resumePrepare() {
+        suspendPrepare = false
+        prepareGate?.resume()
+        prepareGate = nil
+    }
+
     func prepare(progressHandler: @escaping @Sendable (ModelPreparationProgress) -> Void) async throws {
+        if suspendPrepare {
+            suspendPrepare = false
+            await withCheckedContinuation { prepareGate = $0 }
+        }
         progressHandler(ModelPreparationProgress(fractionCompleted: 1, detail: "Ready"))
     }
 
@@ -205,6 +223,16 @@ private actor ControlledTranscriber: LocalTranscribing {
     func transcribe(_ audioURL: URL, vocabulary: [String]) async throws -> String {
         vocabularyArguments.append(vocabulary)
         return try await transcribe(audioURL)
+    }
+}
+
+@MainActor
+private final class ClockReads {
+    private(set) var count = 0
+
+    func read() -> TimeInterval {
+        count += 1
+        return Date().timeIntervalSince1970
     }
 }
 
@@ -1595,8 +1623,6 @@ final class DictationControllerTests: XCTestCase {
     private static let meterCycle = Duration.milliseconds(33)
     private static let sessionLoopTick = Duration.milliseconds(100)
 
-    /// Hex lifecycle: only dictations that copy (Action Button, Control Center, Siri) show a
-    /// Live Activity; the keyboard and the app have their own recording UI.
     func testOnlyCopyingDictationsShowALiveActivity() async throws {
         let audio = FakeAudioManager()
         let transcriber = ControlledTranscriber()
@@ -1633,8 +1659,6 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertEqual(liveActivity.events, [.start, .transcribing, .copied])
     }
 
-    /// A cancelled job's late result belongs to an older generation: it must not mark the
-    /// activity Copied after the cancellation ended it.
     func testCancelledTranscriptionEndsTheLiveActivityAndItsLateResultLeavesItEnded() async throws {
         let audio = FakeAudioManager()
         let transcriber = ControlledTranscriber()
@@ -1655,8 +1679,6 @@ final class DictationControllerTests: XCTestCase {
         XCTAssertEqual(controller.transcript, "")
     }
 
-    /// Returning to Typr ends activities a suspended or killed process left, but never the one
-    /// of a dictation still recording or transcribing.
     func testStaleLiveActivitiesEndOnlyWhenNoDictationOwnsThem() async throws {
         let audio = FakeAudioManager()
         let transcriber = ControlledTranscriber()
@@ -1678,6 +1700,52 @@ final class DictationControllerTests: XCTestCase {
         await transcriber.resumeSuspended(with: "")
         try await transcribed(controller)
         XCTAssertEqual(liveActivity.events, [.end, .start, .transcribing, .end])
+    }
+
+    func testTyprLiveActivityForAllDictationsShowsItForKeyboardDictations() async throws {
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let liveActivity = RecordingLiveActivity()
+        let settings = typrSettings(.typrLiveActivityForAllDictations)
+        let controller = try await readyController(audio: audio, transcriber: transcriber, settings: settings,
+                                                   liveActivity: liveActivity)
+
+        await transcriber.setCannedOutput("")
+        controller.startRecording(keyboardJobID: "keyboard-job")
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        controller.finishRecording()
+        try await transcribed(controller)
+        XCTAssertEqual(liveActivity.events, [.start, .transcribing, .end])
+    }
+
+    func testDictateToggleWaitsForAModelThatIsAlreadyPreparing() async throws {
+        let audio = FakeAudioManager()
+        let transcriber = ControlledTranscriber()
+        let liveActivity = RecordingLiveActivity()
+        let clock = ClockReads()
+        let controller = DictationController(
+            audio: audio, keyboardBridge: KeyboardBridge(defaults: defaults), transcriber: transcriber,
+            transcriberFactory: { transcriber }, now: { clock.read() }, autoPrepareOnInit: false,
+            liveActivity: liveActivity, languageSettings: TyprSettings(defaults: defaults))
+        controllers.append(controller)
+        await transcriber.armPrepareSuspension()
+        controller.prepareModel()
+        try await waitForState("model preparation suspended") { await transcriber.isPreparing() }
+        XCTAssertEqual(controller.phase, .preparingModel)
+
+        let readsBefore = clock.count
+        let toggle = Task { await TyprSystemCommandBus.shared.dispatch(.toggleDictation) }
+        try await waitForState("toggle waits for the model") { clock.count > readsBefore }
+        XCTAssertEqual(controller.phase, .preparingModel)
+        await transcriber.resumePrepare()
+        let result = await toggle.value
+
+        XCTAssertEqual(result, "")
+        try await activationSettled(controller)
+        XCTAssertEqual(controller.phase, .recording)
+        XCTAssertEqual(liveActivity.events, [.start])
+        controller.cancelCurrentJob()
     }
 
     private func readyController(
