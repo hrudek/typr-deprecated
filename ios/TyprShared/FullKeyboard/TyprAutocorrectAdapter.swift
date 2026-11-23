@@ -45,9 +45,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         engine.lexiconTerms + engine.lexiconShortcuts.values.filter { !$0.contains(" ") }
     }
 
-    /// The latest correction as Hex's revert offers it.
     private var correction: AutocorrectEngine.AppliedCorrection?
-    /// Typr's record of each word that correction changed, by the word as typed.
     private var undos: [String: TyprAutocorrectEngine.AppliedCorrection] = [:]
     /// `undos` of a correction being reverted: Hex forgets it, then keeps each typed word.
     private var reverting: [String: TyprAutocorrectEngine.AppliedCorrection] = [:]

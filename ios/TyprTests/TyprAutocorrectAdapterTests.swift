@@ -2,7 +2,6 @@ import UIKit
 import XCTest
 @testable import Typr
 
-/// Typr's autocorrect behind Hex's `FullKeyboardEngine`, typed on Hex's keys.
 @MainActor
 final class TyprAutocorrectAdapterTests: XCTestCase {
     private var suiteName: String!
