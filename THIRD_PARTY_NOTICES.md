@@ -51,6 +51,12 @@ keyboard parity from unmerged anomalyco/hex PR #938 at
 `9029d2bcafb5504019d9ad979fa3883dd1659161` (MIT, same license). Adoption history is
 in Git and the adopting PRs.
 
+Two-language dictation (anomalyco/hex #2348) at
+`0c1c13d71b853ac3113d9a622e4fd9af3755d068` (MIT): `ios/HEXShared/TwoLanguageMerge.swift`
+as is, `ios/HEXShared/AppleSpeechTwoLanguage.swift` with the second language fixed to the
+other of German and English, `ios/HEXShared/TwoLanguageDictationSettings.swift` under
+Typr's experiment switch, and `ios/HEXMobileTests/TwoLanguageMergeTests.swift`.
+
 ## OpenCode iOS scope port
 
 The iOS scope credits `DotScopeView.swift`, `DictationScopeBar` and

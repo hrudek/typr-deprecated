@@ -36,6 +36,12 @@ keyboard dictation opens Typr. Choosing an explicit engine stops Ultra's downloa
 and retries. Choosing an unsupported language pauses the download until you return
 to a supported one. Turning the experiment off deletes its files after any download
 or load finishes stopping.
+Experimental › Hex experiments › **Two-language dictation** (off by default) has Apple
+Speech read each dictation in Typr in German and in English when the other language's
+model is already downloaded, and keeps the more confident reading for each phrase. It
+never downloads the second model; without it, or with any other engine, dictation reads
+one language as before. Keyboard dictation stays in one language: a second recognizer
+would not fit the keyboard's memory limit.
 
 ## How it works
 

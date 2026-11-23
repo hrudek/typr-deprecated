@@ -236,6 +236,18 @@ actor AppleSpeechTranscriber: LocalTranscribing {
             throw TranscriberError.unavailable
         }
 
+        if TwoLanguageDictationSettings().isEnabled,
+           let pair = await AppleSpeechTwoLanguage.usablePair(for: language),
+           let merged = await AppleSpeechTwoLanguage.transcribe(
+               audioURL,
+               pair: pair,
+               vocabulary: vocabulary,
+               lingeringModels: true
+           ) {
+            guard !merged.text.isEmpty else { throw TranscriberError.emptyTranscript }
+            return merged.text
+        }
+
         let speech: AppleSpeechModule
         let analyzer: SpeechAnalyzer
         if let preparedModule, let preparedAnalyzer {
