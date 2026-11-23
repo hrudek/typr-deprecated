@@ -528,6 +528,8 @@ final class SpeechModelInstallTests: XCTestCase {
 }
 
 final class StallWatchTests: XCTestCase {
+    private enum WorkerError: Error { case failed }
+
     func testAMovingOperationFinishes() async throws {
         let fraction = ProgressReading()
         let value = try await StallWatch.run(limit: .milliseconds(200), poll: .milliseconds(20), progress: { fraction.value }) {
@@ -541,14 +543,14 @@ final class StallWatchTests: XCTestCase {
     }
 
     func testAnOperationThatStopsMovingIsCancelled() async {
-        let cancelled = ProgressReading()
+        let cancelled = expectation(description: "worker observed cancellation")
         let started = Date()
         do {
             _ = try await StallWatch.run(limit: .milliseconds(200), poll: .milliseconds(20), progress: { 0.5 }) {
                 do {
                     try await Task.sleep(for: .seconds(30))
                 } catch {
-                    cancelled.value = 1
+                    cancelled.fulfill()
                     throw error
                 }
             }
@@ -557,8 +559,7 @@ final class StallWatchTests: XCTestCase {
             XCTAssertTrue(error is StallWatch.Stalled)
         }
         XCTAssertLessThan(Date().timeIntervalSince(started), 2)
-        try? await Task.sleep(for: .milliseconds(100))
-        XCTAssertEqual(cancelled.value, 1, "the operation was told to stop")
+        await fulfillment(of: [cancelled], timeout: 2)
     }
 
     func testANilReadingPausesTheWatch() async throws {
@@ -571,15 +572,36 @@ final class StallWatchTests: XCTestCase {
     }
 
     func testCancellingTheCallerEndsTheWait() async {
+        let started = expectation(description: "worker started")
         let task = Task {
             try await StallWatch.run(limit: .seconds(30), progress: { nil }) {
-                try await Task.sleep(for: .seconds(30))
+                started.fulfill()
+                do {
+                    try await Task.sleep(for: .seconds(30))
+                } catch {
+                    throw WorkerError.failed
+                }
             }
         }
-        try? await Task.sleep(for: .milliseconds(100))
+        await fulfillment(of: [started], timeout: 2)
         task.cancel()
-        let result = await task.result
-        if case .success = result { XCTFail("cancelled") }
+        do {
+            try await task.value
+            XCTFail("expected caller cancellation")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "unexpected error: \(error)")
+        }
+    }
+
+    func testAWorkerErrorIsPropagated() async {
+        do {
+            try await StallWatch.run(limit: .seconds(30), progress: { nil }) {
+                throw WorkerError.failed
+            }
+            XCTFail("expected worker error")
+        } catch {
+            XCTAssertTrue(error is WorkerError, "unexpected error: \(error)")
+        }
     }
 }
 

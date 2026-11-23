@@ -222,15 +222,14 @@ nonisolated enum StallWatch {
                             last = now
                             since = tick
                         } else if tick - since >= limit {
-                            work.cancel()
-                            outcome.finish(.failure(Stalled()))
+                            outcome.finish(.failure(Stalled()), cancelWork: true)
                             return
                         }
                     }
                 }
             }
         } onCancel: {
-            outcome.cancel()
+            outcome.finish(.failure(CancellationError()), cancelWork: true)
         }
     }
 }
@@ -265,24 +264,17 @@ private nonisolated final class StallOutcome<T: Sendable>: @unchecked Sendable {
         if finished { work.cancel() }
     }
 
-    func finish(_ result: Result<T, Error>) {
-        let target: CheckedContinuation<T, Error>? = lock.withLock {
-            guard !done else { return nil }
+    func finish(_ result: Result<T, Error>, cancelWork: Bool = false) {
+        let (target, running): (CheckedContinuation<T, Error>?, Task<Void, Never>?) = lock.withLock {
+            guard !done else { return (nil, nil) }
             done = true
-            guard let continuation else {
-                pending = result
-                return nil
-            }
+            let target = continuation
             self.continuation = nil
-            return continuation
+            if target == nil { pending = result }
+            return (target, cancelWork ? work : nil)
         }
-        target?.resume(with: result)
-    }
-
-    func cancel() {
-        let running = lock.withLock { work }
         running?.cancel()
-        finish(.failure(CancellationError()))
+        target?.resume(with: result)
     }
 }
 
