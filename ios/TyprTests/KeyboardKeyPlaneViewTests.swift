@@ -47,7 +47,78 @@ final class KeyboardKeyPlaneViewTests: XCTestCase {
 
         XCTAssertFalse(plane.engine.shift.isHeld)
         XCTAssertTrue(plane.engine.pressedKinds.isEmpty)
+        XCTAssertEqual(plane.engine.shift.state, .off)
         XCTAssertEqual(target.text, "")
+
+        plane.began(id: 3, sample: shift)
+        plane.ended(id: 3, sample: shift)
+        XCTAssertEqual(plane.engine.shift.state, .on)
+        plane.began(id: 4, sample: a)
+        plane.ended(id: 4, sample: a)
+        plane.began(id: 5, sample: a)
+        plane.ended(id: 5, sample: a)
+        XCTAssertEqual(target.text, "Aa")
+    }
+
+    func testCancellingSecondShiftPressPreservesTheFirstTapsDoubleTapWindow() throws {
+        let (plane, _) = makePlane()
+        let shift = try sample(.shift, in: plane)
+        var now: TimeInterval = 10
+        plane.engine.clock = { now }
+        plane.began(id: 1, sample: shift)
+        plane.ended(id: 1, sample: shift)
+
+        now = 10.1
+        plane.began(id: 2, sample: shift)
+        XCTAssertEqual(plane.engine.shift.state, .locked)
+        plane.cancelled(id: 2, sample: shift)
+        XCTAssertEqual(plane.engine.shift.state, .on)
+        XCTAssertFalse(plane.engine.shift.isHeld)
+
+        now = 10.2
+        plane.began(id: 3, sample: shift)
+        plane.ended(id: 3, sample: shift)
+        XCTAssertEqual(plane.engine.shift.state, .locked)
+    }
+
+    func testCancelAllRestoresCapsLockAndKeepsSubsequentTypingUppercase() throws {
+        let (plane, target) = makePlane()
+        let shift = try sample(.shift, in: plane)
+        let a = try sample(.character("a"), in: plane)
+        for id in 1...2 {
+            plane.began(id: id, sample: shift)
+            plane.ended(id: id, sample: shift)
+        }
+        XCTAssertEqual(plane.engine.shift.state, .locked)
+
+        plane.began(id: 3, sample: shift)
+        plane.cancelAllTouches()
+        plane.ended(id: 3, sample: shift)
+        XCTAssertEqual(plane.engine.shift.state, .locked)
+        XCTAssertFalse(plane.engine.shift.isHeld)
+        plane.began(id: 4, sample: a)
+        plane.ended(id: 4, sample: a)
+        XCTAssertEqual(target.text, "A")
+    }
+
+    func testCancelAllDropsAnUncommittedShiftAndPreservesACommittedChord() throws {
+        let (plane, target) = makePlane()
+        let shift = try sample(.shift, in: plane)
+        let a = try sample(.character("a"), in: plane)
+
+        plane.began(id: 1, sample: shift)
+        plane.cancelAllTouches()
+        plane.began(id: 2, sample: a)
+        plane.ended(id: 2, sample: a)
+        XCTAssertEqual(target.text, "a")
+
+        plane.began(id: 3, sample: shift)
+        plane.began(id: 4, sample: a)
+        plane.ended(id: 4, sample: a)
+        plane.cancelAllTouches()
+        XCTAssertEqual(plane.engine.shift.state, .off)
+        XCTAssertFalse(plane.engine.shift.isHeld)
+        XCTAssertEqual(target.text, "aA")
     }
 
     func testGeometricSwipeCancelsAndNextSwipeCanBeUndoneAfterHostEcho() throws {

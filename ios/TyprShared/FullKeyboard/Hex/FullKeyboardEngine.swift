@@ -796,7 +796,7 @@ final class FullKeyboardEngine {
         guard let touch = touches.removeValue(forKey: id) else { return }
         touchOrder.removeAll { $0 == id }
         if touch.key.kind == .shift, !touches.values.contains(where: { $0.key.kind == .shift }) {
-            shift.shiftUp()
+            shift.cancelShiftPress()
             logState("cancel")
         }
         onChange?()
@@ -818,7 +818,7 @@ final class FullKeyboardEngine {
         activeAccentMenu = nil
         activeAccentTouchID = nil
         if shift.isHeld {
-            shift.shiftUp()
+            shift.cancelShiftPress()
             logState("cancel")
         }
         if hadTouches { onChange?() }

@@ -1003,6 +1003,16 @@ MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICE
 `ios/TyprTests/TyprFullKeyboardEngineTests.swift` follow `DeleteWordSwipe` and its tests there.
 MIT, © Christopher Langton, the same license as this repository ([LICENSE](LICENSE)).
 
+## Hex iOS action key and key plane
+
+`HexKeyGesture.swift`, `HexKeyViews.swift`, and `KeyboardKeyPlaneView.swift` in
+`ios/TyprShared/FullKeyboard/Hex/` adapt the gesture, action key, recording controls,
+style menu, key drawing, and touch routing from the corresponding files in
+[anomalyco/hex](https://github.com/anomalyco/hex/tree/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXShared/FullKeyboard)
+at `0c1c13d71b853ac3113d9a622e4fd9af3755d068`. `ios/TyprTests/HexKeyGestureTests.swift`
+adapts the gesture and control tests from `ios/HEXMobileTests/HexKeyGestureTests.swift`
+at the same revision. MIT, © Christopher Langton. [License](https://github.com/anomalyco/hex/blob/0c1c13d71b853ac3113d9a622e4fd9af3755d068/LICENSE).
+
 ## Hex learning from dictation edits
 
 Learn from my edits (`ios/TyprShared/TyprDictationEditInference.swift`,

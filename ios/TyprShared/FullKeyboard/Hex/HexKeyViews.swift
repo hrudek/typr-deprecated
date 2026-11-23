@@ -207,7 +207,7 @@ final class HexKeyRecordingPanel: UIView {
     private let doneSpinner = UIActivityIndicatorView(style: .medium)
     var horizontalInset: CGFloat = 0 { didSet { setNeedsLayout() } }
     var metrics = KeyboardMetrics.portrait { didSet { setNeedsLayout() } }
-    /// The Typr key sits on the left (Settings › Keyboard › Hex key): ✓ and ✕ lead.
+    /// Places the done and cancel buttons at the leading edge when the action key leads.
     var hexOnLeading = false { didSet { if hexOnLeading != oldValue { setNeedsLayout() } } }
     init(loudness: @escaping () -> Float) {
         var tuning = DotScopeTuning.bar(leadingInset: 0, trailingInset: 0, fade: 24, spacing: 5)
@@ -363,7 +363,7 @@ final class PanelKeyButton: UIControl {
     }
 }
 
-/// Holding the Typr key: dictation styles, then the dictation language when there are choices,
+/// Sliding from the Typr key before the hold opens dictation styles, the dictation language when there are choices,
 /// then Translate to <language> (on or off) and the target to translate into. The language
 /// page takes a language off with a long press and Remove, and adds one from More languages….
 @MainActor
