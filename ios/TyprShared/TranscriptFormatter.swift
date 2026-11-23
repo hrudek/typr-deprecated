@@ -63,6 +63,9 @@ nonisolated enum TranscriptFormatter {
     /// `endsWithPeriod` (Settings › Dictation › End with a period) off, no line ends with a full
     /// stop ("." or "。"), whether the speech model or the style put it there: a question or an
     /// exclamation keeps its mark, and marks inside a line stay. Verbatim keeps the model's.
+    ///
+    /// `trimsFillers` off leaves hesitations to Clean up what I say (`HexSpokenHesitations`),
+    /// which already removed the ones that can go without breaking a sentence.
     static func format(
         _ raw: String,
         style: DictationStyle,
@@ -70,9 +73,11 @@ nonisolated enum TranscriptFormatter {
         lists: Bool = false,
         punctuation: Bool = false,
         endsWithPeriod: Bool = true,
-        rules: SpokenFormattingRules = .hex
+        rules: SpokenFormattingRules = .hex,
+        trimsFillers: Bool = true
     ) -> String {
-        let styled = formatted(raw, style: style, language: language, lists: lists, punctuation: punctuation, rules: rules)
+        let styled = formatted(raw, style: style, language: language, lists: lists, punctuation: punctuation, rules: rules,
+                               trimsFillers: trimsFillers)
         guard !endsWithPeriod, style != .verbatim else { return styled }
         let german = isGerman(language)
         return styled.components(separatedBy: "\n").map { droppingFinalFullStop($0, german: german) }
@@ -86,11 +91,11 @@ nonisolated enum TranscriptFormatter {
 
     private static func formatted(
         _ raw: String, style: DictationStyle, language: String?, lists: Bool, punctuation: Bool,
-        rules: SpokenFormattingRules
+        rules: SpokenFormattingRules, trimsFillers: Bool
     ) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        let fillers = fillerPattern(for: language)
+        let fillers = trimsFillers ? fillerPattern(for: language) : nil
         let english = SpeechLanguagePicker.isEnglish(language)
         let unspaced = writesWithoutSpaces(language)
         let german = isGerman(language)

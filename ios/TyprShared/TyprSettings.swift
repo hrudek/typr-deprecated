@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -144,7 +144,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrConservativeSpokenCleanup = ExperimentalSwitch(
         name: "variant.conservativeSpokenCleanup",
         title: "Typr conservative spoken cleanup",
-        detail: "Clean up what I say uses Typr's German and English word rules instead of Hex's."
+        detail: "Clean up what I say uses Typr's German and English word rules instead of Hex's hesitation rule."
     )
 
     static let typrAICleanupPipeline = ExperimentalSwitch(
@@ -233,8 +233,10 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "With Typr German formatting rules: say “erstens … zweitens …”, “Punkt eins … Punkt zwei …”, “Spiegelstrich” or “neue Zeile” for numbered lines, bullets and line breaks, in every style except Verbatim. Some commands stay words when they could be part of a sentence."
     )
 
-    /// Hex's "Clean up what I say" (anomalyco/hex #2023, #2132) as German and English word rules
-    /// (`SpokenCleanup`), before AI cleanup.
+    /// Retired: Hex's Clean up what I say is a Dictation setting since its cutover
+    /// (`TyprSettings.dictationSpokenCleanup`); Typr conservative spoken cleanup restores the old
+    /// rules. Kept for its stored key only, which nothing reads, so a stored value never changes
+    /// the default or an override.
     static let cleanUpWhatISay = ExperimentalSwitch(
         name: "cleanUpWhatISay",
         title: "Clean up what I say",
@@ -323,6 +325,7 @@ nonisolated struct TyprSettings {
         static let dictationLowercase = "typr.dictationLowercase"
         static let dictationFormatLists = "typr.dictationFormatLists"
         static let dictationSpokenPunctuation = "typr.dictationSpokenPunctuation"
+        static let dictationSpokenCleanup = "typr.dictationSpokenCleanup"
         static let translateDictation = "typr.translateDictation"
         static let translationTarget = "typr.translationTarget"
         static let translationFailure = "typr.translationFailure"
@@ -399,6 +402,14 @@ nonisolated struct TyprSettings {
     var dictationLowercase: Bool {
         get { defaults?.object(forKey: Key.dictationLowercase) as? Bool ?? false }
         nonmutating set { defaults?.set(newValue, forKey: Key.dictationLowercase) }
+    }
+
+    /// Hex's Clean up what I say (anomalyco/hex #2023, #2132), on by default as in Hex and skipped
+    /// in Verbatim: Hex's hesitation rule (`HexSpokenHesitations`) for German, Spanish and
+    /// Norwegian, or Typr's `SpokenCleanup` with Typr conservative spoken cleanup.
+    var dictationSpokenCleanup: Bool {
+        get { defaults?.object(forKey: Key.dictationSpokenCleanup) as? Bool ?? true }
+        nonmutating set { defaults?.set(newValue, forKey: Key.dictationSpokenCleanup) }
     }
 
     /// Hex's Format lists (anomalyco/hex #2131, `SpokenLists`), on by default as in Hex.

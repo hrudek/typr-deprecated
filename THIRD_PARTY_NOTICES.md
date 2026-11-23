@@ -728,6 +728,7 @@ German, Spanish, and Norwegian locale gates from Hex's
 [`SpokenCleanupRules.swift`](https://github.com/anomalyco/hex/blob/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXShared/SpokenCleanupRules.swift)
 at `0c1c13d71b853ac3113d9a622e4fd9af3755d068`. Typr preserves source line separators
 and punctuation through local edits. MIT, © Christopher Langton.
+Typr does not adopt that file's spoken-correction rules or any cleanup model weights.
 
 ## Hex iOS dictation translation
 

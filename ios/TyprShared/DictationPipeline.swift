@@ -8,7 +8,7 @@ import Foundation
 /// 0c1c13d7, MIT); see THIRD_PARTY_NOTICES.md.
 ///
 /// In Hex's order: learned fixes, custom vocabulary (and Typr's tech glossary,
-/// `DictationVocabulary`), Clean up what I say (`SpokenCleanup`), `refine` (AI cleanup, only in
+/// `DictationVocabulary`), Clean up what I say (`HexSpokenHesitations`), `refine` (AI cleanup, only in
 /// the app), translation (only in the app), the style (`TranscriptFormatter`, with Format lists'
 /// `SpokenLists` and Spoken punctuation's `SpokenPunctuation` inside it), the spellings again,
 /// Lowercase, then French spacing (`FrenchSpacing`, in every style but Verbatim). Without
@@ -17,15 +17,18 @@ import Foundation
 ///
 /// Typr variant (Settings › Experimental): Typr German formatting rules writes lists and
 /// punctuation with `TyprSpokenLists` and `TyprSpokenPunctuation`, switched by the old Format
-/// lists and Spoken punctuation experiments instead of the Dictation settings.
+/// lists and Spoken punctuation experiments instead of the Dictation settings. Typr conservative
+/// spoken cleanup runs Typr's `SpokenCleanup` for Clean up what I say instead of Hex's rules.
 nonisolated struct DictationPipeline: Sendable {
     var style: DictationStyle
     /// The dictation language (BCP 47); nil is Typr's Automatic: German unless the text reads as
     /// English (`TyprTranscriptFormatter.readsAsEnglish`).
     var language: String?
     var vocabulary = DictationVocabulary(userTerms: [])
-    /// Clean up what I say (`SpokenCleanup`).
+    /// Clean up what I say.
     var spokenCleanup = false
+    /// Typr conservative spoken cleanup: Clean up what I say runs `SpokenCleanup`.
+    var typrSpokenCleanup = false
     var lowercase = false
     /// Format lists, inside the style.
     var formatLists = false
@@ -71,7 +74,8 @@ nonisolated struct DictationPipeline: Sendable {
         )
         self.typrFormattingRules = typrFormattingRules
         self.vocabulary = vocabulary
-        spokenCleanup = settings[experiment: .cleanUpWhatISay] && self.style != .verbatim
+        spokenCleanup = settings.dictationSpokenCleanup && self.style != .verbatim
+        typrSpokenCleanup = settings[experiment: .typrConservativeSpokenCleanup]
         lowercase = settings.dictationLowercase
         endsWithPeriod = settings.dictationEndsWithPeriod
         formatLists = typrFormattingRules ? settings[experiment: .formatLists] : settings.dictationFormatLists
@@ -122,7 +126,15 @@ nonisolated struct DictationPipeline: Sendable {
         // user term is restored.
         let prepared = vocabulary.beforeCleanup(CleanupHyphens.spaceCompounds(heard), onReplacement: onSpelling)
         onSpelled?(prepared.text)
-        let tagged = spokenCleanup ? SpokenCleanup.clean(prepared.text, language: typrLanguage) : prepared.text
+        let cleanupLanguage = Self.resolved(language, for: prepared.text)
+        let hexCleanup = spokenCleanup && !typrSpokenCleanup && HexSpokenHesitations.supports(cleanupLanguage)
+        let tagged = if !spokenCleanup {
+            prepared.text
+        } else if typrSpokenCleanup {
+            SpokenCleanup.clean(prepared.text, language: typrLanguage)
+        } else {
+            HexSpokenHesitations.remove(from: prepared.text, language: cleanupLanguage)
+        }
         let cleaned = await refine?(tagged, prepared.cleanupTerms) ?? tagged
         var translated: String?
         var formatLanguage = language
@@ -130,7 +142,7 @@ nonisolated struct DictationPipeline: Sendable {
             translated = text
             formatLanguage = target
         }
-        let styled = applyStyle(translated ?? cleaned, language: formatLanguage)
+        let styled = applyStyle(translated ?? cleaned, language: formatLanguage, trimsFillers: !hexCleanup || translated != nil)
         return Stages(
             heard: heard,
             spelled: prepared.text,
@@ -144,11 +156,11 @@ nonisolated struct DictationPipeline: Sendable {
     }
 
     /// `text` in the style and language (BCP 47; nil is Automatic).
-    func applyStyle(_ text: String, language: String?) -> String {
+    func applyStyle(_ text: String, language: String?, trimsFillers: Bool = true) -> String {
         return TranscriptFormatter.format(
             text, style: style, language: Self.resolved(language, for: text),
             lists: formatLists, punctuation: spokenPunctuation, endsWithPeriod: endsWithPeriod,
-            rules: typrFormattingRules ? .typr : .hex
+            rules: typrFormattingRules ? .typr : .hex, trimsFillers: trimsFillers
         )
     }
 

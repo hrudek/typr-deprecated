@@ -80,12 +80,14 @@ or load finishes stopping.
   holds call audio for as long as the warm session runs. After a phone call, such a
   Bluetooth warm session resumes without hands-free until it ends.
 - Text processing combines vocabulary corrections, optional AI cleanup and
-  formatting styles. Experimental › **Clean up what I say** (off by default, skipped in
-  Verbatim) runs Hex's German word rules, with English rules added, before AI cleanup,
-  line by line: it removes hesitations (äh, ähm, öh, hm; English um, uh), a conjunction or
-  preposition said twice (und und) and self-repairs of a day, month or number set off by a
-  marker (am Dienstag, ich meine, Mittwoch). Anything less certain stays as said: eh,
-  pronoun, article and emphatic repeats, negated sentences, explanations and answers. Typr AI
+  formatting styles. Dictation › Style › **Clean up what I say** (on by default as in Hex,
+  skipped in Verbatim) runs Hex's hesitation rule for German, Spanish and Norwegian before
+  AI cleanup, line by line: it removes hesitations (äh, ähm, öh, hm; eh, mmm) and a line
+  that held only hesitations, keeping line breaks, punctuation and quotes. Spoken
+  corrections (am Montag, nein, am Dienstag) stay as said: Hex's correction rules are not
+  adopted. English stays as heard (Hex cleans it with a model whose weights Typr does not
+  ship). Experimental › **Typr conservative spoken
+  cleanup** runs Typr's earlier German and English word rules instead. Typr AI
   cleanup runs on-device with Apple Intelligence (iOS 26+,
   default) or, with your own Anthropic API key (stored in the Keychain), with
   Claude in the cloud; the plain transcript is used whenever cleanup is

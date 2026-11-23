@@ -183,12 +183,20 @@ final class SpokenCleanupTests: XCTestCase {
     }
 
     @MainActor
-    func testExperimentalSwitchIsOffByDefault() {
+    func testCleanUpWhatISayIsOnByDefaultAndTheOldSwitchIsRetired() {
         let suite = "spoken.cleanup.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        XCTAssertTrue(ExperimentalSwitch.all.contains(.cleanUpWhatISay))
-        XCTAssertFalse(TyprSettings(defaults: defaults)[experiment: .cleanUpWhatISay])
+        let settings = TyprSettings(defaults: defaults)
+        settings[experiment: .cleanUpWhatISay] = false
+        XCTAssertTrue(settings.dictationSpokenCleanup)
+        XCTAssertFalse(ExperimentalSwitch.all.contains(.cleanUpWhatISay))
+        XCTAssertTrue(ExperimentalSwitch.typrVariants.contains(.typrConservativeSpokenCleanup))
+        XCTAssertFalse(settings[experiment: .typrConservativeSpokenCleanup])
+        let pipeline = DictationPipeline(style: .polished, language: .german, vocabulary: DictationVocabulary(userTerms: []),
+                                         settings: settings)
+        XCTAssertTrue(pipeline.spokenCleanup)
+        XCTAssertFalse(pipeline.typrSpokenCleanup)
     }
 }
 
@@ -230,12 +238,12 @@ private actor SpokenASR: LocalTranscribing {
 
 @MainActor
 final class SpokenCleanupPipelineTests: XCTestCase {
-    /// The rules run on the transcript before AI cleanup sees it, and Verbatim or the switch
-    /// turned off skips them.
+    /// Hex's hesitation rule runs on the transcript before AI cleanup sees it, the correction
+    /// stays as said, and Verbatim or the switch turned off skips the rule.
     func testRulesRunBeforeAICleanupAndVerbatimBypasses() async throws {
         let cases: [(Bool, Bool, DictationStyle, String, String?)] = [
-            (true, true, .polished, "Am Mittwoch.", "Am Mittwoch"),
-            (true, false, .polished, "Am Mittwoch.", nil),
+            (true, true, .polished, "Am Mittwoch.", "Am Dienstag, ich meine, Mittwoch"),
+            (true, false, .polished, "Am Dienstag, ich meine, Mittwoch.", nil),
             (true, true, .verbatim, "Am Dienstag, äh, ich meine, Mittwoch", nil),
             (false, false, .polished, "Am Dienstag, ich meine, Mittwoch.", nil),
         ]
@@ -245,7 +253,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
             defer { defaults.removePersistentDomain(forName: suite) }
             let settings = TyprSettings(defaults: defaults)
             settings.dictationLanguage = .german
-            settings[experiment: .cleanUpWhatISay] = switchOn
+            settings.dictationSpokenCleanup = switchOn
             let model = CleanupTestSession()
             model.result = "Am Mittwoch."
             let clock = CleanupTestSleeper()
@@ -266,7 +274,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
             if let modelInput {
                 XCTAssertEqual(model.prompts.count, 1)
                 XCTAssertTrue(model.prompts[0].contains(modelInput))
-                XCTAssertFalse(model.prompts[0].contains("Dienstag"))
+                XCTAssertFalse(model.prompts[0].contains("äh"))
             } else {
                 XCTAssertTrue(model.prompts.isEmpty)
             }
@@ -274,6 +282,56 @@ final class SpokenCleanupPipelineTests: XCTestCase {
             clock.fire()
             try await waitForState("idle") { controller.isIdleForTest && model.cleansInFlight == 0 }
             await mainActorBarrier()
+        }
+    }
+
+    /// On by default, Clean up what I say removes hesitations with Hex's rule for German, Spanish
+    /// and Norwegian, leaves spoken corrections and English as heard; Typr conservative spoken
+    /// cleanup runs Typr's German and English rules instead; off or Verbatim skips both. AI
+    /// cleanup gets the cleaned text, and the style trims no hesitation Hex's rule kept.
+    func testDefaultRemovesHexHesitationsAndTheOverrideRunsTyprRules() async {
+        let correction = "Wir kommen am Montag. Nein, am Dienstag."
+        let cases: [(cleanup: Bool, typr: Bool, style: DictationStyle, language: String, heard: String, tagged: String, delivered: String)] = [
+            (true, false, .polished, "de", correction, correction, correction),
+            (true, false, .polished, "de", "Am Dienstag, äh, ich meine, Mittwoch.", "Am Dienstag, ich meine, Mittwoch.",
+             "Am Dienstag, ich meine, Mittwoch."),
+            (true, false, .polished, "de", "Ich kann am Montag äh. Nein, Dienstag passt besser.",
+             "Ich kann am Montag. Nein, Dienstag passt besser.", "Ich kann am Montag. Nein, Dienstag passt besser."),
+            (true, false, .polished, "es-ES", "Gracias, eh. Hasta luego.", "Gracias. Hasta luego.", "Gracias. Hasta luego."),
+            (true, false, .polished, "nb-NO", "Jeg kommer på mandag, nei, på tirsdag.", "Jeg kommer på mandag, nei, på tirsdag.",
+             "Jeg kommer på mandag, nei, på tirsdag."),
+            (true, false, .polished, "de", "Brot und und Butter.", "Brot und und Butter.", "Brot und und Butter."),
+            (true, false, .polished, "de", "äh. Danke.", "Danke.", "Danke."),
+            (true, false, .polished, "de", "Danke\näh\nBis dann.", "Danke\nBis dann.", "Danke.\nBis dann."),
+            (true, false, .polished, "de", "Sie sagte: « äh. » Danach schwieg sie.", "Sie sagte: « äh. » Danach schwieg sie.",
+             "Sie sagte: « äh. » Danach schwieg sie."),
+            (true, false, .polished, "en-US", "On Tuesday, I mean, Wednesday.", "On Tuesday, I mean, Wednesday.",
+             "On Tuesday, I mean, Wednesday."),
+            (true, false, .polished, "en-US", "Thanks, um. See you.", "Thanks, um. See you.", "Thanks. See you."),
+            (true, true, .polished, "de", "Brot und und Butter.", "Brot und Butter.", "Brot und Butter."),
+            (true, true, .polished, "en-US", "On Tuesday, I mean, Wednesday.", "On Wednesday.", "On Wednesday."),
+            (true, false, .verbatim, "de", "Danke\näh\nBis dann.", "Danke\näh\nBis dann.", "Danke\näh\nBis dann."),
+            (false, false, .polished, "de", "äh. Danke.", "äh. Danke.", ". Danke."),
+        ]
+        for (cleanup, typr, style, language, heard, tagged, delivered) in cases {
+            let suite = "spoken.cleanup.default.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            defer { defaults.removePersistentDomain(forName: suite) }
+            let settings = TyprSettings(defaults: defaults)
+            if !cleanup { settings.dictationSpokenCleanup = false }
+            settings[experiment: .typrConservativeSpokenCleanup] = typr
+            var pipeline = DictationPipeline(style: style, language: .automatic, vocabulary: DictationVocabulary(userTerms: []),
+                                             settings: settings)
+            pipeline.language = language
+            var refined: [String] = []
+            let stages = await pipeline.run(heard, refine: { text, _ in
+                refined.append(text)
+                return text
+            })
+            let label = "\(cleanup) \(typr) \(style) \(language) \(heard)"
+            XCTAssertEqual(Array(stages.tagged.utf8), Array(tagged.utf8), label)
+            XCTAssertEqual(refined, [tagged], label)
+            XCTAssertEqual(Array(stages.formatted.utf8), Array(delivered.utf8), label)
         }
     }
 
@@ -400,6 +458,7 @@ final class SpokenCleanupPipelineTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = TyprSettings(defaults: defaults)
         settings.dictationLanguage = .german
+        settings.dictationSpokenCleanup = false
         let asr = SpokenASR()
         let controller = DictationController(audio: SpokenAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
             transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
@@ -481,6 +540,7 @@ final class AppleIntelligenceDictationTests: XCTestCase {
         defaults = UserDefaults(suiteName: suite)
         settings = TyprSettings(defaults: defaults)
         settings.dictationLanguage = .german
+        settings.dictationSpokenCleanup = false
     }
 
     override func tearDown() async throws {
@@ -513,39 +573,39 @@ final class AppleIntelligenceDictationTests: XCTestCase {
         XCTAssertTrue(apple.inputs.isEmpty)
 
         settings[experiment: .appleIntelligenceCleanup] = true
-        settings[experiment: .cleanUpWhatISay] = true
+        settings.dictationSpokenCleanup = true
         let enabled = try await deliver(using: apple)
         XCTAssertEqual(enabled, "Am Donnerstag.")
-        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(apple.inputs, ["Am Dienstag, ich meine, Mittwoch"])
 
         let verbatim = try await deliver(using: apple, style: .verbatim)
         XCTAssertEqual(verbatim, "Am Dienstag, äh, ich meine, Mittwoch")
-        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(apple.inputs, ["Am Dienstag, ich meine, Mittwoch"])
     }
 
     func testExperimentKeepsTheTextIfTheModelCannotCleanIt() async throws {
         let apple = StubAppleCleaner()
         let typrModel = CleanupTestSession()
         settings[experiment: .appleIntelligenceCleanup] = true
-        settings[experiment: .cleanUpWhatISay] = true
+        settings.dictationSpokenCleanup = true
         settings.aiCleanup = true
 
         apple.isAvailable = false
         let unavailable = try await deliver(using: apple, typrModel: typrModel)
-        XCTAssertEqual(unavailable, "Am Mittwoch.")
+        XCTAssertEqual(unavailable, "Am Dienstag, ich meine, Mittwoch.")
         XCTAssertTrue(apple.inputs.isEmpty)
 
         apple.isAvailable = true
         apple.supportedLanguage = "en"
         let unsupported = try await deliver(using: apple, typrModel: typrModel)
-        XCTAssertEqual(unsupported, "Am Mittwoch.")
+        XCTAssertEqual(unsupported, "Am Dienstag, ich meine, Mittwoch.")
         XCTAssertTrue(apple.inputs.isEmpty)
 
         apple.supportedLanguage = "de"
         apple.answer = nil
         let noAnswer = try await deliver(using: apple, typrModel: typrModel)
-        XCTAssertEqual(noAnswer, "Am Mittwoch.")
-        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(noAnswer, "Am Dienstag, ich meine, Mittwoch.")
+        XCTAssertEqual(apple.inputs, ["Am Dienstag, ich meine, Mittwoch"])
         XCTAssertEqual(typrModel.prepareCount, 0)
         XCTAssertEqual(typrModel.cleanCount, 0)
 
@@ -553,7 +613,7 @@ final class AppleIntelligenceDictationTests: XCTestCase {
         typrModel.result = "Am Freitag"
         let restored = try await deliver(using: apple, typrModel: typrModel)
         XCTAssertEqual(restored, "Am Freitag.")
-        XCTAssertEqual(apple.inputs, ["Am Mittwoch"])
+        XCTAssertEqual(apple.inputs, ["Am Dienstag, ich meine, Mittwoch"])
         XCTAssertEqual(typrModel.cleanCount, 1)
         XCTAssertTrue(settings.aiCleanup)
     }

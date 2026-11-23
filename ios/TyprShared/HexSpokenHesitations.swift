@@ -1,17 +1,22 @@
 import Foundation
 
 /// Hex's standalone hesitation rule for German, Spanish, and Norwegian. The caller owns
-/// style and casing. Typr fixes on the Hex base preserve source separators and punctuation.
+/// style and casing. Typr fixes on the Hex base preserve source separators and punctuation, and
+/// drop a line that held only hesitations along with its separator.
 nonisolated enum HexSpokenHesitations {
     private static let sentenceMarks: Set<Character> = [".", "?", "!", "…"]
     private static let pauses: Set<Character> = [",", ";", ":"]
     private static let closers: Set<Character> = ["\"", "'", "”", "“", "’", "‘", "»", "«", "›", "‹", ")", "]", "}"]
     private static let trailingMarks = sentenceMarks.union(pauses).union(closers)
 
-    static func remove(from text: String, language: String?) -> String {
+    static func supports(_ language: String?) -> Bool {
         let code = language.flatMap { Locale(identifier: $0).language.languageCode?.identifier }
-        guard let code, ["de", "es", "nb", "nn", "no"].contains(code),
-              let pattern = TranscriptFormatter.fillerPattern(for: code),
+        return code.map(["de", "es", "nb", "nn", "no"].contains) ?? false
+    }
+
+    static func remove(from text: String, language: String?) -> String {
+        guard supports(language),
+              let pattern = TranscriptFormatter.fillerPattern(for: language),
               let hesitation = try? NSRegularExpression(pattern: "^(?:\(pattern))$", options: .caseInsensitive) else {
             return text
         }
@@ -19,11 +24,24 @@ nonisolated enum HexSpokenHesitations {
         var result = ""
         var start = text.startIndex
         for index in text.indices where text[index].isNewline {
-            result += remove(in: text[start..<index], matching: hesitation, endsTranscript: false)
-            result.append(text[index])
+            let line = text[start..<index]
+            let cleaned = remove(in: line, matching: hesitation, endsTranscript: false)
+            if !isBlank(cleaned) || isBlank(line) {
+                result += cleaned
+                result.append(text[index])
+            }
             start = text.index(after: index)
         }
-        return result + remove(in: text[start...], matching: hesitation, endsTranscript: true)
+        let line = text[start...]
+        let cleaned = remove(in: line, matching: hesitation, endsTranscript: true)
+        if isBlank(cleaned), !isBlank(line), result.last?.isNewline == true {
+            result.removeLast()
+        }
+        return result + cleaned
+    }
+
+    private static func isBlank(_ text: some StringProtocol) -> Bool {
+        text.allSatisfy(\.isWhitespace)
     }
 
     private static func remove(in line: Substring, matching hesitation: NSRegularExpression, endsTranscript: Bool) -> String {
@@ -47,7 +65,7 @@ nonisolated enum HexSpokenHesitations {
             guard var suffix = combined else { continue }
 
             if start == 0 {
-                guard suffix.isEmpty || (suffix == "," && index < words.count) else { continue }
+                guard suffix.isEmpty || ([",", "."].contains(suffix) && index < words.count) else { continue }
                 result += line[cursor..<words[start].startIndex]
                 cursor = index < words.count ? words[index].startIndex : words[index - 1].endIndex
             } else {

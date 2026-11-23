@@ -118,4 +118,21 @@ final class HexSpokenHesitationsTests: XCTestCase {
             XCTAssertEqual(pipeline.format(cleaned, language: "de"), pipeline.format(expected, language: "de"), heard)
         }
     }
+
+    func testDropsALineOfHesitationsAndAnOpeningHesitationSentence() {
+        let examples = [
+            ("Danke\näh\nBis dann.", "Danke\nBis dann."),
+            ("Danke\r\nähm ähm\r\nBis dann.", "Danke\r\nBis dann."),
+            ("Danke\näh", "Danke"),
+            ("äh\nDanke.", "Danke."),
+            ("Danke\n\nBis dann.", "Danke\n\nBis dann."),
+            ("äh. Danke.", "Danke."),
+            ("Äh, danke.", "danke."),
+            ("äh.\nDanke.", "äh.\nDanke."),
+            ("äh… Danke.", "äh… Danke."),
+        ]
+        for (heard, expected) in examples {
+            XCTAssertEqual(Array(HexSpokenHesitations.remove(from: heard, language: "de").utf8), Array(expected.utf8), heard)
+        }
+    }
 }

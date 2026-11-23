@@ -38,6 +38,7 @@ struct DictationStyleSettingsCard: View {
     @State private var formatLists = TyprSettings().dictationFormatLists
     @State private var spokenPunctuation = TyprSettings().dictationSpokenPunctuation
     @State private var endsWithPeriod = TyprSettings().dictationEndsWithPeriod
+    @State private var spokenCleanup = TyprSettings().dictationSpokenCleanup
     private let typrFormattingRules = TyprSettings()[experiment: .typrGermanFormattingRules]
 
     var body: some View {
@@ -87,8 +88,13 @@ struct DictationStyleSettingsCard: View {
                 }
                 SettingsToggle(title: "End with a period", detail: "Off still keeps ? and !", isOn: $endsWithPeriod)
                     .onChange(of: endsWithPeriod) { _, isOn in TyprSettings().dictationEndsWithPeriod = isOn }
+                SettingsDivider()
+                SettingsToggle(title: "Clean up what I say",
+                               detail: "Drops “äh” and “ähm”",
+                               isOn: $spokenCleanup)
+                    .onChange(of: spokenCleanup) { _, isOn in TyprSettings().dictationSpokenCleanup = isOn }
             }
-            Text("AI cleanup, when enabled and available, runs before formatting in every style except Verbatim. Lists, punctuation and the period apply to every style except Verbatim, from your next dictation.")
+            Text("AI cleanup, when enabled and available, runs before formatting in every style except Verbatim. Clean up what I say, lists, punctuation and the period apply to every style except Verbatim, from your next dictation.")
                 .font(.footnote).foregroundStyle(TyprTheme.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 16)
