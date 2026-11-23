@@ -169,7 +169,6 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         return nil
     }
 
-    /// Hex's taps of the word before the cursor (`decoderTaps`) as Typr's touch evidence.
     private func loadTouches(beforeInput: String?) {
         engine.touchInput.clear()
         guard let beforeInput, let token = TyprAutocorrectEngine.currentToken(in: beforeInput),
@@ -177,7 +176,6 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         appendTouches(taps, word: token, following: String(beforeInput.dropLast(token.count)))
     }
 
-    /// Two words and the space between them as Typr's touch evidence, for its boundary decoder.
     @discardableResult
     func loadTouches(first: String, firstTaps: [CGPoint], space: CGPoint, second: String, before: String) -> Bool {
         engine.touchInput.clear()

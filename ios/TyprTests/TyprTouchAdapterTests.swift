@@ -57,7 +57,6 @@ final class TyprTouchAdapterTests: XCTestCase {
         return CGPoint(x: key.frame.midX, y: key.frame.midY)
     }
 
-    /// Types `word`, each letter tapped where `aimed`'s letter is, then taps space.
     private func type(_ word: String, aimedAt aimed: String, on engine: FullKeyboardEngine) throws {
         for (letter, target) in zip(word, aimed) {
             engine.insert(String(letter), source: nil, at: try centre(.character(String(target)), in: engine))
