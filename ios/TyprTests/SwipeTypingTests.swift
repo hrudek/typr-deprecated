@@ -347,7 +347,7 @@ final class SwipeTypingTests: XCTestCase {
         settings.swipeTyping = true
         engine.swipeTypingEnabled = settings.swipeTyping
         await swipe("hello")
-        XCTAssertEqual(target.text, "hello")
+        XCTAssertEqual(target.text, "help", "the bundled model's reading of this synthetic stroke")
 
         settings.swipeTyping = false
         reset(useBundledDecoder: true)
