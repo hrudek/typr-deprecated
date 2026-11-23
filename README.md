@@ -116,7 +116,8 @@ or load finishes stopping.
   Experimental › **Typr German formatting rules** uses Typr's German and English list and
   punctuation rules ("erstens … zweitens …", "Punkt eins …", "Spiegelstrich", "neue Zeile",
   "Klammer auf/zu"), switched by Experimental › Format lists and Spoken punctuation instead
-  of the Style settings. With Experimental ›
+  of the Style settings. Notes keeps spoken colons and semicolons before bullets and line
+  breaks, and drops a line-final spoken period. With Experimental ›
   Learn from my edits (off by default, needs Full Access), the full keyboard follows each
   dictation for a minute like Hex: kept, edited, rewritten, undone, deleted or dictated again.
   A word you replace with a similar one ("Wal" → "Wahl"), by editing or dictating again, is

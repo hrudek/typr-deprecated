@@ -32,11 +32,14 @@ nonisolated enum TyprSpokenPunctuation {
     /// `language` picks the word table; Automatic uses English only for text that reads as
     /// English (`TyprTranscriptFormatter.readsAsEnglish`), else German. `starters` are further words
     /// that start a clause after a name ("Milch Punkt zweitens"), lowercased and unaccented.
-    static func format(_ text: String, language: DictationLanguage, starters: Set<String> = []) -> String {
+    static func format(
+        _ text: String, language: DictationLanguage, starters: Set<String> = [],
+        noteMarkerStarts: Set<String.Index> = []
+    ) -> String {
         guard !text.isEmpty else { return text }
         var table = Table.forLanguage(language, text: text)
         table.starters.formUnion(starters)
-        var writer = Writer(tokens: tokenize(text), table: table)
+        var writer = Writer(tokens: tokenize(text, noteMarkerStarts: noteMarkerStarts), table: table)
         return writer.write()
     }
 
@@ -44,6 +47,7 @@ nonisolated enum TyprSpokenPunctuation {
         let text: String
         let isWord: Bool
         let folded: String
+        let startsNoteMarker: Bool
     }
 
     fileprivate static func fold(_ text: String) -> String {
@@ -51,15 +55,20 @@ nonisolated enum TyprSpokenPunctuation {
             .replacingOccurrences(of: "’", with: "'")
     }
 
-    private static func tokenize(_ text: String) -> [Token] {
+    private static func tokenize(_ text: String, noteMarkerStarts: Set<String.Index>) -> [Token] {
         var tokens: [Token] = []
         var current = ""
         var currentIsWord: Bool?
+        var startsNoteMarker = false
         func flush() {
             guard let isWord = currentIsWord else { return }
-            tokens.append(Token(text: current, isWord: isWord, folded: isWord ? fold(current) : current))
+            tokens.append(Token(
+                text: current, isWord: isWord, folded: isWord ? fold(current) : current,
+                startsNoteMarker: startsNoteMarker
+            ))
         }
-        for character in text {
+        for index in text.indices {
+            let character = text[index]
             let isWord = character.isLetter || character.isNumber || character == "'" || character == "’"
             if currentIsWord == isWord {
                 current.append(character)
@@ -67,6 +76,7 @@ nonisolated enum TyprSpokenPunctuation {
                 flush()
                 current = String(character)
                 currentIsWord = isWord
+                startsNoteMarker = noteMarkerStarts.contains(index)
             }
         }
         flush()
@@ -342,7 +352,9 @@ nonisolated enum TyprSpokenPunctuation {
                         || (table.capitalizesSentences && $0.text.first?.isUppercase == true)
                 } ?? false
                 let anotherCommand = next != nil && self.command(at: end + 1) != nil
-                guard atLineEnd || pauseAfter || startsClause || anotherCommand else { return false }
+                let endsNote = nextDirect && next?.startsNoteMarker == true
+                    && [.period, .question, .exclamation].contains(family)
+                guard atLineEnd || pauseAfter || startsClause || anotherCommand || endsNote else { return false }
             }
             return true
         }

@@ -96,7 +96,10 @@ nonisolated enum TranscriptFormatter {
         let german = isGerman(language)
         func cleaned() -> String {
             let stripped = stripStandaloneFillers(in: trimmed, fillers: fillers)
-            return spoken(unspaced ? closingUnspacedGaps(in: stripped) : stripped, lists, punctuation, language, rules)
+            return spoken(
+                unspaced ? closingUnspacedGaps(in: stripped) : stripped,
+                lists, punctuation, language, rules, notes: style == .notes
+            )
         }
 
         switch style {
@@ -120,7 +123,8 @@ nonisolated enum TranscriptFormatter {
     /// Typr's rules keep Typr's order instead: punctuation first, so a spoken "Komma" separates
     /// list items, with German ordinals starting a clause after a spoken "Punkt".
     private static func spoken(
-        _ text: String, _ lists: Bool, _ punctuation: Bool, _ language: String?, _ rules: SpokenFormattingRules
+        _ text: String, _ lists: Bool, _ punctuation: Bool, _ language: String?, _ rules: SpokenFormattingRules,
+        notes: Bool
     ) -> String {
         switch rules {
         case .hex:
@@ -130,8 +134,13 @@ nonisolated enum TranscriptFormatter {
             let typrLanguage = DictationLanguage(formattingLanguage: language)
             let starters = lists ? TyprSpokenLists.clauseStarters : []
             let spoken = punctuation
-                ? TyprSpokenPunctuation.format(text, language: typrLanguage, starters: starters) : text
-            return lists ? TyprSpokenLists.format(spoken, language: typrLanguage) : spoken
+                ? TyprSpokenPunctuation.format(
+                    text, language: typrLanguage, starters: starters,
+                    noteMarkerStarts: notes ? noteMarkerStarts(in: text) : []
+                ) : text
+            return lists
+                ? TyprSpokenLists.format(spoken, language: typrLanguage, preservingNotePunctuation: notes && punctuation)
+                : spoken
         }
     }
 
@@ -594,19 +603,28 @@ nonisolated enum TranscriptFormatter {
 
     // MARK: Notes
 
+    private static let noteMarkers: [(pattern: NSRegularExpression, replacement: String)] = [
+        (#"(?i)\b(new paragraph)\b[,.]?\s*"#, "\n\n"),
+        (#"(?i)\b(new line)\b[,.]?\s*"#, "\n"),
+        (#"(?i)(?:^|\s+)(bullet point|next bullet|bullet)\b[:,-]?\s*"#, "\n- "),
+    ].compactMap { pattern, replacement in
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        return (regex, replacement)
+    }
+
+    private static func noteMarkerStarts(in text: String) -> Set<String.Index> {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return Set(noteMarkers.flatMap { marker in
+            marker.pattern.matches(in: text, range: range).compactMap { Range($0.range(at: 1), in: text)?.lowerBound }
+        })
+    }
+
     private static func formatNotes(_ text: String, english: Bool, german: Bool) -> String {
         guard !text.isEmpty else { return "" }
         var working = text
-        let replacements: [(String, String)] = [
-            (#"(?i)\bnew paragraph\b[,.]?\s*"#, "\n\n"),
-            (#"(?i)\bnew line\b[,.]?\s*"#, "\n"),
-            (#"(?i)(?:^|\s+)(?:bullet point|next bullet|bullet)\b[:,-]?\s*"#, "\n- "),
-        ]
-        for (pattern, template) in replacements {
-            if let regex = try? NSRegularExpression(pattern: pattern) {
-                let range = NSRange(working.startIndex..<working.endIndex, in: working)
-                working = regex.stringByReplacingMatches(in: working, range: range, withTemplate: template)
-            }
+        for (pattern, replacement) in noteMarkers {
+            let range = NSRange(working.startIndex..<working.endIndex, in: working)
+            working = pattern.stringByReplacingMatches(in: working, range: range, withTemplate: replacement)
         }
         var lines = working.components(separatedBy: "\n")
         // Without spoken markers, one dictation of several items becomes a list.

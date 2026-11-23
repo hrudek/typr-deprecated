@@ -138,6 +138,56 @@ final class SpokenPunctuationTests: XCTestCase {
         )
     }
 
+    func testNotesKeepsSpokenPunctuationAtMarkers() {
+        let cases: [(String, String, String)] = [
+            ("Shopping colon new line milk", "en", "Shopping:\nMilk"),
+            ("Shopping semi colon new line milk", "en", "Shopping;\nMilk"),
+            ("Shopping semi colon new paragraph milk", "en", "Shopping;\n\nMilk"),
+            ("Shopping semi colon new paragraph Options colon new line milk", "en", "Shopping;\n\nOptions:\nMilk"),
+            ("Shopping semi colon new line Options colon bullet milk", "en", "Shopping;\nOptions:\n- Milk"),
+            ("Shopping semicolon new line Options colon bullet milk", "en", "Shopping;\nOptions:\n- Milk"),
+            ("Shopping semi-colon bullet milk colon bullet eggs", "en", "Shopping;\n- Milk:\n- Eggs"),
+            ("Shopping colon bullet milk semi colon bullet eggs", "en", "Shopping:\n- Milk;\n- Eggs"),
+            ("Shopping question mark new line milk", "en", "Shopping?\nMilk"),
+            ("Shopping exclamation point new paragraph milk", "en", "Shopping!\n\nMilk"),
+            ("Einkaufen Doppelpunkt new paragraph Milch", "de", "Einkaufen:\n\nMilch"),
+            ("Einkaufsliste Doppelpunkt bullet Milch Punkt new line Eier", "de", "Einkaufsliste:\n- Milch\nEier"),
+            ("Einkaufen Doppelpunkt bullet Milch bullet Eier Punkt", "de", "Einkaufen:\n- Milch\n- Eier"),
+            ("Milch Punkt new paragraph Eier", "de", "Milch\n\nEier"),
+            ("Milch Punkt bullet Eier", "de", "Milch\n- Eier"),
+        ]
+        for (input, language, expected) in cases {
+            for lists in [false, true] {
+                XCTAssertEqual(
+                    TranscriptFormatter.format(input, style: .notes, language: language, lists: lists, punctuation: true, rules: .typr),
+                    expected,
+                    "\(input), lists: \(lists)"
+                )
+            }
+        }
+    }
+
+    func testNotesRespectsPunctuationGuardsAtMarkers() {
+        let cases: [(String, String, String)] = [
+            ("Shopping semi, colon new line milk", "en", "Shopping;\nMilk"),
+            ("Shopping semi,, colon new line milk", "en", "Shopping semi:\nMilk"),
+            ("Shopping semi --- colon new line milk", "en", "Shopping semi ---:\nMilk"),
+            ("Shopping colon\nMilk", "en", "Shopping colon\nMilk"),
+            ("Screening colon cancer new line Follow up", "en", "Screening colon cancer\nFollow up"),
+            ("Der Doppelpunkt new line fehlt", "de", "Der Doppelpunkt\nFehlt"),
+            ("Ein wichtiger Punkt new paragraph Milch", "de", "Ein wichtiger Punkt\n\nMilch"),
+        ]
+        for (input, language, expected) in cases {
+            for lists in [false, true] {
+                XCTAssertEqual(
+                    TranscriptFormatter.format(input, style: .notes, language: language, lists: lists, punctuation: true, rules: .typr),
+                    expected,
+                    "\(input), lists: \(lists)"
+                )
+            }
+        }
+    }
+
     func testCleanedTextIsNotConvertedTwice() {
         for cleaned in [
             "Hallo, wie geht es dir? Ich komme morgen.",
