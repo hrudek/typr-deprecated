@@ -439,6 +439,9 @@ final class DictationController {
             pendingAppleLanguageChange = true
             preparePendingAppleLanguageIfIdle()
         }
+        if MultilingualParakeetSettings().isEnabled {
+            syncMultilingualParakeet()
+        }
     }
 
     func preparePendingAppleLanguageIfIdle() {

@@ -27,7 +27,8 @@ fails, the current engine stays available. Try again when more memory is free,
 or relaunch Typr to load an already compiled Ultra model directly. Ultra requires
 an eligible dictation language and automatic engine selection. Once ready,
 keyboard dictation opens Typr. Choosing an explicit engine stops Ultra's download
-and retries. Turning the experiment off also deletes its files after any download
+and retries. Choosing an unsupported language pauses the download until you return
+to a supported one. Turning the experiment off deletes its files after any download
 or load finishes stopping.
 
 ## How it works
