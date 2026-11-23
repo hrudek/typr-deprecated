@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -207,6 +207,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "Keyboard › Appearance can hide the whole suggestion bar. The keyboard gets shorter and the Typr key moves beside the space bar."
     )
 
+    static let typrSplitKeyboard = ExperimentalSwitch(
+        name: "variant.splitKeyboard",
+        title: "Typr split keyboard",
+        detail: "On iPhone Duo open and sideways, Keyboard › Appearance decides whether the keyboard splits and can line the split letters up in straight columns."
+    )
+
     static let typrAutomaticHostReturn = ExperimentalSwitch(
         name: "variant.automaticHostReturn",
         title: "Typr automatic host return",
@@ -226,7 +232,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
         .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrCursorSliding,
-        .typrDeleteSliding, .typrBottomRow, .typrCompactStrip,
+        .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard,
     ]
 
     /// Retired: Hex's warm session (anomalyco/hex #2179) is the default since its audio cutover;

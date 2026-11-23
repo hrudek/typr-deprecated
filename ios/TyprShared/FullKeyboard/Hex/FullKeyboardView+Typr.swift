@@ -85,6 +85,8 @@ extension FullKeyboardView {
             setNeedsLayout()
             onPreferredHeightChange?()
         }
+        engine.typrSplitColumns = settings[experiment: .typrSplitKeyboard] && keyboard.splitColumns
+        syncJoinsUnfoldedKeyboard()
         let repeats = !settings[experiment: .deleteSlide]
         if plane.repeatsHeldDelete != repeats { plane.repeatsHeldDelete = repeats }
         plane.slidesDeleteByWord = !repeats || !settings[experiment: .typrDeleteSliding]
@@ -109,5 +111,12 @@ extension FullKeyboardView {
         let m = stripBandMetrics
         let rowTop = engine.showsStrip ? m.stripTop + lift : emojiSearchRowHeight
         return rowTop + m.stripLineBand.top
+    }
+}
+
+extension FullKeyboardView {
+    var typrJoinsUnfoldedKeyboard: Bool? {
+        guard TyprSettings(defaults: settingsDefaults)[experiment: .typrSplitKeyboard] else { return nil }
+        return !TyprFullKeyboardSettings(defaults: settingsDefaults).splitKeyboard
     }
 }

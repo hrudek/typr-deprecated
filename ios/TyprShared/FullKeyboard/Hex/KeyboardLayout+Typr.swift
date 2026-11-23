@@ -1,8 +1,10 @@
 import CoreGraphics
 
 extension KeyboardLayout {
-    nonisolated static func typrAdaptsRows(posture: KeyboardPosture, pad: KeyboardPadPlacement?) -> Bool {
-        pad == nil && !posture.splitsKeyboard
+    nonisolated static func typrAdaptsRows(
+        posture: KeyboardPosture, orientation: KeyboardOrientation, pad: KeyboardPadPlacement?, joinsUnfoldedKeyboard: Bool
+    ) -> Bool {
+        pad == nil && !(posture.splitsKeyboard && orientation == .portrait && !joinsUnfoldedKeyboard)
     }
 
     nonisolated static func typrHexPlacement(_ placement: HexKeyPlacement, bottomRow: BottomRow?, showsStrip: Bool) -> HexKeyPlacement {

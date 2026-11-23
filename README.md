@@ -155,7 +155,9 @@ or load finishes stopping.
   beside the space bar with Typr's period and emoji keys in the order set on Appearance, and
   **Typr compact strip** (off) lets Appearance hide the whole suggestion bar: the keyboard
   gets shorter and the Typr key moves beside space. Both keep Hex's rows on an iPad and the
-  Duo's split keyboard. Experimental › **Typr keyboard** (off by default) brings
+  Duo's split keyboard. **Typr split keyboard** (off) lets Appearance decide whether the
+  Duo open and sideways splits (Typr's Split keyboard, off: one joined keyboard) and line the
+  split letters up in straight columns (Aligned columns). Experimental › **Typr keyboard** (off by default) brings
   back Typr's own keyboard with its own settings, described below; switches marked "Only
   with Typr keyboard" act only there.
   Typr keyboard adds German/English autocorrect and adaptive suggestions. With both
