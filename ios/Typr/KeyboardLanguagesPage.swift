@@ -112,7 +112,6 @@ struct KeyboardLanguagesPage: View {
                 }
             }
         }
-        // Always in edit mode, so the chosen languages show their drag handles.
         .environment(\.editMode, .constant(.active))
         .listSectionSpacing(12)
         .scrollContentBackground(.hidden)
