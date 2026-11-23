@@ -149,7 +149,7 @@ final class FullKeyboardView: UIView {
     /// Exposed so unit tests can verify lazy allocation and teardown of the Metal recording panel.
     var hasAllocatedRecordingPanel: Bool { recordingPanel != nil }
 
-    init(model: KeyboardViewModel, target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil) {
+    init(model: KeyboardViewModel, target: KeyboardTextTarget, autocorrect: (any KeyboardAutocorrecting)? = nil) {
         self.model = model
         routedTarget = EmojiRoutedTarget(document: target)
         engine = FullKeyboardEngine(target: routedTarget, autocorrect: autocorrect)

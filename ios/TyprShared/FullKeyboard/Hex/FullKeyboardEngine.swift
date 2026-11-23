@@ -88,7 +88,7 @@ final class FullKeyboardEngine {
     private(set) var suggestions: [KeyboardSuggestion] = []
 
     let target: KeyboardTextTarget
-    let autocorrect: AutocorrectEngine
+    let autocorrect: any KeyboardAutocorrecting
     /// Learn how I type (Experiments); nil while off.
     var journal: TypingJournal? {
         didSet { syncLearning() }
@@ -164,7 +164,7 @@ final class FullKeyboardEngine {
             guard language != oldValue else { return }
             commitHangulComposition()
             cancelAllTouches()
-            autocorrect.setLanguage(language)
+            autocorrect.setLanguage(language, available: UITextChecker.availableLanguages)
             rebuildLayout(cause: "language")
             refreshSuggestions()
         }
@@ -184,7 +184,7 @@ final class FullKeyboardEngine {
         get { autocorrect.partner?.language }
         set {
             guard newValue != autocorrect.partner?.language else { return }
-            autocorrect.setPartner(newValue)
+            autocorrect.setPartner(newValue, available: UITextChecker.availableLanguages, checker: nil)
             refreshSuggestions()
         }
     }
@@ -211,9 +211,9 @@ final class FullKeyboardEngine {
     /// to the left), -1 for the one before.
     var onLanguageSwipe: ((Int) -> Void)?
 
-    init(target: KeyboardTextTarget, autocorrect: AutocorrectEngine? = nil) {
+    init(target: KeyboardTextTarget, autocorrect: (any KeyboardAutocorrecting)? = nil) {
         self.target = target
-        self.autocorrect = autocorrect ?? AutocorrectEngine()
+        self.autocorrect = autocorrect ?? AutocorrectEngine() as any KeyboardAutocorrecting
         rebuildLayout()
     }
 
