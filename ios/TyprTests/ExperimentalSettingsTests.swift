@@ -45,7 +45,7 @@ final class ExperimentalSettingsTests: XCTestCase {
     func testPageShowsEachSwitchWithItsStoredValue() async throws {
         let other = ExperimentalSwitch(name: "other", title: "Other experiment", detail: "Also only in tests.")
         TyprSettings(defaults: defaults)[experiment: other] = true
-        let host = mount(ExperimentalSettingsCard(hexExperiments: [experiment], typrVariants: [other], defaults: defaults))
+        let host = mount(ExperimentalSettingsCard(hexExperiments: [experiment], hexKeyboardExperiments: [], typrVariants: [other], defaults: defaults))
         try await waitForState("the page shows two switches") { switchesTopToBottom(in: host).count == 2 }
         XCTAssertEqual(switchesTopToBottom(in: host).map(\.isOn), [false, true])
         for item in [experiment, other] {
@@ -57,7 +57,7 @@ final class ExperimentalSettingsTests: XCTestCase {
     }
 
     func testPageWithoutSwitchesSaysSo() {
-        let card = ExperimentalSettingsCard(hexExperiments: [], typrVariants: [], defaults: defaults)
+        let card = ExperimentalSettingsCard(hexExperiments: [], hexKeyboardExperiments: [], typrVariants: [], defaults: defaults)
         XCTAssertTrue(Self.descendants(of: card.body).contains { $0 as? String == ExperimentalSettingsCard.emptyNotice })
         XCTAssertTrue(switchesTopToBottom(in: mount(card)).isEmpty)
     }
@@ -65,10 +65,13 @@ final class ExperimentalSettingsTests: XCTestCase {
     func testPageGroupsHexExperimentsBeforeTyprVariants() {
         let strings = Self.descendants(of: ExperimentalSettingsCard(defaults: defaults).body).compactMap { $0 as? String }
         let hex = strings.firstIndex(of: ExperimentalSettingsCard.hexTitle)
+        let keyboard = strings.firstIndex(of: ExperimentalSettingsCard.hexKeyboardTitle)
         let typr = strings.firstIndex(of: ExperimentalSettingsCard.typrTitle)
         XCTAssertNotNil(hex)
+        XCTAssertNotNil(keyboard)
         XCTAssertNotNil(typr)
-        XCTAssertLessThan(hex ?? .max, typr ?? .min)
+        XCTAssertLessThan(hex ?? .max, keyboard ?? .min)
+        XCTAssertLessThan(keyboard ?? .max, typr ?? .min)
     }
 
     func testExistingTyprSwitchesAreTyprVariantsWithTheirKeys() {
@@ -82,7 +85,7 @@ final class ExperimentalSettingsTests: XCTestCase {
             "typr.experimental.wordsFromContext", "typr.experimental.keyboardDictationAppleSpeech",
             "typr.experimental.learnEachLanguage",
         ])
-        XCTAssertEqual(ExperimentalSwitch.all, ExperimentalSwitch.hexExperiments + ExperimentalSwitch.typrVariants)
+        XCTAssertEqual(ExperimentalSwitch.all, ExperimentalSwitch.hexExperiments + ExperimentalSwitch.hexKeyboardExperiments + ExperimentalSwitch.typrVariants)
     }
 
     func testTyprOverridesAreOffDistinctAndListedOnlyOnceTheirAreaIsHex() {

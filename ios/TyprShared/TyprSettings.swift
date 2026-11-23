@@ -13,6 +13,13 @@ nonisolated struct ExperimentalSwitch: Hashable {
         self.detail = detail
     }
 
+    /// A Hex experiment stored under Hex's own key (`experiments.…`), which Hex's keyboard reads.
+    init(hexKey: String, title: String, detail: String) {
+        key = hexKey
+        self.title = title
+        self.detail = detail
+    }
+
     /// Settings > Experimental › Hex experiments: Hex's own experiments, with Hex's names and
     /// defaults. Each is listed once its implementation works.
     static let hexExperiments: [ExperimentalSwitch] = [.appleIntelligenceCleanup, .multilingualParakeet]
@@ -21,8 +28,76 @@ nonisolated struct ExperimentalSwitch: Hashable {
     /// display order. Each is listed once its implementation works.
     static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .spokenPunctuation, .spaceTrackpad, .formatLists, .cleanUpWhatISay, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
 
+    /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
+    /// keys, names and defaults (all off). They act on the Hex keyboard view.
+    static let hexKeyboardExperiments: [ExperimentalSwitch] = [
+        .hexAdaptiveTouch, .hexGermanSpatialAutocorrect, .hexKoreanKeyboard, .hexDvorakPunctuation,
+        .hexEmojiLettersUnderEmojiKey, .hexKeyboardThemes, .hexTwoThumbSelection,
+        .hexSwipeDeleteLetterByLetter, .hexHideWordSuggestions, .hexJoinKeyboardWhenUnfolded,
+    ]
+
     /// Every switch shown in Settings > Experimental.
-    static let all = hexExperiments + typrVariants
+    static let all = hexExperiments + hexKeyboardExperiments + typrVariants
+
+    static let hexAdaptiveTouch = ExperimentalSwitch(
+        hexKey: "experiments.adaptiveTouch",
+        title: "Adaptive touch",
+        detail: "Learns on this iPhone where you tap each key. Stores no text."
+    )
+
+    static let hexGermanSpatialAutocorrect = ExperimentalSwitch(
+        hexKey: "experiments.germanSpatialAutocorrect",
+        title: "German spatial autocorrect",
+        detail: "Needs Spatial autocorrect."
+    )
+
+    static let hexKoreanKeyboard = ExperimentalSwitch(
+        hexKey: "experiments.koreanKeyboard",
+        title: "Korean keyboard (두벌식)",
+        detail: "Adds 한국어, composing syllables as you type."
+    )
+
+    static let hexDvorakPunctuation = ExperimentalSwitch(
+        hexKey: "experiments.dvorakPunctuation",
+        title: "Dvorak punctuation keys",
+        detail: "Adds comma, period and semicolon keys to the English Dvorak keyboard."
+    )
+
+    static let hexEmojiLettersUnderEmojiKey = ExperimentalSwitch(
+        hexKey: "experiments.emojiLettersUnderEmojiKey",
+        title: "ABC under the emoji key",
+        detail: "In the emoji panel, ABC takes the emoji key's place."
+    )
+
+    static let hexKeyboardThemes = ExperimentalSwitch(
+        hexKey: "experiments.keyboardThemes",
+        title: "Keyboard themes",
+        detail: "Choose a color for the full keyboard. The mechanical design takes precedence."
+    )
+
+    static let hexTwoThumbSelection = ExperimentalSwitch(
+        hexKey: "experiments.twoThumbSelection",
+        title: "Two-thumb selection",
+        detail: "On the space bar trackpad, a second thumb selects text."
+    )
+
+    static let hexSwipeDeleteLetterByLetter = ExperimentalSwitch(
+        hexKey: "experiments.swipeDeleteLetterByLetter",
+        title: "Delete swiped words letter by letter",
+        detail: "Instead of the whole word at once."
+    )
+
+    static let hexHideWordSuggestions = ExperimentalSwitch(
+        hexKey: "experiments.hideWordSuggestions",
+        title: "Hide word suggestions",
+        detail: "Autocorrect still works."
+    )
+
+    static let hexJoinKeyboardWhenUnfolded = ExperimentalSwitch(
+        hexKey: "experiments.joinKeyboardWhenUnfolded",
+        title: "Join the keyboard when unfolded",
+        detail: "On the iPhone Duo unfolded, keeps the keys on one keyboard instead of splitting them."
+    )
 
     static let appleIntelligenceCleanup = ExperimentalSwitch(
         name: "appleIntelligenceCleanup",
