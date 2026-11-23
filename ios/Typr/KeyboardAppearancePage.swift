@@ -55,7 +55,6 @@ struct KeyboardAppearancePage: View {
     }
 
     var body: some View {
-        // Typr's own keyboard has its own appearance settings; Hex's keyboard is the default.
         if TyprSettings()[experiment: .typrKeyboard] {
             typrBody
         } else {

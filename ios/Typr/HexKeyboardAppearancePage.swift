@@ -1,9 +1,6 @@
 import SwiftUI
 import UIKit
 
-/// Settings › Keyboard › Appearance for Hex's keyboard (Typr keyboard off): where the Typr key
-/// sits and the number row, under Hex's keys, over a live preview of the Hex keyboard that
-/// redraws from the App Group as each setting changes (theme and letter layouts included).
 struct HexKeyboardAppearancePage: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var typrKeyOnLeft = FullKeyboardSettings().hexKeyOnLeft
@@ -70,7 +67,6 @@ struct HexKeyboardAppearancePage: View {
         let settings = HexKeyboardAppearancePreview.Settings(
             typrKeyOnLeft: typrKeyOnLeft,
             numberRow: numberRow,
-            // The app is always dark; the keyboard follows the system like it does in most apps.
             isDark: KeyboardAppearancePage.snapshotIsDark() ?? window?.systemIsDark ?? true,
             container: container
         )
@@ -93,14 +89,11 @@ struct HexKeyboardAppearancePage: View {
     }
 }
 
-/// Hex's real full keyboard, drawn only: no touches, text, learning or suggestions. It reads
-/// its settings from the App Group, as the keyboard does; `Settings` only says when to redraw.
 struct HexKeyboardAppearancePreview: UIViewRepresentable {
     struct Settings: Equatable {
         var typrKeyOnLeft: Bool
         var numberRow: Bool
         var isDark: Bool
-        /// The window the page is in: the display the preview stands in for.
         var container: CGSize
 
         var orientation: KeyboardOrientation { container.width > container.height ? .landscape : .portrait }
@@ -125,7 +118,6 @@ struct HexKeyboardAppearancePreview: UIViewRepresentable {
 
     static func makeKeyboard(_ settings: Settings) -> FullKeyboardView {
         let model = KeyboardViewModel()
-        // Shows the globe; the app cannot know whether the current iPhone needs one.
         model.needsGlobeKey = true
         let view = FullKeyboardView(model: model, target: HexKeyboardPreviewTextTarget())
         view.drawsBackdrop = true

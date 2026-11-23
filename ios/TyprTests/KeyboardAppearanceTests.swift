@@ -3,8 +3,6 @@ import UIKit
 import XCTest
 @testable import Typr
 
-/// Typr keyboard's own Appearance page (Settings › Experimental › Typr keyboard on); Hex's is in
-/// `HexKeyboardCutoverTests`.
 @MainActor
 final class KeyboardAppearanceTests: XCTestCase {
     private var wasTyprKeyboard = false

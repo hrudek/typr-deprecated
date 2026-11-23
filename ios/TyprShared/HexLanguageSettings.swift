@@ -111,14 +111,12 @@ nonisolated struct LanguageSettings {
         language.offered(letterLayouts[language.rawValue].flatMap(KeyboardLetterLayout.init(rawValue:)))
     }
 
-    /// Settings › Keyboard › Languages › Layout, kept only as the language offers it.
     func setLetterLayout(_ letters: KeyboardLetterLayout, for language: KeyboardLanguage) {
         var all = letterLayouts
         all[language.rawValue] = language.offered(letters).rawValue
         defaults?.set(all, forKey: Key.letterLayouts)
     }
 
-    /// Every language's chosen layout as stored (code to `KeyboardLetterLayout` raw value).
     var letterLayouts: [String: String] {
         defaults?.dictionary(forKey: Key.letterLayouts) as? [String: String] ?? [:]
     }

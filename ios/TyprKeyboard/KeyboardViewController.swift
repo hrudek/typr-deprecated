@@ -17,8 +17,6 @@ final class KeyboardViewController: UIInputViewController {
     private var lastRemountBucket: Int = 0
     private var lastFullAccessNote: TimeInterval = 0
     private var surface: UIView?
-    /// The full keyboard: Hex's by default (`hexKeyboard`), Typr's own while Settings ›
-    /// Experimental › Typr keyboard is on (`fullKeyboard`). At most one is mounted.
     private var fullKeyboard: TyprFullKeyboardView?
     private var hexKeyboard: FullKeyboardView?
     private var hasFullKeyboard: Bool { fullKeyboard != nil || hexKeyboard != nil }
@@ -26,7 +24,6 @@ final class KeyboardViewController: UIInputViewController {
     private var pollInterval: TimeInterval = 0
     private var didHandOffCurrentField = false
     private var didWarmLexicon = false
-    /// A number pad's hand-off waits for the Duo's posture, which needs the keyboard's window.
     private var handOffWaitsForPosture = false
 
     override func viewDidLoad() {
@@ -173,8 +170,6 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    /// Hex's number pad routing: to the next keyboard where iOS asks for a globe, except where
-    /// Apple's keyboard is split.
     private func handOffNumericPad(_ keyboard: FullKeyboardView) {
         guard KeyboardFieldRouting.route(for: textDocumentProxy.keyboardType) == .handOff else {
             didHandOffCurrentField = false
@@ -242,7 +237,6 @@ final class KeyboardViewController: UIInputViewController {
             ContainingAppOpener.open(url, from: self)
         }
         viewModel.onShowFullKeyboard = { [weak self] in self?.switchSurface(toCompactBar: false) }
-        // The Hex key's press arms the warm mic as the Typr key's does; a slide or cancel disarms.
         viewModel.onHexKeyPress = { [weak self] _ in self?.armHexKeyDictation() }
         viewModel.onHexKeyAbandon = { [weak self] in self?.disarmWarmDictation() }
         viewModel.onNextKeyboard = { [weak self] in self?.advanceToNextInputMode() }
@@ -356,8 +350,6 @@ final class KeyboardViewController: UIInputViewController {
         schedulePoll(force: false)
     }
 
-    /// Hex's full keyboard, the default (`FullKeyboardView`), with Typr's compact metrics (K5)
-    /// and the Typr variants that act on it (`FullKeyboardView+Typr`).
     private func makeHexKeyboard() -> FullKeyboardView {
         let keyboard = FullKeyboardView(
             model: viewModel,
@@ -527,7 +519,7 @@ final class KeyboardViewController: UIInputViewController {
         schedulePoll(force: false)
     }
 
-    /// Picks up a changed keyboard setting (full keyboard, Typr keyboard) every 2 s.
+    /// Picks up a changed keyboard setting (full keyboard) every 2 s.
     private func remountIfNeeded(now: TimeInterval) {
         let bucket = Int(now / 2.0)
         guard bucket != lastRemountBucket else { return }
@@ -614,7 +606,6 @@ final class KeyboardViewController: UIInputViewController {
         schedulePoll(force: false)
     }
 
-    /// The Typr key arms while warm or while keyboard dictation may start cold (`armsWhenCold`).
     private func armHexKeyDictation() {
         guard viewModel.isWarmAvailable || viewModel.armsWhenCold else { return }
         armWarmDictation()

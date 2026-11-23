@@ -177,9 +177,6 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "The Typr key always dictates in the Typr app, never in the keyboard."
     )
 
-    /// The keyboard cutover (K9): off, the full keyboard is Hex's (`FullKeyboardView`); on, Typr's
-    /// own (`TyprFullKeyboardView`) with every keyboard setting it had. Variants whose detail
-    /// starts "Only with Typr keyboard" act only there.
     static let typrKeyboard = ExperimentalSwitch(
         name: "variant.typrKeyboard",
         title: "Typr keyboard",

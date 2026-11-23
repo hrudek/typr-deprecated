@@ -11,7 +11,6 @@ struct KeyboardSettingsCard: View {
     @State private var autocorrectGerman: Bool
     @State private var autocorrectEnglish: Bool
     @State private var autocorrectLanguageOrder: [SpatialWordDecoder.Language]
-    /// Settings › Experimental › Typr keyboard: on, these rows set Typr's keyboard; off, Hex's.
     @State private var typrKeyboard: Bool
     @State private var spatialAutocorrect: Bool
     @State private var autoCapitalization: Bool
@@ -82,7 +81,6 @@ struct KeyboardSettingsCard: View {
         .onChange(of: scenePhase) { _, phase in if phase == .active { refresh() } }
     }
 
-    /// Hex's keyboard (anomalyco/hex 0c1c13d7 Settings › Keyboard), under Hex's keys.
     private var hexTypingAssistance: some View {
         SettingsSection(title: "Typing assistance") {
             KeyboardLanguagesRow()

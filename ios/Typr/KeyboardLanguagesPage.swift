@@ -4,7 +4,6 @@ import UIKit
 // Hex's Settings › Keyboard › Languages (anomalyco/hex 0c1c13d7, HEXMobile/LanguageSettingsRows.swift),
 // for Hex's full keyboard: Typr colours, no Switch dictation too (D7 owns language follow).
 
-/// What Automatic types in: the dictation language's layout, else the iPhone's first that has one.
 @MainActor
 func automaticKeyboardLanguage(settings: LanguageSettings = LanguageSettings()) -> KeyboardLanguage {
     KeyboardLanguage.automatic(
@@ -14,8 +13,6 @@ func automaticKeyboardLanguage(settings: LanguageSettings = LanguageSettings()) 
     )
 }
 
-/// Settings › Keyboard › Languages: Automatic with the layout it picks, or the languages chosen,
-/// in order. Opens `KeyboardLanguagesPage`.
 struct KeyboardLanguagesRow: View {
     @State private var chosen = LanguageSettings().keyboardLanguages
     @State private var showsPage = false
@@ -43,9 +40,6 @@ struct KeyboardLanguagesRow: View {
     }
 }
 
-/// Automatic (the dictation language's layout), or one or more languages ticked and dragged into
-/// order; with two or more the space bar switches between them. Each language with more than one
-/// layout picks its own (Dvorak for English). The iPhone's own languages are offered first.
 struct KeyboardLanguagesPage: View {
     @State private var chosen = LanguageSettings().keyboardLanguages
     @State private var letterLayouts = LanguageSettings().letterLayouts
@@ -132,9 +126,6 @@ struct KeyboardLanguagesPage: View {
         }
     }
 
-    /// The languages whose keys the keyboard shows, with more than one layout to pick: each
-    /// chosen one (Automatic's while none is), but only the first of English and Spanish
-    /// together, whose keys both type on (`KeyboardLanguageList.layout`).
     static func arranged(chosen: [KeyboardLanguage], automatic: KeyboardLanguage) -> [KeyboardLanguage] {
         let typing = chosen.isEmpty ? [automatic] : chosen
         var seen = Set<KeyboardLanguage>()
@@ -178,7 +169,6 @@ struct KeyboardLanguagesPage: View {
     }
 
     private func languageRow(_ language: KeyboardLanguage) -> some View {
-        // The language's own name, and under it its name in the iPhone's language when that differs.
         let local = Locale.current.localizedString(forIdentifier: language == .french ? "fr-FR" : language.rawValue)
         return LanguageChoiceRow(
             title: language.displayName,
@@ -189,8 +179,6 @@ struct KeyboardLanguagesPage: View {
         }
     }
 
-    /// Ticking a language while Automatic is on keeps Automatic's language beside it; unticking
-    /// the last goes back to Automatic.
     static func toggled(_ language: KeyboardLanguage, in chosen: [KeyboardLanguage],
                         automatic: KeyboardLanguage) -> [KeyboardLanguage] {
         if let index = chosen.firstIndex(of: language) {
@@ -208,7 +196,6 @@ struct KeyboardLanguagesPage: View {
     }
 }
 
-/// A row that is ticked or not: a filled check circle when chosen, an empty one otherwise.
 private struct LanguageChoiceRow: View {
     let title: String
     let detail: String?

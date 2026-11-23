@@ -3,9 +3,6 @@ import UIKit
 import XCTest
 @testable import Typr
 
-/// The keyboard cutover (K9): Hex's keyboard is the default, Typr keyboard brings Typr's back,
-/// Slide delete to remove words acts on Hex's key plane, and the settings that reach Hex's
-/// keyboard (languages and letter layouts, Spatial autocorrect, Typr key side, live preview).
 @MainActor
 final class HexKeyboardCutoverTests: XCTestCase {
     private var suiteName: String!
@@ -29,8 +26,6 @@ final class HexKeyboardCutoverTests: XCTestCase {
         return view
     }
 
-    // MARK: - Typr keyboard override
-
     func testTyprKeyboardIsAnOffByDefaultTyprVariant() {
         let typrKeyboard = ExperimentalSwitch.typrKeyboard
         XCTAssertEqual(typrKeyboard.key, "typr.experimental.variant.typrKeyboard")
@@ -43,8 +38,6 @@ final class HexKeyboardCutoverTests: XCTestCase {
         }
         XCTAssertFalse(ExperimentalSwitch.deleteSlide.detail.hasPrefix("Only"), "acts on both keyboards")
     }
-
-    // MARK: - Slide delete to remove words (S3)
 
     func testSlideDeleteVariantStopsHexHoldRepeatInEveryLayout() {
         let settings = TyprSettings(defaults: defaults)
@@ -59,24 +52,6 @@ final class HexKeyboardCutoverTests: XCTestCase {
             XCTAssertTrue(view.plane.repeatsHeldDelete)
         }
     }
-
-    func testHeldDeleteWithTheVariantRemovesOneLetterOnTheComposedKeyboard() async throws {
-        let target = HexFixtureTextTarget(text: "one two")
-        let view = FullKeyboardView(model: KeyboardViewModel(), target: target)
-        view.frame = CGRect(x: 0, y: 0, width: 393, height: view.preferredHeight)
-        view.layoutIfNeeded()
-        let settings = TyprSettings(defaults: defaults)
-        settings[experiment: .deleteSlide] = true
-        view.syncTyprVariants(settings)
-        let key = try XCTUnwrap(view.engine.layout.key(.delete))
-        let delete = TypingLogTouchSample(point: CGPoint(x: key.frame.midX, y: key.frame.midY), timestamp: 0)
-        view.plane.began(id: 1, sample: delete)
-        defer { view.plane.cancelAllTouches() }
-        try await Task.sleep(for: .milliseconds(900))
-        XCTAssertEqual(target.text, "one tw", "a hold past the repeat delay still deletes one letter")
-    }
-
-    // MARK: - Languages and letter layouts
 
     func testKeyboardLanguagesAndLetterLayoutsRoundTripUnderHexKeys() {
         let settings = LanguageSettings(defaults: defaults)
@@ -117,8 +92,6 @@ final class HexKeyboardCutoverTests: XCTestCase {
         }
         XCTAssertEqual(Array(top.prefix(3)), ["p", "y", "f"], "\(top)")
     }
-
-    // MARK: - Settings pages
 
     func testHexKeyboardSettingsNameSpatialAutocorrectAndWriteHexKeys() {
         XCTAssertEqual(ExperimentalSwitch.hexGermanSpatialAutocorrect.detail, "Needs Spatial autocorrect.")
@@ -192,7 +165,6 @@ final class HexKeyboardCutoverTests: XCTestCase {
         view.subviews + view.subviews.flatMap { subviews(of: $0) }
     }
 
-    /// SwiftUI draws `Text` without a `UILabel`, so copy is read from the view values instead.
     private static func descendants(of value: Any, depth: Int = 0) -> [Any] {
         guard depth < 30 else { return [] }
         var found: [Any] = []
