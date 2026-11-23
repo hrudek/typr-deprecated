@@ -2,8 +2,6 @@ import UIKit
 import XCTest
 @testable import Typr
 
-/// Typr cursor sliding and Typr delete sliding on Hex's keyboard, alone and with Slide delete
-/// to remove words (S3: on, a held delete never repeats, split included).
 @MainActor
 final class TyprGestureVariantTests: XCTestCase {
     private var suiteName = ""
@@ -50,8 +48,6 @@ final class TyprGestureVariantTests: XCTestCase {
         return view
     }
 
-    /// Every combination of the two variants with Slide delete to remove words, in portrait at
-    /// Typr's compact height and in landscape.
     func testViewMapsEveryCombinationOntoThePlaneAndEngine() {
         let settings = TyprSettings(defaults: defaults)
         for landscape in [false, true] {
@@ -165,8 +161,6 @@ final class TyprGestureVariantTests: XCTestCase {
         }
     }
 
-    /// S3 with Typr delete sliding on too: Slide delete to remove words wins, so a hold never
-    /// repeats and a slide still deletes and restores words, split included.
     func testSlideDeleteWinsOverDeleteSlidingInEveryLayout() throws {
         let settings = TyprSettings(defaults: defaults)
         settings[experiment: .deleteSlide] = true

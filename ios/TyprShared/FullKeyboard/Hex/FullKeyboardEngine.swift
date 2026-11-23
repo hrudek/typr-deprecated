@@ -192,7 +192,6 @@ final class FullKeyboardEngine {
     /// switches language (`onLanguageSwipe`) and the cursor slides once the space bar is held
     /// (`trackpadHoldDelay`), as on SwiftKey. With one, a slide before the hold is still a tap.
     var switchesLanguage = false
-    /// Typr cursor sliding (`slideCursorByCharacter`) in place of Hex's trackpad.
     var slidesCursorByCharacter = false
     private(set) var layout = KeyboardLayout(width: 375)
 

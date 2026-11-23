@@ -34,7 +34,6 @@ final class KeyboardKeyPlaneView: UIView {
     var repeatsHeldDelete = true {
         didSet { if !repeatsHeldDelete { stopDeleteRepeat() } }
     }
-    /// False for Typr delete sliding: a held delete keeps repeating as the finger drifts.
     var slidesDeleteByWord = true
     /// Hold delete and slide left to delete word by word (`DeleteWordSwipe`).
     private(set) var deleteSwipe: DeleteWordSwipe?

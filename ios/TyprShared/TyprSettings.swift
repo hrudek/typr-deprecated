@@ -183,16 +183,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "The full keyboard is Typr's own: its autocorrect and suggestions, swipe typing, design, letter layouts, split keyboard, globe key and bottom row, as set in Keyboard settings."
     )
 
-    /// On Hex's keyboard, Typr keyboard's space bar slide (spaceTrackpad off) in place of Hex's
-    /// Apple-like trackpad.
     static let typrCursorSliding = ExperimentalSwitch(
         name: "variant.cursorSliding",
         title: "Typr cursor sliding",
         detail: "Hold the space bar, then slide left or right: the cursor moves one character each step along the line, never up or down, at the same pace however fast you slide."
     )
 
-    /// On Hex's keyboard, a held delete keeps repeating as the finger drifts, where Hex's slide
-    /// one key width left deletes by word. Slide delete to remove words wins when both are on.
     static let typrDeleteSliding = ExperimentalSwitch(
         name: "variant.deleteSliding",
         title: "Typr delete sliding",
