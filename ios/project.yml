@@ -27,11 +27,14 @@ targets:
     sources:
       - Typr
       - path: TyprShared
-        excludes: [FullKeyboard/WordData, FullKeyboard/SwipeModel]
+        excludes: [FullKeyboard/WordData, FullKeyboard/SwipeModel, FullKeyboard/Hex/Emoji/EmojiData]
       - path: TyprShared/FullKeyboard/WordData
         type: folder
         buildPhase: resources
       - path: TyprShared/FullKeyboard/SwipeModel
+        type: folder
+        buildPhase: resources
+      - path: TyprShared/FullKeyboard/Hex/Emoji/EmojiData
         type: folder
         buildPhase: resources
       - TyprActivity
@@ -109,11 +112,14 @@ targets:
       - path: TyprKeyboard/TypingModel
         buildPhase: resources
       - path: TyprShared
-        excludes: [FullKeyboard/WordData, FullKeyboard/SwipeModel]
+        excludes: [FullKeyboard/WordData, FullKeyboard/SwipeModel, FullKeyboard/Hex/Emoji/EmojiData]
       - path: TyprShared/FullKeyboard/WordData
         type: folder
         buildPhase: resources
       - path: TyprShared/FullKeyboard/SwipeModel
+        type: folder
+        buildPhase: resources
+      - path: TyprShared/FullKeyboard/Hex/Emoji/EmojiData
         type: folder
         buildPhase: resources
       - Branding/TyprWordmark.swift

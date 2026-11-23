@@ -926,6 +926,18 @@ Typr keeps the emoji order and groups (no skin tone variants) and one-word names
 keywords that name at most three emoji, folded, beside its own alias list
 (`ios/tools/emoji/aliases.txt`).
 
+The additive Hex catalogs in
+`ios/TyprShared/FullKeyboard/Hex/Emoji/EmojiData/emoji-index-{de,en,es,nb}.txt` are
+copied byte for byte from [anomalyco/hex](https://github.com/anomalyco/hex/tree/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXShared/FullKeyboard/Emoji).
+Hex's generator combines [emoji-test.txt 18.0](https://www.unicode.org/Public/18.0.0/emoji/emoji-test.txt)
+(SHA-256 `8f3735cda1f92a779d78af67cf86066bb1f07143dc22f2ac29394d9bc57ab21a`) with
+English, German, Spanish and Norwegian Bokmål annotations and derived annotations from
+[CLDR 49 at `96e54b273d2da4ec6fbad350ba19ff23fa24a588`](https://github.com/unicode-org/cldr/tree/96e54b273d2da4ec6fbad350ba19ff23fa24a588/common),
+© Unicode, Inc., Unicode License v3. It also uses
+[Hex's chat aliases](https://github.com/anomalyco/hex/blob/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/scripts/emoji-aliases-en.txt),
+© Christopher Langton, MIT. The app and keyboard extension bundle
+`LICENSE-Unicode.txt`, `LICENSE-CLDR.txt` and `LICENSE-Hex.txt` alongside these catalogs.
+
 ## Hex spoken lists
 
 Typr German formatting rules' list formatting (`ios/TyprShared/TyprSpokenLists.swift`) is adapted from
