@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 extension DictationController {
     // MARK: - Model Preparation
@@ -13,13 +14,14 @@ extension DictationController {
         let languageName: String
     }
 
-    func prepareModel(fallbacksLeft: Int) {
-        // This is also called by handoff/intents and tests, not just the settings button.
+    func prepareModel(fallbacksLeft: Int, launchUltraLanguage: String? = nil) {
         guard canChangeEngine else { return }
         pendingAppleLanguageChange = false
         modelNeedsReload = false
         modelPrepGeneration &+= 1
         let prepGen = modelPrepGeneration
+        multilingualDownload.dropLoad()
+        startMultilingualDownloadIfWanted()
         modelBackground?.finish(success: false)
         phase = .preparingModel
         copied = false
@@ -32,7 +34,7 @@ extension DictationController {
         let language = dictationLanguage
         let previous = preparationTask
         previous?.cancel()
-        if preferred != nil {
+        if preferred != nil || transcriber is ParakeetUltraTranscriber {
             workingEngine = nil
         } else if isModelReady {
             workingEngine = WorkingEngine(transcriber: transcriber, engine: currentEngine, languageName: transcriptionLanguage)
@@ -64,9 +66,12 @@ extension DictationController {
             // A superseded preparation finishes (and is dropped) before this one creates a model.
             await previous?.value
             guard self.modelPrepGeneration == prepGen else { return }
+            var candidateIsUltra = false
             do {
                 let candidate: any LocalTranscribing
-                if let preferred {
+                if let launchUltraLanguage, self.multilingualLanguage() == launchUltraLanguage {
+                    candidate = ParakeetUltraTranscriber(language: launchUltraLanguage)
+                } else if let preferred {
                     candidate = try await engineProvider.transcriber(for: preferred, language: language)
                 } else if let transcriberFactory {
                     candidate = await transcriberFactory()
@@ -74,12 +79,17 @@ extension DictationController {
                     candidate = await engineProvider.automaticTranscriber(language: language)
                 }
                 guard self.modelPrepGeneration == prepGen else { return }
+                candidateIsUltra = candidate is ParakeetUltraTranscriber
                 if candidate is ParakeetTranscriber, self.workingEngine?.transcriber is ParakeetTranscriber {
                     self.workingEngine = nil
                 }
                 engineName = candidate.displayName
                 loadingEngines[prepGen] = SpeechEngineChoice(displayName: candidate.displayName)
-                defer { loadingEngines[prepGen] = nil }
+                if candidateIsUltra { multilingualLoads.insert(prepGen) }
+                defer {
+                    loadingEngines[prepGen] = nil
+                    multilingualLoads.remove(prepGen)
+                }
                 try await candidate.prepare { [weak self] progress in
                     Task { @MainActor [weak self] in
                         guard let self, self.modelPrepGeneration == prepGen else { return }
@@ -95,9 +105,9 @@ extension DictationController {
                 }
                 let candidateLanguageName = await candidate.languageName
                 guard self.modelPrepGeneration == prepGen else { return }
-                // A language change while preparation awaited must not publish the old Apple
-                // locale as ready. The replacement waits for this task to release its candidate.
-                if candidate.displayName == "Apple Speech", self.dictationLanguage != language {
+                // The replacement waits for this task to release its candidate.
+                if (candidate.displayName == "Apple Speech" && self.dictationLanguage != language)
+                    || (candidateIsUltra && self.multilingualLanguage() != launchUltraLanguage) {
                     self.pendingAppleLanguageChange = true
                     self.phase = .ready
                     self.preparePendingAppleLanguageIfIdle()
@@ -110,12 +120,24 @@ extension DictationController {
                 self.keyboardBridge.setModelInstalled(true)
                 self.isModelReady = true
                 self.phase = .ready
+                if candidateIsUltra {
+                    self.multilingualParakeetLoaded()
+                }
                 self.publishKeyboardSnapshot()
                 if self.pendingHandoff != nil {
                     self.activateWarmSessionAndRunHandoff()
                 }
+                self.syncMultilingualParakeet()
             } catch {
                 guard self.modelPrepGeneration == prepGen else { return }
+                if candidateIsUltra {
+                    if self.multilingualLanguage() == launchUltraLanguage {
+                        self.multilingualParakeetFailedToLoad(error)
+                    }
+                    self.phase = .ready
+                    self.prepareModel(fallbacksLeft: fallbacksLeft)
+                    return
+                }
                 if preferred == nil, fallbacksLeft > 0, let notice = Self.switchNotice(for: error) {
                     self.languageNotice = notice
                     self.preparationTask = nil
@@ -134,6 +156,7 @@ extension DictationController {
                 self.phase = .failed(error.localizedDescription)
                 self.publishKeyboardSnapshot()
                 self.preparePendingAppleLanguageIfIdle()
+                self.syncMultilingualParakeet()
             }
         }
     }
@@ -201,11 +224,127 @@ extension DictationController {
         if (error as? ParakeetTranscriber.TranscriberError) == .notEnoughMemory {
             return "Not enough memory for the speech model. Typr is using Apple's on-device speech recognition."
         }
+        if (error as? ParakeetUltraTranscriber.TranscriberError) == .notEnoughMemory {
+            return ParakeetUltraTranscriber.notEnoughMemoryMessage
+        }
         return nil
     }
 
     nonisolated static func isDownloadInterruption(_ error: any Error) -> Bool {
         if error is StallWatch.Stalled || error is URLError { return true }
         return (error as? ParakeetTranscriber.TranscriberError) == .downloadFailed
+    }
+}
+
+extension DictationController {
+    func multilingualParakeetChanged() {
+        let settings = MultilingualParakeetSettings()
+        if settings.isEnabled {
+            ParakeetLoadGuard(model: ParakeetUltraTranscriber.loadGuardModel).forget()
+            multilingualDownload.settle()
+            if isModelReady || phase == .preparingModel || preferredEngine != nil {
+                syncMultilingualParakeet()
+                return
+            }
+        } else {
+            settings.isModelReady = false
+            removeMultilingualModel()
+            if engineName != ParakeetUltraTranscriber.name, isModelReady || preferredEngine != nil {
+                return
+            }
+        }
+        guard canChangeEngine else {
+            pendingAppleLanguageChange = true
+            return
+        }
+        prepareModel()
+    }
+
+    /// Stops the download, waits for every load of the model to return (a Core ML load can't
+    /// be interrupted), then deletes it, unless the switch was turned on again meanwhile.
+    func removeMultilingualModel() {
+        multilingualRemovalGeneration &+= 1
+        let removal = multilingualRemovalGeneration
+        let download = multilingualDownload.cancel()
+        Task {
+            await download?.value
+            while !multilingualLoads.isEmpty {
+                deletionWaitsForTesting += 1
+                await withCheckedContinuation { loadFinishedWaiters.append($0) }
+            }
+            guard multilingualRemovalGeneration == removal, !MultilingualParakeetSettings().isEnabled else { return }
+            ParakeetUltraModel.remove()
+        }
+    }
+
+    func loadMultilingualParakeetBeside(
+        language: String,
+        makeTranscriber: (String) -> any LocalTranscribing = { ParakeetUltraTranscriber(language: $0) }
+    ) {
+        guard phase != .preparingModel, multilingualLoads.isEmpty, multilingualLanguage() == language else { return }
+        let candidate = makeTranscriber(language)
+        modelPrepGeneration &+= 1
+        let prepGen = modelPrepGeneration
+        multilingualDownload.loading()
+        let previous = preparationTask
+        multilingualLoads.insert(prepGen)
+        let backgroundTime = BackgroundTime("Prepare the multilingual model")
+        preparationTask = Task {
+            defer {
+                backgroundTime.end()
+                self.multilingualLoads.remove(prepGen)
+                let wanted = self.multilingualLanguage()
+                if self.modelPrepGeneration == prepGen, wanted != language {
+                    self.multilingualDownload.dropLoad()
+                    if wanted != nil, ParakeetUltraModel.isDownloaded() {
+                        self.syncMultilingualParakeet()
+                    }
+                }
+            }
+            await previous?.value
+            guard self.modelPrepGeneration == prepGen, self.multilingualLanguage() == language else { return }
+            do {
+                try await candidate.prepare { _ in }
+                let languageName = await candidate.languageName
+                guard self.modelPrepGeneration == prepGen, self.multilingualLanguage() == language else { return }
+                self.workingEngine = nil
+                self.transcriber = candidate
+                self.currentEngine = nil
+                self.engineName = candidate.displayName
+                self.transcriptionLanguage = languageName
+                self.isModelReady = true
+                self.keyboardBridge.setModelInstalled(true)
+                switch self.phase {
+                case .modelRequired, .failed:
+                    self.phase = .ready
+                default:
+                    break
+                }
+                self.multilingualParakeetLoaded()
+                self.publishKeyboardSnapshot()
+            } catch {
+                guard self.modelPrepGeneration == prepGen, self.multilingualLanguage() == language else { return }
+                self.multilingualParakeetFailedToLoad(error)
+            }
+        }
+    }
+}
+
+/// Background time from iOS while Typr finishes the multilingual model's download or load,
+/// ended when it's done or when iOS asks for it back (Hex's `BackgroundTime`).
+@MainActor
+final class BackgroundTime {
+    private var id = UIBackgroundTaskIdentifier.invalid
+
+    init(_ name: String) {
+        id = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
+            self?.end()
+        }
+    }
+
+    func end() {
+        guard id != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(id)
+        id = .invalid
     }
 }

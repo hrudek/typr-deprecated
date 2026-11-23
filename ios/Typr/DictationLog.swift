@@ -72,6 +72,12 @@ enum DictationLogASRFailure: String, Codable, Sendable {
             case .emptyTranscript: return .noSpeech
             }
         }
+        if let error = error as? ParakeetUltraTranscriber.TranscriberError {
+            switch error {
+            case .notPrepared, .notDownloaded, .notEnoughMemory: return .modelNotReady
+            case .emptyTranscript: return .noSpeech
+            }
+        }
         if let error = error as? OnDeviceSpeechTranscriber.TranscriberError {
             switch error {
             case .notAllowed, .unavailable: return .modelNotReady

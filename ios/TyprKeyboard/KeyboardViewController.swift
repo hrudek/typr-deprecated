@@ -58,7 +58,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         warmFullKeyboardLexiconIfNeeded()
-        if hasFullAccess, TyprSettings()[experiment: .keyboardDictation] { localDictation.prepare(in: view) }
+        if keyboardDictationEnabled { localDictation.prepare(in: view) }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -479,10 +479,18 @@ final class KeyboardViewController: UIInputViewController {
         ContainingAppOpener.open(request.url, from: self)
     }
 
+    /// Keyboard dictation: Apple Speech in the keyboard, except while Typr dictates the language
+    /// with the multilingual model (Hex's `keyboardNeedsHex`): it can't load in a keyboard.
+    private var keyboardDictationEnabled: Bool {
+        guard hasFullAccess, TyprSettings()[experiment: .keyboardDictation] else { return false }
+        let multilingual = MultilingualParakeetSettings()
+        return !multilingual.keyboardOpensTypr(language: multilingual.language())
+    }
+
     private var localDictationRoute: KeyboardDictationRoute {
         let app = bridge.snapshot()
         return localDictation.route(
-            enabled: hasFullAccess && TyprSettings()[experiment: .keyboardDictation],
+            enabled: keyboardDictationEnabled,
             warm: app.state == .ready && app.isAvailable(at: Date().timeIntervalSince1970)
         )
     }

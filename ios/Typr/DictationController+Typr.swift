@@ -93,6 +93,8 @@ extension DictationController {
         }
         preferredEngine = engine
         languageSettings.preferredSpeechEngine = engine
+        MultilingualParakeetSettings().isModelReady = false
+        multilingualDownload.cancel()
         engineName = engine.displayName
         languageNotice = nil
         // Pinning the automatically ready engine needs no model reload.

@@ -18,13 +18,14 @@ final class ModelPreparationTests: XCTestCase {
 
     private func controller(
         factory: (() async -> any LocalTranscribing)? = nil,
-        provider: (any SpeechEngineProviding)? = nil
+        provider: (any SpeechEngineProviding)? = nil,
+        multilingualDownload: ParakeetUltraDownload? = nil
     ) -> DictationController {
         let settings = TyprSettings(defaults: defaults)
         let controller = DictationController(
             audio: PrepAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
             transcriber: UnpreparedTranscriber(), transcriberFactory: factory, autoPrepareOnInit: false,
-            languageSettings: settings, engineProvider: provider)
+            languageSettings: settings, engineProvider: provider, multilingualDownload: multilingualDownload)
         controller.preparationLimits = (firstReport: .milliseconds(300), stall: .milliseconds(300))
         return controller
     }
@@ -207,6 +208,253 @@ final class ModelPreparationTests: XCTestCase {
         XCTAssertNil(DictationController.switchNotice(
             for: SpeechModelUnavailable(language: "ru-RU", reason: .notOnThisIPhone, fallback: "en-US", automatic: false)),
             "a language picked by hand is not switched")
+    }
+
+    // MARK: - Experimental › Hex experiments › Multilingual model (Parakeet)
+
+    /// The App Group switch the controller reads, cleared after each test.
+    private func clearMultilingualSwitch() {
+        let group = UserDefaults(suiteName: KeyboardBridge.appGroup)
+        group?.removeObject(forKey: MultilingualParakeetSettings.enabledKey)
+        group?.removeObject(forKey: MultilingualParakeetSettings.modelReadyKey)
+        ParakeetLoadGuard(model: ParakeetUltraTranscriber.loadGuardModel).forget()
+    }
+
+    func testTurningTheMultilingualModelOffDeletesItOnlyOnceItsLoadReturned() async throws {
+        defer {
+            ParakeetUltraModel.remove()
+            clearMultilingualSwitch()
+        }
+        let controller = controller(factory: { PrepTranscriber(.ready) })
+        let folder = ParakeetUltraModel.directory
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        controller.multilingualLoads.insert(99)
+
+        controller.turnOffMultilingualParakeet()
+        try await waitForState("deletion waits") {
+            controller.deletionWaitsForTesting >= 1 && controller.phase == .ready
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path), "the load still reads its files")
+
+        controller.multilingualLoads.remove(99)
+        try await waitForState("deleted") { !FileManager.default.fileExists(atPath: folder.path) }
+    }
+
+    private func readyParakeetV2(
+        download: ParakeetUltraDownload? = nil
+    ) -> (DictationController, ParakeetTranscriber) {
+        let controller = controller(multilingualDownload: download)
+        let working = ParakeetTranscriber()
+        controller.setDictationLanguage(.english)
+        controller.transcriber = working
+        controller.currentEngine = .parakeetV2
+        controller.engineName = working.displayName
+        controller.isModelReady = true
+        controller.phase = .ready
+        return (controller, working)
+    }
+
+    func testLowMemoryKeepsTheWorkingParakeetV2() async throws {
+        defer { clearMultilingualSwitch() }
+        let (controller, working) = readyParakeetV2()
+        MultilingualParakeetSettings().isEnabled = true
+
+        controller.syncMultilingualParakeet(availableMemory: 900 << 20, downloaded: true)
+
+        XCTAssertEqual(controller.phase, .ready)
+        XCTAssertTrue(controller.isModelReady)
+        XCTAssertTrue((controller.transcriber as? ParakeetTranscriber) === working)
+        XCTAssertEqual(controller.multilingualDownload.state, .failed(ParakeetUltraTranscriber.notEnoughMemoryMessage))
+        XCTAssertTrue(controller.multilingualLoads.isEmpty)
+    }
+
+    func testAMultilingualModelThatFailsToLoadKeepsTheEngineThatWorked() async throws {
+        defer { clearMultilingualSwitch() }
+        let (controller, working) = readyParakeetV2()
+        MultilingualParakeetSettings().isEnabled = true
+
+        controller.loadMultilingualParakeetBeside(language: "en-US") { _ in
+            PrepTranscriber(.fails(PrepError()), name: ParakeetUltraTranscriber.name)
+        }
+        await controller.preparationTask?.value
+
+        XCTAssertEqual(controller.phase, .ready)
+        XCTAssertEqual(controller.currentEngine, .parakeetV2)
+        XCTAssertTrue(controller.isModelReady)
+        XCTAssertTrue((controller.transcriber as? ParakeetTranscriber) === working)
+        XCTAssertEqual(controller.multilingualDownload.state, .failed("No model here."))
+        XCTAssertTrue(controller.multilingualLoads.isEmpty)
+    }
+
+    func testOptOutDuringTranscriptionDoesNotRestoreUltraIfTheFallbackFails() async throws {
+        defer { clearMultilingualSwitch() }
+        let controller = controller(factory: { PrepTranscriber(.fails(PrepError()), name: "Apple Speech") })
+        let settings = MultilingualParakeetSettings()
+        settings.isEnabled = true
+        settings.isModelReady = true
+        controller.transcriber = ParakeetUltraTranscriber(language: "en-US")
+        controller.engineName = ParakeetUltraTranscriber.name
+        controller.isModelReady = true
+        controller.phase = .transcribing
+
+        controller.turnOffMultilingualParakeet()
+        XCTAssertTrue(controller.pendingAppleLanguageChange)
+        XCTAssertFalse(settings.isModelReady)
+        controller.phase = .ready
+        controller.preparePendingAppleLanguageIfIdle()
+        await controller.preparationTask?.value
+
+        XCTAssertEqual(controller.phase, .failed("No model here."))
+        XCTAssertFalse(controller.isModelReady)
+        XCTAssertFalse(controller.transcriber is ParakeetUltraTranscriber)
+        XCTAssertFalse(settings.isModelReady)
+    }
+
+    func testBesideLoadDiscardsUltraWhenLanguageBecomesIneligible() async throws {
+        let languageSettings = LanguageSettings()
+        let previousLanguage = languageSettings.dictationLanguage
+        defer {
+            clearMultilingualSwitch()
+            languageSettings.dictationLanguage = previousLanguage
+        }
+        let (controller, working) = readyParakeetV2()
+        let candidate = PrepTranscriber(.gated, name: ParakeetUltraTranscriber.name)
+        languageSettings.dictationLanguage = "ja-JP"
+        let settings = MultilingualParakeetSettings()
+        settings.isEnabled = true
+
+        controller.loadMultilingualParakeetBeside(language: "en-US") { _ in candidate }
+        try await waitForState("Ultra load entered") { await candidate.entered }
+        controller.setDictationLanguage(.automatic)
+        await candidate.release()
+        await controller.preparationTask?.value
+
+        XCTAssertEqual(controller.phase, .ready)
+        XCTAssertTrue((controller.transcriber as? ParakeetTranscriber) === working)
+        XCTAssertFalse(settings.isModelReady)
+        XCTAssertEqual(controller.multilingualDownload.state, .idle)
+    }
+
+    func testLanguagePickerPausesAndResumesUltraDownloadWithoutReloadingV2() async throws {
+        let languageSettings = LanguageSettings()
+        let previousLanguage = languageSettings.dictationLanguage
+        let writer = GatedMultilingualDownload()
+        let download = ParakeetUltraDownload(fetch: { _ in try await writer.fetch() })
+        defer {
+            download.cancel()
+            writer.releaseFirstAttempt()
+            clearMultilingualSwitch()
+            languageSettings.dictationLanguage = previousLanguage
+        }
+
+        let (controller, working) = readyParakeetV2(download: download)
+        languageSettings.dictationLanguage = "ja-JP"
+        MultilingualParakeetSettings().isEnabled = true
+        controller.multilingualParakeetChanged()
+        try await waitForState("first writer started") { writer.attempts == 1 }
+
+        controller.setDictationLanguage(.automatic)
+        XCTAssertNil(controller.multilingualLanguage())
+        XCTAssertEqual(download.state, .idle)
+        XCTAssertFalse(download.isRunning)
+        XCTAssertTrue(controller.isModelReady)
+        XCTAssertTrue((controller.transcriber as? ParakeetTranscriber) === working)
+
+        controller.setDictationLanguage(.english)
+        XCTAssertEqual(controller.multilingualLanguage(), "en-US")
+        XCTAssertTrue(download.isRunning)
+        await mainActorBarrier()
+        XCTAssertEqual(writer.attempts, 1, "the replacement waits for cancellation to drain")
+        writer.releaseFirstAttempt()
+
+        try await waitForState("replacement writer started") { writer.attempts == 2 }
+        XCTAssertTrue(writer.firstAttemptWasCancelled)
+        XCTAssertNil(controller.preparationTask)
+        XCTAssertEqual(controller.phase, .ready)
+        XCTAssertTrue(controller.isModelReady)
+        XCTAssertTrue((controller.transcriber as? ParakeetTranscriber) === working)
+        XCTAssertFalse(MultilingualParakeetSettings().isModelReady)
+        await download.cancel()?.value
+    }
+
+    func testPinningTheReadyEngineCancelsAnActiveUltraDownloadAndSuppressesRetries() async throws {
+        defer { clearMultilingualSwitch() }
+        let download = ParakeetUltraDownload(fetch: { _ in try await Task.sleep(for: .seconds(60)) })
+        let (controller, working) = readyParakeetV2(download: download)
+        MultilingualParakeetSettings().isEnabled = true
+        download.start()
+
+        XCTAssertEqual(controller.selectEngine(.parakeetV2), .selected)
+        XCTAssertFalse(download.isRunning)
+        controller.noteSceneDidBecomeActive()
+        controller.retryMultilingualParakeet()
+
+        XCTAssertEqual(download.state, .idle)
+        XCTAssertFalse(download.isRunning)
+        XCTAssertTrue((controller.transcriber as? ParakeetTranscriber) === working)
+        await download.cancel()?.value
+    }
+
+    func testTurningMultilingualParakeetOnOrOffPreparesAgainOnceIdle() async throws {
+        defer { clearMultilingualSwitch() }
+        let queue = Queue([PrepTranscriber(.ready)])
+        let controller = controller(factory: { queue.next() })
+        controller.prepareModel()
+        try await waitForState("ready") { controller.phase == .ready }
+        XCTAssertEqual(queue.made, 1)
+
+        // Turned off while the usual engine dictates: nothing to prepare again.
+        controller.turnOffMultilingualParakeet()
+        XCTAssertEqual(controller.phase, .ready, "no preparation started")
+
+        // Turned off while Parakeet Ultra dictated: Typr prepares the engine it picks without it.
+        controller.engineName = ParakeetUltraTranscriber.name
+        controller.multilingualParakeetChanged()
+        try await waitForState("prepared again") { queue.made == 2 && controller.phase == .ready }
+    }
+
+    func testTheMultilingualModelNeverReplacesAChosenEngine() async throws {
+        defer { clearMultilingualSwitch() }
+        let provider = PrepProvider(PrepTranscriber(.ready, name: "Orukeet"))
+        let controller = controller(provider: provider)
+        XCTAssertEqual(controller.selectEngine(.orukeet), .selected)
+        try await waitForState("ready") { controller.phase == .ready }
+
+        MultilingualParakeetSettings().isEnabled = true
+        controller.multilingualParakeetChanged()
+        XCTAssertEqual(controller.multilingualDownload.state, .idle, "no download for a chosen engine")
+        XCTAssertFalse(controller.multilingualDownload.isRunning)
+        XCTAssertEqual(controller.currentEngine, .orukeet)
+        XCTAssertEqual(provider.created, 1)
+    }
+
+    func testSilenceFromTheMultilingualModelKeepsItLoaded() {
+        XCTAssertTrue(DictationController.transcriptionFailureKeepsModel(ParakeetUltraTranscriber.TranscriberError.emptyTranscript))
+        XCTAssertFalse(DictationController.transcriptionFailureKeepsModel(ParakeetUltraTranscriber.TranscriberError.notPrepared))
+        XCTAssertEqual(DictationController.switchNotice(for: ParakeetUltraTranscriber.TranscriberError.notEnoughMemory),
+                       ParakeetUltraTranscriber.notEnoughMemoryMessage)
+    }
+}
+
+@MainActor
+private final class GatedMultilingualDownload {
+    private(set) var attempts = 0
+    private(set) var firstAttemptWasCancelled = false
+    private var firstAttempt: CheckedContinuation<Void, Never>?
+
+    func fetch() async throws {
+        attempts += 1
+        if attempts == 1 {
+            await withCheckedContinuation { firstAttempt = $0 }
+            firstAttemptWasCancelled = Task.isCancelled
+            try Task.checkCancellation()
+        }
+        try await Task.sleep(for: .seconds(60))
+    }
+
+    func releaseFirstAttempt() {
+        firstAttempt?.resume()
+        firstAttempt = nil
     }
 }
 

@@ -254,7 +254,20 @@ final class DictationController {
             waiters.forEach { $0.resume() }
         }
     }
+    /// Parakeet Ultra loads still inside `prepare`, by preparation generation: turning the
+    /// experiment off deletes its files only once each returned.
+    @ObservationIgnored var multilingualLoads: Set<UInt64> = [] {
+        didSet {
+            let waiters = loadFinishedWaiters
+            loadFinishedWaiters = []
+            waiters.forEach { $0.resume() }
+        }
+    }
+    @ObservationIgnored var multilingualRemovalGeneration: UInt64 = 0
     @ObservationIgnored var loadFinishedWaiters: [CheckedContinuation<Void, Never>] = []
+    /// Experimental › Hex experiments › Multilingual model (Parakeet): its download, beside the
+    /// engine Typr dictates with meanwhile.
+    @ObservationIgnored let multilingualDownload: ParakeetUltraDownload
     @ObservationIgnored var deletionWaitsForTesting = 0
     var modelPreparation = ModelPreparationProgress(
         fractionCompleted: 0,
@@ -296,9 +309,11 @@ final class DictationController {
         audioActivationRetryDelays: [Duration] = DictationController.audioActivationRetryDelays,
         modelBackground: (any ModelPreparationScheduling)? = nil,
         deferPreparationUntilActive: Bool = false,
-        translator: DictationTranslator? = .system
+        translator: DictationTranslator? = .system,
+        multilingualDownload: ParakeetUltraDownload? = nil
     ) {
         self.translator = translator
+        self.multilingualDownload = multilingualDownload ?? ParakeetUltraDownload()
         self.audioRetryDelays = audioActivationRetryDelays
         let resolvedBridge = keyboardBridge ?? KeyboardBridge()
         let resolvedAudio = audio ?? SystemAudioManager(exclusiveSession: { languageSettings[experiment: .typrExclusiveAudioSession] })
@@ -341,6 +356,9 @@ final class DictationController {
 
         wireAudioCallbacks()
         wireSystemIntentBus()
+        self.multilingualDownload.onDownloaded = { [weak self] in
+            self?.syncMultilingualParakeet()
+        }
 
         if Self.applyLaunchFixtureIfPresent(to: self) {
             return
@@ -416,9 +434,13 @@ final class DictationController {
         languageNotice = nil
         // Apple Speech prepares one locale. Do not mutate the current capture; reprepare when
         // idle, including after a cancelled inference has really released its snapshot.
-        if preferredEngine == .appleSpeech || transcriber.displayName == "Apple Speech" || engineName == "Apple Speech" {
+        if preferredEngine == .appleSpeech || transcriber.displayName == "Apple Speech" || engineName == "Apple Speech"
+            || engineName == ParakeetUltraTranscriber.name {
             pendingAppleLanguageChange = true
             preparePendingAppleLanguageIfIdle()
+        }
+        if MultilingualParakeetSettings().isEnabled {
+            syncMultilingualParakeet()
         }
     }
 
@@ -540,6 +562,7 @@ final class DictationController {
 
     func noteSceneDidBecomeActive() {
         isInBackground = false
+        multilingualDownload.appBecameActive(canRetry: canDownloadMultilingualModel)
         if preparationFailedInBackground {
             // Picks up a download that iOS cut off while Typr was in the background; FluidAudio
             // resumes each file from the bytes it has.
@@ -558,6 +581,7 @@ final class DictationController {
 
     func noteSceneDidEnterBackground() {
         isInBackground = true
+        multilingualDownload.appMovedToBackground()
         scheduleModelMaintenance()
         autoReturnFallbackTask?.cancel()
         autoReturnFallbackTask = nil
