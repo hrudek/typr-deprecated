@@ -145,7 +145,11 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         if let spaceDecision, spaceDecision.beforeInput == beforeInput { return spaceDecision.result }
         loadTouches(beforeInput: beforeInput)
         let result = engine.replacementOnSpace(beforeInput: beforeInput, field: Self.field(field), autocorrectionType: autocorrectionType)
-        return result?.original == token ? result : nil
+        if let result, result.original != token {
+            engine.discardFeedback()
+            return nil
+        }
+        return result
     }
 
     func revision(of word: String, before: String, next: String, field: KeyboardFieldKind, autocorrectionType: UITextAutocorrectionType?) -> String? {
@@ -208,14 +212,14 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     /// Where `tap`, on Hex's key for `letter`, falls on Typr's key: as far from its centre, in
     /// key spacings, as on Hex's.
     private func typrPoint(_ tap: CGPoint, on key: TyprKeyboardKey, letter: Character) -> CGPoint? {
-        guard let keys = decoderKeys, let centre = keys.centres[letter], keys.pitch.width > 0, keys.pitch.height > 0,
+        guard let keys = decoderBaselineKeys ?? decoderKeys, let centre = keys.centres[letter], keys.pitch.width > 0, keys.pitch.height > 0,
               let pitch = touchLayout.key(.character("g"))?.hitFrame.size else { return nil }
         return CGPoint(x: key.frame.midX + (tap.x - centre.x) / keys.pitch.width * pitch.width,
                        y: key.frame.midY + (tap.y - centre.y) / keys.pitch.height * pitch.height)
     }
 
     private func typrSpacePoint(_ tap: CGPoint) -> CGPoint? {
-        guard let hex = decoderKeys?.space, hex.width > 0, hex.height > 0,
+        guard let hex = (decoderBaselineKeys ?? decoderKeys)?.space, hex.width > 0, hex.height > 0,
               let space = touchLayout.key(.space)?.frame else { return nil }
         return CGPoint(x: space.midX + (tap.x - hex.midX) / hex.width * space.width,
                        y: space.midY + (tap.y - hex.midY) / hex.height * space.height)
