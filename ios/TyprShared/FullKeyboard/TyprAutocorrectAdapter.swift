@@ -49,6 +49,12 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     private var undos: [String: TyprAutocorrectEngine.AppliedCorrection] = [:]
     private var reverting: [String: TyprAutocorrectEngine.AppliedCorrection] = [:]
     private var lastRevision: (from: String, to: String, context: String?)?
+    /// Typr's keys that Hex's taps are read on: Typr's spatial model and boundary decoder work
+    /// on its own key geometry, so each tap keeps its place relative to its key.
+    private var touchLayout = TyprKeyboardLayout(width: TyprAutocorrectAdapter.touchWidth)
+    /// A space decision made while trying to join two words, for the space that follows.
+    private var spaceDecision: (beforeInput: String, result: (original: String, replacement: String)?)?
+    private static let touchWidth: CGFloat = 393
 
     private static let languages: Set<KeyboardLanguage> = [.english, .german]
 
@@ -86,6 +92,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     func setKeys(_ language: KeyboardLanguage, letters: KeyboardLetterLayout) {
         layoutLetters = letters
         engine.letters = TyprKeyboardLetterLayout(rawValue: letters.rawValue) ?? (language == .german ? .qwertz : .qwerty)
+        touchLayout = TyprKeyboardLayout(width: Self.touchWidth, letters: engine.letters)
     }
 
     func setVocabulary(_ terms: [String]) {
@@ -109,6 +116,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     ) -> [KeyboardSuggestion] {
         reverting = [:]
         guard hasDictionary else { return [] }
+        loadTouches(beforeInput: beforeInput)
         let finishedWord = TyprAutocorrectEngine.currentToken(in: beforeInput) == nil
         return engine.suggestions(beforeInput: beforeInput, field: Self.field(field), autocorrectionType: autocorrectionType)
             .compactMap { suggestion in
@@ -132,8 +140,12 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         autocorrectionType: UITextAutocorrectionType?
     ) -> (original: String, replacement: String)? {
         reverting = [:]
-        guard hasDictionary else { return nil }
-        return engine.replacementOnSpace(beforeInput: beforeInput, field: Self.field(field), autocorrectionType: autocorrectionType)
+        defer { spaceDecision = nil }
+        guard hasDictionary, let beforeInput, let token = TyprAutocorrectEngine.currentToken(in: beforeInput) else { return nil }
+        if let spaceDecision, spaceDecision.beforeInput == beforeInput { return spaceDecision.result }
+        loadTouches(beforeInput: beforeInput)
+        let result = engine.replacementOnSpace(beforeInput: beforeInput, field: Self.field(field), autocorrectionType: autocorrectionType)
+        return result?.original == token ? result : nil
     }
 
     func revision(of word: String, before: String, next: String, field: KeyboardFieldKind, autocorrectionType: UITextAutocorrectionType?) -> String? {
@@ -145,7 +157,71 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         return revised
     }
 
-    func merge(first: String, firstTaps: [CGPoint], space: CGPoint, second: String, before: String) -> String? { nil }
+    func merge(first: String, firstTaps: [CGPoint], space: CGPoint, second: String, before: String) -> String? {
+        spaceDecision = nil
+        guard hasDictionary, loadTouches(first: first, firstTaps: firstTaps, space: space, second: second, before: before) else { return nil }
+        let beforeInput = before + " " + second
+        let result = engine.replacementOnSpace(beforeInput: beforeInput, field: .text, autocorrectionType: .default)
+        if let result, result.original == first + " " + second, !result.replacement.contains(" ") {
+            return result.replacement
+        }
+        spaceDecision = (beforeInput, result?.original == second ? result : nil)
+        return nil
+    }
+
+    /// Hex's taps of the word before the cursor (`decoderTaps`) as Typr's touch evidence.
+    private func loadTouches(beforeInput: String?) {
+        engine.touchInput.clear()
+        guard let beforeInput, let token = TyprAutocorrectEngine.currentToken(in: beforeInput),
+              let taps = decoderTaps else { return }
+        appendTouches(taps, word: token, following: String(beforeInput.dropLast(token.count)))
+    }
+
+    /// Two words and the space between them as Typr's touch evidence, for its boundary decoder.
+    @discardableResult
+    func loadTouches(first: String, firstTaps: [CGPoint], space: CGPoint, second: String, before: String) -> Bool {
+        engine.touchInput.clear()
+        guard before.hasSuffix(first), let taps = decoderTaps, let spacePoint = typrSpacePoint(space),
+              let spaceKey = touchLayout.key(.space),
+              appendTouches(firstTaps, word: first, following: String(before.dropLast(first.count))) else { return false }
+        engine.touchInput.append(text: " ", point: spacePoint, key: spaceKey, layout: touchLayout,
+                                 before: before, after: before + " ")
+        return appendTouches(taps, word: second, following: before + " ")
+    }
+
+    @discardableResult
+    private func appendTouches(_ taps: [CGPoint], word: String, following head: String) -> Bool {
+        guard taps.count == word.count else { return false }
+        var before = head
+        for (tap, letter) in zip(taps, word) {
+            let text = String(letter)
+            guard let key = touchLayout.key(.character(text.lowercased())),
+                  let point = typrPoint(tap, on: key, letter: Character(text.lowercased())) else {
+                engine.touchInput.clear()
+                return false
+            }
+            engine.touchInput.append(text: text, point: point, key: key, layout: touchLayout,
+                                     before: before, after: before + text)
+            before += text
+        }
+        return true
+    }
+
+    /// Where `tap`, on Hex's key for `letter`, falls on Typr's key: as far from its centre, in
+    /// key spacings, as on Hex's.
+    private func typrPoint(_ tap: CGPoint, on key: TyprKeyboardKey, letter: Character) -> CGPoint? {
+        guard let keys = decoderKeys, let centre = keys.centres[letter], keys.pitch.width > 0, keys.pitch.height > 0,
+              let pitch = touchLayout.key(.character("g"))?.hitFrame.size else { return nil }
+        return CGPoint(x: key.frame.midX + (tap.x - centre.x) / keys.pitch.width * pitch.width,
+                       y: key.frame.midY + (tap.y - centre.y) / keys.pitch.height * pitch.height)
+    }
+
+    private func typrSpacePoint(_ tap: CGPoint) -> CGPoint? {
+        guard let hex = decoderKeys?.space, hex.width > 0, hex.height > 0,
+              let space = touchLayout.key(.space)?.frame else { return nil }
+        return CGPoint(x: space.midX + (tap.x - hex.midX) / hex.width * space.width,
+                       y: space.midY + (tap.y - hex.midY) / hex.height * space.height)
+    }
 
     func textReplacement(before: String?) -> (typed: String, replacement: String)? {
         guard let token = TyprAutocorrectEngine.currentToken(in: before),
