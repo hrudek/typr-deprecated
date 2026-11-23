@@ -157,7 +157,7 @@ final class HexKeyboardCutoverTests: XCTestCase {
         }
         let views = Self.subviews(of: host.view)
         XCTAssertFalse(views.contains { $0 is TyprFullKeyboardView })
-        XCTAssertEqual(views.compactMap { $0 as? UISegmentedControl }.map(\.numberOfSegments), [2], "Typr key side")
+        XCTAssertEqual(views.compactMap { $0 as? UISegmentedControl }.map(\.numberOfSegments), [2, 2], "Design, Typr key side")
         XCTAssertEqual(views.filter { $0 is UISwitch }.count, 1, "number row")
     }
 

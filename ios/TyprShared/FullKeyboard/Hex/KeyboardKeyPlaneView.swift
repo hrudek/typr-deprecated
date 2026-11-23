@@ -123,23 +123,23 @@ final class KeyboardKeyPlaneView: UIView {
             // Keycaps on whole device pixels, as Apple draws them: crisp edges, not half-covered ones.
             let frame = pixelAligned(key.frame)
             // Row 4's labels sit where they would on Apple's taller row 4 (`bottomRowTrim`).
-            let labelFrame = key.row == 3
+            let labelFrame = palette.inkFrame(key.row == 3
                 ? CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: frame.height + layout.metrics.bottomRowTrim)
-                : frame
+                : frame)
             switch key.kind {
             case .hex:
                 continue
             case .character:
                 // The pressed key stays in place, grey, under iOS 27's floating pop-up.
                 let fill = pressed.contains(key.kind) ? palette.keyHeldFill : palette.keyFill
-                context.fillKeycap(frame, fill: fill, shadow: palette.keyShadow, radius: radius)
+                context.fillKeycap(frame, palette: palette, fill: fill, radius: radius)
                 guard showGlyphs() else { continue }
                 if let upper = key.shifted, let lower = key.character, layout.metrics.pad?.isDocked == true {
                     // The docked iPad's two-symbol keys: the shifted one over the one typed, as Apple's.
                     let font = UIFont.systemFont(ofSize: 18, weight: .regular)
                     let half = labelFrame.height / 2
-                    drawText(upper, in: CGRect(x: labelFrame.minX, y: labelFrame.minY + 0.2 * half, width: labelFrame.width, height: half), font: font, color: palette.textBase)
-                    drawText(lower, in: CGRect(x: labelFrame.minX, y: labelFrame.midY - 0.2 * half, width: labelFrame.width, height: half), font: font, color: palette.textBase)
+                    drawText(upper, in: CGRect(x: labelFrame.minX, y: labelFrame.minY + 0.2 * half, width: labelFrame.width, height: half), font: font, color: palette.keyInk)
+                    drawText(lower, in: CGRect(x: labelFrame.minX, y: labelFrame.midY - 0.2 * half, width: labelFrame.width, height: half), font: font, color: palette.keyInk)
                     continue
                 }
                 var label = Self.keycapLabel(engine.keycapLabel(for: key))
@@ -156,12 +156,12 @@ final class KeyboardKeyPlaneView: UIView {
                 if !isLandscape, layout.layer == .letters, label.first?.isLetter == true {
                     drawLetter(label, in: labelFrame, style: style, capital: isUpperLetter)
                 } else {
-                    drawText(label, in: labelFrame, font: style.font, color: palette.textBase, yOffset: style.yOffset)
+                    drawText(label, in: labelFrame, font: style.font, color: palette.keyInk, yOffset: style.yOffset)
                 }
             case .space:
                 // Apple's space bar unshades as it becomes the trackpad.
                 let fill = pressed.contains(.space) && !hideGlyphs ? palette.spaceHeldFill : palette.keyFill
-                context.fillKeycap(frame, fill: fill, shadow: palette.keyShadow, radius: radius)
+                context.fillKeycap(frame, palette: palette, fill: fill, radius: radius)
                 guard showGlyphs(), let spaceLabel else { continue }
                 drawText(
                     spaceLabel,
@@ -185,9 +185,9 @@ final class KeyboardKeyPlaneView: UIView {
                 } else if activeAction {
                     .white
                 } else {
-                    palette.textBase
+                    palette.keyInk
                 }
-                context.fillKeycap(frame, fill: fill, shadow: palette.keyShadow, radius: radius)
+                context.fillKeycap(frame, palette: palette, fill: fill, radius: radius)
                 guard showGlyphs() else { continue }
                 drawSymbol(
                     returnStyle.symbol,
@@ -200,7 +200,7 @@ final class KeyboardKeyPlaneView: UIView {
             case .shift:
                 let shift = engine.shift
                 let isPressed = pressed.contains(.shift) && !shift.pressShowsOff
-                context.fillKeycap(frame, fill: isPressed ? palette.functionHeldFill : palette.keyFill, shadow: palette.keyShadow, radius: radius)
+                context.fillKeycap(frame, palette: palette, fill: isPressed ? palette.functionHeldFill : palette.keyFill, radius: radius)
                 guard showGlyphs() else { continue }
                 let symbol = if shift.pressShowsOff {
                     "shift"
@@ -211,15 +211,15 @@ final class KeyboardKeyPlaneView: UIView {
                     case .locked: "capslock.fill"
                     }
                 }
-                drawSymbol(symbol, in: labelFrame, color: palette.textBase, pointSize: isLandscape ? 18 : 19, yOffset: isLandscape ? -0.16 : 0.67)
+                drawSymbol(symbol, in: labelFrame, color: palette.keyInk, pointSize: isLandscape ? 18 : 19, yOffset: isLandscape ? -0.16 : 0.67)
             case .delete:
                 let lit = pressed.contains(.delete)
-                context.fillKeycap(frame, fill: lit ? palette.functionHeldFill : palette.keyFill, shadow: palette.keyShadow, radius: radius)
+                context.fillKeycap(frame, palette: palette, fill: lit ? palette.functionHeldFill : palette.keyFill, radius: radius)
                 guard showGlyphs() else { continue }
-                drawSymbol(lit ? "delete.left.fill" : "delete.left", in: labelFrame, color: palette.textBase, pointSize: isLandscape ? 18.5 : 19, yOffset: isLandscape ? -0.16 : 0.33)
+                drawSymbol(lit ? "delete.left.fill" : "delete.left", in: labelFrame, color: palette.keyInk, pointSize: isLandscape ? 18.5 : 19, yOffset: isLandscape ? -0.16 : 0.33)
             case .layerSwitch:
                 let lit = pressed.contains(key.kind)
-                context.fillKeycap(frame, fill: lit ? palette.keyHeldFill : palette.keyFill, shadow: palette.keyShadow, radius: radius)
+                context.fillKeycap(frame, palette: palette, fill: lit ? palette.keyHeldFill : palette.keyFill, radius: radius)
                 guard showGlyphs() else { continue }
                 var style = isLandscape
                     ? (key.label == "123" && key.row == 3 ? LabelStyle(size: 15.5, weight: UIFont.Weight(rawValue: -0.05), yOffset: 0)
@@ -230,23 +230,23 @@ final class KeyboardKeyPlaneView: UIView {
                     : key.label == "#+=" ? LabelStyle.symbolsPageKey
                     : LabelStyle(size: 15.5, yOffset: 0)
                 style = style.scaled(by: labelScale)
-                drawText(key.label, in: labelFrame, font: style.font, color: palette.textBase, yOffset: style.yOffset)
+                drawText(key.label, in: labelFrame, font: style.font, color: palette.keyInk, yOffset: style.yOffset)
             case .globe:
                 let lit = pressed.contains(.globe)
-                context.fillKeycap(frame, fill: lit ? palette.functionHeldFill : palette.keyFill, shadow: palette.keyShadow, radius: radius)
+                context.fillKeycap(frame, palette: palette, fill: lit ? palette.functionHeldFill : palette.keyFill, radius: radius)
                 guard showGlyphs() else { continue }
-                drawSymbol("globe", in: labelFrame, color: palette.textBase, pointSize: isLandscape ? 16 : 19, yOffset: isLandscape ? 0 : -1)
+                drawSymbol("globe", in: labelFrame, color: palette.keyInk, pointSize: isLandscape ? 16 : 19, yOffset: isLandscape ? 0 : -1)
             case .emoji:
                 let lit = pressed.contains(.emoji)
                 let fill = lit ? palette.functionHeldFill : palette.keyFill
-                context.fillKeycap(frame, fill: fill, shadow: palette.keyShadow, radius: radius)
+                context.fillKeycap(frame, palette: palette, fill: fill, radius: radius)
                 guard showGlyphs() else { continue }
                 drawEmojiFace(in: labelFrame, diameter: isLandscape ? 18 : 19, context: context, keyFill: fill)
             case .dismiss:
                 let lit = pressed.contains(.dismiss)
-                context.fillKeycap(frame, fill: lit ? palette.functionHeldFill : palette.keyFill, shadow: palette.keyShadow, radius: radius)
+                context.fillKeycap(frame, palette: palette, fill: lit ? palette.functionHeldFill : palette.keyFill, radius: radius)
                 guard showGlyphs() else { continue }
-                drawSymbol("keyboard.chevron.compact.down", in: labelFrame, color: palette.textBase, pointSize: 19, yOffset: 0)
+                drawSymbol("keyboard.chevron.compact.down", in: labelFrame, color: palette.keyInk, pointSize: 19, yOffset: 0)
             }
         }
     }
@@ -278,7 +278,7 @@ final class KeyboardKeyPlaneView: UIView {
     /// Each key's letter also strays up to about 0.6 pt from that, in a pattern that differs from
     /// one iPhone to the next, so it isn't modelled.
     private func drawLetter(_ text: String, in frame: CGRect, style: LabelStyle, capital: Bool) {
-        let attributes: [NSAttributedString.Key: Any] = [.font: style.font, .foregroundColor: palette.textBase]
+        let attributes: [NSAttributedString.Key: Any] = [.font: style.font, .foregroundColor: palette.keyInk]
         let size = (text as NSString).size(withAttributes: attributes)
         let nudge: CGFloat = traitCollection.displayScale >= 3 ? (capital ? 0 : 0.17) : (capital ? 0.23 : 0.55)
         (text as NSString).draw(
@@ -295,7 +295,7 @@ final class KeyboardKeyPlaneView: UIView {
     /// wide, its top 0.5 below the centre at the corners and 1.5 in the middle, its bottom an arc
     /// 6.5 down; teeth a 1 pt band 1 under its top, always the light colour.
     private func drawEmojiFace(in frame: CGRect, diameter: CGFloat, context: CGContext, keyFill: UIColor) {
-        let ink = palette.textBase.cgColor
+        let ink = palette.keyInk.cgColor
         context.saveGState()
         context.translateBy(x: frame.midX, y: frame.midY - 0.67)
         let k = diameter / 19

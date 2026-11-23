@@ -2,16 +2,28 @@ import SwiftUI
 
 struct KeyboardWordsPrivacyCard: View {
     @Environment(\.scenePhase) private var scenePhase
-    @State private var personalLearning = TyprSettings().personalLearning
+    private let defaults: UserDefaults?
+    @State private var personalLearning: Bool
+    @State private var typrKeyboard: Bool
 
     static let whatTyprLearns = "Typr adapts to your taps, chosen words, recent German/English usage and what follows one or two words. Undo remembers rejected corrections and their preceding words. Imported names and terms work independently of this switch."
 
+    init(defaults: UserDefaults? = UserDefaults(suiteName: KeyboardBridge.appGroup)) {
+        self.defaults = defaults
+        let typr = TyprSettings(defaults: defaults)
+        _personalLearning = State(initialValue: typr.personalLearning)
+        _typrKeyboard = State(initialValue: typr[experiment: .typrKeyboard])
+    }
+
     var body: some View {
         VStack(spacing: 24) {
+            if !typrKeyboard {
+                HexKeyboardLearningSection(defaults: defaults)
+            }
             VStack(alignment: .leading, spacing: 8) {
-                SettingsSection(title: "Learning") {
+                SettingsSection(title: typrKeyboard ? "Learning" : "Typr keyboard learning") {
                     SettingsToggle(title: "Learn from my typing", detail: "Adapt to your taps and word choices.", isOn: $personalLearning)
-                        .onChange(of: personalLearning) { _, enabled in TyprSettings().personalLearning = enabled }
+                        .onChange(of: personalLearning) { _, enabled in TyprSettings(defaults: defaults).personalLearning = enabled }
                     SettingsDivider()
                     NavigationLink(value: SettingsDestination.keyboardLearnedWords) {
                         SettingsLink(title: "Manage learned words", detail: "Find and delete saved words and corrections")
@@ -26,9 +38,13 @@ struct KeyboardWordsPrivacyCard: View {
             KeyboardLearningResetControls()
             TypingLogControls()
         }
-        .onAppear { personalLearning = TyprSettings().personalLearning }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { personalLearning = TyprSettings().personalLearning }
-        }
+        .onAppear(perform: refresh)
+        .onChange(of: scenePhase) { _, phase in if phase == .active { refresh() } }
+    }
+
+    private func refresh() {
+        let typr = TyprSettings(defaults: defaults)
+        personalLearning = typr.personalLearning
+        typrKeyboard = typr[experiment: .typrKeyboard]
     }
 }

@@ -136,8 +136,11 @@ or load finishes stopping.
   The full keyboard is Hex's, with Typr's compact keys and wide suggestion slots.
   Keyboard › Languages picks its languages and each one's layout (Dvorak for English);
   Keyboard › Spatial autocorrect, Auto-capitalization and Swipe typing are Hex's (spatial
-  and swipe for English and Spanish); Appearance sets the Typr key's side and the number
-  row over a live preview of it. Experimental › **Typr keyboard** (off by default) brings
+  and swipe for English and Spanish), as are Key pop-ups, Haptics with its strength, Emoji
+  and, under Words and privacy, Learn how I type with Adaptive touch's status and reset.
+  Appearance sets the design (Mechanical, off by default, draws Typr's mechanical keycaps
+  and replaces a keyboard theme), the Typr key's side and the number row over a live
+  preview of it. Experimental › **Typr keyboard** (off by default) brings
   back Typr's own keyboard with its own settings, described below; switches marked "Only
   with Typr keyboard" act only there.
   Typr keyboard adds German/English autocorrect and adaptive suggestions. With both

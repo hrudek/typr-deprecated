@@ -3,11 +3,14 @@ import UIKit
 
 struct HexKeyboardAppearancePage: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var design = TyprFullKeyboardSettings().design
     @State private var typrKeyOnLeft = FullKeyboardSettings().hexKeyOnLeft
     @State private var numberRow = FullKeyboardSettings().numberRow
     @State private var window: WindowReader.Window?
 
     static let typrKeyFooter = "The Typr key sits at this end of the suggestion bar."
+    static let designFooter = "Mechanical replaces a keyboard theme."
 
     var body: some View {
         GeometryReader { page in
@@ -43,6 +46,26 @@ struct HexKeyboardAppearancePage: View {
     private var controls: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
+                SettingsSection(title: "Design") {
+                    if dynamicTypeSize.isAccessibilitySize {
+                        ForEach(Array(KeyboardDesign.allCases.enumerated()), id: \.element) { index, choice in
+                            if index > 0 { SettingsDivider() }
+                            SettingsChoiceRow(title: choice.title, isSelected: design == choice) { design = choice }
+                        }
+                    } else {
+                        Picker("Design", selection: $design) {
+                            ForEach(KeyboardDesign.allCases, id: \.self) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(16)
+                        .accessibilityIdentifier("keyboard-design")
+                    }
+                }
+                .onChange(of: design) { _, choice in TyprFullKeyboardSettings().design = choice }
+                SettingsFooter(Self.designFooter)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
                 SettingsSection(title: "Typr key") {
                     Picker("Typr key", selection: $typrKeyOnLeft) {
                         Text("Left").tag(true)
@@ -65,6 +88,7 @@ struct HexKeyboardAppearancePage: View {
 
     private func dockedPreview(in page: CGSize, container: CGSize) -> some View {
         let settings = HexKeyboardAppearancePreview.Settings(
+            design: design,
             typrKeyOnLeft: typrKeyOnLeft,
             numberRow: numberRow,
             isDark: KeyboardAppearancePage.snapshotIsDark() ?? window?.systemIsDark ?? true,
@@ -84,6 +108,7 @@ struct HexKeyboardAppearancePage: View {
     }
 
     private func refresh() {
+        design = TyprFullKeyboardSettings().design
         typrKeyOnLeft = FullKeyboardSettings().hexKeyOnLeft
         numberRow = FullKeyboardSettings().numberRow
     }
@@ -91,6 +116,7 @@ struct HexKeyboardAppearancePage: View {
 
 struct HexKeyboardAppearancePreview: UIViewRepresentable {
     struct Settings: Equatable {
+        var design = KeyboardDesign.standard
         var typrKeyOnLeft: Bool
         var numberRow: Bool
         var isDark: Bool
@@ -101,7 +127,7 @@ struct HexKeyboardAppearancePreview: UIViewRepresentable {
         var height: CGFloat { KeyboardLayout.height(for: orientation, numberRow: numberRow) }
 
         var accessibilityLabel: String {
-            ["Full keyboard preview", "Typr key \(typrKeyOnLeft ? "left" : "right")",
+            ["Full keyboard preview", design.title, "Typr key \(typrKeyOnLeft ? "left" : "right")",
              "number row \(numberRow ? "on" : "off")"].joined(separator: ", ")
         }
     }
@@ -129,6 +155,7 @@ struct HexKeyboardAppearancePreview: UIViewRepresentable {
 
     static func apply(_ settings: Settings, to view: FullKeyboardView) {
         view.syncSettings()
+        view.designOverride = settings.design
         view.appearanceOverride = settings.isDark
         view.orientationOverride = settings.orientation
     }
