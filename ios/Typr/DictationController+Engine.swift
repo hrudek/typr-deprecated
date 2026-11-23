@@ -181,7 +181,7 @@ extension DictationController {
     func multilingualLanguage() -> String? {
         guard preferredEngine == nil else { return nil }
         let explicit = hexLanguageSettings.explicitDictationLanguage(typr: dictationLanguage)
-        return MultilingualParakeetSettings().language(set: explicit)
+        return MultilingualParakeetSettings().language(set: explicit, preferred: preferredLanguages())
     }
 
     var canDownloadMultilingualModel: Bool {

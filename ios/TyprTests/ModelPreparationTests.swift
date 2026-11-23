@@ -19,13 +19,15 @@ final class ModelPreparationTests: XCTestCase {
     private func controller(
         factory: (() async -> any LocalTranscribing)? = nil,
         provider: (any SpeechEngineProviding)? = nil,
-        multilingualDownload: ParakeetUltraDownload? = nil
+        multilingualDownload: ParakeetUltraDownload? = nil,
+        preferredLanguages: [String] = Locale.preferredLanguages
     ) -> DictationController {
         let settings = TyprSettings(defaults: defaults)
         let controller = DictationController(
             audio: PrepAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
             transcriber: UnpreparedTranscriber(), transcriberFactory: factory, autoPrepareOnInit: false,
-            languageSettings: settings, engineProvider: provider, multilingualDownload: multilingualDownload)
+            languageSettings: settings, preferredLanguages: { preferredLanguages }, engineProvider: provider,
+            multilingualDownload: multilingualDownload)
         controller.preparationLimits = (firstReport: .milliseconds(300), stall: .milliseconds(300))
         return controller
     }
@@ -240,10 +242,12 @@ final class ModelPreparationTests: XCTestCase {
         try await waitForState("deleted") { !FileManager.default.fileExists(atPath: folder.path) }
     }
 
+    /// `preferredLanguages`: the iPhone's, which Automatic dictates in.
     private func readyParakeetV2(
-        download: ParakeetUltraDownload? = nil
+        download: ParakeetUltraDownload? = nil,
+        preferredLanguages: [String] = Locale.preferredLanguages
     ) -> (DictationController, ParakeetTranscriber) {
-        let controller = controller(multilingualDownload: download)
+        let controller = controller(multilingualDownload: download, preferredLanguages: preferredLanguages)
         let working = ParakeetTranscriber()
         controller.setDictationLanguage(.english)
         controller.transcriber = working
@@ -312,15 +316,14 @@ final class ModelPreparationTests: XCTestCase {
 
     func testBesideLoadDiscardsUltraWhenLanguageBecomesIneligible() async throws {
         defer { clearMultilingualSwitch() }
-        let (controller, working) = readyParakeetV2()
+        let (controller, working) = readyParakeetV2(preferredLanguages: ["ja-JP"])
         let candidate = PrepTranscriber(.gated, name: ParakeetUltraTranscriber.name)
-        controller.hexLanguageSettings.dictationLanguage = "ja-JP"
         let settings = MultilingualParakeetSettings()
         settings.isEnabled = true
 
         controller.loadMultilingualParakeetBeside(language: "en-US") { _ in candidate }
         try await waitForState("Ultra load entered") { await candidate.entered }
-        controller.followDictationLanguage()
+        controller.setDictationLanguage(.automatic)
         await candidate.release()
         await controller.preparationTask?.value
 
@@ -339,13 +342,12 @@ final class ModelPreparationTests: XCTestCase {
             clearMultilingualSwitch()
         }
 
-        let (controller, working) = readyParakeetV2(download: download)
-        controller.hexLanguageSettings.dictationLanguage = "ja-JP"
+        let (controller, working) = readyParakeetV2(download: download, preferredLanguages: ["ja-JP"])
         MultilingualParakeetSettings().isEnabled = true
         controller.multilingualParakeetChanged()
         try await waitForState("first writer started") { writer.attempts == 1 }
 
-        controller.followDictationLanguage()
+        controller.setDictationLanguage(.automatic)
         XCTAssertNil(controller.multilingualLanguage())
         XCTAssertEqual(download.state, .idle)
         XCTAssertFalse(download.isRunning)

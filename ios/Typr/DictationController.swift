@@ -245,6 +245,8 @@ final class DictationController {
     /// Settings › Language's choice.
     private(set) var dictationLanguageChoice: DictationLanguage
     let hexLanguageSettings: LanguageSettings
+    /// The iPhone's languages, which Automatic dictates in without a keyboard to follow.
+    let preferredLanguages: () -> [String]
     /// The engine the user explicitly chose (persisted). nil: never chosen, the original
     /// automatic choice applies. An explicit engine is never replaced by another one.
     var preferredEngine: SpeechEngineChoice?
@@ -312,6 +314,7 @@ final class DictationController {
         liveActivity: (any LiveActivityPresenting)? = nil,
         languageSettings: TyprSettings = TyprSettings(),
         hexLanguageSettings: LanguageSettings? = nil,
+        preferredLanguages: @escaping () -> [String] = { Locale.preferredLanguages },
         engineProvider: (any SpeechEngineProviding)? = nil,
         audioActivationRetryDelays: [Duration] = DictationController.audioActivationRetryDelays,
         modelBackground: (any ModelPreparationScheduling)? = nil,
@@ -338,6 +341,7 @@ final class DictationController {
         self.liveActivity = liveActivity
         self.languageSettings = languageSettings
         let hexLanguage = hexLanguageSettings ?? languageSettings.hexLanguage
+        self.preferredLanguages = preferredLanguages
         self.hexLanguageSettings = hexLanguage
         self.dictationLanguage = hexLanguage.typrDictationLanguage(typr: languageSettings)
         self.dictationLanguageChoice = hexLanguage.typrDictationChoice(typr: languageSettings)

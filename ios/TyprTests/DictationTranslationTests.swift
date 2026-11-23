@@ -102,11 +102,25 @@ final class DictationTranslationSettingsTests: XCTestCase {
         XCTAssertNil(DictationTranslationSettings(defaults: defaults).lastFailure)
     }
 
+    func testAnotherStoredTargetReadsAsEnglishAndStaysStored() {
+        let defaults = isolatedDefaults(self)
+        let settings = DictationTranslationSettings(defaults: defaults)
+        for stored in ["fr", "ja", "zh-TW"] {
+            defaults.set(stored, forKey: "experiments.translateDictation.target")
+            XCTAssertEqual(settings.targetLanguage, "en", stored)
+            settings.isEnabled = true
+            XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: false)?.target, "en", stored)
+            XCTAssertEqual(defaults.string(forKey: "experiments.translateDictation.target"), stored, "nothing rewritten")
+        }
+        defaults.set("de-AT", forKey: "experiments.translateDictation.target")
+        XCTAssertEqual(settings.targetLanguage, "de-AT")
+    }
+
     func testThePlanKeepsTheTargetOrGermanOrEnglishUnderTheTyprPolicy() {
         let settings = DictationTranslationSettings(defaults: isolatedDefaults(self))
         settings.isEnabled = true
         settings.targetLanguage = "ja"
-        XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: false)?.target, "ja")
+        XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: false)?.target, "en")
         XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: true)?.target, "en")
         settings.targetLanguage = "de-AT"
         XCTAssertEqual(DictationTranslationPlan(settings: settings, typrPolicy: true)?.target, "de")

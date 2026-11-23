@@ -195,6 +195,24 @@ final class TyprDictationLanguageTests: XCTestCase {
         XCTAssertEqual(settings.typrDictationLanguage(typr: typr), .english, "a language picked by hand stays")
     }
 
+    func testAnotherStoredLanguageReadsAsAutomaticAndStaysStored() {
+        let typr = TyprSettings(defaults: defaults)
+        let settings = typr.hexLanguage
+        for stored in ["fr-FR", "fr", "ja-JP", "es-419"] {
+            settings.dictationLanguage = stored
+            settings.keyboardLanguages = []
+            XCTAssertEqual(settings.typrDictationChoice(typr: typr), .automatic, stored)
+            XCTAssertEqual(settings.typrDictationLanguage(typr: typr), .automatic, stored)
+            XCTAssertNil(settings.explicitDictationLanguage(typr: settings.typrDictationLanguage(typr: typr)), stored)
+            settings.keyboardLanguages = [.german]
+            XCTAssertEqual(settings.typrDictationLanguage(typr: typr), .automatic, stored)
+            settings.keyboardLanguages = [.german, .english]
+            settings.currentKeyboardLanguage = .german
+            XCTAssertEqual(settings.typrDictationLanguage(typr: typr), .german, "\(stored) still follows the keyboard")
+            XCTAssertEqual(settings.dictationLanguage, stored, "nothing rewritten")
+        }
+    }
+
     func testOneKeyboardLanguageLeavesAutomatic() {
         let typr = TyprSettings(defaults: defaults)
         typr.hexLanguage.keyboardLanguages = [.german]

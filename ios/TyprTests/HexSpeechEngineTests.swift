@@ -245,7 +245,7 @@ final class HexSpeechEngineTests: XCTestCase {
         XCTAssertEqual(languages.explicitDictationLanguage(typr: .german), "de-DE")
         XCTAssertEqual(languages.explicitDictationLanguage(typr: .english), "en-US")
         languages.dictationLanguage = "fr-FR"
-        XCTAssertEqual(languages.explicitDictationLanguage(typr: .automatic), "fr-FR")
+        XCTAssertNil(languages.explicitDictationLanguage(typr: .automatic), "Typr dictates in German or English only")
         XCTAssertEqual(languages.explicitDictationLanguage(typr: .german), "de-DE", "Typr's own choice comes first")
         XCTAssertEqual(DictationController.wantedLanguage(explicit: "de-DE"), "de-DE")
         XCTAssertEqual(DictationController.wantedLanguage(explicit: nil), Locale.preferredLanguages.first)
