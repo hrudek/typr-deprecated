@@ -181,9 +181,9 @@ final class FullKeyboardEngine {
     /// Bilingual autocorrect's second language on these keys (`KeyboardLanguageList.partner`),
     /// or nil.
     var partnerLanguage: KeyboardLanguage? {
-        get { autocorrect.partner?.language }
+        get { autocorrect.partnerLanguage }
         set {
-            guard newValue != autocorrect.partner?.language else { return }
+            guard newValue != autocorrect.partnerLanguage else { return }
             autocorrect.setPartner(newValue, available: UITextChecker.availableLanguages, checker: nil)
             refreshSuggestions()
         }
@@ -1275,7 +1275,7 @@ final class FullKeyboardEngine {
     private func syncLearning() {
         autocorrect.applyLearning(
             journal?.typingLearning(for: autocorrect.language) ?? TypingLearning(),
-            partner: journal?.typingLearning(for: autocorrect.partner?.language) ?? TypingLearning()
+            partner: journal?.typingLearning(for: autocorrect.partnerLanguage) ?? TypingLearning()
         )
     }
 

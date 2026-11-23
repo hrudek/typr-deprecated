@@ -265,7 +265,7 @@ final class TyprAutocorrectEngine {
         protectedLexicon.contains(prefix) || protectedLexicon.protectsPrefix(prefix + letter)
     }
 
-    private var lexiconTerms: [String] = []
+    private(set) var lexiconTerms: [String] = []
     private var systemLexiconTerms: [String] = []
     private var customWords: [String] = []
     private(set) var lexiconTermKeys: Set<String> = []
@@ -597,7 +597,7 @@ final class TyprAutocorrectEngine {
     }
 
     // Casing adapted from anomalyco/hex TyprAutocorrectEngine.shortcut(for:) (MIT, #2153).
-    private func shortcut(for token: String) -> String? {
+    func shortcut(for token: String) -> String? {
         guard let stored = lexiconShortcuts[token.lowercased()] else { return nil }
         let letters = token.filter(\.isLetter)
         let leadingCapital = token.first?.isUppercase == true && (letters.count < 2 || letters != letters.uppercased())

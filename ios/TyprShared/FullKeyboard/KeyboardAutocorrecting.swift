@@ -10,7 +10,7 @@ protocol KeyboardAutocorrecting: AnyObject {
     var addsCapitals: Bool { get set }
     var learnsPerLanguage: Bool { get set }
     var language: KeyboardLanguage { get }
-    var partner: AutocorrectEngine? { get }
+    var partnerLanguage: KeyboardLanguage? { get }
     var hasDictionary: Bool { get }
     var layoutLetters: KeyboardLetterLayout? { get }
     var lastFixLanguage: KeyboardLanguage? { get }
@@ -22,6 +22,7 @@ protocol KeyboardAutocorrecting: AnyObject {
     var decoderTaps: [CGPoint]? { get set }
     var contextModel: TypingDecoderModel? { get set }
     var germanCapitals: GermanCapitals? { get set }
+    var partnerDecoder: TypingDecoder? { get set }
 
     var vocabulary: [String] { get }
     var ownWords: [String] { get }
@@ -73,4 +74,11 @@ extension KeyboardAutocorrecting {
     }
 }
 
-extension AutocorrectEngine: KeyboardAutocorrecting {}
+extension AutocorrectEngine: KeyboardAutocorrecting {
+    var partnerLanguage: KeyboardLanguage? { partner?.language }
+
+    var partnerDecoder: TypingDecoder? {
+        get { partner?.decoder }
+        set { partner?.decoder = newValue }
+    }
+}
