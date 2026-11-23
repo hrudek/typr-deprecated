@@ -21,3 +21,18 @@ extension FullKeyboardView {
         return CGRect(x: minX, y: full.minY, width: max(0, maxX - minX), height: full.height)
     }
 }
+
+/// Typr's mechanical design and Hex's keyboard themes are never both active: the mechanical
+/// design wins, and the Hex keyboard then keeps Automatic, whatever theme is stored.
+extension FullKeyboardView {
+    nonisolated static func typrKeyboardTheme(design: KeyboardDesign, hexTheme: KeyboardTheme) -> KeyboardTheme {
+        design == .mechanical ? .automatic : hexTheme
+    }
+
+    static func typrKeyboardTheme(defaults: UserDefaults? = UserDefaults(suiteName: KeyboardBridge.appGroup)) -> KeyboardTheme {
+        typrKeyboardTheme(
+            design: TyprFullKeyboardSettings(defaults: defaults).design,
+            hexTheme: FullKeyboardSettings(defaults: defaults).effectiveKeyboardTheme
+        )
+    }
+}

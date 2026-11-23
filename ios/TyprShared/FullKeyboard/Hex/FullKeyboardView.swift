@@ -119,7 +119,7 @@ final class FullKeyboardView: UIView {
     /// Settings › Experiments › Keyboard themes: Automatic keeps iOS's glass; another theme
     /// paints the keyboard's own colours. Read again by `syncSettings`, which rebuilds the
     /// palette when it changes.
-    private var keyboardTheme = FullKeyboardSettings().effectiveKeyboardTheme
+    private var keyboardTheme = FullKeyboardView.typrKeyboardTheme()
     /// A paste iOS asked about or refused: the strip points to the setting that stops it.
     var showsAllowPasteHint = false
     var allowPasteHintHideWork: DispatchWorkItem?
@@ -563,7 +563,7 @@ final class FullKeyboardView: UIView {
             hidesWordSuggestions = hidesSuggestions
             refreshStrip()
         }
-        let theme = FullKeyboardSettings().effectiveKeyboardTheme
+        let theme = Self.typrKeyboardTheme()
         if theme != keyboardTheme {
             keyboardTheme = theme
             applyAppearance()

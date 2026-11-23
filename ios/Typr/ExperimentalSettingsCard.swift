@@ -2,10 +2,13 @@ import SwiftUI
 
 struct ExperimentalSettingsCard: View {
     static let hexTitle = "Hex experiments"
+    static let hexKeyboardTitle = "Hex keyboard experiments"
+    static let hexKeyboardNotice = "These apply to the Hex keyboard, which replaces the current keyboard in a coming update."
     static let typrTitle = "Typr variants"
     static let emptyNotice = "No experiments right now."
 
     var hexExperiments = ExperimentalSwitch.hexExperiments
+    var hexKeyboardExperiments = ExperimentalSwitch.hexKeyboardExperiments
     var typrVariants = ExperimentalSwitch.typrVariants
     var defaults = UserDefaults(suiteName: KeyboardBridge.appGroup)
     var dictation: DictationController?
@@ -13,12 +16,20 @@ struct ExperimentalSettingsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             group(Self.hexTitle, switches: hexExperiments)
+            group(Self.hexKeyboardTitle, switches: hexKeyboardExperiments, notice: Self.hexKeyboardNotice)
             group(Self.typrTitle, switches: typrVariants)
         }
     }
 
-    private func group(_ title: String, switches: [ExperimentalSwitch]) -> some View {
+    private func group(_ title: String, switches: [ExperimentalSwitch], notice: String? = nil) -> some View {
         SettingsSection(title: title) {
+            if let notice, !switches.isEmpty {
+                Text(notice)
+                    .font(.subheadline).foregroundStyle(TyprTheme.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                SettingsDivider()
+            }
             if switches.isEmpty {
                 Text(Self.emptyNotice)
                     .font(.subheadline).foregroundStyle(TyprTheme.textMuted)
@@ -29,6 +40,8 @@ struct ExperimentalSettingsCard: View {
                 if index > 0 { SettingsDivider() }
                 if experiment == .multilingualParakeet {
                     MultilingualParakeetToggle(settings: TyprSettings(defaults: defaults), dictation: dictation)
+                } else if experiment == .hexKeyboardThemes {
+                    KeyboardThemesToggle(defaults: defaults)
                 } else {
                     ExperimentalToggle(experiment: experiment, settings: TyprSettings(defaults: defaults))
                 }
@@ -51,6 +64,36 @@ struct ExperimentalToggle: View {
     var body: some View {
         SettingsToggle(title: experiment.title, detail: experiment.detail, isOn: $isOn)
             .onChange(of: isOn) { _, enabled in settings[experiment: experiment] = enabled }
+    }
+}
+
+/// Hex's Keyboard themes switch and, while it is on, the theme the Hex keyboard draws.
+struct KeyboardThemesToggle: View {
+    let defaults: UserDefaults?
+    @State private var isOn: Bool
+    @State private var theme: KeyboardTheme
+
+    init(defaults: UserDefaults?) {
+        self.defaults = defaults
+        let settings = FullKeyboardSettings(defaults: defaults)
+        _isOn = State(initialValue: settings.keyboardThemesEnabled)
+        _theme = State(initialValue: settings.keyboardTheme)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsToggle(title: ExperimentalSwitch.hexKeyboardThemes.title, detail: ExperimentalSwitch.hexKeyboardThemes.detail, isOn: $isOn)
+                .onChange(of: isOn) { _, enabled in FullKeyboardSettings(defaults: defaults).keyboardThemesEnabled = enabled }
+            if isOn {
+                SettingsDivider()
+                Picker("Theme", selection: $theme) {
+                    ForEach(KeyboardTheme.allCases, id: \.self) { Text($0.name).tag($0) }
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 50)
+                .onChange(of: theme) { _, choice in FullKeyboardSettings(defaults: defaults).keyboardTheme = choice }
+            }
+        }
     }
 }
 
