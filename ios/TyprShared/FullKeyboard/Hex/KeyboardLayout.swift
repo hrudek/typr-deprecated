@@ -648,9 +648,10 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         dvorakPunctuation: Bool = false,
         availableHeight: CGFloat? = nil,
         typrBottomRow: BottomRow? = nil,
-        showsStrip: Bool = true
+        showsStrip: Bool = true,
+        typrSplitColumns: Bool = false
     ) {
-        let typrAdapts = Self.typrAdaptsRows(posture: posture, pad: pad)
+        let typrAdapts = Self.typrAdaptsRows(posture: posture, orientation: orientation, pad: pad, joinsUnfoldedKeyboard: joinsUnfoldedKeyboard)
         let typrBottomRow = typrAdapts ? typrBottomRow : nil
         let showsStrip = showsStrip || !typrAdapts
         let hexPlacement = Self.typrHexPlacement(hexPlacement, bottomRow: typrBottomRow, showsStrip: showsStrip)
@@ -703,7 +704,8 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
                 language: language,
                 letters: letters,
                 hexPlacement: hexPlacement,
-                dvorakPunctuation: self.dvorakPunctuation
+                dvorakPunctuation: self.dvorakPunctuation,
+                alignedColumns: typrSplitColumns && layer == .letters
             )
             self.keys = built.keys
             self.split = built.split
@@ -753,10 +755,11 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         phoneSize: KeyboardPhoneSize = .regular,
         pad: KeyboardPadPlacement? = nil,
         numberRow: Bool = false,
-        showsStrip: Bool = true
+        showsStrip: Bool = true,
+        joinsUnfoldedKeyboard: Bool = false
     ) -> CGFloat {
         let metrics = KeyboardMetrics.for(orientation, posture: posture, phoneSize: phoneSize, pad: pad, numberRow: numberRow)
-        guard !showsStrip, typrAdaptsRows(posture: posture, pad: pad) else { return metrics.totalHeight }
+        guard !showsStrip, typrAdaptsRows(posture: posture, orientation: orientation, pad: pad, joinsUnfoldedKeyboard: joinsUnfoldedKeyboard) else { return metrics.totalHeight }
         return metrics.typrWithoutStrip(orientation).totalHeight
     }
 
@@ -1321,7 +1324,8 @@ extension KeyboardLayout {
         language: KeyboardLanguage,
         letters: KeyboardLetterLayout = .own,
         hexPlacement placement: HexKeyPlacement,
-        dvorakPunctuation: Bool = false
+        dvorakPunctuation: Bool = false,
+        alignedColumns: Bool = false
     ) -> (keys: [KeyboardKey], split: SplitGeometry) {
         typealias G = SplitGeometry
         // Dvorak splits like the other layouts, delete ending row 3 (Apple's split Dvorak unobserved).
@@ -1388,17 +1392,20 @@ extension KeyboardLayout {
             leftEdge = edges.0
             rightEdge = edges.1
         }
-        _ = addRow(rows[1], row: 1, leftStart: left + p / 2, rightEnd: right - p / 2)
+        let stagger: CGFloat = alignedColumns ? 0 : 0.5
+        _ = addRow(rows[1], row: 1, leftStart: left + stagger * p, rightEnd: right - stagger * p)
 
         // Row 3: shift (or the page switch) and delete at the sides, the middle keys a key and a
         // half in from each side.
+        let row3ModW = alignedColumns ? G.keyWidth : G.modifierWidth
         switch layer {
-        case .letters: add(.shift, row: 2, x: left, w: G.modifierWidth, label: "shift", rightHalf: false)
+        case .letters: add(.shift, row: 2, x: left, w: row3ModW, label: "shift", rightHalf: false)
         case .numbers: add(.layerSwitch(.symbols), row: 2, x: left, w: G.modifierWidth, label: "#+=", rightHalf: false)
         case .symbols: add(.layerSwitch(.numbers), row: 2, x: left, w: G.modifierWidth, label: "123", rightHalf: false)
         }
-        _ = addRow(rows[2], row: 2, leftStart: left + 1.5 * p, rightEnd: right - 1.5 * p)
-        add(.delete, row: 2, x: right - G.modifierWidth, w: G.modifierWidth, label: "delete", rightHalf: true)
+        let row3Inset = (alignedColumns ? 1 : 1.5) * p
+        _ = addRow(rows[2], row: 2, leftStart: left + row3Inset, rightEnd: right - row3Inset)
+        add(.delete, row: 2, x: right - row3ModW, w: row3ModW, label: "delete", rightHalf: true)
 
         // Row 4: 123/ABC, globe?, emoji? and a space bar on the left; a space bar, the field's
         // extras, Hex (when it sits in the row) and return on the right.

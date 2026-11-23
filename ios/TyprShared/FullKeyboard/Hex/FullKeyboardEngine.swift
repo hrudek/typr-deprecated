@@ -125,6 +125,7 @@ final class FullKeyboardEngine {
     var showsGlobe = false { didSet { if showsGlobe != oldValue { rebuildLayout() } } }
     var typrBottomRow: BottomRow? { didSet { if typrBottomRow != oldValue { rebuildLayout(cause: "typr_bottom_row") } } }
     var showsStrip = true { didSet { if showsStrip != oldValue { rebuildLayout(cause: "typr_compact_strip") } } }
+    var typrSplitColumns = false { didSet { if typrSplitColumns != oldValue { rebuildLayout(cause: "typr_split_columns") } } }
     /// Settings › Keyboard › Emoji, in fields that take emoji.
     var showsEmoji = false { didSet { if showsEmoji != oldValue { rebuildLayout() } } }
     var horizontalInset: CGFloat = 0 { didSet { if horizontalInset != oldValue { rebuildLayout() } } }
@@ -1468,7 +1469,8 @@ final class FullKeyboardEngine {
             dvorakPunctuation: dvorakPunctuation,
             availableHeight: availableHeight,
             typrBottomRow: typrBottomRow,
-            showsStrip: showsStrip
+            showsStrip: showsStrip,
+            typrSplitColumns: typrSplitColumns
         )
         autocorrect.setKeys(layout.language, letters: layout.letters)
         syncDecoderKeys()

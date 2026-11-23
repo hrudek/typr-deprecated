@@ -34,7 +34,7 @@ extension FullKeyboardView {
     /// one keyboard rather than the split one. The rows keep their heights, so the host is asked
     /// for nothing.
     func syncJoinsUnfoldedKeyboard() {
-        let joins = FullKeyboardSettings(defaults: settingsDefaults).joinsKeyboardWhenUnfolded
+        let joins = typrJoinsUnfoldedKeyboard ?? FullKeyboardSettings(defaults: settingsDefaults).joinsKeyboardWhenUnfolded
         guard engine.joinsUnfoldedKeyboard != joins else { return }
         plane.cancelAllTouches()
         dismissStyleMenu()

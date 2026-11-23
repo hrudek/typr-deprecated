@@ -11,6 +11,9 @@ struct HexKeyboardAppearancePage: View {
     @State private var bottomRow = TyprFullKeyboardSettings().bottomRow
     @State private var typrCompactStrip = TyprSettings()[experiment: .typrCompactStrip]
     @State private var hideSuggestionBar = TyprSettings().hideSuggestionBar
+    @State private var typrSplitKeyboard = TyprSettings()[experiment: .typrSplitKeyboard]
+    @State private var splitKeyboard = TyprFullKeyboardSettings().splitKeyboard
+    @State private var splitColumns = TyprFullKeyboardSettings().splitColumns
     @State private var window: WindowReader.Window?
 
     static let typrKeyFooter = "The Typr key sits at this end of the suggestion bar."
@@ -95,6 +98,21 @@ struct HexKeyboardAppearancePage: View {
                 }
             }
 
+            if typrSplitKeyboard {
+                VStack(alignment: .leading, spacing: 8) {
+                    SettingsSection(title: "Split") {
+                        SettingsToggle(title: "Split keyboard", detail: "Half the keys under each thumb.", isOn: $splitKeyboard)
+                            .onChange(of: splitKeyboard) { _, split in TyprFullKeyboardSettings().splitKeyboard = split }
+                        if splitKeyboard {
+                            SettingsDivider()
+                            SettingsToggle(title: "Aligned columns", detail: "Letters straight above each other.", isOn: $splitColumns)
+                                .onChange(of: splitColumns) { _, aligned in TyprFullKeyboardSettings().splitColumns = aligned }
+                        }
+                    }
+                    SettingsFooter(KeyboardAppearancePage.splitKeyboardFooter)
+                }
+            }
+
             if typrBottomRow {
                 VStack(alignment: .leading, spacing: 8) {
                     SettingsSection(title: "Bottom row") {
@@ -151,6 +169,9 @@ struct HexKeyboardAppearancePage: View {
         bottomRow = TyprFullKeyboardSettings().bottomRow
         typrCompactStrip = TyprSettings()[experiment: .typrCompactStrip]
         hideSuggestionBar = TyprSettings().hideSuggestionBar
+        typrSplitKeyboard = TyprSettings()[experiment: .typrSplitKeyboard]
+        splitKeyboard = TyprFullKeyboardSettings().splitKeyboard
+        splitColumns = TyprFullKeyboardSettings().splitColumns
     }
 }
 
