@@ -812,13 +812,15 @@ nonisolated enum KeyboardLanguage: String, CaseIterable, Sendable {
         }
     }
 
-    /// The languages Settings › Keyboard › Languages may offer: 한국어 only while its experiment
-    /// is on, so off it is not listed, Automatic never picks it, and a stored "ko" is ignored
-    /// (`LanguageSettings.keyboardLanguages`).
-    static func selectable(
-        koreanEnabled: Bool = KoreanKeyboardExperiment.isEnabled
-    ) -> [KeyboardLanguage] {
-        allCases.filter { $0 != .korean || koreanEnabled }
+    /// Typr: the languages Settings › Keyboard › Languages may offer.
+    static func selectable() -> [KeyboardLanguage] {
+        [.german, .english]
+    }
+
+    /// Typr: this language where Typr offers it, else English, Hex's own fallback for a
+    /// language without a layout.
+    var selectableOrEnglish: KeyboardLanguage {
+        Self.selectable().contains(self) ? self : .english
     }
 
     /// The layouts of the iPhone's own keyboards, then of its preferred languages, in that

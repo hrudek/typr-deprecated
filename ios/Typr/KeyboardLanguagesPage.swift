@@ -10,7 +10,7 @@ func automaticKeyboardLanguage(settings: LanguageSettings = LanguageSettings()) 
         dictationLanguage: settings.effectiveDictationLanguage(),
         inputModes: UITextInputMode.activeInputModes.compactMap(\.primaryLanguage),
         preferredLanguages: Locale.preferredLanguages
-    )
+    ).selectableOrEnglish
 }
 
 struct KeyboardLanguagesRow: View {
@@ -44,7 +44,7 @@ struct KeyboardLanguagesPage: View {
     @State private var chosen = LanguageSettings().keyboardLanguages
     @State private var letterLayouts = LanguageSettings().letterLayouts
     private let automatic = automaticKeyboardLanguage()
-    private let suggested = KeyboardLanguage.suggested(
+    private let suggested = Self.onThisIPhone(
         inputModes: UITextInputMode.activeInputModes.compactMap(\.primaryLanguage),
         preferred: Locale.preferredLanguages
     )
@@ -123,6 +123,10 @@ struct KeyboardLanguagesPage: View {
             chosen = LanguageSettings().keyboardLanguages
             letterLayouts = LanguageSettings().letterLayouts
         }
+    }
+
+    static func onThisIPhone(inputModes: [String], preferred: [String]) -> [KeyboardLanguage] {
+        KeyboardLanguage.suggested(inputModes: inputModes, preferred: preferred).filter(KeyboardLanguage.selectable().contains)
     }
 
     static func arranged(chosen: [KeyboardLanguage], automatic: KeyboardLanguage) -> [KeyboardLanguage] {

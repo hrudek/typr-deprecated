@@ -18,9 +18,8 @@ nonisolated enum DictationBarAutoStart: String, CaseIterable, Sendable {
     case always
 }
 
-/// Settings › Experiments › Korean keyboard (두벌식), read where the pure language helpers need
-/// it before a keyboard exists (Settings' Languages list, Automatic). Stored as
-/// `experiments.koreanKeyboard`, off by default like every experiment.
+/// Hex's Korean keyboard experiment (두벌식), read where the pure language helpers need it
+/// before a keyboard exists. Stored as `experiments.koreanKeyboard`, off by default.
 nonisolated enum KoreanKeyboardExperiment {
     static let key = "experiments.koreanKeyboard"
 

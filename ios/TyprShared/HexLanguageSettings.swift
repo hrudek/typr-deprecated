@@ -88,16 +88,14 @@ nonisolated struct LanguageSettings {
     }
 
     /// The Hex keyboard's languages in order, the space bar switching between them; empty is
-    /// Automatic (the dictation language's layout).
+    /// Automatic (the dictation language's layout). Typr reads German and English only
+    /// (`KeyboardLanguage.selectable`); another stored language is skipped, not rewritten.
     var keyboardLanguages: [KeyboardLanguage] {
         get {
             let stored = defaults?.stringArray(forKey: Key.keyboardLanguages) ?? []
             var seen = Set<KeyboardLanguage>()
-            let koreanEnabled = KoreanKeyboardExperiment.isEnabled(in: defaults)
             return stored.compactMap(KeyboardLanguage.init(rawValue:))
-                .filter { seen.insert($0).inserted }
-                // 한국어 is ignored while its experiment is off, even if it was stored before.
-                .filter { $0 != .korean || koreanEnabled }
+                .filter { KeyboardLanguage.selectable().contains($0) && seen.insert($0).inserted }
         }
         nonmutating set {
             var seen = Set<KeyboardLanguage>()
@@ -126,8 +124,7 @@ nonisolated struct LanguageSettings {
         get {
             guard let language = defaults?.string(forKey: Key.currentKeyboardLanguage)
                 .flatMap(KeyboardLanguage.init(rawValue:)) else { return nil }
-            let koreanEnabled = KoreanKeyboardExperiment.isEnabled(in: defaults)
-            return language == .korean && !koreanEnabled ? nil : language
+            return KeyboardLanguage.selectable().contains(language) ? language : nil
         }
         nonmutating set { defaults?.set(newValue?.rawValue, forKey: Key.currentKeyboardLanguage) }
     }

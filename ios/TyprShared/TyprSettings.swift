@@ -31,7 +31,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
     static let hexKeyboardExperiments: [ExperimentalSwitch] = [
-        .hexAdaptiveTouch, .hexGermanSpatialAutocorrect, .hexKoreanKeyboard, .hexDvorakPunctuation,
+        .hexAdaptiveTouch, .hexGermanSpatialAutocorrect, .hexDvorakPunctuation,
         .hexEmojiLettersUnderEmojiKey, .hexKeyboardThemes, .hexTwoThumbSelection,
         .hexSwipeDeleteLetterByLetter, .hexHideWordSuggestions, .hexJoinKeyboardWhenUnfolded,
     ]
@@ -49,12 +49,6 @@ nonisolated struct ExperimentalSwitch: Hashable {
         hexKey: "experiments.germanSpatialAutocorrect",
         title: "German spatial autocorrect",
         detail: "Needs Spatial autocorrect."
-    )
-
-    static let hexKoreanKeyboard = ExperimentalSwitch(
-        hexKey: "experiments.koreanKeyboard",
-        title: "Korean keyboard (두벌식)",
-        detail: "Adds 한국어, composing syllables as you type."
     )
 
     static let hexDvorakPunctuation = ExperimentalSwitch(
