@@ -90,6 +90,31 @@ final class HexKeyboardTyprLookTests: XCTestCase {
         }
     }
 
+    func testMechanicalCombinesWithTyprCursorAndDeleteSliding() {
+        let design = TyprFullKeyboardSettings()
+        let typr = TyprSettings()
+        let was = (design.design, typr[experiment: .typrCursorSliding], typr[experiment: .typrDeleteSliding])
+        let wasDeleteSlide = typr[experiment: .deleteSlide]
+        typr[experiment: .deleteSlide] = false
+        defer {
+            typr[experiment: .deleteSlide] = wasDeleteSlide
+            design.design = was.0
+            typr[experiment: .typrCursorSliding] = was.1
+            typr[experiment: .typrDeleteSliding] = was.2
+        }
+        for (mechanical, cursor, delete) in [(false, true, true), (true, false, false), (true, true, false), (true, false, true), (true, true, true)] {
+            design.design = mechanical ? .mechanical : .standard
+            typr[experiment: .typrCursorSliding] = cursor
+            typr[experiment: .typrDeleteSliding] = delete
+            let view = makeView()
+            let label = "mechanical \(mechanical), cursor \(cursor), delete \(delete)"
+            XCTAssertEqual(view.palette.mechanical, mechanical, label)
+            XCTAssertEqual(view.engine.slidesCursorByCharacter, cursor, label)
+            XCTAssertEqual(view.plane.slidesDeleteByWord, !delete, label)
+            XCTAssertEqual(view.preferredHeight, 253, label)
+        }
+    }
+
     func testAppearancePreviewFollowsTheDesign() {
         let typr = TyprFullKeyboardSettings()
         let was = typr.design
