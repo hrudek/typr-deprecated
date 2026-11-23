@@ -7,24 +7,6 @@ enum KeyboardClipboardOffer: Equatable {
     case dictation
 }
 
-enum KeyboardInputModes {
-    struct Mode: Equatable {
-        var primaryLanguage: String?
-        var className: String
-    }
-
-    @MainActor
-    static func hasAppleKeyboard(_ modes: [UITextInputMode] = UITextInputMode.activeInputModes) -> Bool {
-        hasAppleKeyboard(modes.map { Mode(primaryLanguage: $0.primaryLanguage, className: NSStringFromClass(type(of: $0))) })
-    }
-
-    static func hasAppleKeyboard(_ modes: [Mode]) -> Bool {
-        modes.contains { mode in
-            !["emoji", "dictation"].contains(mode.primaryLanguage) && !mode.className.contains("Extension")
-        }
-    }
-}
-
 @MainActor
 struct KeyboardClipboardTracker {
     static let freshness: TimeInterval = 3 * 60
@@ -60,7 +42,7 @@ struct KeyboardClipboardTracker {
         fieldIsEmpty: Bool,
         hasFullAccess: Bool,
         canSwitchKeyboard: Bool = true,
-        hasAppleKeyboard: () -> Bool = { KeyboardInputModes.hasAppleKeyboard() },
+        hasAppleKeyboard: () -> Bool = { TyprKeyboardInputModes.hasAppleKeyboard() },
         pasteboard: UIPasteboard = .general,
         now: Date = Date()
     ) -> KeyboardClipboardOffer? {

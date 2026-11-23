@@ -129,14 +129,4 @@ final class KeyboardClipboardTests: XCTestCase {
         XCTAssertEqual(offer(.numberPad, .default), .code(canPaste: true))
     }
 
-    func testApplesKeyboardIsNotEmojiOrAnExtension() {
-        typealias Mode = KeyboardInputModes.Mode
-        let english = Mode(primaryLanguage: "en-US", className: "UIKeyboardInputMode")
-        let hex = Mode(primaryLanguage: "en-US", className: "UIKeyboardExtensionInputMode")
-        let emoji = Mode(primaryLanguage: "emoji", className: "UIKeyboardInputMode")
-        XCTAssertTrue(KeyboardInputModes.hasAppleKeyboard([hex, emoji, english]))
-        XCTAssertFalse(KeyboardInputModes.hasAppleKeyboard([hex, emoji]))
-        XCTAssertFalse(KeyboardInputModes.hasAppleKeyboard([hex]))
-        XCTAssertFalse(KeyboardInputModes.hasAppleKeyboard([hex, hex, emoji]), "another third-party keyboard gets no code either")
-    }
 }
