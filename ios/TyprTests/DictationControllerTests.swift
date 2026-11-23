@@ -240,11 +240,26 @@ private final class ClockReads {
 private final class RecordingLiveActivity: LiveActivityPresenting {
     enum Event: Equatable { case start, transcribing, copied, end }
     private(set) var events: [Event] = []
+    private var showing = false
 
-    func startRecording(startedAt: Date) { events.append(.start) }
-    func markTranscribing(startedAt: Date) { events.append(.transcribing) }
-    func finishCopied() { events.append(.copied) }
-    func endImmediately() { events.append(.end) }
+    func startRecording(startedAt: Date) {
+        showing = true
+        events.append(.start)
+    }
+
+    func markTranscribing(startedAt: Date) {
+        if showing { events.append(.transcribing) }
+    }
+
+    func finishCopied() {
+        if showing { events.append(.copied) }
+        showing = false
+    }
+
+    func endImmediately() {
+        showing = false
+        events.append(.end)
+    }
 }
 
 @MainActor
