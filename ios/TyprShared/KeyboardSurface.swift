@@ -70,6 +70,62 @@ final class KeyboardViewModel: ObservableObject {
     @Published var showsFullKeyboardSwitch = false
     var problemPanelDuration: TimeInterval = 6
     private var problemCloseWork: DispatchWorkItem?
+
+    // MARK: Hex full keyboard (`FullKeyboardView`; the keyboard controller sets these from K9)
+
+    /// Settings › Dictation language (nil for Automatic), what Automatic resolves to, and the
+    /// languages the Hex key menu offers. Empty choices hide its Language row.
+    @Published var dictationLanguage: String?
+    @Published var automaticLanguage: String?
+    @Published var languageChoices: [String] = []
+    @Published var moreLanguages: [String] = []
+    /// Translate what I say's target while it is on, its target whether on or off, and the
+    /// menu's targets; all nil or empty until Hex's translation controls arrive (D7).
+    @Published var translationTarget: String?
+    @Published var translationLanguage: String?
+    @Published var translationTargetChoices: [String] = []
+    /// Record typing logs is recording this field: the strip shows a small mark.
+    @Published var isLoggingTyping = false
+    /// A finished dictation the keyboard didn't insert by itself: the strip offers Paste dictation.
+    @Published var offeredDictation: String?
+    /// A tap or hold on the Hex key records through Typr's warm session.
+    var dictatesThroughHex: Bool {
+        hasFullAccess && isWarmAvailable && stagePhase != .failed
+    }
+    var showsLanguageSwitch: Bool {
+        hasFullAccess && !(languageChoices.isEmpty && moreLanguages.isEmpty)
+    }
+    var showsTranslationSwitch: Bool {
+        hasFullAccess && translationLanguage != nil
+    }
+    var isTranslating: Bool {
+        hasFullAccess && translationTarget != nil
+    }
+    var translatingTo: String? {
+        isTranslating ? translationTarget : nil
+    }
+    /// The dictation language's own name for the space bar, with the translation target while
+    /// dictations paste translated: "Español → English".
+    var languageSummary: String? {
+        guard let language = dictationLanguage ?? automaticLanguage else { return nil }
+        let label = DictationLanguageSwitch.nativeName(for: language, supported: [])
+        guard let target = translatingTo,
+              DictationLanguageSwitch.languageCode(of: target) != DictationLanguageSwitch.languageCode(of: language)
+        else { return label }
+        return "\(label) → \(DictationLanguageSwitch.nativeName(for: target, supported: []))"
+    }
+    /// In-keyboard dictation, when the keyboard can record by itself.
+    var onLocalDictateTap: (() -> Void)?
+    /// The finger landed on the Hex key (wall clock), before it is a tap, a hold or a slide.
+    var onHexKeyPress: ((TimeInterval) -> Void)?
+    /// That press became a slide (the menu) or was cancelled before it was a tap or a hold.
+    var onHexKeyAbandon: (() -> Void)?
+    /// A language picked in the Hex key menu; nil is Automatic.
+    var onLanguageSelected: ((String?) -> Void)?
+    var onLanguageRemoved: ((String) -> Void)?
+    var onTranslationToggled: ((Bool) -> Void)?
+    var onTranslationTargetSelected: ((String) -> Void)?
+    var onPasteDictation: (() -> Void)?
     @Published var feedback: DictationFeedbackPresentation? {
         didSet {
             guard feedback?.offer != oldValue?.offer || feedback?.panelContent != oldValue?.panelContent else { return }

@@ -762,7 +762,7 @@ private func translationLanguageName(_ identifier: String) -> String {
     return Locale.typrInterface.localizedString(forIdentifier: language.minimalIdentifier) ?? identifier
 }
 
-private extension DictationLanguageSwitch {
+extension DictationLanguageSwitch {
     static func nativeNames(for identifiers: [String], supported: [String]) -> [String: String] {
         identifiers.reduce(into: [:]) { names, identifier in
             names[identifier] = nativeName(for: identifier, supported: supported)

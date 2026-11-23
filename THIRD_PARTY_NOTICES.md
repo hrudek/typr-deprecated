@@ -921,7 +921,7 @@ MIT, © Christopher Langton ([LICENSE](LICENSE)). Typr loads the locale files fr
 `EmojiData`, keys the locale cache by bundle, and uses `hex.emoji.*` usage and tone
 keys in Typr's existing App Group.
 
-## Hex iOS emoji panel
+## Hex iOS emoji panel (UIKit, 0c1c13d7)
 
 `EmojiPanelView.swift`, `EmojiViews.swift` and `EmojiGlyphs.swift` in
 `ios/TyprShared/FullKeyboard/Hex/Emoji/` come from
@@ -1029,6 +1029,18 @@ style menu, key drawing, and touch routing from the corresponding files in
 at `0c1c13d71b853ac3113d9a622e4fd9af3755d068`. `ios/TyprTests/HexKeyGestureTests.swift`
 adapts the gesture and control tests from `ios/HEXMobileTests/HexKeyGestureTests.swift`
 at the same revision. MIT, © Christopher Langton. [License](https://github.com/anomalyco/hex/blob/0c1c13d71b853ac3113d9a622e4fd9af3755d068/LICENSE).
+
+## Hex iOS full keyboard view
+
+`FullKeyboardView.swift` and its `+Debug`, `+Emoji`, `+FullAccess`, `+Selection`, `+Settings`
+and `+Vocabulary` extensions, `DictationUndo.swift` and `KeyboardBackdropView.swift` in
+`ios/TyprShared/FullKeyboard/Hex/` come from
+[`ios/HEXShared/FullKeyboard/`](https://github.com/anomalyco/hex/tree/0c1c13d71b853ac3113d9a622e4fd9af3755d068/ios/HEXShared/FullKeyboard)
+in Hex at `0c1c13d71b853ac3113d9a622e4fd9af3755d068`, adapted to Typr's strip, recording
+panel, return key and view model. The keyboard-language settings in
+`ios/TyprShared/HexLanguageSettings.swift` follow Hex's `DictationLanguage.swift`, and
+`ios/TyprTests/HexFullKeyboardViewTests.swift` adapts `EmojiPanelLettersKeyTests.swift` from
+`ios/HEXMobileTests/`, both at the same revision. MIT, © Christopher Langton ([LICENSE](LICENSE)).
 
 ## Hex learning from dictation edits
 

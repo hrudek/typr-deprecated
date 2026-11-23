@@ -27,6 +27,8 @@ final class EmojiRoutedTarget: KeyboardTextTarget {
     var enablesReturnKeyAutomatically: Bool? { isSearching ? false : document.enablesReturnKeyAutomatically }
     var keyboardAppearance: UIKeyboardAppearance? { document.keyboardAppearance }
     var textContentType: UITextContentType? { isSearching ? nil : document.textContentType }
+    /// Typr: a secure field stays secure while you search, so nothing typed there is learned.
+    var isSecureTextEntry: Bool? { document.isSecureTextEntry }
     var smartQuotesType: UITextSmartQuotesType? { isSearching ? .no : document.smartQuotesType }
     var smartDashesType: UITextSmartDashesType? { isSearching ? .no : document.smartDashesType }
     var selectedText: String? { isSearching ? nil : document.selectedText }
