@@ -812,9 +812,7 @@ nonisolated enum KeyboardLanguage: String, CaseIterable, Sendable {
         }
     }
 
-    /// Typr: the languages Settings › Keyboard › Languages may offer. Typr offers German and
-    /// English only; Hex's other layouts, 한국어 too, stay unoffered and a stored one is ignored
-    /// (`LanguageSettings.keyboardLanguages`).
+    /// Typr: the languages Settings › Keyboard › Languages may offer.
     static func selectable() -> [KeyboardLanguage] {
         [.german, .english]
     }

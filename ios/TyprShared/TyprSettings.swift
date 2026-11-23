@@ -29,8 +29,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
-    /// keys, names and defaults (all off). They act on the Hex keyboard view. Korean keyboard
-    /// is not listed: Typr offers German and English only.
+    /// keys, names and defaults (all off). They act on the Hex keyboard view.
     static let hexKeyboardExperiments: [ExperimentalSwitch] = [
         .hexAdaptiveTouch, .hexGermanSpatialAutocorrect, .hexDvorakPunctuation,
         .hexEmojiLettersUnderEmojiKey, .hexKeyboardThemes, .hexTwoThumbSelection,

@@ -2,9 +2,6 @@ import UIKit
 import XCTest
 @testable import Typr
 
-/// Typr offers German and English only: every language Settings and the keyboard menus offer is
-/// one of the two, and another language stored before is read as the German or English default
-/// without being rewritten.
 @MainActor
 final class GermanEnglishOnlyTests: XCTestCase {
     private let offered: Set<String> = ["de", "en"]
