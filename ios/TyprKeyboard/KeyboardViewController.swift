@@ -469,7 +469,8 @@ final class KeyboardViewController: UIInputViewController {
             bridge.fullAccessSeenAt = now
         }
 
-        var snap = localDictation.snapshot(now: now) ?? bridge.snapshot()
+        let local = localDictation.snapshot(now: now)
+        var snap = local ?? bridge.snapshot()
         let permission = feedbackBridge.permission
         if !feedbackBridge.switchesEnabled || permission?.enabled != true || snap.state == .recording || snap.state == .transcribing
             || (viewModel.feedback.map { $0.offer.expiresAt < Date() || $0.offer.generation != permission?.generation } ?? false) {
@@ -480,8 +481,9 @@ final class KeyboardViewController: UIInputViewController {
         if snap.hasDeliverableResult(at: now),
            let resultID = snap.resultID,
            let rawTranscript = snap.transcript,
-           bridge.lastInsertedResultID != resultID {
-            insertDictation(rawTranscript, resultID: resultID, translated: snap.translated == true)
+           bridge.lastInsertedResultID != resultID,
+           local != nil || bridge.lastInsertedAppResultID != resultID {
+            insertDictation(rawTranscript, resultID: resultID, translated: snap.translated == true, fromApp: local == nil)
             viewModel.resultNote = snap.resultNote
             insertedResult = true
             if feedbackBridge.switchesEnabled, snap.state != .recording, snap.state != .transcribing {
@@ -493,7 +495,7 @@ final class KeyboardViewController: UIInputViewController {
             localDictation.delivered(resultID: resultID)
             snap = localDictation.snapshot(now: now) ?? bridge.snapshot()
         }
-        refreshOfferedDictation(app: bridge.snapshot(), now: now)
+        refreshOfferedDictation(now: now)
         viewModel.armsWhenCold = localDictationRoute == .keyboard
 
         viewModel.applyBridgeState(
@@ -511,7 +513,7 @@ final class KeyboardViewController: UIInputViewController {
         schedulePoll(force: false)
     }
 
-    private func insertDictation(_ rawTranscript: String, resultID: String, translated: Bool) {
+    private func insertDictation(_ rawTranscript: String, resultID: String, translated: Bool, fromApp: Bool) {
         let before = textDocumentProxy.documentContextBeforeInput
         let after = textDocumentProxy.documentContextAfterInput
         let insertion = TranscriptFormatter.insertionText(
@@ -523,11 +525,11 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "",
                                          learns: TyprSettings()[experiment: .learnFromEdits] && !translated)
         hexKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "")
-        bridge.lastInsertedResultID = resultID
+        bridge.markInserted(resultID: resultID, fromApp: fromApp)
     }
 
-    private func refreshOfferedDictation(app: KeyboardSnapshot, now: TimeInterval) {
-        let offer = app.isOffered(lastInserted: bridge.lastInsertedResultID, at: now) ? app : nil
+    private func refreshOfferedDictation(now: TimeInterval) {
+        let offer = bridge.offeredAppResult(at: now)
         offeredDictation = offer
         if viewModel.offeredDictation != offer?.transcript {
             viewModel.offeredDictation = offer?.transcript
@@ -536,7 +538,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func pasteOfferedDictation() {
         guard let offer = offeredDictation, let resultID = offer.resultID, let transcript = offer.transcript else { return }
-        insertDictation(transcript, resultID: resultID, translated: offer.translated == true)
+        insertDictation(transcript, resultID: resultID, translated: offer.translated == true, fromApp: true)
         offeredDictation = nil
         viewModel.offeredDictation = nil
     }

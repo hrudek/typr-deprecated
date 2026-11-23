@@ -365,6 +365,7 @@ struct KeyboardBridge {
         static let microphone = "settings.microphone"
         static let feedbackJobs = "keyboard.feedbackJobs"
         static let lastInsertedResultID = "keyboard.lastInsertedResultID"
+        static let lastInsertedAppResultID = "keyboard.lastInsertedAppResultID"
         static let fullAccessSeenAt = "keyboard.fullAccessSeenAt"
     }
 
@@ -465,6 +466,24 @@ struct KeyboardBridge {
         nonmutating set {
             defaults?.set(newValue, forKey: Key.lastInsertedResultID)
         }
+    }
+
+    /// The app's result stays in its snapshot after an in-keyboard result replaced
+    /// `lastInsertedResultID`, so the app's last inserted one is kept apart.
+    var lastInsertedAppResultID: String? {
+        get { defaults?.string(forKey: Key.lastInsertedAppResultID) }
+        nonmutating set { defaults?.set(newValue, forKey: Key.lastInsertedAppResultID) }
+    }
+
+    func markInserted(resultID: String, fromApp: Bool) {
+        lastInsertedResultID = resultID
+        if fromApp { lastInsertedAppResultID = resultID }
+    }
+
+    /// The app's result the strip offers as Paste dictation, if any.
+    func offeredAppResult(at now: TimeInterval) -> KeyboardSnapshot? {
+        let app = snapshot()
+        return app.isOffered(lastInserted: lastInsertedAppResultID, at: now) ? app : nil
     }
 
     /// When the keyboard last ran with Full Access. Without Full Access the keyboard
