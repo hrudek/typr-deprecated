@@ -127,6 +127,7 @@ final class EndWithPeriodLowercaseTests: XCTestCase {
             ("Wir treffen uns um 13 Uhr bzw. später.", "Wir treffen uns um 13 Uhr bzw. später"),
             ("Das kostet ca. 5 Euro, d. h. nicht viel. Danke.", "- Das kostet ca. 5 Euro, d. h. nicht viel\n- Danke"),
             ("Wir sehen uns am 3. Oktober. Bis dann.", "- Wir sehen uns am 3. Oktober\n- Bis dann"),
+            ("Es fehlen noch 50. März ist schon vorbei.", "- Es fehlen noch 50\n- März ist schon vorbei"),
             ("Ich habe u.a. Milch gekauft. Und Brot.", "- Ich habe u.a. Milch gekauft\n- Und Brot"),
             ("Bring Brot, Milch usw.", "Bring Brot, Milch usw."),
         ]
