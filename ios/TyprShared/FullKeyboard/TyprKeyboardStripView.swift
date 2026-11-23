@@ -172,31 +172,10 @@ final class TyprKeyboardStripView: UIView {
         let wanted = (0..<3).map { idx in
             idx < currentSuggestions.count ? Self.wantedWidth(for: currentSuggestions[idx]) : 0
         }
-        return Self.slotWidths(total: bounds.width, wanted: wanted)
+        return SuggestionSlotLayout.widths(total: bounds.width, wanted: wanted)
     }
 
     static func wantedWidth(for suggestion: TyprKeyboardSuggestion) -> CGFloat { SlotButton.wantedWidth(for: suggestion) }
-
-    static func slotWidths(total: CGFloat, wanted: [CGFloat]) -> [CGFloat] {
-        let floorW = total / 4
-        var widths = wanted.map { max(floorW, $0) }
-        let spare = total - widths.reduce(0, +)
-        if spare >= 0 { return widths.map { $0 + spare / CGFloat(widths.count) } }
-        var order = widths.indices.sorted { widths[$0] < widths[$1] }
-        var share = total / CGFloat(widths.count)
-        var remaining = total
-        while let idx = order.first {
-            if widths[idx] <= share {
-                remaining -= widths[idx]
-                order.removeFirst()
-                share = order.isEmpty ? 0 : remaining / CGFloat(order.count)
-            } else {
-                for rest in order { widths[rest] = share }
-                break
-            }
-        }
-        return widths
-    }
 
     override func draw(_ rect: CGRect) {
         guard !showsUndo, statusLabel.isHidden, !showsCodeChip, bounds.width > 60 else { return }
