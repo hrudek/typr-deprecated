@@ -703,7 +703,8 @@ nonisolated enum TranscriptFormatter {
         }
         guard german else { return false }
         if TyprTranscriptFormatter.endsGermanAbbreviation(chars, periodAt: index) { return true }
-        guard (1...2).contains(word.count), let day = Int(word), (1...31).contains(day) else { return false }
+        guard (1...2).contains(word.count), word.allSatisfy(\.isNumber),
+              let day = Int(word), (1...31).contains(day) else { return false }
         var end = index + 2
         while end < chars.count, chars[end].isLetter { end += 1 }
         guard index + 2 < end, chars[index + 1] == " " else { return false }
