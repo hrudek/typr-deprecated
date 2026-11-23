@@ -55,6 +55,14 @@ struct KeyboardAppearancePage: View {
     }
 
     var body: some View {
+        if TyprSettings()[experiment: .typrKeyboard] {
+            typrBody
+        } else {
+            HexKeyboardAppearancePage()
+        }
+    }
+
+    private var typrBody: some View {
         GeometryReader { page in
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {

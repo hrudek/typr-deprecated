@@ -120,7 +120,7 @@ or load finishes stopping.
   "Klammer auf/zu"), switched by Experimental › Format lists and Spoken punctuation instead
   of the Style settings. Notes keeps spoken colons and semicolons before bullets and line
   breaks, and drops a line-final spoken period. With Experimental ›
-  Learn from my edits (off by default, needs Full Access), the full keyboard follows each
+  Learn from my edits (off by default, needs Full Access), Typr keyboard follows each
   dictation for a minute like Hex: kept, edited, rewritten, undone, deleted or dictated again.
   A word you replace with a similar one ("Wal" → "Wahl"), by editing or dictating again, is
   stored as that word pair only (up to three words a side, at most 200 pairs, never the
@@ -133,7 +133,14 @@ or load finishes stopping.
   output language. The languages are downloaded once from that page; a failed attempt is
   retried once in a new session, and both together get 5 s. Without the languages, on
   failure or timeout the dictation goes in as spoken and the keyboard says so for 8 s.
-  The full keyboard adds German/English autocorrect and adaptive suggestions. With both
+  The full keyboard is Hex's, with Typr's compact keys and wide suggestion slots.
+  Keyboard › Languages picks its languages and each one's layout (Dvorak for English);
+  Keyboard › Spatial autocorrect, Auto-capitalization and Swipe typing are Hex's (spatial
+  and swipe for English and Spanish); Appearance sets the Typr key's side and the number
+  row over a live preview of it. Experimental › **Typr keyboard** (off by default) brings
+  back Typr's own keyboard with its own settings, described below; switches marked "Only
+  with Typr keyboard" act only there.
+  Typr keyboard adds German/English autocorrect and adaptive suggestions. With both
   languages on, a word only English knows takes the German umlauts or ß once the next word
   is German ("fur dich" → "für dich", Hex); one Delete takes it back.
   ; and ) correct the word before them like space and . , ? !. Experimental › **Words from
@@ -150,10 +157,10 @@ or load finishes stopping.
   swear words only once Typr learned them or with Keyboard › Suggest swear words (LDNOOBW list as curated by Hex). Your iOS text replacements expand on space and punctuation also with Autocorrect off, take a capital you typed on the shortcut ("Mfg") and expand again after a revert kept the shortcut once. Unless a keyboard Anthropic key is stored (then Claude predicts), on iOS 26+
   with Apple Intelligence available for every enabled language, the on-device model adds up to three next-word predictions from the current paragraph before the
   cursor (1 s budget; on failure the count-based predictions stay).
-  With Experimental › **Slide delete to remove words** on, pressing Delete removes
-  one letter in ordinary text and holding it does not repeat. Slide left to delete
-  words and back right to restore them. This also works in the split layout.
-- While learning is on, the keyboard keeps a typing log on the iPhone: taps,
+  With Experimental › **Slide delete to remove words** on, on either keyboard, pressing
+  Delete removes one letter in ordinary text and holding it does not repeat. Slide left to
+  delete words and back right to restore them. This also works in the split layout.
+- While learning is on, Typr keyboard keeps a typing log on the iPhone: taps,
   corrections and the final word of the most recent 10,000 to 20,000 words, never
   from secure, URL or email fields. Keyboard › Words and privacy exports it as
   JSON with the keyboard's learning and your personal words for the desktop

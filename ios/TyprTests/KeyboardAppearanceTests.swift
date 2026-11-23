@@ -5,6 +5,17 @@ import XCTest
 
 @MainActor
 final class KeyboardAppearanceTests: XCTestCase {
+    private var wasTyprKeyboard = false
+
+    override func setUp() async throws {
+        wasTyprKeyboard = TyprSettings()[experiment: .typrKeyboard]
+        TyprSettings()[experiment: .typrKeyboard] = true
+    }
+
+    override func tearDown() async throws {
+        TyprSettings()[experiment: .typrKeyboard] = wasTyprKeyboard
+    }
+
     private var base: KeyboardAppearancePreview.Settings {
         KeyboardAppearancePreview.Settings(
             design: .standard, showsSuggestionBar: true, globeKey: .switches,

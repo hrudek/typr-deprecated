@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .keyboardDictation, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -177,6 +177,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "The Typr key always dictates in the Typr app, never in the keyboard."
     )
 
+    static let typrKeyboard = ExperimentalSwitch(
+        name: "variant.typrKeyboard",
+        title: "Typr keyboard",
+        detail: "The full keyboard is Typr's own: its autocorrect and suggestions, swipe typing, design, letter layouts, split keyboard, globe key and bottom row, as set in Keyboard settings."
+    )
+
     static let typrAutomaticHostReturn = ExperimentalSwitch(
         name: "variant.automaticHostReturn",
         title: "Typr automatic host return",
@@ -189,7 +195,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
         .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
-        .typrAlwaysDictateInApp, .typrAutomaticHostReturn,
+        .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrKeyboard,
     ]
 
     /// Retired: Hex's warm session (anomalyco/hex #2179) is the default since its audio cutover;
@@ -222,7 +228,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let spaceTrackpad = ExperimentalSwitch(
         name: "spaceTrackpad",
         title: "Space bar trackpad like Apple's",
-        detail: "Hold the space bar to move the cursor, also up and down through lines. Faster slides move it further."
+        detail: "Only with Typr keyboard. Hold the space bar to move the cursor, also up and down through lines. Faster slides move it further."
     )
 
     /// Typr's Format lists (`TyprSpokenLists`), German and English. Compatibility only: read
@@ -244,7 +250,8 @@ nonisolated struct ExperimentalSwitch: Hashable {
     )
 
     /// Hex's delete slide (anomalyco/hex #2080, #2257), without Hex's hold-to-repeat: on, a held
-    /// delete key deletes only by sliding. Off, delete repeats while held, as before.
+    /// delete key deletes only by sliding, on Hex's keyboard and Typr's. Off, delete repeats
+    /// while held as each keyboard does.
     static let deleteSlide = ExperimentalSwitch(
         name: "deleteSlide",
         title: "Slide delete to remove words",
@@ -255,7 +262,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let learnFromEdits = ExperimentalSwitch(
         name: "learnFromEdits",
         title: "Learn from my edits",
-        detail: "For a minute after a dictation, Typr's keyboard notes words you replace with similar ones, like “Wal” with “Wahl”. Fixed the same way twice, Typr writes it that way in later dictations. Needs Full Access; manage them in AI & vocabulary."
+        detail: "Only with Typr keyboard. For a minute after a dictation, Typr's keyboard notes words you replace with similar ones, like “Wal” with “Wahl”. Fixed the same way twice, Typr writes it that way in later dictations. Needs Full Access; manage them in AI & vocabulary."
     )
 
     /// Hex's context words (anomalyco/hex #2144): its/it's, your/you're, there/their/they're,
@@ -264,7 +271,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let wordsFromContext = ExperimentalSwitch(
         name: "wordsFromContext",
         title: "Words from context",
-        detail: "Autocorrect picks its or it's, your or you're, then or than by the words around them, and writes geht's and gibt's with an apostrophe."
+        detail: "Only with Typr keyboard. Autocorrect picks its or it's, your or you're, then or than by the words around them, and writes geht's and gibt's with an apostrophe."
     )
 
     /// Hex's multilingual model (anomalyco/hex #2197, #2337): Parakeet Ultra
@@ -287,7 +294,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let learnEachLanguage = ExperimentalSwitch(
         name: "learnEachLanguage",
         title: "Learn each language separately",
-        detail: "Words Typr learned from your typing in English are not suggested in a German sentence, and the other way round. Words typed in both languages stay in both."
+        detail: "Only with Typr keyboard. Words Typr learned from your typing in English are not suggested in a German sentence, and the other way round. Words typed in both languages stay in both."
     )
 }
 

@@ -90,20 +90,35 @@ nonisolated struct LanguageSettings {
     /// The Hex keyboard's languages in order, the space bar switching between them; empty is
     /// Automatic (the dictation language's layout).
     var keyboardLanguages: [KeyboardLanguage] {
-        let stored = defaults?.stringArray(forKey: Key.keyboardLanguages) ?? []
-        var seen = Set<KeyboardLanguage>()
-        let koreanEnabled = KoreanKeyboardExperiment.isEnabled(in: defaults)
-        return stored.compactMap(KeyboardLanguage.init(rawValue:))
-            .filter { seen.insert($0).inserted }
-            // 한국어 is ignored while its experiment is off, even if it was stored before.
-            .filter { $0 != .korean || koreanEnabled }
+        get {
+            let stored = defaults?.stringArray(forKey: Key.keyboardLanguages) ?? []
+            var seen = Set<KeyboardLanguage>()
+            let koreanEnabled = KoreanKeyboardExperiment.isEnabled(in: defaults)
+            return stored.compactMap(KeyboardLanguage.init(rawValue:))
+                .filter { seen.insert($0).inserted }
+                // 한국어 is ignored while its experiment is off, even if it was stored before.
+                .filter { $0 != .korean || koreanEnabled }
+        }
+        nonmutating set {
+            var seen = Set<KeyboardLanguage>()
+            defaults?.set(newValue.filter { seen.insert($0).inserted }.map(\.rawValue), forKey: Key.keyboardLanguages)
+        }
     }
 
     /// How a language arranges its letters (`KeyboardLetterLayout`). A language never set, or
     /// set to one it no longer offers, types on its own layout.
     func letterLayout(for language: KeyboardLanguage) -> KeyboardLetterLayout {
-        let layouts = defaults?.dictionary(forKey: Key.letterLayouts) as? [String: String] ?? [:]
-        return language.offered(layouts[language.rawValue].flatMap(KeyboardLetterLayout.init(rawValue:)))
+        language.offered(letterLayouts[language.rawValue].flatMap(KeyboardLetterLayout.init(rawValue:)))
+    }
+
+    func setLetterLayout(_ letters: KeyboardLetterLayout, for language: KeyboardLanguage) {
+        var all = letterLayouts
+        all[language.rawValue] = language.offered(letters).rawValue
+        defaults?.set(all, forKey: Key.letterLayouts)
+    }
+
+    var letterLayouts: [String: String] {
+        defaults?.dictionary(forKey: Key.letterLayouts) as? [String: String] ?? [:]
     }
 
     /// The language the space bar last switched to, so the keyboard comes back in it.
