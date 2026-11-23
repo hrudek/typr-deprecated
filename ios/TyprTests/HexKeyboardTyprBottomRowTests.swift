@@ -53,7 +53,7 @@ final class HexKeyboardTyprBottomRowTests: XCTestCase {
     func testBottomRowPutsTheTyprPeriodAndEmojiKeysInTheirOrder() throws {
         let standard = KeyboardLayout(width: 393, showsEmoji: true)
         let row = BottomRow(order: [.space, .period, .typr], periodKey: true, emojiKey: true)
-        let layout = KeyboardLayout(width: 393, showsEmoji: false, typrBottomRow: row)
+        let layout = KeyboardLayout(width: 393, showsEmoji: true, typrBottomRow: row)
         XCTAssertEqual(bottomKinds(layout), [.layerSwitch(.numbers), .emoji, .space, .character("."), .hex, .returnKey])
         XCTAssertEqual(layout.hexPlacement, .rightOfSpace)
         XCTAssertEqual(layout.totalHeight, 253)
@@ -61,7 +61,7 @@ final class HexKeyboardTyprBottomRowTests: XCTestCase {
                        "rows 1 to 3 do not move")
         assertTiled(layout)
 
-        let leading = KeyboardLayout(width: 393, showsEmoji: true, typrBottomRow: BottomRow(order: [.typr, .space, .period]))
+        let leading = KeyboardLayout(width: 393, typrBottomRow: BottomRow(order: [.typr, .space, .period]))
         XCTAssertEqual(bottomKinds(leading), [.layerSwitch(.numbers), .hex, .space, .returnKey], "no period or emoji key unless set")
         XCTAssertEqual(leading.hexPlacement, .leftOfSpace)
 
@@ -96,6 +96,31 @@ final class HexKeyboardTyprBottomRowTests: XCTestCase {
         XCTAssertEqual(view.engine.layout.key(.hex)?.row, 3)
         XCTAssertFalse(view.hexKey.inStrip)
         XCTAssertEqual(view.preferredHeight, 253)
+    }
+
+    func testTheEmojiKeyFollowsTyprsSettingOnlyInFieldsThatTakeEmoji() {
+        let view = makeView()
+        view.emojiOverride = false
+        TyprSettings(defaults: defaults)[experiment: .typrBottomRow] = true
+        TyprFullKeyboardSettings(defaults: defaults).bottomRow = BottomRow(emojiKey: true)
+        sync(view)
+        XCTAssertTrue(view.engine.layout.keys.contains { $0.kind == .emoji }, "Typr's emoji key, with Hex's Emoji off")
+
+        for type in [UIKeyboardType.emailAddress, .URL, .asciiCapable] {
+            target.keyboardType = type
+            view.prepareForField()
+            sync(view)
+            view.refreshEmojiKey()
+            XCTAssertFalse(view.engine.layout.keys.contains { $0.kind == .emoji }, "\(type.rawValue)")
+        }
+
+        target.keyboardType = .default
+        view.prepareForField()
+        TyprFullKeyboardSettings(defaults: defaults).bottomRow = BottomRow(emojiKey: false)
+        view.emojiOverride = true
+        sync(view)
+        view.refreshEmojiKey()
+        XCTAssertFalse(view.engine.layout.keys.contains { $0.kind == .emoji }, "Typr's setting decides while its row is on")
     }
 
     func testCompactStripDropsTheStripAndMovesTheTyprKeyBesideSpace() throws {

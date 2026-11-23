@@ -21,7 +21,7 @@ extension FullKeyboardView {
             guard case .keys(.text, _) = KeyboardFieldRouting.route(for: document.keyboardType) else { return false }
             return document.keyboardType != .asciiCapable
         }()
-        let shows = emojiEnabled && takesEmoji
+        let shows = (engine.typrBottomRow?.emojiKey ?? emojiEnabled) && takesEmoji
         guard engine.showsEmoji != shows else { return }
         engine.showsEmoji = shows
         plane.setNeedsDisplay()

@@ -71,6 +71,7 @@ extension FullKeyboardView {
         let bottomRow = settings[experiment: .typrBottomRow] ? keyboard.bottomRow : nil
         if engine.typrBottomRow != bottomRow {
             engine.typrBottomRow = bottomRow
+            refreshEmojiKey()
             setNeedsLayout()
         }
         let showsStrip = !(settings[experiment: .typrCompactStrip] && settings.hideSuggestionBar)

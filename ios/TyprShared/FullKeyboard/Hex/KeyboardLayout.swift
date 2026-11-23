@@ -654,7 +654,6 @@ nonisolated struct KeyboardLayout: Equatable, Sendable {
         let typrBottomRow = typrAdapts ? typrBottomRow : nil
         let showsStrip = showsStrip || !typrAdapts
         let hexPlacement = Self.typrHexPlacement(hexPlacement, bottomRow: typrBottomRow, showsStrip: showsStrip)
-        let showsEmoji = typrBottomRow.map { $0.emojiKey } ?? showsEmoji
         self.width = width
         // Apple's docked iPad German is QWERTZ without ü, ö and ä, which it holds on u, o and a
         // (iPad mini, iPadOS 27.2), as Hex's plain QWERTZ does.
