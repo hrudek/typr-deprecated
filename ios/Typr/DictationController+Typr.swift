@@ -203,6 +203,8 @@ extension DictationController {
             }
             if phase == .modelRequired || isFailedPhase {
                 prepareModel()
+            }
+            if phase == .preparingModel {
                 try? await waitUntilReady(timeoutSeconds: 10)
             }
             guard phase == .ready else { return nil }

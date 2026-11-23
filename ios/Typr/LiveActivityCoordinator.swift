@@ -1,13 +1,25 @@
 import ActivityKit
 import Foundation
+import UIKit
 
 @MainActor
-final class LiveActivityCoordinator {
-    private var currentActivityID: String?
+protocol LiveActivityPresenting: AnyObject {
+    func startRecording(startedAt: Date)
+    func markTranscribing(startedAt: Date)
+    func finishCopied()
+    func endImmediately()
+}
 
-    init() {
-        endEarlierActivities()
-    }
+/// The Dynamic Island and Lock Screen activity of a dictation started by the Action Button,
+/// Control Center, Siri, or Shortcuts. Ending one also ends every other Typr activity, so none
+/// outlives its dictation; each end runs under a background task, so a suspending app can't
+/// leave one behind.
+@MainActor
+final class LiveActivityCoordinator: LiveActivityPresenting {
+    private var currentActivityID: String?
+    /// Holds the app awake from transcribing until the activity ends: the microphone, which
+    /// kept it running in the background, is already released.
+    private var transcribingAssertion: BackgroundAssertion?
 
     func startRecording(startedAt: Date) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
@@ -16,7 +28,7 @@ final class LiveActivityCoordinator {
             startedAt: startedAt,
             subtitle: "Recording on this iPhone"
         )
-        if let id = currentActivityID {
+        if let id = currentActivityID, Self.isActive(id) {
             Task.detached {
                 await Self.updateActivity(id: id, state: state, staleDate: startedAt.addingTimeInterval(90))
             }
@@ -30,23 +42,14 @@ final class LiveActivityCoordinator {
             pushType: nil
         ) {
             currentActivityID = created.id
-            endEarlierActivities()
-        }
-    }
-
-    /// Activities outlive the process that started them, also across a restart. One whose
-    /// recording ended with an earlier process would otherwise keep showing it.
-    private func endEarlierActivities() {
-        var ids = Set(Activity<TyprDictationActivityAttributes>.activities.map(\.id))
-        if let currentActivityID { ids.remove(currentActivityID) }
-        guard !ids.isEmpty else { return }
-        Task.detached {
-            await Self.end(ids: ids)
         }
     }
 
     func markTranscribing(startedAt: Date) {
         guard let id = currentActivityID else { return }
+        if transcribingAssertion == nil {
+            transcribingAssertion = BackgroundAssertion(name: "Typr transcription")
+        }
         let state = TyprDictationActivityAttributes.ContentState(
             stage: .transcribing,
             startedAt: startedAt,
@@ -57,15 +60,21 @@ final class LiveActivityCoordinator {
         }
     }
 
+    /// Shows Copied for 2 s, then the activity goes; any other Typr activity ends now.
     func finishCopied() {
-        guard let id = currentActivityID else { return }
+        guard let id = currentActivityID else {
+            endImmediately()
+            return
+        }
         currentActivityID = nil
+        let others = Self.activityIDs().filter { $0 != id }
         let state = TyprDictationActivityAttributes.ContentState(
             stage: .copied,
             startedAt: Date(),
             subtitle: "Copied to clipboard"
         )
-        Task.detached {
+        runEnding {
+            await Self.endActivities(ids: others)
             await Self.endActivity(
                 id: id,
                 state: state,
@@ -75,13 +84,38 @@ final class LiveActivityCoordinator {
         }
     }
 
+    /// Ends every Typr activity there is now, the current one and any a suspended or
+    /// killed process left behind. One a later dictation starts is not touched.
     func endImmediately() {
-        let ids = currentActivityID.map { Set([$0]) }
-            ?? Set(Activity<TyprDictationActivityAttributes>.activities.map(\.id))
         currentActivityID = nil
-        Task.detached {
-            await Self.end(ids: ids)
+        let ids = Self.activityIDs()
+        guard !ids.isEmpty else {
+            transcribingAssertion?.end()
+            transcribingAssertion = nil
+            return
         }
+        runEnding {
+            await Self.endActivities(ids: ids)
+        }
+    }
+
+    private func runEnding(_ work: @escaping @Sendable () async -> Void) {
+        let assertion = BackgroundAssertion(name: "Typr Live Activity end")
+        let transcribing = transcribingAssertion
+        transcribingAssertion = nil
+        Task { @MainActor in
+            await work()
+            assertion.end()
+            transcribing?.end()
+        }
+    }
+
+    private static func activityIDs() -> [String] {
+        Activity<TyprDictationActivityAttributes>.activities.map(\.id)
+    }
+
+    private static func isActive(_ id: String) -> Bool {
+        Activity<TyprDictationActivityAttributes>.activities.contains { $0.id == id && $0.activityState == .active }
     }
 
     nonisolated private static func updateActivity(
@@ -110,7 +144,7 @@ final class LiveActivityCoordinator {
         )
     }
 
-    nonisolated private static func end(ids: Set<String>) async {
+    nonisolated private static func endActivities(ids: [String]) async {
         let state = TyprDictationActivityAttributes.ContentState(
             stage: .copied,
             startedAt: Date(),
@@ -122,5 +156,23 @@ final class LiveActivityCoordinator {
                 dismissalPolicy: .immediate
             )
         }
+    }
+}
+
+/// A UIKit background task, ended once (or by the system's expiry).
+@MainActor
+private final class BackgroundAssertion {
+    private var id = UIBackgroundTaskIdentifier.invalid
+
+    init(name: String) {
+        id = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
+            MainActor.assumeIsolated { self?.end() }
+        }
+    }
+
+    func end() {
+        guard id != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(id)
+        id = .invalid
     }
 }
