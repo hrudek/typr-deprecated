@@ -175,6 +175,17 @@ final class KeyboardBridgeTests: XCTestCase {
     }
 
     @MainActor
+    func testALateResultIsOfferedAsPasteDictationUntilInsertedOrTenMinutesPass() {
+        let now = 1_000.0
+        let result = snapshot(state: .ready, heartbeat: now, expiresAt: now)
+        let expires = now + 30
+        XCTAssertFalse(result.isOffered(lastInserted: nil, at: expires - 1), "still goes in by itself")
+        XCTAssertTrue(result.isOffered(lastInserted: nil, at: expires))
+        XCTAssertFalse(result.isOffered(lastInserted: "result", at: expires), "already inserted")
+        XCTAssertTrue(result.isOffered(lastInserted: nil, at: expires + KeyboardSnapshot.resultOfferWindow - 1))
+        XCTAssertFalse(result.isOffered(lastInserted: nil, at: expires + KeyboardSnapshot.resultOfferWindow))
+    }
+
     func testFullAccessSeenAtIsStoredInTheAppGroup() {
         let suiteName = "typr.tests.fullAccess.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
