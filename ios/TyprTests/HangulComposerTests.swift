@@ -121,12 +121,10 @@ final class KoreanKeyboardGatingTests: XCTestCase {
 
     func testKoreanIsIgnoredWhileTheExperimentIsOff() {
         XCTAssertNil(KeyboardLanguage.matching("ko-KR", koreanEnabled: false))
-        XCTAssertFalse(KeyboardLanguage.selectable(koreanEnabled: false).contains(.korean))
     }
 
-    func testKoreanAppearsWhileTheExperimentIsOn() {
+    func testKoreanMatchesWhileTheExperimentIsOn() {
         XCTAssertEqual(KeyboardLanguage.matching("ko-KR", koreanEnabled: true), KeyboardLanguage.korean)
-        XCTAssertTrue(KeyboardLanguage.selectable(koreanEnabled: true).contains(.korean))
     }
 }
 

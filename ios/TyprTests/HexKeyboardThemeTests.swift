@@ -321,7 +321,7 @@ final class HexKeyboardThemeTests: XCTestCase {
     func testHexKeyboardExperimentsAreSelectableUnderHexKeysAndOffByDefault() {
         let switches = ExperimentalSwitch.hexKeyboardExperiments
         XCTAssertEqual(switches.map(\.key), [
-            "experiments.adaptiveTouch", "experiments.germanSpatialAutocorrect", "experiments.koreanKeyboard",
+            "experiments.adaptiveTouch", "experiments.germanSpatialAutocorrect",
             "experiments.dvorakPunctuation", "experiments.emojiLettersUnderEmojiKey", "experiments.keyboardThemes",
             "experiments.twoThumbSelection", "experiments.swipeDeleteLetterByLetter", "experiments.hideWordSuggestions",
             "experiments.joinKeyboardWhenUnfolded",
@@ -336,7 +336,6 @@ final class HexKeyboardThemeTests: XCTestCase {
         for item in switches { typr[experiment: item] = true }
         XCTAssertTrue(AdaptiveTouchSettings(defaults: defaults).isEnabled)
         XCTAssertTrue(hex.germanSpatialAutocorrect)
-        XCTAssertTrue(hex.koreanKeyboard)
         XCTAssertTrue(hex.dvorakPunctuation)
         XCTAssertTrue(hex.emojiLettersUnderEmojiKey)
         XCTAssertTrue(hex.keyboardThemesEnabled)

@@ -503,7 +503,7 @@ final class FullKeyboardView: UIView {
                     ),
                     inputModes: inputModeLanguages,
                     preferredLanguages: preferredLanguages
-                )
+                ).selectableOrEnglish
             )
         }
         // The keys' language's layout: with English and Spanish on one keyboard, the first one's.
