@@ -25,7 +25,6 @@ final class KeyboardViewController: UIInputViewController {
     private var didHandOffCurrentField = false
     private var didWarmLexicon = false
     private var handOffWaitsForPosture = false
-    /// What the strip's Paste dictation inserts (Hex).
     private var offeredDictation: KeyboardSnapshot?
 
     override func viewDidLoad() {
@@ -527,8 +526,6 @@ final class KeyboardViewController: UIInputViewController {
         bridge.lastInsertedResultID = resultID
     }
 
-    /// Typr's result that came too late to go in by itself (the keyboard wasn't up, or came
-    /// back after it), as Hex offers it. Never one already inserted.
     private func refreshOfferedDictation(app: KeyboardSnapshot, now: TimeInterval) {
         let offer = app.isOffered(lastInserted: bridge.lastInsertedResultID, at: now) ? app : nil
         offeredDictation = offer
