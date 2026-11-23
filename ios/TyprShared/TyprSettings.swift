@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .spaceTrackpad, .formatLists, .deleteSlide, .typrDictationEditLearning, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -162,7 +162,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrDictationEditLearning = ExperimentalSwitch(
         name: "variant.dictationEditLearning",
         title: "Typr dictation edit learning",
-        detail: "Learning from your edits uses Typr's rules and storage instead of Hex's."
+        detail: "Dictation learns from your edits with Typr's rules and storage, through Learn from my edits, instead of Hex's Learn how I type."
     )
 
     static let typrTranslationPolicy = ExperimentalSwitch(
@@ -283,11 +283,10 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "Press delete and slide left: each key width removes one more word. Slide back to bring words back; lift to keep the rest deleted. Holding delete without sliding removes only one letter."
     )
 
-    /// Hex's learning from dictation edits (anomalyco/hex #2022, `DictationEditTracker`).
     static let learnFromEdits = ExperimentalSwitch(
         name: "learnFromEdits",
         title: "Learn from my edits",
-        detail: "Only with Typr keyboard. For a minute after a dictation, Typr's keyboard notes words you replace with similar ones, like “Wal” with “Wahl”. Fixed the same way twice, Typr writes it that way in later dictations. Needs Full Access; manage them in AI & vocabulary."
+        detail: "Only with Typr keyboard. Needs Typr dictation edit learning. For a minute after a dictation, Typr's keyboard notes words you replace with similar ones, like “Wal” with “Wahl”. Fixed the same way twice, Typr writes it that way in later dictations. Needs Full Access; manage them in AI & vocabulary."
     )
 
     /// Hex's context words (anomalyco/hex #2144): its/it's, your/you're, there/their/they're,

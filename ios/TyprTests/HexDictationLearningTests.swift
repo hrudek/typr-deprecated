@@ -4,7 +4,7 @@ import XCTest
 
 /// Learn how I type, dictation side: locating the dictation, diffing it, classifying the
 /// outcome, the learning threshold, and applying fixes with word boundaries. Hex's tests at
-/// 0c1c13d7 without its edit tracker and keyboard engine tests, which come with those.
+/// 0c1c13d7 without its keyboard engine tests, which come with that engine.
 final class DictationEditInferenceTests: XCTestCase {
     private func span(_ text: String, start: Bool = true, end: Bool = true) -> DictationSpan {
         DictationSpan(text: text, startIsCertain: start, endIsCertain: end)
@@ -278,6 +278,85 @@ final class DictationEditInferenceTests: XCTestCase {
     }
 }
 
+@MainActor
+final class DictationEditTrackerTests: XCTestCase {
+    private var now: TimeInterval = 1_000
+    private var results: [DictationEditResult] = []
+    private var tracker: DictationEditTracker!
+
+    override func setUp() async throws {
+        results = []
+        tracker = DictationEditTracker(now: { [unowned self] in self.now })
+        tracker.onResult = { [unowned self] in self.results.append($0) }
+    }
+
+    private func context(_ before: String?, _ after: String? = "") -> DictationEditTracker.Context {
+        DictationEditTracker.Context(before: before, after: after, hasText: !((before ?? "") + (after ?? "")).isEmpty)
+    }
+
+    func testASentDictationIsKept() {
+        tracker.willInsert(heard: "see you soon", inserted: "See you soon.", context: context(""))
+        tracker.observe(context(""), fromKeys: true) // the host hasn't caught up with the insertion yet
+        XCTAssertTrue(tracker.isTracking)
+        tracker.observe(context("See you soon."), fromKeys: true)
+        tracker.observe(context(""), fromKeys: false) // the host sent it
+        XCTAssertEqual(results.map(\.outcome), [.kept])
+    }
+
+    func testAnEditIsReportedWhenTheWindowEnds() {
+        tracker.willInsert(heard: "meet at cloud nine", inserted: " Meet at cloud nine.", context: context("Hi,"))
+        tracker.observe(context("Hi, Meet at cloud nine."), fromKeys: true)
+        now += 10
+        tracker.observe(context("Hi, Meet at Claude", " nine."), fromKeys: true)
+        tracker.tick { context("Hi, Meet at Claude", " nine.") }
+        XCTAssertTrue(results.isEmpty, "still inside the edit window")
+        now += 51
+        tracker.tick { context("Hi, Meet at Claude", " nine.") }
+        XCTAssertEqual(results.map(\.outcome), [.edited])
+        XCTAssertEqual(results.first?.pairs.map(\.meant), ["Claude"])
+    }
+
+    func testDeletingAndDictatingAgainIsARedictation() {
+        tracker.willInsert(heard: "meet at cloud nine", inserted: "Meet at cloud nine.", context: context(""))
+        tracker.observe(context("Meet at cloud nine."), fromKeys: true)
+        tracker.observe(context(""), fromKeys: true) // Hex's delete key emptied it
+        now += 5
+        tracker.willInsert(heard: "meet at claude nine", inserted: "Meet at Claude nine.", context: context(""))
+        XCTAssertEqual(results.map(\.outcome), [.redictated])
+        XCTAssertEqual(results.first?.pairs.map(\.meant), ["Claude"])
+    }
+
+    func testADeletionWithoutADictationAfterItIsDeleted() {
+        tracker.willInsert(heard: nil, inserted: "Meet at noon.", context: context(""))
+        tracker.observe(context("Meet at noon."), fromKeys: true)
+        tracker.observe(context(""), fromKeys: true)
+        now += 10
+        tracker.tick { context("") }
+        XCTAssertTrue(results.isEmpty, "a dictation may still follow")
+        now += 11
+        tracker.tick { context("") }
+        XCTAssertEqual(results.map(\.outcome), [.deleted])
+    }
+
+    func testUndoDictationIsUndone() {
+        tracker.willInsert(heard: nil, inserted: "Meet at noon.", context: context(""))
+        tracker.observe(context("Meet at noon."), fromKeys: true)
+        tracker.didUndo()
+        tracker.finish(context(""))
+        XCTAssertEqual(results.map(\.outcome), [.undone])
+    }
+
+    func testNothingIsReportedWhenTheDictationWasNeverSeen() {
+        tracker.willInsert(heard: nil, inserted: "Meet at noon.", context: context(nil, nil))
+        tracker.observe(context(nil, nil), fromKeys: false)
+        now += 61
+        tracker.tick { context(nil, nil) }
+        tracker.finish(nil)
+        XCTAssertTrue(results.isEmpty)
+        XCTAssertFalse(tracker.isTracking)
+    }
+}
+
 /// The journal side: storing dictation results, the learned fixes the app reads, switched-off
 /// fixes, Delete, and what the keys learn from typing corrections.
 @MainActor
@@ -390,5 +469,114 @@ final class TypingJournalLearningTests: XCTestCase {
         ])
         XCTAssertEqual(learning.typos, ["thw": "the"], "completions, single fixes, and two-way typos aren't learned")
         XCTAssertEqual(learning.rejected, ["kit"])
+    }
+}
+
+@MainActor
+final class HexDictationLearningDefaultTests: XCTestCase {
+    private var directory: URL!
+    private var suiteName: String!
+    private var defaults: UserDefaults!
+
+    override func setUp() async throws {
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent("journal-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        suiteName = "HexDictationLearningDefaultTests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)!
+    }
+
+    override func tearDown() async throws {
+        try? FileManager.default.removeItem(at: directory)
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    private func journalFixes(_ language: String?) -> [DictationCorrection] {
+        TypingJournal.storedDictationCorrections(
+            settings: TypingJournalSettings(defaults: defaults), directory: directory, language: language
+        )
+    }
+
+    private func vocabulary() -> DictationVocabulary {
+        DictationVocabulary(
+            settings: CustomVocabularySettings(defaults: defaults),
+            typr: TyprSettings(defaults: defaults),
+            language: "de",
+            learning: DictationLearningStore(defaults: defaults),
+            journal: journalFixes
+        )
+    }
+
+    private func editWalToWahl(journal: TypingJournal) {
+        var now: TimeInterval = 1_000
+        let tracker = DictationEditTracker(now: { now })
+        tracker.onResult = { journal.recordDictation($0, language: "de") }
+        let context = { (before: String) in DictationEditTracker.Context(before: before, after: "", hasText: !before.isEmpty) }
+        tracker.willInsert(heard: nil, inserted: "Ich habe die Wal getroffen.", context: context(""))
+        tracker.observe(context("Ich habe die Wal getroffen."), fromKeys: true)
+        tracker.observe(context("Ich habe die Wahl getroffen."), fromKeys: true)
+        now += 61
+        tracker.tick { context("Ich habe die Wahl getroffen.") }
+    }
+
+    func testTwoEditsInTheJournalFixTheNextDictation() async {
+        let journal = TypingJournal(directory: directory, settings: TypingJournalSettings(defaults: defaults))
+        editWalToWahl(journal: journal)
+        XCTAssertTrue(journalFixes("de").isEmpty, "one edit is not learned yet")
+        editWalToWahl(journal: journal)
+        XCTAssertEqual(journalFixes("de"), [DictationCorrection(heard: "wal", meant: "Wahl")])
+
+        let settings = TyprSettings(defaults: defaults)
+        let vocabulary = vocabulary()
+        XCTAssertEqual(vocabulary.hexFixes, [DictationCorrection(heard: "wal", meant: "Wahl")])
+        XCTAssertTrue(vocabulary.speechHints.contains("Wahl"))
+        let pipeline = DictationPipeline(style: .polished, language: .german, vocabulary: vocabulary, settings: settings)
+        let stages = await pipeline.run("ich habe die wal getroffen")
+        XCTAssertEqual(stages.spelled, "ich habe die Wahl getroffen")
+    }
+
+    func testASwitchedOffFixIsNotApplied() {
+        let journal = TypingJournal(directory: directory, settings: TypingJournalSettings(defaults: defaults))
+        editWalToWahl(journal: journal)
+        editWalToWahl(journal: journal)
+        TypingJournalSettings(defaults: defaults).disabledDictationFixes = ["wal → wahl"]
+        XCTAssertTrue(vocabulary().hexFixes.isEmpty)
+    }
+
+    func testLearnHowITypeOffAppliesNothing() {
+        let journal = TypingJournal(directory: directory, settings: TypingJournalSettings(defaults: defaults))
+        editWalToWahl(journal: journal)
+        editWalToWahl(journal: journal)
+        TypingJournalSettings(defaults: defaults).isEnabled = false
+        XCTAssertTrue(vocabulary().hexFixes.isEmpty)
+    }
+
+    func testTyprDictationEditLearningUsesOnlyItsOwnStore() {
+        let journal = TypingJournal(directory: directory, settings: TypingJournalSettings(defaults: defaults))
+        editWalToWahl(journal: journal)
+        editWalToWahl(journal: journal)
+        let store = DictationLearningStore(defaults: defaults)
+        for _ in 0..<2 {
+            store.record(TyprDictationEditResult(outcome: .edited,
+                pairs: [TyprDictationEditPair(inserted: "Wal", meant: "Wall", caseIsKnown: true)]))
+        }
+        let settings = TyprSettings(defaults: defaults)
+        settings[experiment: .learnFromEdits] = true
+        XCTAssertEqual(vocabulary().hexFixes.map(\.meant), ["Wahl"], "off: Hex's journal, never Typr's store")
+        XCTAssertTrue(vocabulary().learnedFixes.isEmpty)
+
+        settings[experiment: .typrDictationEditLearning] = true
+        XCTAssertTrue(vocabulary().hexFixes.isEmpty)
+        XCTAssertEqual(vocabulary().learnedFixes.map(\.meant), ["Wall"])
+        XCTAssertEqual(vocabulary().beforeCleanup("die wal").text, "die Wall")
+
+        settings[experiment: .learnFromEdits] = false
+        XCTAssertTrue(vocabulary().hexFixes.isEmpty)
+        XCTAssertTrue(vocabulary().learnedFixes.isEmpty)
+    }
+
+    func testTyprDictationEditLearningIsATyprVariant() {
+        XCTAssertTrue(ExperimentalSwitch.typrVariants.contains(.typrDictationEditLearning))
+        XCTAssertFalse(TyprSettings(defaults: defaults)[experiment: .typrDictationEditLearning], "off: Hex's learning")
+        XCTAssertTrue(TypingJournalSettings(defaults: defaults).isEnabled, "Hex's Learn how I type is on until turned off")
     }
 }

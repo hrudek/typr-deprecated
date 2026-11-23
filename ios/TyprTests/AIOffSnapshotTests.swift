@@ -246,14 +246,15 @@ final class AIOffSnapshotTests: XCTestCase {
         vocabulary.terms = ["herdr", "Baden-Württemberg"]
         vocabulary.setSoundsLike(["Herder"], for: "herdr")
         let learning = DictationLearningStore(defaults: defaults)
+        let journal: @MainActor (String?) -> [DictationCorrection] = { _ in [DictationCorrection(heard: "cloud", meant: "Claude")] }
         let clock = CleanupTestSleeper()
         let deps = TranscriptCleanupDependencies(cleaner: CleanupTestCleaner(session: CleanupTestSession()),
             background: CleanupTestBackground(), isEnabled: { false }, sleep: clock.sleep)
         let asr = SnapshotASR()
         let controller = DictationController(audio: SnapshotAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
             transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
-            customVocabularySettings: vocabulary, dictationLearning: learning, cleanup: deps, transcriptionBackground: CleanupTestBackground(),
-            languageSettings: settings)
+            customVocabularySettings: vocabulary, dictationLearning: learning, learnedDictationCorrections: journal,
+            cleanup: deps, transcriptionBackground: CleanupTestBackground(), languageSettings: settings)
         controller.prepareModel()
         try await waitForState("model ready") { controller.phase == .ready }
 
@@ -288,7 +289,7 @@ final class AIOffSnapshotTests: XCTestCase {
                     controller.finishRecording()
                     try await waitForState("finished \(name) \(style) \(index)") { controller.isIdleForTest }
                     let keyboard = await KeyboardLocalCapture.text(from: heard, style: style, settings: settings,
-                                                                   vocabulary: vocabulary, learning: learning)
+                                                                   vocabulary: vocabulary, learning: learning, journal: journal)
                     XCTAssertEqual(controller.transcript, keyboard, "\(name) \(style) \(heard)")
                 }
             }

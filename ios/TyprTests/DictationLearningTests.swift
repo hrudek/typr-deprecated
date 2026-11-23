@@ -2,14 +2,14 @@ import XCTest
 @testable import Typr
 
 @MainActor
-final class DictationEditTrackerTests: XCTestCase {
+final class TyprDictationEditTrackerTests: XCTestCase {
     private struct Field {
         var text: String
         var cursor: Int
 
-        var context: DictationEditTracker.Context {
-            DictationEditTracker.Context(before: String(text.prefix(cursor)), after: String(text.dropFirst(cursor)),
-                                         hasText: !text.isEmpty)
+        var context: TyprDictationEditTracker.Context {
+            TyprDictationEditTracker.Context(before: String(text.prefix(cursor)), after: String(text.dropFirst(cursor)),
+                                             hasText: !text.isEmpty)
         }
 
         mutating func insert(_ inserted: String) {
@@ -29,19 +29,19 @@ final class DictationEditTrackerTests: XCTestCase {
     private var results: [TyprDictationEditResult] = []
     private var field = Field(text: "Hallo Jörg.", cursor: 11)
 
-    private func makeTracker() -> DictationEditTracker {
-        let tracker = DictationEditTracker(now: { [unowned self] in self.time })
+    private func makeTracker() -> TyprDictationEditTracker {
+        let tracker = TyprDictationEditTracker(now: { [unowned self] in self.time })
         tracker.onResult = { [unowned self] in self.results.append($0) }
         return tracker
     }
 
-    private func dictate(_ text: String, with tracker: DictationEditTracker) {
+    private func dictate(_ text: String, with tracker: TyprDictationEditTracker) {
         tracker.willInsert(text, context: field.context)
         field.insert(text)
         tracker.observe(field.context, fromKeys: false)
     }
 
-    private func edit(_ old: String, to new: String, with tracker: DictationEditTracker) {
+    private func edit(_ old: String, to new: String, with tracker: TyprDictationEditTracker) {
         time += 5
         field.replace(old, with: new)
         tracker.observe(field.context, fromKeys: true)

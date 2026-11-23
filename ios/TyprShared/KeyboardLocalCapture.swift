@@ -202,7 +202,8 @@ struct KeyboardLocalCapture {
         settings: TyprSettings,
         vocabulary: CustomVocabularySettings = CustomVocabularySettings(),
         learning: DictationLearningStore = DictationLearningStore(),
-        translate: ((String) async -> DictationPipeline.Translation)? = nil
+        translate: ((String) async -> DictationPipeline.Translation)? = nil,
+        journal: @MainActor (String?) -> [DictationCorrection] = { TypingJournal.storedDictationCorrections(language: $0) }
     ) async -> String {
         guard !heard.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "" }
         let pipeline = DictationPipeline(
@@ -210,7 +211,10 @@ struct KeyboardLocalCapture {
             language: settings.dictationLanguage,
             vocabulary: DictationVocabulary(
                 settings: vocabulary,
-                learnedFixes: settings[experiment: .learnFromEdits] ? learning.corrections : []
+                typr: settings,
+                language: settings.dictationLanguage.formattingIdentifier,
+                learning: learning,
+                journal: journal
             ),
             settings: settings
         )

@@ -82,7 +82,7 @@ final class TyprFullKeyboardView: UIView, UIInputViewAudioFeedback {
     private var stripHoldDictates = false
     private var lastDictation: TyprDictationUndo?
     /// Follows inserted dictations for Learn from my edits; the controller stores its results.
-    var dictationEdits = DictationEditTracker()
+    var dictationEdits = TyprDictationEditTracker()
     private var undoHideWork: DispatchWorkItem?
     private let haptics = UIImpactFeedbackGenerator(style: .light)
     private let selectionHaptics = UISelectionFeedbackGenerator()
@@ -419,7 +419,7 @@ final class TyprFullKeyboardView: UIView, UIInputViewAudioFeedback {
     /// next edit, for 12 seconds, or until it can't be found from the cursor. With `learns`,
     /// follow what you do with it for Learn from my edits.
     func didInsertDictation(_ text: String, before: String, after: String, learns: Bool = false) {
-        let context = DictationEditTracker.Context(before: before, after: after, hasText: !(before + after).isEmpty)
+        let context = TyprDictationEditTracker.Context(before: before, after: after, hasText: !(before + after).isEmpty)
         if learns {
             dictationEdits.willInsert(text, context: context)
         } else {
@@ -739,10 +739,10 @@ final class TyprFullKeyboardView: UIView, UIInputViewAudioFeedback {
         dictationEdits.observe(dictationEditContext, fromKeys: fromKeys)
     }
 
-    private var dictationEditContext: DictationEditTracker.Context {
+    private var dictationEditContext: TyprDictationEditTracker.Context {
         let target = engine.target
-        return DictationEditTracker.Context(before: target.documentContextBeforeInput,
-                                            after: target.documentContextAfterInput, hasText: target.hasText)
+        return TyprDictationEditTracker.Context(before: target.documentContextBeforeInput,
+                                                after: target.documentContextAfterInput, hasText: target.hasText)
     }
 
     private var offersUndo: Bool {

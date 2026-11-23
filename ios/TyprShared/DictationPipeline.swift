@@ -45,7 +45,7 @@ nonisolated struct DictationPipeline: Sendable {
         style: DictationStyle,
         language: String?,
         vocabulary: [String] = [],
-        corrections: [TyprDictationCorrection] = [],
+        corrections: [DictationCorrection] = [],
         lowercase: Bool = false,
         formatLists: Bool = false,
         spokenPunctuation: Bool = false,
@@ -53,7 +53,7 @@ nonisolated struct DictationPipeline: Sendable {
     ) {
         self.style = style
         self.language = language
-        self.vocabulary = DictationVocabulary(userTerms: vocabulary, learnedFixes: corrections)
+        self.vocabulary = DictationVocabulary(userTerms: vocabulary, hexFixes: corrections)
         self.lowercase = lowercase
         self.formatLists = formatLists
         self.spokenPunctuation = spokenPunctuation

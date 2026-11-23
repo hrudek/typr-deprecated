@@ -109,34 +109,44 @@ private actor LearningASR: LocalTranscribing {
 
 @MainActor
 final class DictationLearningPipelineTests: XCTestCase {
-    /// Two edits of "Wal" to "Wahl" make the next dictation write "Wahl", only with the
-    /// experiment on.
     func testLearnedFixIsAppliedOnTheNextDictation() async throws {
-        for switchOn in [true, false] {
+        let cases: [(typrLearning: Bool, learnFromEdits: Bool, expected: String)] = [
+            (false, false, "Ich habe die Wahl getroffen."),
+            (false, true, "Ich habe die Wahl getroffen."),
+            (true, true, "Ich habe die Wall getroffen."),
+            (true, false, "Ich habe die Wal getroffen."),
+        ]
+        for (index, testCase) in cases.enumerated() {
             let suite = "dictation.learning.pipeline.\(UUID().uuidString)"
             let defaults = UserDefaults(suiteName: suite)!
             defer { defaults.removePersistentDomain(forName: suite) }
             let settings = TyprSettings(defaults: defaults)
             settings.dictationLanguage = .german
-            settings[experiment: .learnFromEdits] = switchOn
+            settings[experiment: .typrDictationEditLearning] = testCase.typrLearning
+            settings[experiment: .learnFromEdits] = testCase.learnFromEdits
             let store = DictationLearningStore(defaults: defaults)
             for _ in 0..<2 {
                 store.record(TyprDictationEditResult(outcome: .edited,
-                    pairs: [TyprDictationEditPair(inserted: "Wal", meant: "Wahl", caseIsKnown: true)]))
+                    pairs: [TyprDictationEditPair(inserted: "Wal", meant: "Wall", caseIsKnown: true)]))
+            }
+            var journalLanguages: [String?] = []
+            let journal: @MainActor (String?) -> [DictationCorrection] = { language in
+                journalLanguages.append(language)
+                return [DictationCorrection(heard: "wal", meant: "Wahl")]
             }
             let asr = LearningASR()
             let controller = DictationController(audio: LearningAudio(), keyboardBridge: KeyboardBridge(defaults: defaults),
                 transcriber: asr, transcriberFactory: { asr }, autoPrepareOnInit: false,
                 customVocabularySettings: CustomVocabularySettings(defaults: defaults), dictationLearning: store,
-                languageSettings: settings)
+                learnedDictationCorrections: journal, languageSettings: settings)
             controller.prepareModel()
             try await waitForState("model ready") { controller.phase == .ready }
-            controller.startRecording(keyboardJobID: "learn-\(switchOn)", styleOverride: .polished, copyToPasteboard: false)
+            controller.startRecording(keyboardJobID: "learn-\(index)", styleOverride: .polished, copyToPasteboard: false)
             try await waitForState("recording") { controller.phase == .recording }
             controller.finishRecording()
             try await waitForState("delivered") { controller.isIdleForTest }
-            XCTAssertEqual(controller.transcript,
-                           switchOn ? "Ich habe die Wahl getroffen." : "Ich habe die Wal getroffen.", "\(switchOn)")
+            XCTAssertEqual(controller.transcript, testCase.expected, "\(testCase)")
+            XCTAssertEqual(journalLanguages, testCase.typrLearning ? [] : ["de"], "the journal is read only for Hex's learning")
             controller.cancelCurrentJob()
             await mainActorBarrier()
         }

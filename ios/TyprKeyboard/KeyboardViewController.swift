@@ -26,6 +26,25 @@ final class KeyboardViewController: UIInputViewController {
     private var didWarmLexicon = false
     private var handOffWaitsForPosture = false
     private var offeredDictation: KeyboardSnapshot?
+    private lazy var documentTarget = DocumentProxyTextTarget { [weak self] in self?.textDocumentProxy }
+    private lazy var dictationLearning = KeyboardDictationLearning(
+        context: { [weak self] in
+            DictationEditTracker.Context(
+                before: self?.textDocumentProxy.documentContextBeforeInput,
+                after: self?.textDocumentProxy.documentContextAfterInput,
+                hasText: self?.textDocumentProxy.hasText ?? false
+            )
+        },
+        returnKeyIsSend: { [weak self] in self?.textDocumentProxy.returnKeyType == .send },
+        record: { [weak self] result, language in
+            guard self?.hasFullAccess == true else { return }
+            TypingJournal.sharedIfEnabled()?.recordDictation(result, language: language)
+        },
+        recordTypr: { [weak self] result in
+            guard self?.hasFullAccess == true else { return }
+            DictationLearningStore().record(result)
+        }
+    )
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -51,6 +70,7 @@ final class KeyboardViewController: UIInputViewController {
         viewModel.splitKeyboard = TyprFullKeyboardSettings().splitKeyboard
         viewModel.splitColumns = TyprFullKeyboardSettings().splitColumns
         viewModel.letters = TyprFullKeyboardSettings().letters
+        dictationLearning.fieldMayHaveChanged()
         mountSurface()
         refreshProtectedLexicon()
         fullKeyboard?.prepareForField()
@@ -73,6 +93,7 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.discardTouchEvidence()
         fullKeyboard?.flushLearning()
         fullKeyboard?.finishDictationEdits()
+        dictationLearning.finish()
         hexKeyboard?.engine.commitHangulComposition()
         pollTimer?.invalidate()
         pollTimer = nil
@@ -142,6 +163,7 @@ final class KeyboardViewController: UIInputViewController {
         updateKeyboardTraits()
         fullKeyboard?.textDidChange()
         hexKeyboard?.textDidChange()
+        dictationLearning.observe(fromKeys: false)
         handOffNumericPadIfNeeded()
     }
 
@@ -231,9 +253,22 @@ final class KeyboardViewController: UIInputViewController {
         viewModel.onPasteDictation = { [weak self] in self?.pasteOfferedDictation() }
         localDictation.onHandOff = { [weak self] in self?.coldStart() }
         viewModel.onFeedbackRating = { [weak self] rating, issues in self?.queueFeedback(rating: rating, issues: issues) }
-        viewModel.onSpace = { [weak self] in self?.viewModel.dismissFeedback(); self?.textDocumentProxy.insertText(" ") }
-        viewModel.onDelete = { [weak self] in self?.viewModel.dismissFeedback(); self?.textDocumentProxy.deleteBackward() }
-        viewModel.onReturn = { [weak self] in self?.viewModel.dismissFeedback(); self?.textDocumentProxy.insertText("\n") }
+        viewModel.onSpace = { [weak self] in
+            self?.viewModel.dismissFeedback()
+            self?.textDocumentProxy.insertText(" ")
+            self?.dictationLearning.observe(fromKeys: true)
+        }
+        viewModel.onDelete = { [weak self] in
+            self?.viewModel.dismissFeedback()
+            self?.textDocumentProxy.deleteBackward()
+            self?.dictationLearning.observe(fromKeys: true)
+        }
+        viewModel.onReturn = { [weak self] in
+            self?.viewModel.dismissFeedback()
+            self?.dictationLearning.returnKeyWillInsert()
+            self?.textDocumentProxy.insertText("\n")
+            self?.dictationLearning.observe(fromKeys: true)
+        }
         viewModel.onOpenURL = { [weak self] url in
             guard let self else { return }
             ContainingAppOpener.open(url, from: self)
@@ -365,6 +400,7 @@ final class KeyboardViewController: UIInputViewController {
         keyboard.allowsHaptics = { [weak self] in
             self?.hasFullAccess == true && FullKeyboardSettings().haptics
         }
+        dictationLearning.attach(to: keyboard)
         return keyboard
     }
 
@@ -509,6 +545,7 @@ final class KeyboardViewController: UIInputViewController {
         )
 
         fullKeyboard?.tickDictationEdits()
+        dictationLearning.tick()
         remountIfNeeded(now: now)
         schedulePoll(force: false)
     }
@@ -521,11 +558,18 @@ final class KeyboardViewController: UIInputViewController {
             beforeContext: before,
             afterContext: after
         )
+        let typrLearns = dictationLearning.willInsert(insertion, translated: translated,
+                                                     fieldAllowsLearning: fieldAllowsLearning, onTyprKeyboard: fullKeyboard != nil)
         textDocumentProxy.insertText(insertion)
         fullKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "",
-                                         learns: TyprSettings()[experiment: .learnFromEdits] && !translated)
+                                         learns: typrLearns)
         hexKeyboard?.didInsertDictation(insertion, before: before ?? "", after: after ?? "")
         bridge.markInserted(resultID: resultID, fromApp: fromApp)
+    }
+
+    private var fieldAllowsLearning: Bool {
+        guard case .keys(let kind, _) = KeyboardFieldRouting.route(for: textDocumentProxy.keyboardType) else { return false }
+        return TypingJournal.allows(field: kind, target: documentTarget)
     }
 
     private func refreshOfferedDictation(now: TimeInterval) {

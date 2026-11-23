@@ -108,6 +108,7 @@ final class DictationController {
     private var deferredLaunchPreparation: Bool
     private let customVocabularySettings: CustomVocabularySettings
     private let dictationLearning: DictationLearningStore
+    private let learnedDictationCorrections: @MainActor (String?) -> [DictationCorrection]
     private let audio: any AudioManaging
     let keyboardBridge: KeyboardBridge
     private let fileManager: FileManager
@@ -300,6 +301,7 @@ final class DictationController {
         hostReturner: HostReturner? = nil,
         customVocabularySettings: CustomVocabularySettings = CustomVocabularySettings(),
         dictationLearning: DictationLearningStore = DictationLearningStore(),
+        learnedDictationCorrections: (@MainActor (String?) -> [DictationCorrection])? = nil,
         cleanup: TranscriptCleanupDependencies? = nil,
         appleIntelligenceCleaner: (any TranscriptCleaning)? = nil,
         transcriptionBackground: (any BackgroundTaskStarting)? = nil,
@@ -343,6 +345,7 @@ final class DictationController {
         self.preferredEngine = preferred
         self.customVocabularySettings = customVocabularySettings
         self.dictationLearning = dictationLearning
+        self.learnedDictationCorrections = learnedDictationCorrections ?? { TypingJournal.storedDictationCorrections(language: $0) }
         self.fileManager = fileManager
         self.now = now
         self.warmDuration = resolvedBridge.warmDuration
@@ -891,7 +894,10 @@ final class DictationController {
         let vocabularyTerms = vocabularyEnabled ? savedVocabularyTerms : []
         let vocabulary = DictationVocabulary(
             settings: customVocabularySettings,
-            learnedFixes: languageSettings[experiment: .learnFromEdits] ? dictationLearning.corrections : []
+            typr: languageSettings,
+            language: captureLanguage.formattingIdentifier,
+            learning: dictationLearning,
+            journal: learnedDictationCorrections
         )
         let appleIntelligenceCleanup = effectiveStyle != .verbatim
             && languageSettings[experiment: .appleIntelligenceCleanup]

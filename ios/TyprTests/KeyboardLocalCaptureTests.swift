@@ -145,7 +145,7 @@ final class KeyboardLocalCaptureTests: XCTestCase {
         let learning = DictationLearningStore(defaults: defaults)
         func text(_ heard: String, _ style: DictationStyle = .polished) async -> String {
             await KeyboardLocalCapture.text(from: heard, style: style, settings: settings,
-                                            vocabulary: vocabulary, learning: learning)
+                                            vocabulary: vocabulary, learning: learning, journal: { _ in [] })
         }
         let heard = " Ich komme morgen Punkt bis bald "
 
@@ -182,13 +182,13 @@ final class KeyboardLocalCaptureTests: XCTestCase {
         let heard = " Hallo Komma wie geht es dir Fragezeichen ich bin gleich da Punkt bis bald "
 
         var result = await KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings,
-                                                     vocabulary: vocabulary, learning: learning)
+                                                     vocabulary: vocabulary, learning: learning, journal: { _ in [] })
         XCTAssertEqual(result, TranscriptFormatter.format(heard.trimmingCharacters(in: .whitespaces),
                                                           style: .polished, language: "de"),
                        "the old experiment is off: no spoken punctuation, whatever the Style setting says")
         settings[experiment: .spokenPunctuation] = true
         result = await KeyboardLocalCapture.text(from: heard, style: .polished, settings: settings,
-                                                 vocabulary: vocabulary, learning: learning)
+                                                 vocabulary: vocabulary, learning: learning, journal: { _ in [] })
         XCTAssertEqual(result, "Hallo, wie geht es dir? Ich bin gleich da. Bis bald.")
     }
 

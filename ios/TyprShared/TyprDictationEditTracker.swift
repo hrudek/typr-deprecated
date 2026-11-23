@@ -4,7 +4,7 @@ import Foundation
 /// kept, edited (with word pairs), rewritten, undone, deleted, or dictated again. It holds the
 /// dictation's text only in memory while it follows it.
 @MainActor
-final class DictationEditTracker {
+final class TyprDictationEditTracker {
     static let editWindow: TimeInterval = 60
     static let redictationWindow: TimeInterval = 20
 

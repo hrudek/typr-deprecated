@@ -25,23 +25,39 @@ nonisolated struct DictationVocabulary: Sendable {
     /// Active Custom vocabulary terms (empty while that experiment is off).
     let userTerms: [String]
     private let userRules: [VocabularySpelling.Rule]
-    /// Fixes Learn from my edits learned (empty while that experiment is off).
+    /// Fixes Learn from my edits learned (empty unless Typr dictation edit learning is on).
     let learnedFixes: [TyprDictationCorrection]
+    /// Fixes Hex's Learn how I type learned, applied with Hex's rules (`DictationCorrections`).
+    let hexFixes: [DictationCorrection]
     private let restoreRules: [VocabularySpelling.Rule]
 
-    init(userTerms: [String], soundsLike: [String: [String]] = [:], learnedFixes: [TyprDictationCorrection] = []) {
+    init(userTerms: [String], soundsLike: [String: [String]] = [:], learnedFixes: [TyprDictationCorrection] = [],
+         hexFixes: [DictationCorrection] = []) {
         self.userTerms = userTerms
         self.learnedFixes = learnedFixes
+        self.hexFixes = hexFixes
         userRules = CustomVocabularySettings.rules(terms: userTerms, soundsLike: soundsLike)
-        restoreRules = userRules + TyprDictationCorrections.spellings(learnedFixes).map(VocabularySpelling.Rule.init(term:))
+        let learnedSpellings = TyprDictationCorrections.spellings(learnedFixes) + DictationCorrections.spellings(hexFixes)
+        restoreRules = userRules + learnedSpellings.map(VocabularySpelling.Rule.init(term:))
     }
 
     /// Reads the Custom vocabulary switch, terms and sounds-like forms once.
-    init(settings: CustomVocabularySettings, learnedFixes: [TyprDictationCorrection] = []) {
+    init(settings: CustomVocabularySettings, learnedFixes: [TyprDictationCorrection] = [],
+         hexFixes: [DictationCorrection] = []) {
         if settings.isEnabled {
-            self.init(userTerms: settings.terms, soundsLike: settings.soundsLike, learnedFixes: learnedFixes)
+            self.init(userTerms: settings.terms, soundsLike: settings.soundsLike, learnedFixes: learnedFixes, hexFixes: hexFixes)
         } else {
-            self.init(userTerms: [], learnedFixes: learnedFixes)
+            self.init(userTerms: [], learnedFixes: learnedFixes, hexFixes: hexFixes)
+        }
+    }
+
+    @MainActor
+    init(settings: CustomVocabularySettings, typr: TyprSettings, language: String?,
+         learning: DictationLearningStore, journal: @MainActor (String?) -> [DictationCorrection]) {
+        if typr[experiment: .typrDictationEditLearning] {
+            self.init(settings: settings, learnedFixes: typr[experiment: .learnFromEdits] ? learning.corrections : [])
+        } else {
+            self.init(settings: settings, hexFixes: journal(language))
         }
     }
 
@@ -49,7 +65,7 @@ nonisolated struct DictationVocabulary: Sendable {
     /// duplicate spellings, capped at Apple's limit of 100.
     var speechHints: [String] {
         var seen = Set<String>()
-        let all = (userTerms + learnedFixes.map(\.meant) + TechGlossary.listedTerms).filter {
+        let all = (userTerms + hexFixes.map(\.meant) + learnedFixes.map(\.meant) + TechGlossary.listedTerms).filter {
             seen.insert(VocabularySpelling.normalizedKey($0)).inserted
         }
         return Array(all.prefix(Self.maxSpeechHints))
@@ -80,11 +96,11 @@ nonisolated struct DictationVocabulary: Sendable {
             { before, after, term in report(before, after, term, .builtIn) }
         }
         let protected = protectedKeys
-        let learned = TyprDictationCorrections.apply(learnedFixes, to: recognized)
+        let learned = DictationCorrections.apply(hexFixes, to: TyprDictationCorrections.apply(learnedFixes, to: recognized))
         let custom = VocabularySpelling.apply(rules: userRules, to: learned, onReplacement: reportCustom)
         let glossary = TechGlossary.apply(to: custom, protectedKeys: protected, onReplacement: reportBuiltIn)
         let glossaryTerms = glossary.terms.filter { !protected.contains(VocabularySpelling.normalizedKey($0)) }
-        return Prepared(text: glossary.text, cleanupTerms: userTerms + glossaryTerms)
+        return Prepared(text: glossary.text, cleanupTerms: userTerms + hexFixes.map(\.meant) + glossaryTerms)
     }
 
     /// Restores the user's spellings and learned ones with inner capitals after a style changed

@@ -122,15 +122,22 @@ or load finishes stopping.
   punctuation rules ("erstens … zweitens …", "Punkt eins …", "Spiegelstrich", "neue Zeile",
   "Klammer auf/zu"), switched by Experimental › Format lists and Spoken punctuation instead
   of the Style settings. Notes keeps spoken colons and semicolons before bullets and line
-  breaks, and drops a line-final spoken period. With Experimental ›
-  Learn from my edits (off by default, needs Full Access), Typr keyboard follows each
-  dictation for a minute like Hex: kept, edited, rewritten, undone, deleted or dictated again.
-  A word you replace with a similar one ("Wal" → "Wahl"), by editing or dictating again, is
-  stored as that word pair only (up to three words a side, at most 200 pairs, never the
-  dictation); fixed the same way twice, never contradicted and never fixed another way,
-  later dictations write it so, before Custom vocabulary. Undo dictation and translated
-  dictations teach nothing.
-  AI & vocabulary lists the learned fixes to delete. Language › **Translate what
+  breaks, and drops a line-final spoken period. Learn how I type (Keyboard › Words and
+  privacy, on by default, needs Full Access) also follows each dictation Hex's keyboard or
+  the compact bar inserts for a minute, as in Hex: kept, edited, rewritten, deleted or
+  dictated again. A word you replace with a similar one ("Wal" → "Wahl"), by editing or
+  dictating again, is stored in Hex's typing journal as that word pair only (up to three
+  words a side, never the dictation); fixed the same way twice, never contradicted and
+  never fixed another way, later dictations in the app and the keyboard write it so, before
+  Custom vocabulary, and Apple Speech hears it as a hint. Send ends a dictation's minute.
+  Undo dictation ends it without learning anything, so text typed in its place teaches
+  nothing; translated dictations and fields without autocorrect teach nothing either. AI &
+  vocabulary lists the learned fixes to switch off. Typr keyboard doesn't learn from
+  dictation edits this way. Experimental › **Typr dictation edit learning** (off by default)
+  uses Typr's rules and storage instead, on Typr keyboard and on Hex's: with Experimental ›
+  Learn from my edits and Learn how I type on, each dictation is followed, at most 200 pairs
+  are stored, and AI & vocabulary lists them to delete.
+  Language › **Translate what
   I say** (Hex's, off by default) inserts dictations in English or German (English until
   German is picked) with Apple's on-device Translation, after cleanup and before formatting
   in that language, in the app and in in-keyboard dictation. Each language pair is
