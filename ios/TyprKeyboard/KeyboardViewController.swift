@@ -286,16 +286,14 @@ final class KeyboardViewController: UIInputViewController {
 
     private func mountSurface() {
         let isPhone = UIDevice.current.userInterfaceIdiom == .phone
-        let wantsFull = KeyboardSurfaceChoice.wantsFullKeyboard(
-            isPhone: isPhone,
-            compactChosen: KeyboardSurfaceChoice().showsCompactBar
-        )
+        let chosen = KeyboardSurfaceChoice.surface(isPhone: isPhone, compactChosen: KeyboardSurfaceChoice().showsCompactBar)
+        let wantsFull = chosen != .compactBar
         if viewModel.showsFullKeyboardSwitch != isPhone {
             viewModel.showsFullKeyboardSwitch = isPhone
         }
         fullKeyboard?.allowsCompactBar = isPhone
-        let wantsTypr = wantsFull && TyprSettings()[experiment: .typrKeyboard]
-        let wantsTyprTyping = wantsFull && !wantsTypr && TyprSettings()[experiment: .typrTyping]
+        let wantsTypr = chosen == .typr
+        let wantsTyprTyping = chosen == .hexWithTyprTyping
         guard surface == nil || wantsFull != hasFullKeyboard || wantsTypr != (fullKeyboard != nil)
             || wantsTyprTyping != (hexTypr != nil) else { return }
         guard surface == nil || viewModel.stagePhase == .idle || viewModel.stagePhase == .failed else { return }

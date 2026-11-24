@@ -1,10 +1,7 @@
+import UIKit
 import XCTest
 @testable import Typr
 
-/// With every Typr variant off, each area takes Hex's path. The controller-level parts (audio
-/// session, Live Activity, host return) are pinned in DictationAudioSessionTests and
-/// DictationControllerTests (`testHexDefaultSessionMixes…`, `testOnlyCopyingDictationsShowALiveActivity`,
-/// `testHexDefaultNeverOpensTheHostAfterAColdStart`).
 @MainActor
 final class DefaultPathParityTests: XCTestCase {
     private var suite = ""
@@ -33,47 +30,74 @@ final class DefaultPathParityTests: XCTestCase {
         }
     }
 
-    func testWithAllTyprVariantsOffEachAreaTakesHexsPath() {
+    func testTheKeyboardIsHexsViewWithHexsAutocorrect() {
         let settings = TyprSettings(defaults: defaults)
-        for variant in ExperimentalSwitch.typrVariants { settings[experiment: variant] = false }
+        let surface = KeyboardSurfaceChoice.surface(
+            isPhone: true, compactChosen: KeyboardSurfaceChoice(defaults: defaults).showsCompactBar, settings: settings
+        )
+        XCTAssertEqual(surface, .hex)
 
-        XCTAssertTrue(KeyboardSurfaceChoice.wantsFullKeyboard(
-            isPhone: true, compactChosen: KeyboardSurfaceChoice(defaults: defaults).showsCompactBar
-        ), "keyboard view: Hex's full keyboard")
-        XCTAssertFalse(settings[experiment: .typrKeyboard], "keyboard view: not Typr's keyboard")
-
-        XCTAssertNil(FullKeyboardView.typrTypingBackend(settings) {
-            XCTFail("engine: Hex's autocorrect, no Typr engine built")
+        let backend = FullKeyboardView.typrTypingBackend(settings) {
+            XCTFail("no Typr engine is built")
             return TyprAutocorrectEngine(learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
-        })
+        }
+        let view = FullKeyboardView(model: KeyboardViewModel(), target: HexFixtureTextTarget(), autocorrect: backend, defaults: defaults)
+        XCTAssertTrue(view.engine.autocorrect is AutocorrectEngine)
+    }
 
+    func testKeyboardDictationRecordsInTheKeyboard() {
         XCTAssertTrue(KeyboardDictationRoute.keyboardAllowed(
-            fullAccess: true, settings: settings, multilingual: MultilingualParakeetSettings(defaults: defaults)
-        ), "handoff: Hex's in-keyboard dictation")
+            fullAccess: true, settings: TyprSettings(defaults: defaults), multilingual: MultilingualParakeetSettings(defaults: defaults)
+        ))
+    }
 
+    func testCleanupKeepsRepairsAndRemovesHesitationsAsHexDoes() async {
         let pipeline = DictationPipeline(style: .polished, language: .german,
-                                         vocabulary: DictationVocabulary(userTerms: []), settings: settings)
-        XCTAssertFalse(pipeline.typrFormattingRules, "formatting: Hex's lists and punctuation")
-        XCTAssertFalse(pipeline.typrSpokenCleanup, "cleanup: Hex's hesitation rule")
-        XCTAssertTrue(pipeline.spokenCleanup, "Clean up what I say: on, as in Hex")
-        XCTAssertTrue(pipeline.formatLists)
-        XCTAssertTrue(pipeline.spokenPunctuation)
-        XCTAssertTrue(pipeline.endsWithPeriod)
-        XCTAssertFalse(pipeline.lowercase)
-        XCTAssertFalse(settings[experiment: .appleIntelligenceCleanup], "Apple Intelligence cleanup: off, as in Hex")
-        XCTAssertFalse(settings.aiCleanup, "Typr's AI cleanup is opt-in")
+                                         vocabulary: DictationVocabulary(userTerms: []), settings: TyprSettings(defaults: defaults))
+        let stages = await pipeline.run("Am Dienstag, äh, ich meine, Mittwoch.")
+        XCTAssertEqual(stages.tagged, HexSpokenHesitations.remove(from: stages.spelled, language: pipeline.language))
+        XCTAssertFalse(stages.tagged.contains("äh"))
+        XCTAssertTrue(stages.tagged.contains("Dienstag"), "Typr's conservative cleanup would drop the repair")
+    }
 
+    func testListsFollowHexsFormatting() {
+        let pipeline = DictationPipeline(style: .polished, language: .english,
+                                         vocabulary: DictationVocabulary(userTerms: []), settings: TyprSettings(defaults: defaults))
+        XCTAssertEqual(pipeline.format("Groceries, bullet, eggs, bullet, milk.", language: "en-US"), "Groceries:\n- Eggs.\n- Milk.")
+    }
+
+    func testTranslationUsesHexsTranslatorAndTarget() async throws {
         let translation = DictationTranslationSettings(defaults: defaults)
-        XCTAssertNil(DictationTranslationPlan(settings: translation, typrPolicy: settings[experiment: .typrTranslationPolicy]))
         translation.isEnabled = true
-        let plan = DictationTranslationPlan(settings: translation, typrPolicy: settings[experiment: .typrTranslationPolicy])
-        XCTAssertEqual(plan?.typrPolicy, false, "translation: Hex's translator")
+        translation.targetLanguage = "ja"
+        let plan = try XCTUnwrap(DictationTranslationPlan(
+            settings: translation, typrPolicy: TyprSettings(defaults: defaults)[experiment: .typrTranslationPolicy]
+        ))
+        let recorder = TargetRecorder()
+        let engine = TranslationEngine(
+            status: { _, _ in .installed },
+            translate: { _, _, target in
+                recorder.targets.append(target.minimalIdentifier)
+                return "またね。"
+            }
+        )
+        let outcome = await plan.translate("Bis morgen.", source: .german, settings: translation, engine: engine)
+        XCTAssertEqual(recorder.targets, ["ja"], "Typr's translator would translate into English")
+        XCTAssertEqual(outcome, .translated("またね。"))
+    }
 
+    func testDictationLanguageFollowsTheKeyboard() {
+        let settings = TyprSettings(defaults: defaults)
         let language = settings.hexLanguage
         language.keyboardLanguages = [.german, .english]
         language.currentKeyboardLanguage = .english
-        XCTAssertEqual(language.typrDictationLanguage(typr: settings), .english, "language: follows the keyboard")
+        XCTAssertEqual(language.typrDictationLanguage(typr: settings), .english)
         language.currentKeyboardLanguage = .german
         XCTAssertEqual(language.typrDictationLanguage(typr: settings), .german)
     }
+}
+
+@MainActor
+private final class TargetRecorder {
+    var targets: [String] = []
 }

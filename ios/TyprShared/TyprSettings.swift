@@ -220,8 +220,8 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "Keyboard and in-app dictations also show the Live Activity, not only the Action Button, Control Center and Siri."
     )
 
-    /// Typr overrides of Hex defaults: off is Hex's behavior, on restores Typr's. Each is listed
-    /// in `typrVariants`.
+    /// Typr overrides of Hex defaults: off is Hex's behavior, on restores Typr's. Each joins
+    /// `typrVariants` when its area switches to Hex.
     static let typrOverrides: [ExperimentalSwitch] = [
         .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,

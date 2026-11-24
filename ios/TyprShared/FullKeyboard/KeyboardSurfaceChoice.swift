@@ -27,4 +27,14 @@ struct KeyboardSurfaceChoice {
     static func wantsFullKeyboard(isPhone: Bool, compactChosen: Bool) -> Bool {
         isPhone && !compactChosen
     }
+
+    enum Surface: Equatable {
+        case compactBar, hex, hexWithTyprTyping, typr
+    }
+
+    static func surface(isPhone: Bool, compactChosen: Bool, settings: TyprSettings = TyprSettings()) -> Surface {
+        guard wantsFullKeyboard(isPhone: isPhone, compactChosen: compactChosen) else { return .compactBar }
+        if settings[experiment: .typrKeyboard] { return .typr }
+        return settings[experiment: .typrTyping] ? .hexWithTyprTyping : .hex
+    }
 }
