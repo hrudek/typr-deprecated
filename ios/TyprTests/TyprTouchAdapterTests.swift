@@ -120,8 +120,6 @@ final class TyprTouchAdapterTests: XCTestCase {
         }
     }
 
-    /// Typr's own fixture (`KeyboardBoundaryTouchTests`): "ne er" after "think", the space
-    /// tapped right under v, is joined to "never".
     func testATyprJoinReachesHexAndItsRevertStopsItForTheSession() throws {
         let sources = try XCTUnwrap(BundledKeyboardData.lexicons)
         let typr = TyprAutocorrectEngine(

@@ -49,10 +49,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     private var undos: [String: TyprAutocorrectEngine.AppliedCorrection] = [:]
     private var reverting: [String: TyprAutocorrectEngine.AppliedCorrection] = [:]
     private var lastRevision: (from: String, to: String, context: String?)?
-    /// Typr's keys that Hex's taps are read on: Typr's spatial model and boundary decoder work
-    /// on its own key geometry, so each tap keeps its place relative to its key.
     private var touchLayout = TyprKeyboardLayout(width: TyprAutocorrectAdapter.touchWidth)
-    /// A space decision made while trying to join two words, for the space that follows.
     private var spaceDecision: (beforeInput: String, result: (original: String, replacement: String)?)?
     private static let touchWidth: CGFloat = 393
 
@@ -209,8 +206,6 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         return true
     }
 
-    /// Where `tap`, on Hex's key for `letter`, falls on Typr's key: as far from its centre, in
-    /// key spacings, as on Hex's.
     private func typrPoint(_ tap: CGPoint, on key: TyprKeyboardKey, letter: Character) -> CGPoint? {
         guard let keys = decoderBaselineKeys ?? decoderKeys, let centre = keys.centres[letter], keys.pitch.width > 0, keys.pitch.height > 0,
               let pitch = touchLayout.key(.character("g"))?.hitFrame.size else { return nil }
