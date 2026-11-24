@@ -108,4 +108,83 @@ final class DefaultPathParityTests: XCTestCase {
         language.currentKeyboardLanguage = .german
         XCTAssertEqual(language.typrDictationLanguage(typr: settings), .german)
     }
+
+    func testDictationBarAutoStartsOnlyOnSwitchBackByDefault() {
+        let setting = FullKeyboardSettings(defaults: defaults).dictationBarAutoStart
+        XCTAssertEqual(setting, .whenSwitching, "Hex's default")
+        XCTAssertTrue(setting.startsDictation(
+            onDictationBar: true, isSwitchBack: true, hasFullAccess: true, isIdle: true, hasPendingCommand: false,
+            route: KeyboardFieldRouting.route(for: .default)
+        ))
+        XCTAssertFalse(setting.startsDictation(
+            onDictationBar: true, isSwitchBack: false, hasFullAccess: true, isIdle: true, hasPendingCommand: false,
+            route: KeyboardFieldRouting.route(for: .default)
+        ))
+    }
+
+    func testDictationBarAutoStartNeedsAnIdleBarWithFullAccessOutsideHandOffFields() {
+        func starts(
+            _ choice: DictationBarAutoStart, bar: Bool = true, switchBack: Bool = false, access: Bool = true,
+            idle: Bool = true, pending: Bool = false, route: KeyboardFieldRoute = KeyboardFieldRouting.route(for: .default)
+        ) -> Bool {
+            choice.startsDictation(
+                onDictationBar: bar, isSwitchBack: switchBack, hasFullAccess: access, isIdle: idle,
+                hasPendingCommand: pending, route: route
+            )
+        }
+        XCTAssertTrue(starts(.always))
+        XCTAssertFalse(starts(.never, switchBack: true), "Never leaves Dictate to a tap")
+        XCTAssertFalse(starts(.always, bar: false), "Never on the full keyboard")
+        XCTAssertFalse(starts(.always, access: false))
+        XCTAssertFalse(starts(.always, idle: false))
+        XCTAssertFalse(starts(.always, pending: true))
+        XCTAssertFalse(starts(.always, route: KeyboardFieldRouting.route(for: .numberPad)))
+    }
+
+    private func takeAutoStart(_ pending: inout DictationBarAutoStartPending, model: KeyboardViewModel) -> Bool {
+        pending.take(
+            .always, onDictationBar: true, isSwitchBack: true, hasFullAccess: model.hasFullAccess,
+            isIdle: model.stagePhase == .idle, hasPendingCommand: model.pendingCommand != nil,
+            route: KeyboardFieldRouting.route(for: .default)
+        )
+    }
+
+    private func recordingModel(at now: TimeInterval) -> KeyboardViewModel {
+        let model = KeyboardViewModel()
+        model.applyBridgeState(
+            hasFullAccess: true,
+            snapshot: KeyboardSnapshot(state: .recording, heartbeat: now - 0.1, expiresAt: 0, jobID: "live"),
+            isModelInstalled: true, style: .polished, now: now, animated: false
+        )
+        return model
+    }
+
+    func testAPendingCancelBlocksDictationBarAutoStart() {
+        let now = 1_000.0
+        let model = recordingModel(at: now)
+        model.setPendingCommand(.init(kind: .cancel, jobID: "live", sentAt: now), now: now, animated: false)
+        XCTAssertEqual(model.stagePhase, .idle, "A pending cancel shows the bar idle")
+        var pending = DictationBarAutoStartPending()
+        pending.appeared()
+        XCTAssertFalse(takeAutoStart(&pending, model: model))
+    }
+
+    func testCancellingKeepsTheBarFromAutoStartingAgainInTheSameAppearance() {
+        let now = 1_000.0
+        let model = recordingModel(at: now)
+        var pending = DictationBarAutoStartPending()
+        pending.appeared()
+        pending.cancel()
+        model.applyBridgeState(
+            hasFullAccess: true,
+            snapshot: KeyboardSnapshot(state: .ready, heartbeat: now, expiresAt: now + 60),
+            isModelInstalled: true, style: .polished, now: now + 1, animated: false
+        )
+        XCTAssertEqual(model.stagePhase, .idle)
+        XCTAssertNil(model.pendingCommand)
+        XCTAssertFalse(takeAutoStart(&pending, model: model))
+        pending.appeared()
+        XCTAssertTrue(takeAutoStart(&pending, model: model), "The next appearance may start again")
+        XCTAssertFalse(takeAutoStart(&pending, model: model), "Once per appearance")
+    }
 }

@@ -26,6 +26,17 @@ final class KeyboardViewController: UIInputViewController {
     private var didWarmLexicon = false
     private var handOffWaitsForPosture = false
     private var offeredDictation: KeyboardSnapshot?
+    private var autoStartWork: DispatchWorkItem?
+    private var autoStart = DictationBarAutoStartPending()
+    private let switchGuess = KeyboardSwitchGuessStore()
+    private static let hostLeaveObserver: NSObjectProtocol = NotificationCenter.default.addObserver(
+        forName: .NSExtensionHostDidEnterBackground,
+        object: nil,
+        queue: .main
+    ) { _ in
+        KeyboardSwitchGuessStore().hostLeft(at: Date().timeIntervalSince1970)
+    }
+    static let autoStartDelay: TimeInterval = 0.8
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -34,6 +45,7 @@ final class KeyboardViewController: UIInputViewController {
                                                name: .NSExtensionHostWillResignActive, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(hostDidBecomeActive),
                                                name: .NSExtensionHostDidBecomeActive, object: nil)
+        _ = Self.hostLeaveObserver
         syncFromBridge(animated: false)
     }
 
@@ -43,6 +55,7 @@ final class KeyboardViewController: UIInputViewController {
         if ownedFeedbackJobs.count > 32 { ownedFeedbackJobs = [coldStartJobID] }
         coldStartJobID = UUID().uuidString
         didHandOffCurrentField = false
+        autoStart.appeared()
         KeyboardHost.appeared()
         viewModel.hostNotice = nil
         viewModel.globeKey = TyprFullKeyboardSettings().globeKey
@@ -65,10 +78,41 @@ final class KeyboardViewController: UIInputViewController {
         super.viewDidAppear(animated)
         warmFullKeyboardLexiconIfNeeded()
         if keyboardDictationEnabled { localDictation.prepare(in: view) }
+        scheduleAutoStart()
+    }
+
+    private func scheduleAutoStart() {
+        autoStartWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.autoStartDictation() }
+        autoStartWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.autoStartDelay, execute: work)
+    }
+
+    private func autoStartDictation() {
+        autoStartWork = nil
+        let document = TypingLogTraits.documentIdentifier(of: textDocumentProxy)
+        guard autoStart.take(
+            FullKeyboardSettings().dictationBarAutoStart,
+            onDictationBar: !hasFullKeyboard,
+            isSwitchBack: switchGuess.guess.isSwitchBack(to: document),
+            hasFullAccess: viewModel.hasFullAccess,
+            isIdle: viewModel.stagePhase == .idle,
+            hasPendingCommand: viewModel.pendingCommand != nil,
+            route: KeyboardFieldRouting.route(for: textDocumentProxy.keyboardType)
+        ) else { return }
+        if viewModel.dictatesThroughHex {
+            startWarmDictation()
+        } else if localDictationRoute == .keyboard {
+            _ = startKeyboardDictation()
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        autoStartWork?.cancel()
+        autoStartWork = nil
+        autoStart.cancel()
+        switchGuess.keyboardHid(in: TypingLogTraits.documentIdentifier(of: textDocumentProxy), at: Date().timeIntervalSince1970)
         fullKeyboard?.suspendSuggestions()
         fullKeyboard?.engine.endTypingLogWord("dismiss")
         hexKeyboard?.engine.endTyprTypingLogWord("dismiss")
@@ -634,9 +678,7 @@ final class KeyboardViewController: UIInputViewController {
     /// A share sheet, a notification's reply or Spotlight closes once left, taking its text
     /// with it, so with Typr automatic host return Typr is not opened from there.
     private func coldStart() {
-        if localDictation.isArmed || localDictationRoute == .keyboard, localDictation.start(in: view) {
-            viewModel.hostNotice = nil
-            schedulePoll(force: false)
+        if localDictation.isArmed || localDictationRoute == .keyboard, startKeyboardDictation() {
             return
         }
         let host = KeyboardHost.app(of: self)
@@ -653,6 +695,13 @@ final class KeyboardViewController: UIInputViewController {
         }
         bridge.ownFeedbackJob(coldStartJobID)
         ContainingAppOpener.open(request.url, from: self)
+    }
+
+    private func startKeyboardDictation() -> Bool {
+        guard localDictation.start(in: view) else { return false }
+        viewModel.hostNotice = nil
+        schedulePoll(force: false)
+        return true
     }
 
     private var keyboardDictationEnabled: Bool {
@@ -744,6 +793,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func stopWarmDictation() {
+        autoStart.cancel()
         if localDictation.isActive {
             localDictation.stop()
             return
@@ -759,6 +809,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func cancelWarmDictation() {
+        autoStart.cancel()
         if localDictation.isActive {
             localDictation.cancel()
             return

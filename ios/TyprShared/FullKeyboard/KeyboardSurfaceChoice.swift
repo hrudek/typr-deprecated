@@ -38,3 +38,46 @@ struct KeyboardSurfaceChoice {
         return settings[experiment: .typrTyping] ? .hexWithTyprTyping : .hex
     }
 }
+
+extension DictationBarAutoStart {
+    func startsDictation(
+        onDictationBar: Bool,
+        isSwitchBack: Bool,
+        hasFullAccess: Bool,
+        isIdle: Bool,
+        hasPendingCommand: Bool,
+        route: KeyboardFieldRoute
+    ) -> Bool {
+        let wanted = switch self {
+        case .never: false
+        case .always: true
+        case .whenSwitching: isSwitchBack
+        }
+        return wanted && onDictationBar && hasFullAccess && isIdle && !hasPendingCommand && route != .handOff
+    }
+}
+
+struct DictationBarAutoStartPending {
+    private(set) var isPending = false
+
+    mutating func appeared() { isPending = true }
+
+    mutating func cancel() { isPending = false }
+
+    mutating func take(
+        _ choice: DictationBarAutoStart,
+        onDictationBar: Bool,
+        isSwitchBack: Bool,
+        hasFullAccess: Bool,
+        isIdle: Bool,
+        hasPendingCommand: Bool,
+        route: KeyboardFieldRoute
+    ) -> Bool {
+        guard isPending else { return false }
+        isPending = false
+        return choice.startsDictation(
+            onDictationBar: onDictationBar, isSwitchBack: isSwitchBack, hasFullAccess: hasFullAccess,
+            isIdle: isIdle, hasPendingCommand: hasPendingCommand, route: route
+        )
+    }
+}
