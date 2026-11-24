@@ -76,6 +76,7 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.finishDictationEdits()
         learning.flush()
         hexTypr?.predictions?.cancel()
+        releaseTyprSwipe()
         hexKeyboard?.engine.commitHangulComposition()
         pollTimer?.invalidate()
         pollTimer = nil
@@ -98,6 +99,11 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.resumeSuggestions()
     }
 
+    private func releaseTyprSwipe() {
+        guard let hexTypr else { return }
+        Task { await hexTypr.releaseSwipeResources() }
+    }
+
     private func refreshProtectedLexicon() {
         let lexicon = hasFullAccess
             ? ProtectedPersonalLexicon.load(directory: KeyboardLearningStore.sharedDirectory) : .empty
@@ -118,6 +124,7 @@ final class KeyboardViewController: UIInputViewController {
         super.didReceiveMemoryWarning()
         fullKeyboard?.handleMemoryWarning()
         hexKeyboard?.handleMemoryWarning()
+        releaseTyprSwipe()
         localDictation.releaseIfIdle()
     }
 

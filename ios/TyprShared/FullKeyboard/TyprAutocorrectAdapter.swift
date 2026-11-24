@@ -64,6 +64,11 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     private(set) var predictions: ModelPredictionSession?
     private var cloudKeyStored = false
     var swipeDecoding: SwipeDecoding = { await SwipeRecognizer.shared.decode($0) }
+    var releaseSwipe: @Sendable () async -> Void = { await SwipeRecognizer.shared.release() }
+
+    func releaseSwipeResources() async {
+        await releaseSwipe()
+    }
     private var learnsFromTyping: Bool {
         !isSecureField && hasDictionary && typing?.field == .text && typing?.autocorrection != UITextAutocorrectionType.no
     }

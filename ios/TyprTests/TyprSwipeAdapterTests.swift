@@ -133,6 +133,29 @@ final class TyprSwipeAdapterTests: XCTestCase {
         XCTAssertEqual(loads.count, 1, "the model loads on the first Typr swipe")
     }
 
+    func testAReleaseDropsTyprsSwipeModelAndLexiconsUntilTheNextSwipe() async throws {
+        let loads = Counter()
+        let recognizer = SwipeRecognizer(loadEncoder: {
+            loads.increment()
+            return SwipeEncoder.bundled()
+        })
+        let (view, _, adapter) = makeView(decoding: { await recognizer.decode($0) })
+        adapter.releaseSwipe = { await recognizer.release() }
+        try await swipe("hello", on: view)
+        XCTAssertEqual(loads.count, 1)
+        var loaded = await recognizer.isLoaded
+        XCTAssertTrue(loaded)
+
+        await adapter.releaseSwipeResources()
+        loaded = await recognizer.isLoaded
+        XCTAssertFalse(loaded, "a memory warning or a dismissal lets go of the model and its lexicons")
+
+        try await swipe("hello", on: view)
+        XCTAssertEqual(loads.count, 2, "the next Typr swipe loads them again")
+        loaded = await recognizer.isLoaded
+        XCTAssertTrue(loaded)
+    }
+
     func testGermanSwipesOnlyWithTyprSwipeTyping() {
         LanguageSettings(defaults: defaults).keyboardLanguages = [.german]
         let (hexOnly, _, _) = makeView(typrSwipe: false, decoding: { _ in [] })
