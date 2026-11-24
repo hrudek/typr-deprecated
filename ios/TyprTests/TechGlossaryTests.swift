@@ -119,28 +119,40 @@ final class TechGlossaryTests: XCTestCase {
 }
 
 final class DictationVocabularyTests: XCTestCase {
+    func testHexMatchingSpellsOnlyTheTermsAndHintsOnlyThem() {
+        let vocabulary = DictationVocabulary(userTerms: ["Herdr Tool", "GitHub"], soundsLike: ["herdrtool": ["Herder"]])
+        let prepared = vocabulary.beforeCleanup("Öffne den Herder und einen Pulrequest auf github")
+        XCTAssertEqual(prepared.text, "Öffne den Herder und einen Pulrequest auf GitHub")
+        XCTAssertEqual(prepared.cleanupTerms, ["Herdr Tool", "GitHub"])
+        XCTAssertEqual(vocabulary.speechHints, ["Herdr Tool", "GitHub"])
+        XCTAssertEqual(vocabulary.afterFormatting("Herder auf Github."), "Herder auf GitHub.")
+        XCTAssertEqual(DictationVocabulary(userTerms: []).beforeCleanup("Ein Pulrequest").text, "Ein Pulrequest")
+        XCTAssertEqual(DictationVocabulary(userTerms: ["x", "GitHub"]).speechHints, ["GitHub"])
+    }
+
     func testUserTermsComeFirstInSpeechHintsAndAreCapped() {
-        let vocabulary = DictationVocabulary(userTerms: ["herdr", "GitHub", "Rudek"])
+        let vocabulary = DictationVocabulary(userTerms: ["herdr", "GitHub", "Rudek"], typrMatching: true)
         let hints = vocabulary.speechHints
         XCTAssertEqual(Array(hints.prefix(3)), ["herdr", "GitHub", "Rudek"])
         XCTAssertEqual(hints.filter { $0.lowercased() == "github" }, ["GitHub"])
         XCTAssertTrue(hints.contains("Pull Request"))
 
-        let many = DictationVocabulary(userTerms: (1...100).map { "Term \($0)" })
+        let many = DictationVocabulary(userTerms: (1...100).map { "Term \($0)" }, typrMatching: true)
         XCTAssertEqual(many.speechHints.count, DictationVocabulary.maxSpeechHints)
         XCTAssertEqual(many.speechHints.last, "Term 100")
     }
 
     func testGlossaryRunsWithoutUserVocabulary() {
-        let prepared = DictationVocabulary(userTerms: []).beforeCleanup("Erstelle einen Pulrequest")
+        let glossary = DictationVocabulary(userTerms: [], typrMatching: true)
+        let prepared = glossary.beforeCleanup("Erstelle einen Pulrequest")
         XCTAssertEqual(prepared.text, "Erstelle einen Pull Request")
         XCTAssertEqual(prepared.cleanupTerms, ["Pull Request"])
-        XCTAssertEqual(DictationVocabulary(userTerms: []).speechHints, TechGlossary.listedTerms)
+        XCTAssertEqual(glossary.speechHints, TechGlossary.listedTerms)
     }
 
     func testUserSoundsLikeWinsOverTheGlossaryAndIsReportedAsCustom() {
         // The user maps "Herder" to their own spelling, overriding the glossary's herdr.
-        let vocabulary = DictationVocabulary(userTerms: ["Herdr Tool"], soundsLike: ["herdrtool": ["Herder"]])
+        let vocabulary = DictationVocabulary(userTerms: ["Herdr Tool"], soundsLike: ["herdrtool": ["Herder"]], typrMatching: true)
         var sources: [String] = []
         let prepared = vocabulary.beforeCleanup("Öffne den Herder und einen Pulrequest") { before, after, _, source in
             sources.append("\(before)→\(after) \(source.rawValue)")
@@ -151,16 +163,16 @@ final class DictationVocabularyTests: XCTestCase {
     }
 
     func testUserTermIsNotListedTwiceForCleanup() {
-        let prepared = DictationVocabulary(userTerms: ["GitHub"]).beforeCleanup("auf gitub")
+        let prepared = DictationVocabulary(userTerms: ["GitHub"], typrMatching: true).beforeCleanup("auf gitub")
         XCTAssertEqual(prepared.text, "auf GitHub")
         XCTAssertEqual(prepared.cleanupTerms, ["GitHub"])
     }
 
     func testAfterFormattingRestoresOnlyUserSpellings() {
-        let vocabulary = DictationVocabulary(userTerms: ["herdr"], soundsLike: ["herdr": ["Hörder"]])
+        let vocabulary = DictationVocabulary(userTerms: ["herdr"], soundsLike: ["herdr": ["Hörder"]], typrMatching: true)
         XCTAssertEqual(vocabulary.afterFormatting("Herdr startet. Hörder auch."), "herdr startet. herdr auch.")
         // The glossary is not re-applied after formatting.
-        XCTAssertEqual(DictationVocabulary(userTerms: []).afterFormatting("Ein Pulrequest."), "Ein Pulrequest.")
+        XCTAssertEqual(DictationVocabulary(userTerms: [], typrMatching: true).afterFormatting("Ein Pulrequest."), "Ein Pulrequest.")
     }
 }
 

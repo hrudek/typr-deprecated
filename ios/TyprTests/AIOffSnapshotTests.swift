@@ -110,6 +110,7 @@ final class AIOffSnapshotTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         TyprSettings(defaults: defaults)[experiment: .typrGermanFormattingRules] = true
+        TyprSettings(defaults: defaults)[experiment: .typrVocabularyMatching] = true
         let vocabulary = CustomVocabularySettings(defaults: defaults)
         vocabulary.isEnabled = true
         vocabulary.terms = ["herdr", "Baden-Württemberg"]

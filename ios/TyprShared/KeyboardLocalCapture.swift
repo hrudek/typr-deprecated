@@ -211,7 +211,8 @@ struct KeyboardLocalCapture {
             language: language ?? settings.hexLanguage.typrDictationLanguage(typr: settings),
             vocabulary: DictationVocabulary(
                 settings: vocabulary,
-                learnedFixes: settings[experiment: .learnFromEdits] ? learning.corrections : []
+                learnedFixes: settings[experiment: .learnFromEdits] ? learning.corrections : [],
+                typrMatching: settings[experiment: .typrVocabularyMatching]
             ),
             settings: settings
         )

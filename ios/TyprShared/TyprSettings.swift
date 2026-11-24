@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrTyping, .typrSwipeTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .typrVocabularyMatching, .spokenPunctuation, .typrKeyboard, .typrTyping, .typrSwipeTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -148,6 +148,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "Clean up what I say uses Typr's German and English word rules instead of Hex's hesitation rule."
     )
 
+    static let typrVocabularyMatching = ExperimentalSwitch(
+        name: "variant.typrVocabularyMatching",
+        title: "Typr vocabulary matching",
+        detail: "Dictation also fixes Custom vocabulary's sounds-like forms and Typr's built-in tech terms, such as Pull Request, and gives those terms to speech recognition."
+    )
+
     static let typrTranslationPolicy = ExperimentalSwitch(
         name: "variant.translationPolicy",
         title: "Typr translation policy",
@@ -225,7 +231,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrOverrides: [ExperimentalSwitch] = [
         .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
-        .typrTranslationPolicy,
+        .typrVocabularyMatching, .typrTranslationPolicy,
         .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrTyping, .typrSwipeTyping, .typrCursorSliding,
         .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard,
     ]

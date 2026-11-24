@@ -287,7 +287,7 @@ struct VocabularySettingsCard: View {
 
     var body: some View {
         SettingsSection(title: "Vocabulary") {
-            SettingsToggle(title: "Custom vocabulary", detail: "Preferred spellings for names and terms, with optional sounds-like forms.", isOn: $enabled)
+            SettingsToggle(title: "Custom vocabulary", detail: "Preferred spellings for names and terms.", isOn: $enabled)
                 .onChange(of: enabled) { _, value in CustomVocabularySettings().isEnabled = value }
             if enabled {
                 SettingsDivider()

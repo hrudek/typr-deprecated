@@ -124,9 +124,11 @@ would not fit the keyboard's memory limit.
   rejected answer keeps the text from that point in the pipeline. Turn the experiment off to
   resume using the saved AI & vocabulary settings.
 - Formatting is Hex's shared `DictationPipeline`, the same in the app and in in-keyboard
-  dictation: learned fixes, vocabulary and glossary, Clean up what I say, AI cleanup (app
-  only), translation, the style, the vocabulary's spellings again, Lowercase and
-  French spacing. Style offers Hex's Polished, Casual (texting: lowercase start, no final
+  dictation: learned fixes, Custom vocabulary's terms matched as in Hex, Clean up what I
+  say, AI cleanup (app only), translation, the style, the vocabulary's spellings again,
+  Lowercase and French spacing. Experimental › **Typr vocabulary matching** (off by
+  default) adds each term's sounds-like forms and Typr's built-in tech glossary, also as
+  speech hints. Style offers Hex's Polished, Casual (texting: lowercase start, no final
   period on a short message), Notes and Verbatim. Style › Format lists (on by default) writes
   "first … second …" and "bullet" as lines, in English and Spanish; German lists stay as
   said. Style › Spoken punctuation (on by default) writes "Komma", "Fragezeichen", "question

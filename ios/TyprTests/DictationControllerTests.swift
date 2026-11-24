@@ -899,6 +899,28 @@ final class DictationControllerTests: XCTestCase {
 
     }
 
+    func testCustomVocabularyReachesTheTranscriberOnlyWhileEnabledAsInHex() async throws {
+        let transcriber = ControlledTranscriber()
+        await transcriber.setCannedOutput("i use open code")
+        let settings = CustomVocabularySettings(defaults: defaults)
+        settings.terms = ["OpenCode"]
+        let controller = try await readyController(audio: FakeAudioManager(), transcriber: transcriber, now: { 55_000 },
+                                                   vocabulary: settings)
+
+        settings.isEnabled = false
+        controller.startRecording(keyboardJobID: "hex-hint-off")
+        try await activationSettled(controller)
+        controller.finishRecording()
+        try await transcribed(controller)
+        settings.isEnabled = true
+        controller.startRecording(keyboardJobID: "hex-hint-on")
+        try await activationSettled(controller)
+        controller.finishRecording()
+        try await transcribed(controller)
+        let arguments = await transcriber.vocabularyArguments
+        XCTAssertEqual(arguments, [[], ["OpenCode"]])
+    }
+
     func testCustomVocabularyReachesTheTranscriberOnlyWhileEnabledBeforeGlossaryHints() async throws {
         let now = 60_000.0
         let audio = FakeAudioManager()
@@ -907,6 +929,7 @@ final class DictationControllerTests: XCTestCase {
         let bridge = KeyboardBridge(defaults: defaults)
         let settings = CustomVocabularySettings(defaults: defaults)
         settings.terms = ["OpenCode"]
+        TyprSettings(defaults: defaults)[experiment: .typrVocabularyMatching] = true
         let controller = try await readyController(audio: audio, bridge: bridge, transcriber: transcriber, now: { now },
                                                    vocabulary: settings)
 
