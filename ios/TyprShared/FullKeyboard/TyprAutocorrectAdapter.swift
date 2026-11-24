@@ -130,7 +130,10 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         reverting = [:]
         typing = (field, autocorrectionType)
         strip = []
-        guard hasDictionary, !isSecureField else { return [] }
+        guard hasDictionary, !isSecureField else {
+            predictions?.keep(only: nil)
+            return []
+        }
         loadTouches(beforeInput: beforeInput)
         let finishedWord = TyprAutocorrectEngine.currentToken(in: beforeInput) == nil
         strip = engine.suggestions(beforeInput: beforeInput, field: Self.field(field), autocorrectionType: autocorrectionType)
@@ -386,6 +389,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     }
 
     func textEdited() {
+        predictions?.cancel()
         engine.discardFeedback(keepingCorrection: correction != nil)
         engine.forgetSpaceTaps()
     }

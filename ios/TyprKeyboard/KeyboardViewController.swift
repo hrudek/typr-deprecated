@@ -75,6 +75,7 @@ final class KeyboardViewController: UIInputViewController {
         fullKeyboard?.flushLearning()
         fullKeyboard?.finishDictationEdits()
         learning.flush()
+        hexTypr?.predictions?.cancel()
         hexKeyboard?.engine.commitHangulComposition()
         pollTimer?.invalidate()
         pollTimer = nil

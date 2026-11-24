@@ -93,6 +93,16 @@ final class TyprNextWordTests: XCTestCase {
         XCTAssertFalse(engine.suggestions.contains { $0.replacement == "wonderful" })
     }
 
+    func testANextWordStartsASentenceWithACapitalWhereHexWouldCapitalise() async throws {
+        let provider = FakeProvider { $0 == "Hello. " ? ["wonderful"] : nil }
+        let (engine, adapter) = makeKeyboard(provider) { $0.autocapitalizationType = .sentences }
+        let arrived = arrival(on: adapter)
+        engine.insert("Hello.", source: nil)
+        try type(" ", on: engine)
+        await fulfillment(of: [arrived], timeout: 5)
+        XCTAssertTrue(engine.suggestions.contains { $0.replacement == "Wonderful" && $0.kind == .nextWord })
+    }
+
     func testNoRequestWhereTyprKeyboardWouldNotPredict() throws {
         let gated: [(String, (HexFixtureTextTarget) -> Void)] = [
             ("secure", { $0.isSecureTextEntry = true }),
