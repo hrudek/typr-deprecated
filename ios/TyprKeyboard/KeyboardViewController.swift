@@ -71,6 +71,7 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillDisappear(animated)
         fullKeyboard?.suspendSuggestions()
         fullKeyboard?.engine.endTypingLogWord("dismiss")
+        hexKeyboard?.engine.endTyprTypingLogWord("dismiss")
         fullKeyboard?.discardTouchEvidence()
         fullKeyboard?.flushLearning()
         fullKeyboard?.finishDictationEdits()
@@ -416,6 +417,7 @@ final class KeyboardViewController: UIInputViewController {
             target: DocumentProxyTextTarget { [weak self] in self?.textDocumentProxy },
             autocorrect: typr
         )
+        if typr != nil { keyboard.engine.typrTypingLog = typingLog(persistent: persistsLearning) }
         keyboard.hostController = self
         keyboard.onPreferredHeightChange = { [weak self] in
             self?.view.setNeedsLayout()

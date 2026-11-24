@@ -42,6 +42,7 @@ extension FullKeyboardEngine {
     private func startTrackpad(_ touch: inout ActiveTouch, id: Int, hold: Bool, time: TimeInterval?) {
         // A held space moves the cursor: the run it would have followed is in the field already.
         commitHangulComposition()
+        endTyprTypingLogWord("cursor")
         touch.isTrackpad = true
         touch.trackpadPath = [TrackpadCursor.Sample(time: time ?? clock(), point: touch.point)]
         touch.trackpad = TrackpadCursor.State(

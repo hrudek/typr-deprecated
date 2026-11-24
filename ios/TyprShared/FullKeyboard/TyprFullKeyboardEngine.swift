@@ -1268,7 +1268,7 @@ final class TyprFullKeyboardEngine {
             statistics?.direct(text, boundaryReplacement: replacement)
             for _ in 0..<original.count { target.deleteBackward() }
             target.insertText(replacement + text)
-            logTyping { $0.boundary(text, replacement: replacement, correction: typingLogCorrection) }
+            logTyping { $0.boundary(text, replacement: replacement, correction: autocorrect.typingLogCorrection) }
             autocorrect.recordAppliedCorrection(original: original, corrected: replacement, separator: text,
                                                 before: target.documentContextBeforeInput)
             autocorrect.discardFeedback()
@@ -1408,7 +1408,7 @@ final class TyprFullKeyboardEngine {
             let inserted = replacement + ending
             autocorrect.touchInput.clear()
             target.insertText(inserted)
-            logTyping { $0.boundary(" ", replacement: replacement, correction: typingLogCorrection) }
+            logTyping { $0.boundary(" ", replacement: replacement, correction: autocorrect.typingLogCorrection) }
             autocorrect.recordAppliedCorrection(original: original, corrected: replacement, separator: ending,
                                                 before: target.documentContextBeforeInput)
             if let sample {
@@ -1685,14 +1685,6 @@ final class TyprFullKeyboardEngine {
               autocorrect.learning.isLearningEnabled,
               case .keys(.text, _) = TyprKeyboardFieldRouting.route(for: target.keyboardType) else { return false }
         return true
-    }
-
-    private var typingLogCorrection: TypingLogWord.Commit.CorrectionKind {
-        switch autocorrect.pendingFeedback?.kind {
-        case .autoSpatial: .spatial
-        case .autoSpelling: .spelling
-        case .autoRule, .unchanged, nil: .rule
-        }
     }
 
     private func logTyping(_ event: (TypingLogRecorder) -> Void) {
