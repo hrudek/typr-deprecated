@@ -79,6 +79,7 @@ final class DeleteWordSwipe {
             TypingLogField("deleted", .string(text)),
             TypingLogField("src", .string("delete_swipe")),
         ])
+        engine.typrTypingLog?.discard()
         engine.forgetTextAroundKeys()
         for _ in 0..<count {
             engine.target.deleteBackward()

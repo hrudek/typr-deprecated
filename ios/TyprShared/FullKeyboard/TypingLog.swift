@@ -374,3 +374,14 @@ final class TypingLogRecorder {
         return String(field[start...])
     }
 }
+
+extension TyprAutocorrectEngine {
+    /// Which decision made the automatic change still waiting for feedback.
+    var typingLogCorrection: TypingLogWord.Commit.CorrectionKind {
+        switch pendingFeedback?.kind {
+        case .autoSpatial: .spatial
+        case .autoSpelling: .spelling
+        case .autoRule, .unchanged, nil: .rule
+        }
+    }
+}

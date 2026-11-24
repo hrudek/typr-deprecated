@@ -101,6 +101,8 @@ final class FullKeyboardEngine {
     /// Record typing logs (Experiments); nil while it is off, in fields it skips, and in the
     /// app's fixtures. Every call through it is skipped (arguments too) while nil.
     var typingLog: TypingLogger?
+    /// Typr's typing log while Typr typing is on (`FullKeyboardEngine+TyprTypingLog`); nil otherwise.
+    var typrTypingLog: TypingLogRecorder?
     /// Adaptive touch (Experiments): personal key centres for Spatial autocorrect, in place of
     /// `tapOffsets`, learned from taps with evidence of what you meant. Nil while off.
     var adaptiveTouch: AdaptiveTouch? {
@@ -278,6 +280,7 @@ final class FullKeyboardEngine {
         }
         resetShift()
         korean.reset()
+        endTyprTypingLogWord("field")
         lastSpaceAt = nil
         suggestionSpaceBefore = nil
         forgetTypingContext()
@@ -299,7 +302,10 @@ final class FullKeyboardEngine {
     /// Call after the text or the cursor changed outside these keys.
     func textDidChange() {
         commitHangulIfHostMoved()
-        if !hostReportsKeysOwnText { autocorrect.textEdited() }
+        if !hostReportsKeysOwnText {
+            autocorrect.textEdited()
+            endTyprTypingLogWord("external")
+        }
         lastSpaceAt = nil
         // The host's report may be an echo of the keys' own insert, or still lag it: either
         // leaves the text as the keys left it (`typingContext`, `SwipedWord.before`).
@@ -435,6 +441,11 @@ final class FullKeyboardEngine {
             }
         }
         insertPicked(suggestion.replacement)
+        logTyprTyping { log in
+            if let replacing {
+                log.picked(from: replacing, to: suggestion.replacement, chip: Self.typrTypingLogChip(suggestion.kind), boundary: false)
+            } else { log.end("prediction") }
+        }
     }
 
     /// Types an emoji from the emoji panel: no spacing or autocorrect around it.
@@ -443,6 +454,7 @@ final class FullKeyboardEngine {
         adaptiveTouch?.forget()
         autocorrect.textEdited()
         learning?.didFinish(word: AutocorrectEngine.currentToken(in: textBefore), language: autocorrect.language.rawValue)
+        endTyprTypingLogWord("emoji")
         insert(text, source: source)
     }
 
@@ -768,6 +780,7 @@ final class FullKeyboardEngine {
             // goes in on its own, so a field's return (Send, Search) still sees just "\n".
             _ = applyTextReplacement(ending: "")
             insert("\n", source: nil)
+            logTyprTyped("\n", at: nil)
             typingLog?.context("return")
         case .layerSwitch:
             // Hold 123, slide to a key, let go: type it and go back. Back on the page key after
@@ -893,6 +906,7 @@ final class FullKeyboardEngine {
             tokenTaps.removeAll()
         }
         target.deleteBackward()
+        logTyprTyping { $0.deleted(field: textBefore) }
         lastSpaceAt = nil
         didEdit()
     }
@@ -918,6 +932,7 @@ final class FullKeyboardEngine {
             count += 1
         }
         tokenTaps.removeAll()
+        typrTypingLog?.discard()
         typingLog?.edit("delete_word", [
             TypingLogField("deleted", .string(String(before.suffix(max(1, count))))),
             TypingLogField("src", .string("repeat_word")),
@@ -1008,6 +1023,7 @@ final class FullKeyboardEngine {
             TypingLogField("textReplacement", .bool(true)),
         ])
         target.insertText(replaced.replacement + smartened(ending, after: replaced.replacement.last))
+        logTyprTyping { $0.boundary(Self.typrTypingLogEnding(ending), replacement: replaced.replacement, correction: .rule) }
         tokenTaps.removeAll()
         swipedWord = nil
         finishedWord = nil
@@ -1064,6 +1080,7 @@ final class FullKeyboardEngine {
                 TypingLogField("inserted", .string(merged + ending)),
                 TypingLogField("merged", .bool(true)),
             ])
+            logTyprTyping { $0.boundary(Self.typrTypingLogEnding(ending), replacement: merged, correction: typrTypingLogCorrection) }
             target.insertText(smartened(merged + ending))
             learning?.record(.autocorrected, typed: token, final: merged, language: autocorrect.language.rawValue)
             recordCorrection(original: original, corrected: merged, ending: ending, changes: [.init(from: token, to: merged, language: autocorrect.language)])
@@ -1099,6 +1116,9 @@ final class FullKeyboardEngine {
         if ending != " " { fields.append(TypingLogField("ending", .string(ending))) }
         if let revised { fields.append(TypingLogField("revised", .strings([revised.from, revised.to]))) }
         typingLog?.edit("autocorrect", fields)
+        logTyprTyping { log in
+            log.boundary(Self.typrTypingLogEnding(ending), replacement: fix?.replacement, correction: typrTypingLogCorrection)
+        }
         target.insertText(smartened(inserted))
         var changes: [AutocorrectEngine.AppliedCorrection.Change] = []
         if let revised {
@@ -1146,6 +1166,7 @@ final class FullKeyboardEngine {
         finishedWord = nil
         adaptiveLearning?.undone(original: correction.original)
         target.insertText(smartened(correction.original))
+        logTyprTyping { $0.undone(original: correction.original, field: textBefore) }
         for change in correction.changes {
             autocorrect.suppressAndKeep(change.from)
             learning?.record(.undone, typed: change.to, final: change.from, language: change.language?.rawValue)
@@ -1282,6 +1303,9 @@ final class FullKeyboardEngine {
         rememberTypingContext(before: contextBefore, inserted: text)
         let typedBefore = textBefore
         typeIntoField(text, source: source)
+        if source != nil {
+            logTyprTyped(text, at: point.map { CGPoint(x: layout.unsplitX($0.x), y: $0.y) })
+        }
         if point != nil, text.count == 1, text.first?.isLetter == true {
             autocorrect.typedLetter(text, before: typedBefore, after: textBefore)
         }
@@ -1372,6 +1396,7 @@ final class FullKeyboardEngine {
         let rendered = smartened(inserted)
         rememberTypingContext(before: before, inserted: rendered)
         target.insertText(rendered)
+        logTyprTyping { $0.swiped(word, time: clock()) }
         finishedWord = nil
         lastSpaceAt = nil
         layerState.didInsert(inserted)
@@ -1409,6 +1434,7 @@ final class FullKeyboardEngine {
             target.deleteBackward()
         }
         target.insertText(smartened(text))
+        logTyprTyping { $0.swipeReplaced(with: text) }
         swiped.inserted = String(swiped.inserted.dropLast(swiped.word.count)) + text
         swiped.alternatives = Array(([swiped.word] + swiped.alternatives.filter { $0 != text }).prefix(3))
         swiped.word = text
@@ -1452,6 +1478,7 @@ final class FullKeyboardEngine {
         for _ in 0..<swiped.inserted.count {
             target.deleteBackward()
         }
+        logTyprTyping { $0.dropOpenWord() }
         tokenTaps.removeAll()
         lastSpaceAt = nil
         didEdit()

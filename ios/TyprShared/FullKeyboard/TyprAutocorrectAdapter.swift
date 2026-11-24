@@ -278,6 +278,15 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
                        y: key.frame.midY + (tap.y - centre.y) / keys.pitch.height * pitch.height)
     }
 
+    /// A tapped letter as Typr's typing log keeps it: on Typr's own layout, where replay reads it.
+    func typingLogTap(_ tap: CGPoint?, text: String) -> (point: CGPoint?, key: String?, layout: TyprKeyboardLayout) {
+        let letter = text.lowercased()
+        guard let tap, letter.count == 1, let character = letter.first,
+              let key = touchLayout.key(.character(letter)),
+              let point = typrPoint(tap, on: key, letter: character) else { return (nil, nil, touchLayout) }
+        return (point, letter, touchLayout)
+    }
+
     private func typrSpacePoint(_ tap: CGPoint) -> CGPoint? {
         guard let hex = (decoderBaselineKeys ?? decoderKeys)?.space, hex.width > 0, hex.height > 0,
               let space = touchLayout.key(.space)?.frame else { return nil }
