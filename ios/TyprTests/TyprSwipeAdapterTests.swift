@@ -154,6 +154,24 @@ final class TyprSwipeAdapterTests: XCTestCase {
         }
     }
 
+    func testAGermanTapThatSlidStillTypesItsLetterWhenTyprCannotRead() throws {
+        LanguageSettings(defaults: defaults).keyboardLanguages = [.german]
+        let (view, target, _) = makeView(decoding: { _ in [] }, configure: { $0.autocorrectionType = .no })
+        let engine = view.engine
+        let swipe = try XCTUnwrap(view.plane.swipe)
+        let key = try XCTUnwrap(engine.layout.key(.character("g"))).frame
+        let start = CGPoint(x: key.midX, y: key.midY)
+        let away = CGPoint(x: key.midX + key.width * 1.4, y: key.midY)
+        engine.touchBegan(id: 1, at: start)
+        swipe.began(id: 1, at: start, time: 0)
+        for (index, point) in [away, start].enumerated() {
+            if !swipe.moved(id: 1, to: point, time: Double(index + 1) * 0.016) { engine.touchMoved(id: 1, to: point) }
+        }
+        swipe.ended(id: 1, at: start, time: 0.05)
+        XCTAssertFalse(engine.isSwiping)
+        XCTAssertEqual(target.text, "g")
+    }
+
     func testOutsideAutocorrectedTextFieldsHexReadsTheSwipe() async throws {
         let requests = Recorded<SwipeRequest>()
         let (view, target, _) = makeView(decoding: { request in

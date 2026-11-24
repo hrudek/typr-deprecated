@@ -172,6 +172,10 @@ final class SwipeTyping {
             }
             if !engine.language.supportsSwipeTyping {
                 engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: nil)
+                if slidTapLetter(stroke) != nil, let start = stroke.points.first {
+                    engine.touchBegan(id: id, at: start)
+                    engine.touchEnded(id: id, at: start)
+                }
                 return
             }
         }
@@ -199,9 +203,14 @@ final class SwipeTyping {
     private func finishWithTypr(_ id: Int, stroke: Stroke, decode: @escaping () async -> [String]) {
         let generation = generation, before = engine.target.documentContextBeforeInput, started = clock()
         let slidTap = slidTapLetter(stroke)
+        let engine = engine
         typrDecoding = Task { [weak self] in
             let words = await decode()
-            guard let self, self.generation == generation, self.active == nil else { return }
+            guard let self else {
+                engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: nil)
+                return
+            }
+            guard self.generation == generation, self.active == nil else { return }
             let elapsed = self.clock() - started
             self.lastDecodeTime = elapsed
             guard self.engine.target.documentContextBeforeInput == before else {
