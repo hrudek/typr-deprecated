@@ -45,14 +45,14 @@ final class TyprNextWordTests: XCTestCase {
 
     private func type(_ text: String, on engine: FullKeyboardEngine) throws {
         for character in text {
-            let kind: KeyKind = character == " " ? .space : .character(String(character))
-            let key = try XCTUnwrap(engine.layout.key(kind))
-            let point = CGPoint(x: key.frame.midX, y: key.frame.midY)
             if character == " " {
+                let key = try XCTUnwrap(engine.layout.key(.space))
+                let point = CGPoint(x: key.frame.midX, y: key.frame.midY)
                 engine.touchBegan(id: 1, at: point)
                 engine.touchEnded(id: 1, at: point)
             } else {
-                engine.insert(String(character), source: nil, at: point)
+                let key = engine.layout.key(.character(String(character)))
+                engine.insert(String(character), source: nil, at: key.map { CGPoint(x: $0.frame.midX, y: $0.frame.midY) })
             }
         }
     }
@@ -68,24 +68,24 @@ final class TyprNextWordTests: XCTestCase {
     }
 
     func testALateAnswerReachesHexsStripForItsContext() async throws {
-        let provider = FakeProvider { $0 == "hello" ? ["wonderful"] : nil }
+        let provider = FakeProvider { $0 == "hello " ? ["wonderful"] : nil }
         let (engine, adapter) = makeKeyboard(provider)
         XCTAssertEqual(adapter.predictionSource, .cloud)
         let arrived = arrival(on: adapter)
         try type("hello ", on: engine)
         await fulfillment(of: [arrived], timeout: 5)
         XCTAssertTrue(engine.suggestions.contains { $0.replacement == "wonderful" && $0.kind == .nextWord })
-        XCTAssertEqual(provider.contexts, ["hello"])
+        XCTAssertEqual(provider.contexts, ["hello "])
     }
 
     func testAnAnswerForAnEarlierContextNeverShows() async throws {
-        let provider = FakeProvider { $0 == "hello" ? ["wonderful"] : nil }
+        let provider = FakeProvider { $0 == "hello " ? ["wonderful"] : nil }
         let (engine, adapter) = makeKeyboard(provider)
         let arrived = arrival(on: adapter)
         try type("hello ", on: engine)
         await fulfillment(of: [arrived], timeout: 5)
         let cancelled = expectation(description: "the request for the old context is cancelled")
-        provider.onCancel = { if $0 == "hello world" { cancelled.fulfill() } }
+        provider.onCancel = { if $0 == "hello world " { cancelled.fulfill() } }
         try type("world ", on: engine)
         XCTAssertFalse(engine.suggestions.contains { $0.replacement == "wonderful" }, "an answer for \"hello\" only")
         try type("x", on: engine)
