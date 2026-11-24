@@ -180,7 +180,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrTyping = ExperimentalSwitch(
         name: "variant.typrTyping",
         title: "Typr typing and autocorrect",
-        detail: "Hex's keyboard uses Typr's autocorrect and suggestions for German and English, with your imported contacts and vocabulary protected and Words from context. Not yet: corrections from where you tap, joining words split by a stray space, learning from each typed letter and next-word predictions."
+        detail: "Hex's keyboard uses Typr's autocorrect and suggestions for German and English, with your imported contacts and vocabulary protected and Words from context. It reads where you tap and joins words split by a stray space. Not yet: learning from each typed letter and next-word predictions."
     )
 
     static let typrCursorSliding = ExperimentalSwitch(
