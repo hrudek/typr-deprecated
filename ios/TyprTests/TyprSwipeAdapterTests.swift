@@ -105,7 +105,8 @@ final class TyprSwipeAdapterTests: XCTestCase {
             })
             XCTAssertNotNil(view.plane.swipe?.typrDecode, "\(keys)")
             try await swipe("hello", on: view)
-            let request = try XCTUnwrap(await requests.all.first, "\(keys)")
+            let recorded = await requests.all
+            let request = try XCTUnwrap(recorded.first, "\(keys)")
             XCTAssertEqual(nearest(request.path[0], in: request.layout), "h", "\(keys)")
             XCTAssertEqual(nearest(request.path[request.path.count - 1], in: request.layout), "o", "\(keys)")
             XCTAssertEqual(target.text, "hello", "\(keys)")
