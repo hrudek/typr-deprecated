@@ -58,8 +58,28 @@ extension Replayer {
         guard FullKeyboardSettings(defaults: nil).typingModel(for: .english) != nil else {
             throw ReplayError("Hex's typing model en.hextm is missing or invalid next to keyboard-replay; run build.sh again")
         }
-        for (name, type) in [("never-suggest", "tsv"), ("de", "capitals")] where Bundle.main.url(forResource: name, withExtension: type) == nil {
-            throw ReplayError("Hex's \(name).\(type) is missing next to keyboard-replay; run build.sh again")
+        for (name, type) in [("never-suggest", "tsv"), ("de", "capitals")] {
+            guard let url = Bundle.main.url(forResource: name, withExtension: type) else {
+                throw ReplayError("Hex's \(name).\(type) is missing next to keyboard-replay; run build.sh again")
+            }
+            guard let text = try? String(contentsOf: url, encoding: .utf8), isValid(text, type: type) else {
+                throw ReplayError("Hex's \(name).\(type) next to keyboard-replay is invalid; run build.sh again")
+            }
+        }
+        guard GermanCapitals.bundled() != nil, !OffensiveWords.bundled(KeyboardLanguage.english.rawValue).isEmpty,
+              !OffensiveWords.bundled(KeyboardLanguage.german.rawValue).isEmpty else {
+            throw ReplayError("Hex's never-suggest.tsv or de.capitals next to keyboard-replay is invalid; run build.sh again")
+        }
+    }
+
+    private static func isValid(_ text: String, type: String) -> Bool {
+        let lines = text.split(whereSeparator: \.isNewline).filter { !$0.hasPrefix("#") }
+        return !lines.isEmpty && lines.allSatisfy { line in
+            let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
+            if type == "capitals" {
+                return fields.count == 2 && !fields[0].isEmpty && UInt8(fields[1]).map { $0 <= 100 } == true
+            }
+            return fields.count == 3 && !fields[0].isEmpty && ["slur", "swear"].contains(fields[1]) && !fields[2].isEmpty
         }
     }
 

@@ -101,6 +101,18 @@ class EngineTests(unittest.TestCase):
         (build / "en.hextm").write_bytes(b"not a model")
         self.assert_hex_refuses(build, "en.hextm")
 
+    def test_hex_refuses_to_run_with_a_broken_never_suggest_list(self):
+        for content in (b"", b"garbled \x00 text\n", b"en\tslur\n", b"en\tmaybe\tword\n"):
+            build = self.copy_of_the_build()
+            (build / "never-suggest.tsv").write_bytes(content)
+            self.assert_hex_refuses(build, "never-suggest.tsv")
+
+    def test_hex_refuses_to_run_with_broken_german_capitals(self):
+        for content in (b"", b"garbled \x00 text\n", b"aachen\t100\naal\n", b"aal\tninety\n", b"aal\t300\n"):
+            build = self.copy_of_the_build()
+            (build / "de.capitals").write_bytes(content)
+            self.assert_hex_refuses(build, "de.capitals")
+
     def test_hex_refuses_to_run_without_its_never_suggest_list(self):
         build = self.copy_of_the_build()
         (build / "never-suggest.tsv").unlink()
