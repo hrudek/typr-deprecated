@@ -26,8 +26,8 @@ Parakeet without room moves on to the next pick, and a failed new pick keeps the
 engine that worked, with a note on home. A download cut off in the background is
 tried again when Typr returns.
 Experimental › Hex experiments › **Multilingual model (Parakeet)** (off by default,
-6 GB iPhones) downloads Parakeet Ultra (632 MB, 25 languages, also mixed in one
-sentence) with progress, automatic retries and Try again. Typr tries loading it
+6 GB iPhones) downloads Parakeet Ultra (632 MB; German and English, also mixed in
+one sentence) with progress, automatic retries and Try again. Typr tries loading it
 beside the current engine when memory allows. If memory is too low or the load
 fails, the current engine stays available. Try again when more memory is free,
 or relaunch Typr to load an already compiled Ultra model directly. Ultra requires
@@ -159,7 +159,7 @@ would not fit the keyboard's memory limit.
   The full keyboard is Hex's, with Typr's compact keys and wide suggestion slots.
   Keyboard › Languages picks its languages and each one's layout (Dvorak for English);
   Keyboard › Spatial autocorrect, Auto-capitalization and Swipe typing are Hex's (spatial
-  and swipe for English and Spanish), as are Key pop-ups, Haptics with its strength, Emoji
+  and swipe for English), as are Key pop-ups, Haptics with its strength, Emoji
   and, under Words and privacy, Learn how I type with Adaptive touch's status and reset.
   Appearance sets the design (Mechanical, off by default, draws Typr's mechanical keycaps
   and replaces a keyboard theme), the Typr key's side and the number row over a live
@@ -171,7 +171,13 @@ would not fit the keyboard's memory limit.
   Duo open and sideways splits (Typr's Split keyboard, off: one joined keyboard) and line the
   split letters up in straight columns (Aligned columns). Experimental › **Typr keyboard** (off by default) brings
   back Typr's own keyboard with its own settings, described below; switches marked "Only
-  with Typr keyboard" act only there.
+  with Typr keyboard" act only there, such as **Space bar trackpad like Apple's** (off by
+  default), which also moves the cursor up and down through lines.
+  Experimental › Hex keyboard experiments has Hex's typing experiments with Hex's names, all
+  off as in Hex: Adaptive touch, German spatial autocorrect, Dvorak punctuation keys, ABC
+  under the emoji key, Keyboard themes, Two-thumb selection, Delete swiped words letter by
+  letter, Hide word suggestions, Join the keyboard when unfolded and Learn each language
+  separately (learned words and fixes stay with their language).
   Experimental › **Typr typing and autocorrect** (off by default) keeps Hex's keyboard but
   uses Typr's autocorrect and suggestions for German and English, with your imported
   contacts and vocabulary protected, Words from context and Typr's learning from kept and
