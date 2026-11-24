@@ -66,24 +66,16 @@ final class DefaultPathParityTests: XCTestCase {
         XCTAssertEqual(pipeline.format("Groceries, bullet, eggs, bullet, milk.", language: "en-US"), "Groceries:\n- Eggs.\n- Milk.")
     }
 
-    func testTranslationUsesHexsTranslatorAndTarget() async throws {
+    func testTranslationUsesHexsTranslator() async throws {
         let translation = DictationTranslationSettings(defaults: defaults)
         translation.isEnabled = true
-        translation.targetLanguage = "ja"
         let plan = try XCTUnwrap(DictationTranslationPlan(
             settings: translation, typrPolicy: TyprSettings(defaults: defaults)[experiment: .typrTranslationPolicy]
         ))
-        let recorder = TargetRecorder()
-        let engine = TranslationEngine(
-            status: { _, _ in .installed },
-            translate: { _, _, target in
-                recorder.targets.append(target.minimalIdentifier)
-                return "またね。"
-            }
-        )
+        let engine = TranslationEngine(status: { _, _ in .unsupported }, translate: { _, _, _ in "" })
         let outcome = await plan.translate("Bis morgen.", source: .german, settings: translation, engine: engine)
-        XCTAssertEqual(recorder.targets, ["ja"], "Typr's translator would translate into English")
-        XCTAssertEqual(outcome, .translated("またね。"))
+        XCTAssertEqual(outcome.failure?.reason, .unsupported, "Typr's translator reports an unsupported pair as failed")
+        XCTAssertEqual(translation.lastFailure?.reason, .unsupported)
     }
 
     func testDictationLanguageFollowsTheKeyboard() {
@@ -95,9 +87,4 @@ final class DefaultPathParityTests: XCTestCase {
         language.currentKeyboardLanguage = .german
         XCTAssertEqual(language.typrDictationLanguage(typr: settings), .german)
     }
-}
-
-@MainActor
-private final class TargetRecorder {
-    var targets: [String] = []
 }
