@@ -122,6 +122,7 @@ final class TyprTouchAdapterTests: XCTestCase {
 
     func testATyprJoinReachesHexAndItsRevertStopsItForTheSession() throws {
         let sources = try XCTUnwrap(BundledKeyboardData.lexicons)
+        TyprSettings(defaults: defaults).personalLearning = false
         let typr = TyprAutocorrectEngine(
             checker: KeyboardBoundaryDecoderTests.Checker(sources[.english], trusted: []),
             learning: KeyboardLearningSession(defaults: defaults),
@@ -173,6 +174,76 @@ final class TyprTouchAdapterTests: XCTestCase {
         try letters("er")
         space(at: centredSpace)
         XCTAssertTrue(target.text.hasSuffix("think ne er "), "an undone join is not made again: \(target.text)")
+    }
+
+    func testWithLearningOnHexJoinsAsTyprKeyboardDoes() throws {
+        let sources = try XCTUnwrap(BundledKeyboardData.lexicons)
+        func typrEngine() -> TyprAutocorrectEngine {
+            TyprAutocorrectEngine(
+                checker: KeyboardBoundaryDecoderTests.Checker(sources[.english], trusted: []),
+                learning: KeyboardLearningSession(defaults: defaults),
+                spatialDecoder: SpatialWordDecoder(lexicons: sources),
+                contextResources: KeyboardContextResources(model: BundledKeyboardData.contextModel))
+        }
+        XCTAssertTrue(TyprSettings(defaults: defaults).personalLearning)
+
+        let typrTarget = FixtureTextTarget()
+        typrTarget.autocapitalizationType = UITextAutocapitalizationType.none
+        let typrKeyboard = TyprFullKeyboardEngine(target: typrTarget, autocorrect: typrEngine())
+        var now: TimeInterval = 100
+        typrKeyboard.clock = { now }
+        typrKeyboard.width = 393
+        typrKeyboard.configureForField()
+        let typrLayout = typrKeyboard.layout
+        let typrSpace = try XCTUnwrap(typrLayout.key(.space)).frame
+        let typrV = try XCTUnwrap(typrLayout.key(.character("v"))).frame
+        func typrTap(_ point: CGPoint) {
+            typrKeyboard.touchBegan(id: 1, at: point)
+            typrKeyboard.touchEnded(id: 1, at: point)
+            now += 0.45
+        }
+        func typrLetters(_ word: String) throws {
+            for letter in word {
+                let key = try XCTUnwrap(typrLayout.key(.character(String(letter)))).frame
+                typrTap(CGPoint(x: key.midX, y: key.midY))
+            }
+        }
+        let typrCentredSpace = CGPoint(x: typrSpace.midX, y: typrSpace.midY)
+        try typrLetters("think")
+        typrTap(typrCentredSpace)
+        try typrLetters("ne")
+        typrTap(CGPoint(x: typrV.midX, y: typrSpace.minY + 1))
+        try typrLetters("er")
+        typrTap(typrCentredSpace)
+
+        let adapter = TyprAutocorrectAdapter(engine: typrEngine())
+        let hexTarget = HexFixtureTextTarget()
+        hexTarget.autocapitalizationType = UITextAutocapitalizationType.none
+        let hex = FullKeyboardEngine(target: hexTarget, autocorrect: adapter)
+        hex.width = 393
+        hex.configureForField()
+        let hexSpace = try XCTUnwrap(hex.layout.key(.space)).frame
+        let straySpace = CGPoint(x: hexSpace.midX + (typrV.midX - typrSpace.midX) / typrSpace.width * hexSpace.width,
+                                 y: hexSpace.minY + 1)
+        func hexLetters(_ word: String) throws {
+            for letter in word {
+                hex.insert(String(letter), source: nil, at: try centre(.character(String(letter)), in: hex))
+            }
+        }
+        func hexSpaceTap(_ point: CGPoint) {
+            hex.touchBegan(id: 1, at: point)
+            hex.touchEnded(id: 1, at: point)
+        }
+        let hexCentredSpace = try centre(.space, in: hex)
+        try hexLetters("think")
+        hexSpaceTap(hexCentredSpace)
+        try hexLetters("ne")
+        hexSpaceTap(straySpace)
+        try hexLetters("er")
+        hexSpaceTap(hexCentredSpace)
+
+        XCTAssertEqual(typrTarget.text, "think ne er ", "Typr keyboard with learning on keeps both words")
+        XCTAssertEqual(hexTarget.text, typrTarget.text)
     }
 }
 

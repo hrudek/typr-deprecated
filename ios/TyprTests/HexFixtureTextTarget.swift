@@ -9,6 +9,7 @@ class HexFixtureTextTarget: KeyboardTextTarget {
     let keyboardAppearance: UIKeyboardAppearance?
     var autocapitalizationType: UITextAutocapitalizationType? = .sentences
     var autocorrectionType: UITextAutocorrectionType? = .default
+    var isSecureTextEntry: Bool?
     var keyboardType: UIKeyboardType? = .default
     var returnKeyType: UIReturnKeyType? = .default
     var enablesReturnKeyAutomatically: Bool? = false

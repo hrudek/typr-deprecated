@@ -122,6 +122,10 @@ extension FullKeyboardEngine {
         )
     }
 
+    var hostReportsKeysOwnText: Bool {
+        textBefore == expectedTypingContext?.expected || hostIsBehind
+    }
+
     /// A delete, a cursor move, a pick or a field change: what Hex typed is no longer what the
     /// host should report.
     func forgetTypingContext() {
