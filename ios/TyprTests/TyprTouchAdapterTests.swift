@@ -119,6 +119,63 @@ final class TyprTouchAdapterTests: XCTestCase {
             XCTAssertEqual(adapter.engine.learning.diagnostics[.boundaries], boundaries + 1, "\(keys): one decision per space")
         }
     }
+
+    /// Typr's own fixture (`KeyboardBoundaryTouchTests`): "ne er" after "think", the space
+    /// tapped right under v, is joined to "never".
+    func testATyprJoinReachesHexAndItsRevertStopsItForTheSession() throws {
+        let sources = try XCTUnwrap(BundledKeyboardData.lexicons)
+        let typr = TyprAutocorrectEngine(
+            checker: KeyboardBoundaryDecoderTests.Checker(sources[.english], trusted: []),
+            learning: KeyboardLearningSession(defaults: defaults),
+            spatialDecoder: SpatialWordDecoder(lexicons: sources),
+            contextResources: KeyboardContextResources(model: BundledKeyboardData.contextModel))
+        let adapter = TyprAutocorrectAdapter(engine: typr)
+        let target = HexFixtureTextTarget()
+        target.autocapitalizationType = UITextAutocapitalizationType.none
+        let engine = FullKeyboardEngine(target: target, autocorrect: adapter)
+        engine.width = 393
+        engine.configureForField()
+
+        let grid = TyprKeyboardLayout(width: 393)
+        let typrSpace = try XCTUnwrap(grid.key(.space)).frame
+        let typrV = try XCTUnwrap(grid.key(.character("v"))).frame
+        let hexSpace = try XCTUnwrap(engine.layout.key(.space)).frame
+        let straySpace = CGPoint(x: hexSpace.midX + (typrV.midX - typrSpace.midX) / typrSpace.width * hexSpace.width,
+                                 y: hexSpace.minY + 1)
+        func letters(_ word: String) throws {
+            for letter in word {
+                engine.insert(String(letter), source: nil, at: try centre(.character(String(letter)), in: engine))
+            }
+        }
+        func space(at point: CGPoint) {
+            engine.touchBegan(id: 1, at: point)
+            engine.touchEnded(id: 1, at: point)
+        }
+        let centredSpace = try centre(.space, in: engine)
+
+        try letters("think")
+        space(at: centredSpace)
+        try letters("ne")
+        space(at: straySpace)
+        try letters("er")
+        space(at: centredSpace)
+        XCTAssertTrue(target.text.hasSuffix("never "), target.text)
+
+        space(at: try centre(.delete, in: engine))
+        XCTAssertEqual(engine.suggestions.first?.kind, .revert)
+        engine.acceptSuggestion(engine.suggestions[0])
+        XCTAssertTrue(target.text.hasSuffix("ne er"), target.text)
+        XCTAssertFalse(typr.learning.model.state.rejected.contains { $0.typed == "er" }, "no one-word rejection")
+
+        space(at: centredSpace)
+        try letters("think")
+        space(at: centredSpace)
+        try letters("ne")
+        space(at: straySpace)
+        try letters("er")
+        space(at: centredSpace)
+        XCTAssertTrue(target.text.hasSuffix("think ne er "), "an undone join is not made again: \(target.text)")
+    }
 }
 
 private final class Checker: TyprTextChecking {

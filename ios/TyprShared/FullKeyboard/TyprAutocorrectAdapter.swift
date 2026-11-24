@@ -2,7 +2,7 @@ import UIKit
 
 /// Typr's typing and autocorrect (`TyprAutocorrectEngine`) behind Hex's `FullKeyboardEngine`.
 /// Typr reads German and English only; any other language on the keys gets no dictionary.
-/// Hex's taps, typing models and journal are not read: Typr keeps its own models and learning.
+/// Hex's taps are read on Typr's keys; Hex's typing models and journal are not: Typr keeps its own.
 @MainActor
 final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     let engine: TyprAutocorrectEngine
@@ -260,6 +260,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         reverting = [:]
         engine.recordAppliedCorrection(original: original, corrected: corrected, separator: "", before: anchor)
         let applied = engine.revertOffer(before: anchor)?.correction
+        let join = applied?.boundary.flatMap { $0.original == original ? $0 : nil }
         engine.clearRevertOffer()
         engine.discardFeedback()
         undos = [:]
@@ -272,7 +273,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
             } else {
                 undos[change.from.lowercased()] = .init(
                     original: change.from, insertedText: change.to,
-                    kind: applied?.kind ?? .autoRule, context: applied?.context
+                    kind: applied?.kind ?? .autoRule, context: applied?.context, boundary: join
                 )
             }
         }
