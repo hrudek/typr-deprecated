@@ -122,6 +122,8 @@ final class TyprTouchAdapterTests: XCTestCase {
 
     func testATyprJoinReachesHexAndItsRevertStopsItForTheSession() throws {
         let sources = try XCTUnwrap(BundledKeyboardData.lexicons)
+        // What "think" teaches Typr's touch model as you go on typing can change whether the join is automatic.
+        TyprSettings(defaults: defaults).personalLearning = false
         let typr = TyprAutocorrectEngine(
             checker: KeyboardBoundaryDecoderTests.Checker(sources[.english], trusted: []),
             learning: KeyboardLearningSession(defaults: defaults),
