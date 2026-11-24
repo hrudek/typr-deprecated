@@ -181,12 +181,21 @@ final class TypingLogRecorder {
     private let now: () -> Date
     private var open: Draft?
     private var settled: Draft?
+    private var previous: Draft?
+    private var pendingSpace: Space?
+
+    private struct Space {
+        var point: CGPoint?
+        var layout: TyprKeyboardLayout
+        var time: TimeInterval
+    }
 
     private struct Draft {
         var word: TypingLogWord
         var text: String
         var started: TimeInterval
         var backspacing = false
+        var space: Space?
         var tapsMatchText: Bool { word.literal == text }
         var isBounded: Bool {
             word.taps.count <= TypingLogRecorder.maxTaps
@@ -219,13 +228,20 @@ final class TypingLogRecorder {
     func typed(_ text: String, point: CGPoint?, key: String?, layout: TyprKeyboardLayout,
                time: TimeInterval, field: String?) {
         let token = Self.word(in: field)
+        pendingSpace = nil
         if var draft = open, token == draft.text + text {
             draft.append(text, point: point, key: key, layout: layout, time: time)
             draft.backspacing = false
             open = draft.isBounded ? draft : nil
             return
         }
-        settle()
+        if open == nil, let draft = settled, draft.space?.point != nil {
+            settled = nil
+            settle()
+            previous = draft
+        } else {
+            settle()
+        }
         finish(open, end: text)
         open = nil
         guard token == text else { return }
@@ -237,6 +253,8 @@ final class TypingLogRecorder {
     /// A separator went in after the word, possibly with an automatic replacement.
     func boundary(_ separator: String, replacement: String? = nil,
                   correction: TypingLogWord.Commit.CorrectionKind? = nil) {
+        let space = separator == " " ? pendingSpace : nil
+        pendingSpace = nil
         guard var draft = open, !draft.text.isEmpty else {
             settle()
             open = nil
@@ -250,8 +268,43 @@ final class TypingLogRecorder {
             draft.commit(.init(kind: .literal, text: draft.text))
         }
         draft.word.end = separator
+        draft.space = space
         settle()
         settled = draft
+    }
+
+    func spaceTapped(at point: CGPoint?, layout: TyprKeyboardLayout, time: TimeInterval) {
+        pendingSpace = Space(point: point, layout: layout, time: time)
+    }
+
+    func joined(_ separator: String, replacement: String, correction: TypingLogWord.Commit.CorrectionKind? = nil) {
+        guard var first = previous, let space = first.space, let second = open, !second.text.isEmpty else {
+            boundary(separator, replacement: replacement, correction: correction)
+            return
+        }
+        let joinSpace = separator == " " ? pendingSpace : nil
+        pendingSpace = nil
+        previous = nil
+        open = nil
+        let point = first.word.layout == TypingLogLayout(space.layout) ? space.point : nil
+        first.append(" ", point: point, key: nil, layout: space.layout, time: space.time)
+        let shift = Int(((second.started - first.started) * 1000).rounded())
+        let sameLayout = second.word.layout == nil || second.word.layout == first.word.layout
+        func moved(_ tap: TypingLogTap) -> TypingLogTap {
+            TypingLogTap(t: tap.t + shift, x: sameLayout ? tap.x : nil, y: sameLayout ? tap.y : nil, key: tap.key, text: tap.text)
+        }
+        first.word.taps += second.word.taps.map(moved)
+        first.word.literal += second.word.literal
+        first.word.corrections += second.word.corrections.map { correction in
+            var correction = correction
+            correction.erased = correction.erased?.map(moved)
+            return correction
+        }
+        first.word.commit = .init(kind: .autocorrect, text: replacement, correction: correction)
+        first.word.end = separator
+        first.text = replacement
+        first.space = joinSpace
+        settled = first.isBounded ? first : nil
     }
 
     /// A strip choice replaced the word (`from`, a boundary chip's whole suffix) and added a space.
@@ -339,9 +392,13 @@ final class TypingLogRecorder {
     func discard() {
         open = nil
         settled = nil
+        previous = nil
+        pendingSpace = nil
     }
 
     private func settle() {
+        finish(previous, end: nil)
+        previous = nil
         finish(settled, end: nil)
         settled = nil
     }
@@ -376,7 +433,6 @@ final class TypingLogRecorder {
 }
 
 extension TyprAutocorrectEngine {
-    /// Which decision made the automatic change still waiting for feedback.
     var typingLogCorrection: TypingLogWord.Commit.CorrectionKind {
         switch pendingFeedback?.kind {
         case .autoSpatial: .spatial

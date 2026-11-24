@@ -101,7 +101,6 @@ final class FullKeyboardEngine {
     /// Record typing logs (Experiments); nil while it is off, in fields it skips, and in the
     /// app's fixtures. Every call through it is skipped (arguments too) while nil.
     var typingLog: TypingLogger?
-    /// Typr's typing log while Typr typing is on (`FullKeyboardEngine+TyprTypingLog`); nil otherwise.
     var typrTypingLog: TypingLogRecorder?
     /// Adaptive touch (Experiments): personal key centres for Spatial autocorrect, in place of
     /// `tapOffsets`, learned from taps with evidence of what you meant. Nil while off.
@@ -778,7 +777,7 @@ final class FullKeyboardEngine {
             onReturn?()
             // A text replacement goes in on return too, as on Apple's keyboard; the new line
             // goes in on its own, so a field's return (Send, Search) still sees just "\n".
-            _ = applyTextReplacement(ending: "")
+            _ = applyTextReplacement(ending: "", separator: "\n")
             insert("\n", source: nil)
             logTyprTyped("\n", at: nil)
             typingLog?.context("return")
@@ -1003,7 +1002,7 @@ final class FullKeyboardEngine {
     /// only `ending` back, never the replacement, and keeping the shortcut never turns it
     /// off: so no undo is recorded and nothing is learned. False, typing nothing, when no
     /// shortcut ends the text.
-    private func applyTextReplacement(ending: String) -> Bool {
+    private func applyTextReplacement(ending: String, separator: String? = nil) -> Bool {
         let before = textBefore
         guard field == .text, target.autocorrectionType != .no,
               let replaced = autocorrect.textReplacement(before: before) else { return false }
@@ -1023,7 +1022,7 @@ final class FullKeyboardEngine {
             TypingLogField("textReplacement", .bool(true)),
         ])
         target.insertText(replaced.replacement + smartened(ending, after: replaced.replacement.last))
-        logTyprTyping { $0.boundary(Self.typrTypingLogEnding(ending), replacement: replaced.replacement, correction: .rule) }
+        logTyprTyping { $0.boundary(separator ?? Self.typrTypingLogEnding(ending), replacement: replaced.replacement, correction: .rule) }
         tokenTaps.removeAll()
         swipedWord = nil
         finishedWord = nil
@@ -1080,7 +1079,7 @@ final class FullKeyboardEngine {
                 TypingLogField("inserted", .string(merged + ending)),
                 TypingLogField("merged", .bool(true)),
             ])
-            logTyprTyping { $0.boundary(Self.typrTypingLogEnding(ending), replacement: merged, correction: typrTypingLogCorrection) }
+            logTyprTyping { $0.joined(Self.typrTypingLogEnding(ending), replacement: merged, correction: typrTypingLogCorrection) }
             target.insertText(smartened(merged + ending))
             learning?.record(.autocorrected, typed: token, final: merged, language: autocorrect.language.rawValue)
             recordCorrection(original: original, corrected: merged, ending: ending, changes: [.init(from: token, to: merged, language: autocorrect.language)])
@@ -1230,6 +1229,7 @@ final class FullKeyboardEngine {
             typingLog?.context("space")
             return
         }
+        if let point { logTyprSpace(at: point) }
         let ending = holdsTypedSpace ? "" : " "
         defer { if ending.isEmpty { holdSpaceAfterWord(spaceBar: true) } }
         let token = AutocorrectEngine.currentToken(in: textBefore)

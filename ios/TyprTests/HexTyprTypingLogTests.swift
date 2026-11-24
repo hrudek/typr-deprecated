@@ -2,7 +2,6 @@ import UIKit
 import XCTest
 @testable import Typr
 
-/// Typr's typing log on Hex's keyboard with Typr typing on: the words Typr's keyboard records.
 @MainActor
 final class HexTyprTypingLogTests: XCTestCase {
     private final class Checker: TyprTextChecking {
@@ -62,7 +61,7 @@ final class HexTyprTypingLogTests: XCTestCase {
     }
 
     func testSettledWordRecordsTapsOnTyprsLayout() throws {
-        type("hello w")
+        type("hello w ")
         XCTAssertEqual(written.count, 1)
         let word = try XCTUnwrap(written.first)
         XCTAssertEqual(word.meant, "hello")
@@ -86,7 +85,7 @@ final class HexTyprTypingLogTests: XCTestCase {
         XCTAssertEqual(engine.suggestions.first?.kind, .revert)
         engine.acceptSuggestion(engine.suggestions[0])
         XCTAssertEqual(target.text, "teh")
-        type(" x")
+        type(" x ")
         let word = try XCTUnwrap(written.first)
         XCTAssertEqual(word.commit?.kind, .autocorrect)
         XCTAssertEqual(word.commit?.text, "the")
@@ -95,7 +94,7 @@ final class HexTyprTypingLogTests: XCTestCase {
     }
 
     func testAcceptedAutocorrectionIsTheMeantWord() throws {
-        type("teh x")
+        type("teh x ")
         let word = try XCTUnwrap(written.first)
         XCTAssertEqual(word.literal, "teh")
         XCTAssertEqual(word.meant, "the")
@@ -105,7 +104,7 @@ final class HexTyprTypingLogTests: XCTestCase {
         type("hrl")
         tap(.delete)
         tap(.delete)
-        type("ello x")
+        type("ello x ")
         let word = try XCTUnwrap(written.first)
         XCTAssertEqual(word.meant, "hello")
         XCTAssertEqual(word.literal, "hello")
@@ -159,5 +158,94 @@ final class HexTyprTypingLogTests: XCTestCase {
         type("hello world ")
         engine.configureForField()
         XCTAssertEqual(written, [])
+    }
+
+    func testEmojiSearchRecordsNothing() {
+        let document = HexFixtureTextTarget()
+        document.autocapitalizationType = UITextAutocapitalizationType.none
+        let routed = EmojiRoutedTarget(document: document)
+        let typr = TyprAutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil)
+        engine = FullKeyboardEngine(target: routed, autocorrect: TyprAutocorrectAdapter(engine: typr))
+        engine.typrTypingLog = TypingLogRecorder(write: { [unowned self] in self.written.append($0) },
+                                                 now: { [unowned self] in self.wall })
+        engine.width = 393
+        engine.clock = { [unowned self] in self.now }
+        routed.query = ""
+        engine.configureForField()
+        type("hello world ")
+        routed.query = nil
+        engine.configureForField()
+        XCTAssertEqual(written, [])
+        type("cat")
+        engine.configureForField()
+        XCTAssertEqual(written.map(\.meant), ["cat"])
+    }
+
+    func testAJoinIsOneWordWithBothWordsAndTheSpaceAndExportsForReplay() throws {
+        let sources = try XCTUnwrap(BundledKeyboardData.lexicons)
+        let typr = TyprAutocorrectEngine(
+            checker: KeyboardBoundaryDecoderTests.Checker(sources[.english], trusted: []),
+            learning: KeyboardLearningSession(defaults: defaults),
+            spatialDecoder: SpatialWordDecoder(lexicons: sources),
+            contextResources: KeyboardContextResources(model: BundledKeyboardData.contextModel))
+        target = HexFixtureTextTarget()
+        target.autocapitalizationType = UITextAutocapitalizationType.none
+        engine = FullKeyboardEngine(target: target, autocorrect: TyprAutocorrectAdapter(engine: typr))
+        engine.typrTypingLog = TypingLogRecorder(write: { [unowned self] in self.written.append($0) },
+                                                 now: { [unowned self] in self.wall })
+        engine.width = 393
+        engine.clock = { [unowned self] in self.now }
+        engine.configureForField()
+
+        let grid = TyprKeyboardLayout(width: 393)
+        let typrSpace = try XCTUnwrap(grid.key(.space)).frame
+        let typrV = try XCTUnwrap(grid.key(.character("v"))).frame
+        let hexSpace = try XCTUnwrap(engine.layout.key(.space)).frame
+        let straySpace = CGPoint(x: hexSpace.midX + (typrV.midX - typrSpace.midX) / typrSpace.width * hexSpace.width,
+                                 y: hexSpace.minY + 1)
+        func letters(_ word: String) throws {
+            for letter in word {
+                let key = try XCTUnwrap(engine.layout.key(.character(String(letter))))
+                engine.insert(String(letter), source: "key", at: CGPoint(x: key.frame.midX, y: key.frame.midY))
+                now += 0.1
+            }
+        }
+        func space(at point: CGPoint) {
+            engine.touchBegan(id: 1, at: point)
+            engine.touchEnded(id: 1, at: point)
+            now += 0.1
+        }
+        let centredSpace = try XCTUnwrap(engine.layout.key(.space)).frame
+        try letters("think")
+        space(at: CGPoint(x: centredSpace.midX, y: centredSpace.midY))
+        try letters("ne")
+        space(at: straySpace)
+        try letters("er")
+        space(at: CGPoint(x: centredSpace.midX, y: centredSpace.midY))
+        XCTAssertEqual(target.text, "think never ")
+        engine.configureForField()
+
+        XCTAssertEqual(written.map(\.meant), ["think", "never"])
+        let joined = try XCTUnwrap(written.last)
+        XCTAssertEqual(joined.literal, "ne er")
+        XCTAssertEqual(joined.taps.map(\.text), ["n", "e", " ", "e", "r"])
+        XCTAssertEqual(joined.taps.map(\.t), [0, 100, 200, 300, 400])
+        XCTAssertFalse(joined.taps.contains { $0.x == nil || $0.y == nil })
+        XCTAssertEqual(joined.commit?.kind, .autocorrect)
+        XCTAssertEqual(joined.commit?.text, "never")
+        XCTAssertEqual(joined.end, " ")
+        XCTAssertEqual(joined.corrections, [])
+        XCTAssertEqual(joined.layout, TypingLogLayout(grid))
+
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = TyprTypingLogStore(directory: directory)
+        written.forEach(store.append)
+        store.waitForWrites()
+        let file = try store.export(learning: typr.learning.model.state, protectedWords: [], appBuild: "hex-join-test",
+                                    into: directory, now: wall)
+        let data = try Data(contentsOf: file)
+        XCTAssertEqual(try TypingLogExport.decoder().decode(TypingLogExport.self, from: data).words, written)
+        print("HEX-TYPING-LOG-EXPORT " + data.base64EncodedString())
     }
 }
