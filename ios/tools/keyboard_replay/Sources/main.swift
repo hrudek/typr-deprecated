@@ -12,6 +12,8 @@ Replays a Typr typing log export through the keyboard's own engine.
 Types the invented test text through the engine and writes it as an export to FILE.
        keyboard-replay --touch-posterior
 Prints the learned touch densities after fixed labels as JSON, for the touch-model tests.
+       keyboard-replay --tap-mapping
+Logs taps on Hex's keys as Hex's keyboard does and replays them, as JSON, for the mapping tests.
 """
 
 func readExport(_ path: String) throws -> TypingLogExport {
@@ -42,6 +44,7 @@ func run(_ arguments: [String]) async throws {
     var showWords = false, json = false, parity = false
     var engine = ReplayEngine.typr
     var fixture: URL?
+    var tapMapping = false
     var rest = arguments[...]
     while let argument = rest.popFirst() {
         switch argument {
@@ -56,6 +59,7 @@ func run(_ arguments: [String]) async throws {
             fixture = URL(fileURLWithPath: path)
         case "-h", "--help": print(usage); return
         case "--touch-posterior": print(try touchPosteriorReport(), terminator: ""); return
+        case "--tap-mapping": tapMapping = true
         default:
             guard input == nil, !argument.hasPrefix("-") else { throw ReplayError(usage) }
             input = argument
@@ -68,10 +72,16 @@ func run(_ arguments: [String]) async throws {
     if let fixture {
         return try await makeFixture(words: words, to: fixture)
     }
+    if tapMapping {
+        try Replayer.requireHexResources()
+        let empty = TypingLogExport(exportedAt: Date(), appBuild: "tap-mapping", learning: nil, words: [])
+        return print(try Replayer(words: words, export: empty).tapMappingReport(), terminator: "")
+    }
     guard let input else { throw ReplayError(usage) }
     let export = try readExport(input)
 
     let replayer = try Replayer(words: words, export: export)
+    if parity || engine == .hex { try Replayer.requireHexResources() }
 
     var results: [Result<(PreparedWord, ReplayedWord), SkipReason>] = []
     var pairs: [ParityResult] = []

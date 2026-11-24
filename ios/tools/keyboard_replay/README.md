@@ -70,7 +70,12 @@ The replay sees at most the three words logged before each word as context.
 relative to the same key, the language is German on QWERTZ keys or when English is not among the
 word's languages, and the other of the two is the bilingual partner. Hex runs with its default
 settings (Spatial autocorrect with the English model; German's model stays behind its experiment)
-and none of your learning: Hex keeps its own, which the export does not carry. The words replayed
+and none of your learning: Hex keeps its own, which the export does not carry. Taps move onto Hex's
+keys with the same mapping Hex's keyboard uses to log them for Typr typing. Hex's models and lists
+must sit next to the binary (`build.sh` copies them); without them the Hex replay stops with an
+error. Hex checks spelling with the bundled German and English word lists, not the iPhone's system
+dictionary, so a word whose commit asks for spelling guesses, completions or a capitalised
+spelling is skipped as "needs system spelling". The words replayed
 are the same as with Typr's engine, so `--parity` compares like with like; a word only one engine
 skips is counted under that engine's name. With `--show-words`, a word whose replayed letters
 differ from the logged ones also shows them.

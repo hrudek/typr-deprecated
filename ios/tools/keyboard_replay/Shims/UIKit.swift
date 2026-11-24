@@ -44,8 +44,7 @@ public final class UILexicon {
     public let entries: [UILexiconEntry] = []
 }
 
-/// System spelling is unavailable here; the replay injects its own checkers. The listed languages are
-/// the ones it has word lists for, so Hex sets up autocorrect for German and English.
+/// System spelling is unavailable here; the replay injects its own `TyprTextChecking`.
 public final class UITextChecker {
     public static let availableLanguages = ["de_DE", "en_US"]
     public init() {}
@@ -81,7 +80,6 @@ public protocol UITextDocumentProxy: AnyObject {
     func adjustTextPosition(byCharacterOffset offset: Int)
 }
 
-/// Only the trackpad measures text, and the replay never moves the cursor.
 public final class UIFont: Equatable, Sendable {
     public enum TextStyle: Sendable { case body }
     public let pointSize: CGFloat

@@ -305,10 +305,24 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     }
 
     private func typrPoint(_ tap: CGPoint, on key: TyprKeyboardKey, letter: Character) -> CGPoint? {
-        guard let keys = decoderBaselineKeys ?? decoderKeys, let centre = keys.centres[letter], keys.pitch.width > 0, keys.pitch.height > 0,
-              let pitch = touchLayout.key(.character("g"))?.hitFrame.size else { return nil }
+        guard let keys = decoderBaselineKeys ?? decoderKeys else { return nil }
+        return Self.typrPoint(tap, letter: letter, keys: keys, on: key, in: touchLayout)
+    }
+
+    static func typrPoint(_ tap: CGPoint, letter: Character, keys: TypingDecoder.Keys, on key: TyprKeyboardKey,
+                          in layout: TyprKeyboardLayout) -> CGPoint? {
+        guard let centre = keys.centres[letter], keys.pitch.width > 0, keys.pitch.height > 0,
+              let pitch = layout.key(.character("g"))?.hitFrame.size else { return nil }
         return CGPoint(x: key.frame.midX + (tap.x - centre.x) / keys.pitch.width * pitch.width,
                        y: key.frame.midY + (tap.y - centre.y) / keys.pitch.height * pitch.height)
+    }
+
+    static func hexPoint(_ point: CGPoint, letter: Character, keys: TypingDecoder.Keys, from key: TyprKeyboardKey,
+                         in layout: TyprKeyboardLayout) -> CGPoint? {
+        guard let centre = keys.centres[letter], let pitch = layout.key(.character("g"))?.hitFrame.size,
+              pitch.width > 0, pitch.height > 0 else { return nil }
+        return CGPoint(x: centre.x + (point.x - key.frame.midX) / pitch.width * keys.pitch.width,
+                       y: centre.y + (point.y - key.frame.midY) / pitch.height * keys.pitch.height)
     }
 
     func typingLogTap(_ tap: CGPoint?, text: String) -> (point: CGPoint?, key: String?, layout: TyprKeyboardLayout) {
@@ -324,10 +338,14 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     }
 
     private func typrSpacePoint(_ tap: CGPoint) -> CGPoint? {
-        guard let hex = (decoderBaselineKeys ?? decoderKeys)?.space, hex.width > 0, hex.height > 0,
-              let space = touchLayout.key(.space)?.frame else { return nil }
-        return CGPoint(x: space.midX + (tap.x - hex.midX) / hex.width * space.width,
-                       y: space.midY + (tap.y - hex.midY) / hex.height * space.height)
+        guard let hex = (decoderBaselineKeys ?? decoderKeys)?.space, let space = touchLayout.key(.space)?.frame else { return nil }
+        return Self.spacePoint(tap, from: hex, to: space)
+    }
+
+    static func spacePoint(_ tap: CGPoint, from: CGRect, to: CGRect) -> CGPoint? {
+        guard from.width > 0, from.height > 0 else { return nil }
+        return CGPoint(x: to.midX + (tap.x - from.midX) / from.width * to.width,
+                       y: to.midY + (tap.y - from.midY) / from.height * to.height)
     }
 
     func textReplacement(before: String?) -> (typed: String, replacement: String)? {

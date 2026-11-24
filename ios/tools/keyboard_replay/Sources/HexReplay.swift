@@ -1,11 +1,12 @@
 import Foundation
 import UIKit
 
-/// Hex's system spelling stand-in: the bundled list of the language `useLanguage` picks, with no guesses.
 @MainActor
 final class HexLexiconChecker: TextChecking {
     private let lexicons: [Language: SpatialWordLexicon]
     private var lexicon: SpatialWordLexicon?
+    var recording = false
+    private(set) var deviated = false
 
     init(_ lexicons: [Language: SpatialWordLexicon], language: KeyboardLanguage) {
         self.lexicons = lexicons
@@ -16,9 +17,20 @@ final class HexLexiconChecker: TextChecking {
         lexicon = code.hasPrefix("de") ? lexicons[.german] : code.hasPrefix("en") ? lexicons[.english] : nil
     }
 
-    func isWordValid(_ word: String) -> Bool { lexicon?.logPrior(for: word.lowercased()) != nil }
-    func guesses(for word: String) -> [String] { [] }
-    func completions(for prefix: String) -> [String] { [] }
+    func isWordValid(_ word: String) -> Bool {
+        if recording, word != word.lowercased() { deviated = true }
+        return lexicon?.logPrior(for: word.lowercased()) != nil
+    }
+
+    func guesses(for word: String) -> [String] {
+        if recording, !word.isEmpty { deviated = true }
+        return []
+    }
+
+    func completions(for prefix: String) -> [String] {
+        if recording, !prefix.isEmpty { deviated = true }
+        return []
+    }
 }
 
 @MainActor
@@ -42,8 +54,15 @@ final class HexReplayTarget: KeyboardTextTarget {
 }
 
 extension Replayer {
-    /// The keyboard language and bilingual partner Hex types the word with: German when the keys
-    /// are QWERTZ or English is not among the word's languages.
+    static func requireHexResources() throws {
+        guard FullKeyboardSettings(defaults: nil).typingModel(for: .english) != nil else {
+            throw ReplayError("Hex's typing model en.hextm is missing or invalid next to keyboard-replay; run build.sh again")
+        }
+        for (name, type) in [("never-suggest", "tsv"), ("de", "capitals")] where Bundle.main.url(forResource: name, withExtension: type) == nil {
+            throw ReplayError("Hex's \(name).\(type) is missing next to keyboard-replay; run build.sh again")
+        }
+    }
+
     static func hexLanguages(_ word: TypingLogWord) -> (current: KeyboardLanguage, partner: KeyboardLanguage?)? {
         let codes = Set(word.languages)
         let german = codes.contains(KeyboardLanguage.german.rawValue)
@@ -54,36 +73,31 @@ extension Replayer {
         return (current, codes.contains(other.rawValue) ? other : nil)
     }
 
-    /// A tap logged on Typr's keys, at the same place relative to the same key on Hex's.
-    static func hexPoint(_ tap: TypingLogTap, from typr: TyprKeyboardLayout, to hex: KeyboardLayout) -> CGPoint? {
+    static func hexPoint(_ tap: TypingLogTap, from typr: TyprKeyboardLayout, keys: TypingDecoder.Keys) -> CGPoint? {
         guard let x = tap.x, let y = tap.y else { return nil }
+        let point = CGPoint(x: x, y: y)
         let text = tap.key ?? tap.text.lowercased()
-        let kinds: (TyprKeyKind, KeyKind) = text == " " ? (.space, .space) : (.character(text), .character(text))
-        guard let from = typr.key(kinds.0, nearest: CGPoint(x: x, y: y))?.frame, let to = hex.key(kinds.1)?.frame,
-              from.width > 0, from.height > 0 else { return nil }
-        return CGPoint(x: to.midX + (x - from.midX) / from.width * to.width,
-                       y: to.midY + (y - from.midY) / from.height * to.height)
+        if text == " " {
+            guard let hex = keys.space, let space = typr.key(.space, nearest: point)?.frame else { return nil }
+            return TyprAutocorrectAdapter.spacePoint(point, from: space, to: hex)
+        }
+        guard text.count == 1, let letter = text.first, let key = typr.key(.character(text), nearest: point) else { return nil }
+        return TyprAutocorrectAdapter.hexPoint(point, letter: letter, keys: keys, from: key, in: typr)
     }
 
-    /// The word's logged input through Hex's keyboard and autocorrect with its default settings and no
-    /// personal learning: Hex keeps its own, which the export does not carry.
-    func replayHex(_ word: TypingLogWord, _ prepared: PreparedWord, context: String) -> Result<ReplayedWord, SkipReason> {
-        guard let logged = word.layout, let typr = logged.keyboardLayout else { return .failure(.unknownLayout) }
-        guard let languages = Self.hexLanguages(word) else { return .failure(.noHexLanguage) }
-        let autocorrect = AutocorrectEngine(checker: HexLexiconChecker(words.lexicons, language: languages.current),
-                                            learnedWords: LearnedWordsStore(defaults: nil))
-        let target = HexReplayTarget(text: context)
+    func hexEngine(target: HexReplayTarget, width: CGFloat, landscape: Bool, showsStrip: Bool,
+                   languages: (current: KeyboardLanguage, partner: KeyboardLanguage?))
+        -> (FullKeyboardEngine, AutocorrectEngine, HexLexiconChecker, HexLexiconChecker?) {
+        let checker = HexLexiconChecker(words.lexicons, language: languages.current)
+        let partnerChecker = languages.partner.map { HexLexiconChecker(words.lexicons, language: $0) }
+        let autocorrect = AutocorrectEngine(checker: checker, learnedWords: LearnedWordsStore(defaults: nil))
         let engine = FullKeyboardEngine(target: target, autocorrect: autocorrect)
-        var now: TimeInterval = 1_000
-        engine.clock = { now }
-        engine.width = typr.width
-        engine.orientation = typr.orientation == .landscape ? .landscape : .portrait
-        engine.showsStrip = logged.showsStrip
+        engine.width = width
+        engine.orientation = landscape ? .landscape : .portrait
+        engine.showsStrip = showsStrip
         engine.language = languages.current
-        autocorrect.setPartner(languages.partner, available: UITextChecker.availableLanguages,
-                               checker: languages.partner.map { HexLexiconChecker(words.lexicons, language: $0) })
+        autocorrect.setPartner(languages.partner, available: UITextChecker.availableLanguages, checker: partnerChecker)
         engine.configureForField()
-        // As FullKeyboardView.syncSpatialAutocorrect with Hex's default settings and no learned key centres.
         let settings = FullKeyboardSettings(defaults: nil)
         let model = settings.typingModel(for: languages.current)
         engine.letterOdds = model
@@ -92,6 +106,63 @@ extension Replayer {
             autocorrect.partnerDecoder = languages.partner.flatMap(settings.typingModel(for:)).map { TypingDecoder(model: $0) }
         }
         engine.tapOffsets = TypingDecoder.offsets(from: [:], layout: engine.layout)
+        return (engine, autocorrect, checker, partnerChecker)
+    }
+
+    func tapMappingReport() throws -> String {
+        var report: [String: [String: Double]] = [:]
+        for language in [KeyboardLanguage.english, .german] {
+            let typr = TyprAutocorrectEngine(checker: LexiconChecker(nil), learning: KeyboardLearningSession(store: nil, defaults: nil),
+                                             spatialDecoder: nil)
+            let adapter = TyprAutocorrectAdapter(engine: typr, makeGerman: { GermanAutocorrect(checker: nil) })
+            let app = FullKeyboardEngine(target: HexReplayTarget(text: ""), autocorrect: adapter)
+            app.width = 393
+            app.language = language
+            app.configureForField()
+            let replay = hexEngine(target: HexReplayTarget(text: ""), width: 393, landscape: false, showsStrip: true,
+                                   languages: (language, nil)).1
+            guard let appKeys = adapter.decoderBaselineKeys ?? adapter.decoderKeys, let appSpace = appKeys.space,
+                  let keys = replay.decoderBaselineKeys ?? replay.decoderKeys else {
+                throw ReplayError("Hex's keys are unknown")
+            }
+            var taps = 0.0, unmapped = 0.0, maxError = 0.0
+            func check(_ point: CGPoint, text: String, logged: (point: CGPoint?, key: String?, layout: TyprKeyboardLayout)) {
+                guard let p = logged.point, let layout = TypingLogLayout(logged.layout).keyboardLayout,
+                      let back = Self.hexPoint(TypingLogTap(t: 0, x: p.x, y: p.y, key: logged.key, text: text),
+                                               from: layout, keys: keys) else { unmapped += 1; return }
+                taps += 1
+                maxError = max(maxError, hypot(back.x - point.x, back.y - point.y))
+            }
+            for (letter, centre) in appKeys.centres {
+                for dx in [-9.0, 0, 7] {
+                    for dy in [-8.0, 0, 6] {
+                        let point = CGPoint(x: centre.x + dx, y: centre.y + dy)
+                        check(point, text: String(letter), logged: adapter.typingLogTap(point, text: String(letter)))
+                    }
+                }
+            }
+            for dx in [-40.0, 0, 25] {
+                let point = CGPoint(x: appSpace.midX + dx, y: appSpace.midY + 5)
+                let space = adapter.typingLogSpace(point)
+                check(point, text: " ", logged: (space.point, nil, space.layout))
+            }
+            report[language.rawValue] = ["taps": taps, "unmapped": unmapped, "maxError": maxError]
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return String(decoding: try encoder.encode(report), as: UTF8.self) + "\n"
+    }
+
+    func replayHex(_ word: TypingLogWord, _ prepared: PreparedWord, context: String) -> Result<ReplayedWord, SkipReason> {
+        guard let logged = word.layout, let typr = logged.keyboardLayout else { return .failure(.unknownLayout) }
+        guard let languages = Self.hexLanguages(word) else { return .failure(.noHexLanguage) }
+        let target = HexReplayTarget(text: context)
+        var now: TimeInterval = 1_000
+        let hex = hexEngine(target: target, width: typr.width, landscape: typr.orientation == .landscape,
+                            showsStrip: logged.showsStrip, languages: languages)
+        let (engine, autocorrect, checker, partnerChecker) = hex
+        engine.clock = { now }
+        guard let keys = autocorrect.decoderBaselineKeys ?? autocorrect.decoderKeys else { return .failure(.noHexKey) }
 
         var touch = 0
         func press(_ point: CGPoint) {
@@ -109,7 +180,7 @@ extension Replayer {
         for step in prepared.plan.steps {
             switch step {
             case .tap(let tap):
-                guard let point = Self.hexPoint(tap, from: typr, to: engine.layout) else { return .failure(.noHexKey) }
+                guard let point = Self.hexPoint(tap, from: typr, keys: keys) else { return .failure(.noHexKey) }
                 let time = start + Double(tap.t) / 1000
                 if tap.text.first?.isLetter == true, (tap.text != tap.text.lowercased()) != engine.isUppercase {
                     now = max(now + 0.001, time - 0.05)
@@ -126,13 +197,17 @@ extension Replayer {
         }
         let literal = typed()
         now += 0.2
+        for recorder in [checker] + (partnerChecker.map { [$0] } ?? []) { recorder.recording = true }
+        func deviated() -> Bool { checker.deviated || partnerChecker?.deviated == true }
         switch prepared.plan.end {
         case .none:
             return .success(ReplayedWord(literal: literal, committed: literal))
         case .separator(let separator):
             guard press(separator == "\n" ? .returnKey : .space) else { return .failure(.noHexKey) }
+            if deviated() { return .failure(.systemSpelling) }
         case .pick(let to, let chip):
             engine.refreshSuggestions()
+            if deviated() { return .failure(.systemSpelling) }
             guard let suggestion = engine.suggestions.first(where: {
                 $0.replacement == to && FullKeyboardEngine.typrTypingLogChip($0.kind) == chip
             }) else { return .failure(.pickNotOffered) }

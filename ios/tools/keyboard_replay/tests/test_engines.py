@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -49,21 +50,61 @@ class EngineTests(unittest.TestCase):
     def test_hex_replays_the_words_typr_replays(self):
         report = self.report(SYNTHETIC, "--engine", "hex")
         self.assertEqual(report["engine"], "hex")
-        self.assertEqual((report["exported"], report["replayed"]), (32, 26))
-        self.assertEqual(report["skipped"], {"learning state uncertain": 4, "swipe": 1, "tap without point": 1})
+        self.assertEqual((report["exported"], report["replayed"]), (32, 9))
+        self.assertEqual(report["skipped"], {"learning state uncertain": 4, "needs system spelling": 17, "swipe": 1,
+                                             "tap without point": 1})
         reproduction = report["reproduction"]
-        self.assertEqual((reproduction["literalMatches"], reproduction["literals"]), (26, 26))
-        self.assertEqual((reproduction["commitMatches"], reproduction["commits"], reproduction["picked"]), (21, 24, 1))
+        self.assertEqual((reproduction["literalMatches"], reproduction["literals"]), (9, 9))
+        self.assertEqual((reproduction["commitMatches"], reproduction["commits"], reproduction["picked"]), (4, 7, 1))
 
-    def test_hex_reads_taps_with_its_typing_model(self):
+    def test_a_word_whose_hex_commit_needs_system_spelling_is_skipped(self):
         export = json.loads(SYNTHETIC.read_text())
         export["words"] = [w for w in export["words"] if w["meant"] == "around"][:1]
-        self.assertEqual([t["key"] for t in export["words"][0]["taps"]], list("aroumd"))
         path = Path(self.scratch.name) / "around.json"
         path.write_text(json.dumps(export))
-        report = self.report(path, "--engine", "hex")
-        self.assertEqual(report["reproduction"]["literalMatches"], 1)
-        self.assertEqual(report["reproduction"]["commitMatches"], 1)
+        self.assertEqual(self.report(path, "--engine", "hex")["skipped"], {"needs system spelling": 1})
+        self.assertEqual(self.report(path, "--parity")["skipped"], {"Hex: needs system spelling": 1})
+        self.assertEqual(self.report(path)["replayed"], 1)
+
+    def test_taps_map_onto_hex_keys_as_hex_keyboard_logs_them(self):
+        result = subprocess.run([self.binary, "--tap-mapping"], capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        mapping = json.loads(result.stdout)
+        self.assertEqual((mapping["en"]["taps"], mapping["en"]["unmapped"]), (26 * 9 + 3, 0))
+        self.assertEqual((mapping["de"]["taps"], mapping["de"]["unmapped"]), (26 * 9 + 3, 3 * 9))
+        for language in ("en", "de"):
+            self.assertLess(mapping[language]["maxError"], 1e-9)
+
+    def copy_of_the_build(self) -> Path:
+        copy = Path(tempfile.mkdtemp(dir=self.scratch.name)) / "build"
+        shutil.copytree(Path(self.binary).resolve().parent, copy, ignore=shutil.ignore_patterns("modules", "trimmed"))
+        return copy
+
+    def assert_hex_refuses(self, build: Path, missing: str):
+        for args in (["--engine", "hex"], ["--parity"]):
+            result = subprocess.run([str(build / "keyboard-replay"), str(SYNTHETIC), *args], capture_output=True,
+                                    text=True, timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(missing, result.stderr)
+            self.assertEqual(result.stdout, "")
+        typr = subprocess.run([str(build / "keyboard-replay"), str(SYNTHETIC)], capture_output=True, text=True,
+                              timeout=120)
+        self.assertEqual(typr.returncode, 0, typr.stderr)
+
+    def test_hex_refuses_to_run_without_its_english_model(self):
+        build = self.copy_of_the_build()
+        (build / "en.hextm").unlink()
+        self.assert_hex_refuses(build, "en.hextm")
+
+    def test_hex_refuses_to_run_with_a_broken_english_model(self):
+        build = self.copy_of_the_build()
+        (build / "en.hextm").write_bytes(b"not a model")
+        self.assert_hex_refuses(build, "en.hextm")
+
+    def test_hex_refuses_to_run_without_its_never_suggest_list(self):
+        build = self.copy_of_the_build()
+        (build / "never-suggest.tsv").unlink()
+        self.assert_hex_refuses(build, "never-suggest.tsv")
 
     def test_hex_report_names_its_engine(self):
         result = self.run_tool(SYNTHETIC, "--engine", "hex")
@@ -72,7 +113,7 @@ class EngineTests(unittest.TestCase):
 
     def test_parity_compares_each_replayed_word_once(self):
         parity = self.report(SYNTHETIC, "--parity", "--show-words")
-        self.assertEqual((parity["exported"], parity["compared"], parity["sameCommit"]), (32, 26, 23))
+        self.assertEqual((parity["exported"], parity["compared"], parity["sameCommit"]), (32, 9, 6))
         self.assertEqual(parity["compared"] + sum(parity["skipped"].values()), parity["exported"])
         self.assertEqual(len(parity["differences"]), parity["compared"] - parity["sameCommit"])
         for line in parity["differences"]:
@@ -95,7 +136,8 @@ class EngineTests(unittest.TestCase):
 
     def test_hex_joins_the_words_typr_joined(self):
         parity = self.report(HEX_JOIN, "--parity")
-        self.assertEqual((parity["compared"], parity["sameCommit"]), (2, 2))
+        self.assertEqual((parity["compared"], parity["sameCommit"]), (1, 1))
+        self.assertEqual(parity["skipped"], {"Hex: needs system spelling": 1})
         report = self.report(HEX_JOIN, "--engine", "hex", "--show-words")
         self.assertEqual(report["words"], [{"meant": "observe", "known": True, "logged": "observe",
                                             "replayed": "observe", "replayedLetters": "onset e"}])

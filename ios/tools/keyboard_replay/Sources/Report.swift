@@ -41,7 +41,6 @@ struct WordLine: Codable {
     var known: Bool
     var logged: String
     var replayed: String
-    /// The replay's letters at the first boundary, when they differ from the logged ones.
     var replayedLetters: String?
 }
 
@@ -135,7 +134,6 @@ struct ParityLine: Codable {
 typealias ParityResult = Result<(PreparedWord, typr: Result<ReplayedWord, SkipReason>,
                                  hex: Result<ReplayedWord, SkipReason>), SkipReason>
 
-/// Where Typr's and Hex's engines commit differently for the same logged input.
 struct ParityReport: Codable {
     var exported = 0
     var compared = 0
@@ -145,8 +143,6 @@ struct ParityReport: Codable {
     var hex = Split()
     var differences: [ParityLine]?
 
-    /// `results[i]`: the preparation of `logged[i]` and both engines' replays, or why it was skipped.
-    /// A word only one engine skips counts under that engine's name.
     static func build(words logged: [TypingLogWord], results: [ParityResult], showWords: Bool) -> ParityReport {
         var report = ParityReport(exported: logged.count)
         var lines: [ParityLine] = []
@@ -179,6 +175,8 @@ struct ParityReport: Codable {
 
     func text() -> String {
         var out = "Engine parity: \(exported) words exported, \(compared) replayed through both engines\n"
+        out += "Hex runs on the bundled word lists, not system spelling: words whose commit asks for guesses,"
+        out += " completions or capitalised spellings are skipped\n"
         out += "Same commit: \(sameCommit)/\(compared) words, \(Report.percent(sameCommit, compared))\n"
         if !skipped.isEmpty {
             out += "Skipped: " + skipped.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }

@@ -63,6 +63,7 @@ enum SkipReason: String, Error {
     case editsNotReplayable = "edits not replayable", pickNotOffered = "pick not offered"
     case stateUncertain = "learning state uncertain"
     case noHexLanguage = "no Hex language", noHexKey = "key not on Hex's keys"
+    case systemSpelling = "needs system spelling"
 }
 
 /// A word's input up to its first boundary, rebuilt from the log: every tap in time order, erased

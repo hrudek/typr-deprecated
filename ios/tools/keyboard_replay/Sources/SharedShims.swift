@@ -29,7 +29,6 @@ nonisolated struct TyprAccentMenu: Equatable, Sendable {
     func index(for x: CGFloat) -> Int { selectedIndex }
 }
 
-/// SwipeTyping.swift ends with this CoreAnimation view; build.sh drops it there. The replay never swipes.
 @MainActor
 final class SwipeTrailView {
     var isShowing: Bool { false }
@@ -39,15 +38,11 @@ final class SwipeTrailView {
     func clear() {}
 }
 
-/// TypingLogSession.swift reads UIKit's input traits by reflection. Hex's own typing log is never
-/// connected in the replay, and it has no host proxy.
 nonisolated enum TypingLogTraits {
     @MainActor static func documentIdentifier(of proxy: UITextDocumentProxy) -> UUID? { nil }
     static func name<Trait>(_ trait: Trait) -> String { "\(trait)" }
 }
 
-/// Hex's own typing log (TypingLogger.swift, TypingLogSession.swift) reads UIKit touches and traits.
-/// The replay never connects it, so the engine's calls into it are no-ops.
 @MainActor
 final class TypingLogger {
     func context(_ why: String, force: Bool = false) {}
@@ -69,7 +64,6 @@ nonisolated struct TypingLogTouchSample {
     var timestamp: TimeInterval
 }
 
-/// KeyboardTheme.swift holds UIKit colours; settings only store the theme's name.
 nonisolated enum KeyboardTheme: String, CaseIterable, Sendable {
     case automatic, black, white, navy, forest, ember
 }

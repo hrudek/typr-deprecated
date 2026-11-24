@@ -52,7 +52,6 @@ sources=(
   Statistics/UsageStatisticsSession Statistics/UsageStatisticsStore DictationFeedback DictationFeedbackBridge
   DictationLanguage SpeechEngineChoice HexLanguageSettings FullKeyboard/Hex/KeyboardLanguage TyprSettings FullKeyboard/TyprFullKeyboardSettings FullKeyboard/TyprReturnKeyStyle
 )
-# Hex's keyboard and autocorrect, for --engine hex and --parity.
 sources+=(
   FullKeyboard/KeyboardAutocorrecting FullKeyboard/TyprAutocorrectAdapter
   FullKeyboard/Hex/AdaptiveTouch FullKeyboard/Hex/AdaptiveTouchLabels FullKeyboard/Hex/AutocorrectEngine
@@ -73,7 +72,6 @@ sources+=(
 )
 files=()
 for name in "${sources[@]}"; do files+=("$shared/$name.swift"); done
-# These end with a UIKit view the replay never shows (stand-ins in Sources/SharedShims.swift).
 rm -rf "$build/trimmed"
 mkdir -p "$build/trimmed"
 for name in FullKeyboard/Hex/SwipeTyping FullKeyboard/Hex/AccentPicker; do
@@ -97,7 +95,6 @@ for module in "${modules[@]}"; do
   objects+=("$build/modules/$module.o")
 done
 cp "$shared"/FullKeyboard/WordData/keyboard-{de,en}.{words,tbg} "$build/WordData/"
-# Hex finds its typing models, German capitals and never-suggest list next to the executable.
 cp "$tool"/../../TyprKeyboard/TypingModel/{de,en}.hextm "$tool"/../../TyprKeyboard/TypingModel/de.capitals \
   "$shared"/FullKeyboard/Hex/never-suggest.tsv "$build/"
 
