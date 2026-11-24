@@ -63,6 +63,12 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     private(set) var predictionSource: ModelPredictionSource?
     private(set) var predictions: ModelPredictionSession?
     private var cloudKeyStored = false
+    var swipeDecoding: SwipeDecoding = { await SwipeRecognizer.shared.decode($0) }
+    var releaseSwipe: @Sendable () async -> Void = { await SwipeRecognizer.shared.release() }
+
+    func releaseSwipeResources() async {
+        await releaseSwipe()
+    }
     private var learnsFromTyping: Bool {
         !isSecureField && hasDictionary && typing?.field == .text && typing?.autocorrection != UITextAutocorrectionType.no
     }
@@ -156,6 +162,33 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
                 let word = suggestion.replacement.prefix(1).uppercased() + suggestion.replacement.dropFirst()
                 return KeyboardSuggestion(displayText: word, replacement: word, kind: kind)
             }
+    }
+
+    var canSwipe: Bool {
+        guard learnsFromTyping, let decoder = engine.spatialDecoder else { return false }
+        return !decoder.isResourceLoading && !decoder.resourceSnapshot.isEmpty
+    }
+
+    func swipeWords(_ points: [CGPoint], times: [TimeInterval], keys: TypingDecoder.Keys, keySize: CGSize,
+                    before: String?) async -> [String] {
+        guard canSwipe, points.count == times.count, points.count >= 2,
+              let decoder = engine.spatialDecoder else { return [] }
+        let letters = keys.centres.filter { $0.key.isASCII && $0.key.isLowercase }
+        let xs = letters.values.map(\.x), ys = letters.values.map(\.y)
+        guard let minX = xs.min(), let maxX = xs.max(), let minY = ys.min(), let maxY = ys.max() else { return [] }
+        let box = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+            .insetBy(dx: -keySize.width / 2, dy: -keySize.height / 2)
+        guard let layout = SwipeLayout(centers: letters, frame: box) else { return [] }
+        let path = zip(points, times).map { SwipePoint(x: Double($0.x), y: Double($0.y), time: $1) }
+        let request = SwipeRequest(path: path, layout: layout, languages: engine.suggestionLanguages,
+                                   lexicons: decoder.resourceSnapshot, resources: decoder.resourceRevision)
+        let candidates = await swipeDecoding(request)
+        var words: [String] = []
+        for candidate in candidates where engine.mayOffer(candidate.word, before: before) {
+            let word = engine.swipeSpelling(candidate.word, language: candidate.language)
+            if !words.contains(word) { words.append(word) }
+        }
+        return words
     }
 
     func syncPredictions() {

@@ -249,6 +249,13 @@ actor SwipeRecognizer {
         return merged.sorted { $0.score > $1.score }.filter { seen.insert($0.word).inserted }.prefix(limit).map { $0 }
     }
 
+    var isLoaded: Bool { encoder != nil || !lexicons.isEmpty }
+
+    func release() {
+        encoder = nil
+        releaseLexicons()
+    }
+
     /// Memory warning: the folded tries are rebuilt on the next swipe; the mapped weights stay.
     func releaseLexicons() {
         lexicons = [:]

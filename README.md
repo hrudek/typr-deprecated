@@ -176,8 +176,11 @@ would not fit the keyboard's memory limit.
   uses Typr's autocorrect and suggestions for German and English, with your imported
   contacts and vocabulary protected, Words from context and Typr's learning from kept and
   reverted words. It reads where you tapped each letter with Typr's touch model and joins
-  words split by a stray space. Not yet with it: learning from each typed letter and
-  next-word predictions.
+  words split by a stray space, learns from what you type as Typr keyboard does, and adds
+  next-word predictions from your Anthropic key or Apple's on-device model where Typr
+  keyboard would. With it, Experimental › **Typr swipe typing** (off by default) reads
+  swipes with Typr's own model in German and English; swiped words teach nothing, as on
+  Typr keyboard.
   Typr keyboard adds German/English autocorrect and adaptive suggestions. With both
   languages on, a word only English knows takes the German umlauts or ß once the next word
   is German ("fur dich" → "für dich", Hex); one Delete takes it back.

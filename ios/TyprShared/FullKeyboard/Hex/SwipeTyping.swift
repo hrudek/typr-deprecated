@@ -38,6 +38,8 @@ final class SwipeTyping {
 
     /// How long the last swipe's decode took, for Record typing logs and probes.
     private(set) var lastDecodeTime: TimeInterval?
+    var typrDecode: (([CGPoint], [TimeInterval]) -> (() async -> [String])?)?
+    private(set) var typrDecoding: Task<Void, Never>?
     /// Nats more a rare reading the dictionary knows only with a capital costs, unless it is
     /// one of your own words: the model's lowercase list holds names and abbreviations ("gs",
     /// "ut", "kent") that a loose swipe of a common word could read as, and they would go in
@@ -163,6 +165,20 @@ final class SwipeTyping {
         pending[id] = nil
         generation += 1
         trail.fade()
+        if let typrDecode {
+            if let decode = typrDecode(stroke.points.map(engine.layout.joinedForSwipe), stroke.times) {
+                finishWithTypr(id, stroke: stroke, decode: decode)
+                return
+            }
+            if !engine.language.supportsSwipeTyping {
+                engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: nil)
+                if slidTapLetter(stroke) != nil, let start = stroke.points.first {
+                    engine.touchBegan(id: id, at: start)
+                    engine.touchEnded(id: id, at: start)
+                }
+                return
+            }
+        }
         let started = clock()
         let layout = engine.layout
         let candidates = decoder.decode(
@@ -182,6 +198,34 @@ final class SwipeTyping {
             return
         }
         engine.endSwipe(typing: words, points: stroke.points.count, decodeTime: elapsed)
+    }
+
+    private func finishWithTypr(_ id: Int, stroke: Stroke, decode: @escaping () async -> [String]) {
+        let generation = generation, before = engine.target.documentContextBeforeInput, started = clock()
+        let slidTap = slidTapLetter(stroke)
+        let engine = engine
+        typrDecoding = Task { [weak self] in
+            let words = await decode()
+            guard let self else {
+                engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: nil)
+                return
+            }
+            guard self.generation == generation, self.active == nil else { return }
+            let elapsed = self.clock() - started
+            self.lastDecodeTime = elapsed
+            guard self.engine.target.documentContextBeforeInput == before else {
+                self.engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: elapsed)
+                return
+            }
+            if let slidTap, let start = stroke.points.first,
+               words.first.map({ !Self.word($0, startsAndEndsWith: slidTap) }) ?? true {
+                self.engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: elapsed)
+                self.engine.touchBegan(id: id, at: start)
+                self.engine.touchEnded(id: id, at: start)
+                return
+            }
+            self.engine.endSwipe(typing: words, points: stroke.points.count, decodeTime: elapsed)
+        }
     }
 
     /// How far (key pitches) a swipe may go from where it went down and still be a tap
@@ -229,7 +273,7 @@ final class SwipeTyping {
     /// Reads the path so far off the main thread, at most every `previewInterval`, and shows
     /// its best word in the strip while the swipe is still the same one.
     private func schedulePreview() {
-        guard let swipe = active, !previewInFlight, swipe.stroke.points.count >= 3 else { return }
+        guard typrDecode == nil, let swipe = active, !previewInFlight, swipe.stroke.points.count >= 3 else { return }
         let now = clock()
         guard now - lastPreviewAt >= Self.previewInterval else { return }
         previewInFlight = true
