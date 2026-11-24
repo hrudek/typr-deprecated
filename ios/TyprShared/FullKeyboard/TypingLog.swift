@@ -390,9 +390,10 @@ final class TypingLogRecorder {
     }
 
     func discard() {
+        finish(previous, end: nil)
+        previous = nil
         open = nil
         settled = nil
-        previous = nil
         pendingSpace = nil
     }
 

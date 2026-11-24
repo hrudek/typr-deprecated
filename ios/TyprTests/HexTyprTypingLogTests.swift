@@ -123,6 +123,13 @@ final class HexTyprTypingLogTests: XCTestCase {
         XCTAssertEqual(word.corrections, [.init(kind: .pick, from: "teh", to: "teh", chip: "keep")])
     }
 
+    func testDeletingTheNextWordKeepsTheWordBeforeIt() {
+        type("hello wor")
+        engine.deleteWordBackward()
+        XCTAssertEqual(written.map(\.meant), ["hello"])
+        XCTAssertEqual(written.first?.end, " ")
+    }
+
     func testFieldChangeSettlesTheOpenWord() {
         type("cat")
         engine.configureForField()
