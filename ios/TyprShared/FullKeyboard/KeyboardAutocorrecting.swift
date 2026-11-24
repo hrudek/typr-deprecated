@@ -60,6 +60,12 @@ protocol KeyboardAutocorrecting: AnyObject {
     func revertibleCorrection(before: String?) -> AutocorrectEngine.AppliedCorrection?
     func recordAppliedCorrection(original: String, corrected: String, anchor: String, changes: [AutocorrectEngine.AppliedCorrection.Change])
     func forgetCorrection()
+
+    var isSecureField: Bool { get set }
+    func typedLetter(_ letter: String, before: String?, after: String?)
+    func pickedSuggestion(_ suggestion: KeyboardSuggestion, replacing token: String?, before: String?)
+    func tappedSpace(at point: CGPoint, after: String?)
+    func textEdited()
 }
 
 extension KeyboardAutocorrecting {
@@ -81,4 +87,13 @@ extension AutocorrectEngine: KeyboardAutocorrecting {
         get { partner?.decoder }
         set { partner?.decoder = newValue }
     }
+
+    var isSecureField: Bool {
+        get { false }
+        set {}
+    }
+    func typedLetter(_ letter: String, before: String?, after: String?) {}
+    func pickedSuggestion(_ suggestion: KeyboardSuggestion, replacing token: String?, before: String?) {}
+    func tappedSpace(at point: CGPoint, after: String?) {}
+    func textEdited() {}
 }

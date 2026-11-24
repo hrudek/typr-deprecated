@@ -279,6 +279,8 @@ final class FullKeyboardEngine {
         swipedWord = nil
         finishedWord = nil
         autocorrect.forgetCorrection()
+        autocorrect.isSecureField = target.isSecureTextEntry == true
+        autocorrect.textEdited()
         adaptiveTouch?.beginSession()
         syncAdaptiveField()
         cancelAllTouches()
@@ -291,6 +293,7 @@ final class FullKeyboardEngine {
     /// Call after the text or the cursor changed outside these keys.
     func textDidChange() {
         commitHangulIfHostMoved()
+        if textBefore != typingContext { autocorrect.textEdited() }
         lastSpaceAt = nil
         // The host's report may be an echo of the keys' own insert, or still lag it: either
         // leaves the text as the keys left it (`typingContext`, `SwipedWord.before`).
@@ -387,6 +390,7 @@ final class FullKeyboardEngine {
         // replacement's shortcut, which may hold digits or punctuation ("ad2").
         let before = textBefore
         let replacing = autocorrect.textReplacement(before: before)?.typed ?? AutocorrectEngine.currentToken(in: before)
+        autocorrect.pickedSuggestion(suggestion, replacing: replacing, before: before)
         if let log = typingLog {
             let token = replacing ?? ""
             log.edit("suggestion", [
@@ -431,6 +435,7 @@ final class FullKeyboardEngine {
     func insertEmoji(_ text: String, source: String) {
         commitHangulComposition()
         adaptiveTouch?.forget()
+        autocorrect.textEdited()
         learning?.didFinish(word: AutocorrectEngine.currentToken(in: textBefore), language: autocorrect.language.rawValue)
         insert(text, source: source)
     }
@@ -858,6 +863,7 @@ final class FullKeyboardEngine {
         // what Hex typed, and keep the record when it answers, as the text has not changed.
         if takesSwipeBack, dropsHeldSpace() { return }
         forgetTypingContext()
+        autocorrect.textEdited()
         // Right after a swipe, delete takes back its whole word (and the space it added),
         // unless its experiment asks for one character at a time, as anywhere else.
         let swiped = swipedWord
@@ -1211,6 +1217,7 @@ final class FullKeyboardEngine {
         }
         if !afterSwipe, finishWord(ending: ending) {
             rememberFinishedWord(typed: token, taps: taps, space: point)
+            if let point, !ending.isEmpty { autocorrect.tappedSpace(at: point, after: textBefore) }
             lastSpaceAt = now
             layerState.didInsert(" ")
             rebuildLayoutIfNeeded()
@@ -1220,6 +1227,7 @@ final class FullKeyboardEngine {
         }
         insert(ending, source: "key")
         if !afterSwipe, let token { rememberFinishedWord(typed: token, taps: taps, space: point) }
+        if !afterSwipe, let point, !ending.isEmpty { autocorrect.tappedSpace(at: point, after: textBefore) }
         lastSpaceAt = now
         typingLog?.context("space")
     }
@@ -1266,7 +1274,11 @@ final class FullKeyboardEngine {
         }
         let contextBefore = typingContext
         rememberTypingContext(before: contextBefore, inserted: text)
+        let typedBefore = textBefore
         typeIntoField(text, source: source)
+        if point != nil, text.count == 1, text.first?.isLetter == true {
+            autocorrect.typedLetter(text, before: typedBefore, after: textBefore)
+        }
         lastSpaceAt = nil
         layerState.didInsert(text)
         rebuildLayoutIfNeeded()
