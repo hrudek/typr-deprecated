@@ -59,6 +59,8 @@ struct KeyboardSettingsCard: View {
                 HexKeyboardKeysSection(defaults: defaults)
             }
 
+            HexDictationBarSection(defaults: defaults)
+
             SettingsSection {
                 NavigationLink(value: SettingsDestination.keyboardWordsPrivacy) {
                     SettingsLink(title: "Words and privacy", detail: "Learning, personal words and saved data")

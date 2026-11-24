@@ -108,4 +108,32 @@ final class DefaultPathParityTests: XCTestCase {
         language.currentKeyboardLanguage = .german
         XCTAssertEqual(language.typrDictationLanguage(typr: settings), .german)
     }
+
+    func testDictationBarAutoStartsOnlyOnSwitchBackByDefault() {
+        let setting = FullKeyboardSettings(defaults: defaults).dictationBarAutoStart
+        XCTAssertEqual(setting, .whenSwitching, "Hex's default")
+        XCTAssertTrue(setting.startsDictation(
+            onDictationBar: true, isSwitchBack: true, hasFullAccess: true, isIdle: true, route: KeyboardFieldRouting.route(for: .default)
+        ))
+        XCTAssertFalse(setting.startsDictation(
+            onDictationBar: true, isSwitchBack: false, hasFullAccess: true, isIdle: true, route: KeyboardFieldRouting.route(for: .default)
+        ))
+    }
+
+    func testDictationBarAutoStartNeedsAnIdleBarWithFullAccessOutsideHandOffFields() {
+        func starts(
+            _ choice: DictationBarAutoStart, bar: Bool = true, switchBack: Bool = false, access: Bool = true,
+            idle: Bool = true, route: KeyboardFieldRoute = KeyboardFieldRouting.route(for: .default)
+        ) -> Bool {
+            choice.startsDictation(
+                onDictationBar: bar, isSwitchBack: switchBack, hasFullAccess: access, isIdle: idle, route: route
+            )
+        }
+        XCTAssertTrue(starts(.always))
+        XCTAssertFalse(starts(.never, switchBack: true), "Never leaves Dictate to a tap")
+        XCTAssertFalse(starts(.always, bar: false), "Never on the full keyboard")
+        XCTAssertFalse(starts(.always, access: false))
+        XCTAssertFalse(starts(.always, idle: false))
+        XCTAssertFalse(starts(.always, route: KeyboardFieldRouting.route(for: .numberPad)))
+    }
 }

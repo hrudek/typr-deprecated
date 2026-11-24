@@ -38,3 +38,20 @@ struct KeyboardSurfaceChoice {
         return settings[experiment: .typrTyping] ? .hexWithTyprTyping : .hex
     }
 }
+
+extension DictationBarAutoStart {
+    func startsDictation(
+        onDictationBar: Bool,
+        isSwitchBack: Bool,
+        hasFullAccess: Bool,
+        isIdle: Bool,
+        route: KeyboardFieldRoute
+    ) -> Bool {
+        let wanted = switch self {
+        case .never: false
+        case .always: true
+        case .whenSwitching: isSwitchBack
+        }
+        return wanted && onDictationBar && hasFullAccess && isIdle && route != .handOff
+    }
+}

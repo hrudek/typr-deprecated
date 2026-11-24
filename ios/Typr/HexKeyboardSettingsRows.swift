@@ -73,6 +73,59 @@ struct HexKeyboardKeysSection: View {
     }
 }
 
+struct HexDictationBarSection: View {
+    @Environment(\.scenePhase) private var scenePhase
+    private let defaults: UserDefaults?
+    @State private var autoStart: DictationBarAutoStart
+
+    init(defaults: UserDefaults? = UserDefaults(suiteName: KeyboardBridge.appGroup)) {
+        self.defaults = defaults
+        _autoStart = State(initialValue: FullKeyboardSettings(defaults: defaults).dictationBarAutoStart)
+    }
+
+    private var hex: FullKeyboardSettings { FullKeyboardSettings(defaults: defaults) }
+
+    var body: some View {
+        SettingsSection(title: "Dictation bar") {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Auto-start").font(.body).foregroundStyle(TyprTheme.textBase)
+                    Text(autoStart.detail).font(.footnote).foregroundStyle(TyprTheme.textMuted)
+                }
+                Spacer(minLength: 8)
+                Picker("Auto-start", selection: $autoStart) {
+                    ForEach(DictationBarAutoStart.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+                .accessibilityIdentifier("dictation-bar-auto-start")
+            }
+            .padding(16)
+            .onChange(of: autoStart) { _, choice in hex.dictationBarAutoStart = choice }
+        }
+        .onAppear { autoStart = hex.dictationBarAutoStart }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { autoStart = hex.dictationBarAutoStart } }
+    }
+}
+
+extension DictationBarAutoStart {
+    var label: String {
+        switch self {
+        case .never: "Never"
+        case .whenSwitching: "On switch"
+        case .always: "Always"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .never: "Tap Dictate to start"
+        case .whenSwitching: "When you switch to Typr"
+        case .always: "Each time the dictation bar opens"
+        }
+    }
+}
+
 extension KeyHapticStrength {
     var title: String {
         switch self {
