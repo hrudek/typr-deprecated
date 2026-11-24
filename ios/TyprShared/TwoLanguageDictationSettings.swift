@@ -1,10 +1,7 @@
 import Foundation
 
-/// Experimental › Hex experiments › Two-language dictation (anomalyco/hex #2348), in the shared
-/// App Group so in-keyboard dictation reads it too. Off by default. While it is on, Apple
-/// Speech reads one recording in the language dictation resolved and in the other of German
-/// and English when its model is already installed, and keeps the more confident reading for
-/// each phrase (`AppleSpeechTwoLanguage`, `TwoLanguageMerger`).
+/// Experimental › Hex experiments › Two-language dictation (anomalyco/hex #2348). Off by
+/// default. Only app dictation reads it; in-keyboard dictation keeps one recognizer.
 nonisolated struct TwoLanguageDictationSettings {
     static let enabledKey = ExperimentalSwitch.twoLanguageDictation.key
 

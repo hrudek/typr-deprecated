@@ -88,7 +88,6 @@ nonisolated enum AppleSpeechTwoLanguage {
             return nil
         }
 
-        // A second language that can't prepare leaves the primary reading alone.
         do {
             try await primaryAnalyzer.prepareToAnalyze(in: nil)
         } catch {
@@ -131,8 +130,6 @@ nonisolated enum AppleSpeechTwoLanguage {
         } catch {
             return nil
         }
-        // The primary finished but heard nothing: say so instead of making the caller run
-        // the whole single-language path again.
         guard !primary.text.isEmpty else {
             return Transcript(
                 text: "",
@@ -146,8 +143,6 @@ nonisolated enum AppleSpeechTwoLanguage {
             winner: .primary,
             secondaryLanguage: pair.secondary.identifier(.bcp47)
         )
-        // Nothing usable from the second or from either reading's timed words: the primary's
-        // own text, exactly as dictation would have given it alone.
         guard !secondary.words.isEmpty, !primary.words.isEmpty else { return fallback }
         let merged = TwoLanguageMerger.merge(primary: primary.words, secondary: secondary.words)
         guard merged.usedSecondary, !merged.text.isEmpty else { return fallback }
@@ -196,8 +191,6 @@ nonisolated enum AppleSpeechTwoLanguage {
                     continue
                 }
             }
-            // No time range, or one that can't be placed: keep the characters on the word
-            // before it, or wait for the first one.
             if !words.isEmpty {
                 words[words.count - 1] = words[words.count - 1].appending(characters, endingAt: nil)
             } else {
@@ -207,7 +200,6 @@ nonisolated enum AppleSpeechTwoLanguage {
         return words
     }
 
-    /// One dictation's module: `SpeechTranscriber` with the attributes the merge reads.
     private static func transcriber(for locale: Locale) -> SpeechTranscriber {
         SpeechTranscriber(
             locale: locale,
@@ -236,7 +228,6 @@ nonisolated enum AppleSpeechTwoLanguage {
         try? await analyzer.setContext(context)
     }
 
-    /// Final results' text and words; a transcriber that didn't start has no reading.
     private static func reading(of transcriber: SpeechTranscriber?) async throws -> Reading {
         guard let transcriber else { return Reading() }
         var reading = Reading()

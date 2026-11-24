@@ -4,9 +4,6 @@ import Speech
 import XCTest
 @testable import Typr
 
-/// Experiments › Two-language dictation's merge: two readings of one recording, the more
-/// confident reading for each piece, with a language change costing enough that one doubtful
-/// word never flips it, and the primary's own text whenever the second reading adds nothing.
 final class TwoLanguageMergeTests: XCTestCase {
     private func word(
         _ text: String,
@@ -40,7 +37,6 @@ final class TwoLanguageMergeTests: XCTestCase {
     }
 
     func testMixedSentenceKeepsTheConfidentReadingPerPiece() {
-        // German at the start, English at the end, each read badly by the other language.
         let primary = [
             word(" ich", 0, 0.4, 0.9),
             word(" bin", 0.4, 0.8, 0.9),
@@ -61,8 +57,6 @@ final class TwoLanguageMergeTests: XCTestCase {
     }
 
     func testSwitchCostKeepsASingleDoubtfulWordInThePrimaryReading() {
-        // The middle word is much better in the secondary reading, but two changes cost more
-        // than that one word gains.
         let primary = [
             word(" a", 0, 0.3, 0.9),
             word(" b", 0.3, 0.6, 0.4),
@@ -81,9 +75,6 @@ final class TwoLanguageMergeTests: XCTestCase {
     }
 
     func testSeamWordReadTwiceIsKeptOnce() {
-        // The primary closes its German piece with "Shared" at 0.7-0.9; the secondary starts
-        // its English piece with the same spoken word at 0.8-1.0, overlapping by half the
-        // shorter one.
         let primary = [
             word(" eins", 0, 0.3, 0.9),
             word(" zwei", 0.3, 0.5, 0.9),
@@ -105,8 +96,6 @@ final class TwoLanguageMergeTests: XCTestCase {
     }
 
     func testSameTextApartInTimeIsKeptTwice() {
-        // The same word said twice: the readings' spans do not overlap, so it is not a seam
-        // duplicate and both stay.
         let primary = [
             word(" eins", 0, 0.3, 0.9),
             word(" zwei", 0.3, 0.5, 0.9),
@@ -144,8 +133,6 @@ final class TwoLanguageMergeTests: XCTestCase {
     }
 
     func testAllPrimaryUnspacedTextLeavesSecondaryUnused() {
-        // Chinese runs arrive without spaces; the merge need not reconstruct them because a
-        // primary-only result keeps Apple's own text.
         let primary = [
             word("你好", 0, 0.5, 0.9),
             word("世界", 0.5, 1.0, 0.9),
@@ -177,8 +164,6 @@ final class TwoLanguageMergeTests: XCTestCase {
     }
 
     func testReadingCoveringLessAudioDoesNotWinOnConfidenceAlone() {
-        // The primary is more confident but covers a tenth of the segment; the secondary
-        // covers all of it less confidently and so has more confident audio to offer.
         let primary = [word(" hi", 0, 0.1, 0.9)]
         let secondary = [word(" hello there", 0, 1.0, 0.8)]
 
