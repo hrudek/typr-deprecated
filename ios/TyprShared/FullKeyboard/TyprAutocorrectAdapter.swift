@@ -256,7 +256,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     }
 
     func suppressAndKeep(_ word: String) {
-        guard !isSecureField else { return }
+        guard learnsFromTyping else { return }
         if keptByPick == word.lowercased() {
             keptByPick = nil
             return
@@ -331,7 +331,6 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
                KeyboardBoundaryTouch.letterDensity(typrPoint, key: key, layout: touchLayout, calibration: calibration)
                    .map { $0 > asSpace } ?? false
            }) {
-            // As on Typr keyboard: a space that may have been a letter never teaches the word before it.
             engine.discardFeedback()
         }
         engine.spaceTyped(at: typrPoint, layout: touchLayout, afterInput: after)

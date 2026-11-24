@@ -132,6 +132,24 @@ final class TyprLearningHooksTests: XCTestCase {
         XCTAssertEqual(learning.diagnostics.acceptedLabels, 0)
     }
 
+    func testNothingIsLearnedOrKeptOutsideAutocorrectedTextFields() throws {
+        let fields: [(KeyboardFieldKind, UITextAutocorrectionType)] = [(.url, .default), (.email, .default), (.text, .no)]
+        for (field, autocorrection) in fields {
+            makeEngine()
+            _ = adapter.suggestions(beforeInput: "hello ", field: field, autocorrectionType: autocorrection,
+                                    predictionModel: nil, capitalizesNext: false)
+            adapter.typedLetter("w", before: "hello ", after: "hello w")
+            adapter.pickedSuggestion(KeyboardSuggestion(displayText: "“teh”", replacement: "teh", kind: .keepLiteral),
+                                     replacing: "teh", before: "teh")
+            adapter.suppressAndKeep("teh")
+            adapter.tappedSpace(at: try centre(.space), after: "teh ")
+            let label = "\(field) \(autocorrection.rawValue)"
+            XCTAssertFalse(learning.protections.isKept("teh"), label)
+            XCTAssertEqual(count("teh"), 0, label)
+            XCTAssertEqual(learning.diagnostics.acceptedLabels, 0, label)
+        }
+    }
+
     func testNoJoinOutsideTextFields() throws {
         for type in [UIKeyboardType.URL, .emailAddress] {
             makeEngine(keyboardType: type)

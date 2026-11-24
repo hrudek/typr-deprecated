@@ -122,7 +122,6 @@ extension FullKeyboardEngine {
         )
     }
 
-    /// Whether the host's report is the keys' own last insert, or a host still behind it.
     var hostReportsKeysOwnText: Bool {
         textBefore == expectedTypingContext?.expected || hostIsBehind
     }
