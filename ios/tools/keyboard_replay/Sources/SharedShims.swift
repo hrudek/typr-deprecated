@@ -27,3 +27,11 @@ nonisolated struct TyprAccentMenu: Equatable, Sendable {
 
     func index(for x: CGFloat) -> Int { selectedIndex }
 }
+
+nonisolated enum KoreanKeyboardExperiment {
+    static let isEnabled = false
+}
+
+nonisolated enum FrenchTyping {
+    static let key = "\u{00B4}"
+}
