@@ -218,6 +218,12 @@ final class FullKeyboardEngine {
     init(target: KeyboardTextTarget, autocorrect: (any KeyboardAutocorrecting)? = nil) {
         self.target = target
         self.autocorrect = autocorrect ?? AutocorrectEngine() as any KeyboardAutocorrecting
+        self.autocorrect.onLateSuggestions = { [weak self] in self?.refreshSuggestions() }
+        self.autocorrect.allowsPredictions = { [weak target] in
+            guard let target else { return false }
+            return target.isSecureTextEntry != true && target.inlinePredictionType != .no
+                && target.keyboardType != .numbersAndPunctuation
+        }
         rebuildLayout()
     }
 

@@ -29,6 +29,7 @@ final class EmojiRoutedTarget: KeyboardTextTarget {
     var textContentType: UITextContentType? { isSearching ? nil : document.textContentType }
     /// Typr: a secure field stays secure while you search, so nothing typed there is learned.
     var isSecureTextEntry: Bool? { document.isSecureTextEntry }
+    var inlinePredictionType: UITextInlinePredictionType? { isSearching ? .no : document.inlinePredictionType }
     var smartQuotesType: UITextSmartQuotesType? { isSearching ? .no : document.smartQuotesType }
     var smartDashesType: UITextSmartDashesType? { isSearching ? .no : document.smartDashesType }
     var selectedText: String? { isSearching ? nil : document.selectedText }
