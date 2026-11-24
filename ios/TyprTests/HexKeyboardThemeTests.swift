@@ -324,7 +324,7 @@ final class HexKeyboardThemeTests: XCTestCase {
             "experiments.adaptiveTouch", "experiments.germanSpatialAutocorrect",
             "experiments.dvorakPunctuation", "experiments.emojiLettersUnderEmojiKey", "experiments.keyboardThemes",
             "experiments.twoThumbSelection", "experiments.swipeDeleteLetterByLetter", "experiments.hideWordSuggestions",
-            "experiments.joinKeyboardWhenUnfolded",
+            "experiments.joinKeyboardWhenUnfolded", "experiments.learnPerLanguage",
         ])
         XCTAssertTrue(switches.allSatisfy { ExperimentalSwitch.all.contains($0) })
         let typr = TyprSettings(defaults: defaults)
@@ -343,6 +343,7 @@ final class HexKeyboardThemeTests: XCTestCase {
         XCTAssertTrue(hex.deletesSwipedWordsLetterByLetter)
         XCTAssertTrue(hex.hideWordSuggestions)
         XCTAssertTrue(hex.joinsKeyboardWhenUnfolded)
+        XCTAssertTrue(TypingJournalSettings(defaults: defaults).learnsPerLanguage)
     }
 
     /// The Keyboard themes row offers all six themes, Automatic included, once it is on.

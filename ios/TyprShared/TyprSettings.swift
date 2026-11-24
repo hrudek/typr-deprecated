@@ -34,6 +34,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
         .hexAdaptiveTouch, .hexGermanSpatialAutocorrect, .hexDvorakPunctuation,
         .hexEmojiLettersUnderEmojiKey, .hexKeyboardThemes, .hexTwoThumbSelection,
         .hexSwipeDeleteLetterByLetter, .hexHideWordSuggestions, .hexJoinKeyboardWhenUnfolded,
+        .hexLearnEachLanguage,
     ]
 
     /// Every switch shown in Settings > Experimental.
@@ -93,6 +94,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
         detail: "On the iPhone Duo unfolded, keeps the keys on one keyboard instead of splitting them."
     )
 
+    static let hexLearnEachLanguage = ExperimentalSwitch(
+        hexKey: "experiments.learnPerLanguage",
+        title: "Learn each language separately",
+        detail: "Learned words and fixes stay with their language."
+    )
+
     static let appleIntelligenceCleanup = ExperimentalSwitch(
         name: "appleIntelligenceCleanup",
         title: "Clean up with Apple Intelligence",
@@ -139,24 +146,6 @@ nonisolated struct ExperimentalSwitch: Hashable {
         name: "variant.conservativeSpokenCleanup",
         title: "Typr conservative spoken cleanup",
         detail: "Clean up what I say uses Typr's German and English word rules instead of Hex's hesitation rule."
-    )
-
-    static let typrAICleanupPipeline = ExperimentalSwitch(
-        name: "variant.aiCleanupPipeline",
-        title: "Typr AI cleanup pipeline",
-        detail: "AI cleanup uses Typr's prompt, rewrites and guard, and the Anthropic provider when it is chosen."
-    )
-
-    static let typrVocabularyMatching = ExperimentalSwitch(
-        name: "variant.vocabularyMatching",
-        title: "Typr vocabulary matching",
-        detail: "Your words are matched with Typr's spelling rules instead of Hex's."
-    )
-
-    static let typrDictationEditLearning = ExperimentalSwitch(
-        name: "variant.dictationEditLearning",
-        title: "Typr dictation edit learning",
-        detail: "Learning from your edits uses Typr's rules and storage instead of Hex's."
     )
 
     static let typrTranslationPolicy = ExperimentalSwitch(
@@ -236,7 +225,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrOverrides: [ExperimentalSwitch] = [
         .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
-        .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
+        .typrTranslationPolicy,
         .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrTyping, .typrSwipeTyping, .typrCursorSliding,
         .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard,
     ]
@@ -328,7 +317,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let multilingualParakeet = ExperimentalSwitch(
         name: "multilingualParakeet",
         title: "Multilingual model (Parakeet)",
-        detail: "25 languages, even mixed in one sentence, with Automatic as the speech engine. 632 MB download, deleted when you turn this off. Once ready, keyboard dictation opens Typr."
+        detail: "German and English, even mixed in one sentence, with Automatic as the speech engine. 632 MB download, deleted when you turn this off. Once ready, keyboard dictation opens Typr."
     )
 
     static let keyboardDictation = ExperimentalSwitch(
