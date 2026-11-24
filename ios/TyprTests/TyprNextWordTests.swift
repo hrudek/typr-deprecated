@@ -103,6 +103,34 @@ final class TyprNextWordTests: XCTestCase {
         XCTAssertTrue(engine.suggestions.contains { $0.replacement == "Wonderful" && $0.kind == .nextWord })
     }
 
+    func testASameKindFieldWithInlinePredictionsOffGetsNoRequest() throws {
+        let provider = FakeProvider { _ in nil }
+        var target: HexFixtureTextTarget!
+        let (engine, adapter) = makeKeyboard(provider) { target = $0 }
+        try type("hello ", on: engine)
+        XCTAssertEqual(adapter.predictions?.isActive, true)
+        target.inlinePredictionType = .no
+        engine.textDidChange()
+        XCTAssertEqual(adapter.predictions?.isActive, false, "the pending request goes")
+        try type("world ", on: engine)
+        XCTAssertEqual(adapter.predictions?.isActive, false, "and no new one is made")
+    }
+
+    func testATraitChangeWhileARequestIsPendingCancelsItAndShowsNothing() async throws {
+        let provider = FakeProvider { _ in nil }
+        var target: HexFixtureTextTarget!
+        let (engine, adapter) = makeKeyboard(provider) { target = $0 }
+        let cancelled = expectation(description: "the pending request is cancelled")
+        provider.onCancel = { if $0 == "hello " { cancelled.fulfill() } }
+        try type("hello ", on: engine)
+        XCTAssertEqual(adapter.predictions?.isActive, true)
+        target.inlinePredictionType = .no
+        engine.refreshSuggestions()
+        await fulfillment(of: [cancelled], timeout: 5)
+        XCTAssertEqual(adapter.predictions?.isActive, false)
+        XCTAssertFalse(engine.suggestions.contains { $0.replacement == "wonderful" })
+    }
+
     func testNoRequestWhereTyprKeyboardWouldNotPredict() throws {
         let gated: [(String, (HexFixtureTextTarget) -> Void)] = [
             ("secure", { $0.isSecureTextEntry = true }),

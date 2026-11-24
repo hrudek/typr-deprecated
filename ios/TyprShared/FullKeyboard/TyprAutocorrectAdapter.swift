@@ -55,7 +55,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     private var typing: (field: KeyboardFieldKind, autocorrection: UITextAutocorrectionType?)?
     private var keptByPick: String?
     var isSecureField = false
-    var allowsPredictions = true
+    var allowsPredictions: () -> Bool = { true }
     var onLateSuggestions: (() -> Void)?
     var cloudPredictions: (any ModelPredictionProvider)?
     var hasCloudKey: () -> Bool = { false }
@@ -180,7 +180,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     }
 
     private func withModelPredictions(_ counted: [TyprKeyboardSuggestion], before: String?) -> [TyprKeyboardSuggestion] {
-        guard let predictions, learnsFromTyping, allowsPredictions, engine.canPredictNextWord(after: before),
+        guard let predictions, learnsFromTyping, allowsPredictions(), engine.canPredictNextWord(after: before),
               let request = ModelPredictionRequest(before: before) else {
             predictions?.keep(only: nil)
             return counted

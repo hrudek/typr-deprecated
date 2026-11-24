@@ -62,7 +62,7 @@ protocol KeyboardAutocorrecting: AnyObject {
     func forgetCorrection()
 
     var isSecureField: Bool { get set }
-    var allowsPredictions: Bool { get set }
+    var allowsPredictions: () -> Bool { get set }
     var onLateSuggestions: (() -> Void)? { get set }
     func typedLetter(_ letter: String, before: String?, after: String?)
     func pickedSuggestion(_ suggestion: KeyboardSuggestion, replacing token: String?, before: String?)
@@ -94,8 +94,8 @@ extension AutocorrectEngine: KeyboardAutocorrecting {
         get { false }
         set {}
     }
-    var allowsPredictions: Bool {
-        get { true }
+    var allowsPredictions: () -> Bool {
+        get { { true } }
         set {}
     }
     var onLateSuggestions: (() -> Void)? {

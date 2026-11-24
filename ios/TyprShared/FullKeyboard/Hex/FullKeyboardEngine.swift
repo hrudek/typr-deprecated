@@ -219,6 +219,11 @@ final class FullKeyboardEngine {
         self.target = target
         self.autocorrect = autocorrect ?? AutocorrectEngine() as any KeyboardAutocorrecting
         self.autocorrect.onLateSuggestions = { [weak self] in self?.refreshSuggestions() }
+        self.autocorrect.allowsPredictions = { [weak target] in
+            guard let target else { return false }
+            return target.isSecureTextEntry != true && target.inlinePredictionType != .no
+                && target.keyboardType != .numbersAndPunctuation
+        }
         rebuildLayout()
     }
 
@@ -281,7 +286,6 @@ final class FullKeyboardEngine {
         finishedWord = nil
         autocorrect.forgetCorrection()
         autocorrect.isSecureField = target.isSecureTextEntry == true
-        autocorrect.allowsPredictions = target.inlinePredictionType != .no && target.keyboardType != .numbersAndPunctuation
         autocorrect.textEdited()
         adaptiveTouch?.beginSession()
         syncAdaptiveField()
