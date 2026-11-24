@@ -24,7 +24,8 @@ final class TyprSwipeAdapterTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    private func makeView(_ keys: Keys = .joined, typrSwipe: Bool = true, decoding: @escaping SwipeDecoding,
+    private func makeView(_ keys: Keys = .joined, typrSwipe: Bool = true, german: Set<String> = [],
+                          decoding: @escaping SwipeDecoding,
                           configure: (HexFixtureTextTarget) -> Void = { _ in })
         -> (FullKeyboardView, HexFixtureTextTarget, TyprAutocorrectAdapter) {
         let settings = TyprSettings(defaults: defaults)
@@ -39,7 +40,9 @@ final class TyprSwipeAdapterTests: XCTestCase {
         let adapter = TyprAutocorrectAdapter(engine: TyprAutocorrectEngine(
             checker: Checker(valid: ["hello"]), learning: KeyboardLearningSession(defaults: defaults),
             spatialDecoder: SpatialWordDecoder(lexicons: [.english: spatialLexicon([("hello", 100)])]),
-            contextResources: .init(model: nil)))
+            contextResources: .init(model: nil))) {
+            GermanAutocorrect(checker: Checker(valid: german))
+        }
         adapter.swipeDecoding = decoding
         let target = HexFixtureTextTarget()
         target.autocapitalizationType = UITextAutocapitalizationType.none
@@ -139,6 +142,30 @@ final class TyprSwipeAdapterTests: XCTestCase {
         XCTAssertNotNil(typr.plane.swipe?.typrDecode)
     }
 
+    func testAGermanSwipeKeepsItsUmlautAndCapitalisesItsNoun() async throws {
+        LanguageSettings(defaults: defaults).keyboardLanguages = [.german]
+        for (word, typed) in [("über", "über"), ("haus", "Haus")] {
+            let (view, target, _) = makeView(german: ["über", "Haus"], decoding: { _ in
+                [.init(word: word, score: 1, language: .german)]
+            })
+            XCTAssertEqual(view.engine.language, .german)
+            try await swipe("hello", on: view)
+            XCTAssertEqual(target.text, typed)
+        }
+    }
+
+    func testOutsideAutocorrectedTextFieldsHexReadsTheSwipe() async throws {
+        let requests = Recorded<SwipeRequest>()
+        let (view, target, _) = makeView(decoding: { request in
+            await requests.append(request)
+            return [.init(word: "hello", score: 1, language: .english)]
+        }, configure: { $0.autocorrectionType = .no })
+        try await swipe("hello", on: view)
+        let none = await requests.all
+        XCTAssertTrue(none.isEmpty, "Typr's recogniser is never asked")
+        XCTAssertFalse(target.text.isEmpty, "Hex's own decoder reads it, as with the switch off")
+    }
+
     func testNoTyprSwipeOutsideAutocorrectedTextFields() async throws {
         let requests = Recorded<SwipeRequest>()
         let (view, target, adapter) = makeView(decoding: { request in
@@ -170,7 +197,7 @@ private actor Recorded<Value: Sendable> {
 private final class Checker: TyprTextChecking {
     let valid: Set<String>
     init(valid: Set<String>) { self.valid = valid }
-    func isWordValid(_ word: String) -> Bool { valid.contains(word.lowercased()) }
+    func isWordValid(_ word: String) -> Bool { valid.contains(word) || valid.contains(word.lowercased()) }
     func guesses(for word: String) -> [String] { [] }
     func completions(for prefix: String) -> [String] { [] }
 }

@@ -38,7 +38,7 @@ final class SwipeTyping {
 
     /// How long the last swipe's decode took, for Record typing logs and probes.
     private(set) var lastDecodeTime: TimeInterval?
-    var typrDecode: (([CGPoint], [TimeInterval]) async -> [String])?
+    var typrDecode: (([CGPoint], [TimeInterval]) -> (() async -> [String])?)?
     private(set) var typrDecoding: Task<Void, Never>?
     /// Nats more a rare reading the dictionary knows only with a capital costs, unless it is
     /// one of your own words: the model's lowercase list holds names and abbreviations ("gs",
@@ -166,8 +166,14 @@ final class SwipeTyping {
         generation += 1
         trail.fade()
         if let typrDecode {
-            finishWithTypr(id, stroke: stroke, decode: typrDecode)
-            return
+            if let decode = typrDecode(stroke.points.map(engine.layout.joinedForSwipe), stroke.times) {
+                finishWithTypr(id, stroke: stroke, decode: decode)
+                return
+            }
+            if !engine.language.supportsSwipeTyping {
+                engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: nil)
+                return
+            }
         }
         let started = clock()
         let layout = engine.layout
@@ -190,22 +196,26 @@ final class SwipeTyping {
         engine.endSwipe(typing: words, points: stroke.points.count, decodeTime: elapsed)
     }
 
-    private func finishWithTypr(_ id: Int, stroke: Stroke, decode: @escaping ([CGPoint], [TimeInterval]) async -> [String]) {
-        if slidTapLetter(stroke) != nil, let start = stroke.points.first {
-            engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: nil)
-            engine.touchBegan(id: id, at: start)
-            engine.touchEnded(id: id, at: start)
-            return
-        }
-        let points = stroke.points.map(engine.layout.joinedForSwipe), times = stroke.times
+    private func finishWithTypr(_ id: Int, stroke: Stroke, decode: @escaping () async -> [String]) {
         let generation = generation, before = engine.target.documentContextBeforeInput, started = clock()
+        let slidTap = slidTapLetter(stroke)
         typrDecoding = Task { [weak self] in
-            let words = await decode(points, times)
+            let words = await decode()
             guard let self, self.generation == generation, self.active == nil else { return }
             let elapsed = self.clock() - started
             self.lastDecodeTime = elapsed
-            let unchanged = self.engine.target.documentContextBeforeInput == before
-            self.engine.endSwipe(typing: unchanged ? words : [], points: points.count, decodeTime: elapsed)
+            guard self.engine.target.documentContextBeforeInput == before else {
+                self.engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: elapsed)
+                return
+            }
+            if let slidTap, let start = stroke.points.first,
+               words.first.map({ !Self.word($0, startsAndEndsWith: slidTap) }) ?? true {
+                self.engine.endSwipe(typing: [], points: stroke.points.count, decodeTime: elapsed)
+                self.engine.touchBegan(id: id, at: start)
+                self.engine.touchEnded(id: id, at: start)
+                return
+            }
+            self.engine.endSwipe(typing: words, points: stroke.points.count, decodeTime: elapsed)
         }
     }
 

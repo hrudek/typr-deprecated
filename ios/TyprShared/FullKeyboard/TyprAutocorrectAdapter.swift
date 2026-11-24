@@ -159,9 +159,14 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
             }
     }
 
+    var canSwipe: Bool {
+        guard learnsFromTyping, let decoder = engine.spatialDecoder else { return false }
+        return !decoder.isResourceLoading && !decoder.resourceSnapshot.isEmpty
+    }
+
     func swipeWords(_ points: [CGPoint], times: [TimeInterval], keys: TypingDecoder.Keys, keySize: CGSize,
                     before: String?) async -> [String] {
-        guard learnsFromTyping, points.count == times.count, points.count >= 2,
+        guard canSwipe, points.count == times.count, points.count >= 2,
               let decoder = engine.spatialDecoder else { return [] }
         let letters = keys.centres.filter { $0.key.isASCII && $0.key.isLowercase }
         let xs = letters.values.map(\.x), ys = letters.values.map(\.y)
