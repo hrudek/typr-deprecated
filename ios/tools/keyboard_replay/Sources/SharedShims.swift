@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 // Stand-ins for shared files that need app-only frameworks.
 
@@ -28,10 +29,41 @@ nonisolated struct TyprAccentMenu: Equatable, Sendable {
     func index(for x: CGFloat) -> Int { selectedIndex }
 }
 
-nonisolated enum KoreanKeyboardExperiment {
-    static let isEnabled = false
+@MainActor
+final class SwipeTrailView {
+    var isShowing: Bool { false }
+    func begin(_ start: [CGPoint]) {}
+    func add(_ point: CGPoint) {}
+    func fade() {}
+    func clear() {}
 }
 
-nonisolated enum FrenchTyping {
-    static let key = "\u{00B4}"
+nonisolated enum TypingLogTraits {
+    @MainActor static func documentIdentifier(of proxy: UITextDocumentProxy) -> UUID? { nil }
+    static func name<Trait>(_ trait: Trait) -> String { "\(trait)" }
+}
+
+@MainActor
+final class TypingLogger {
+    func context(_ why: String, force: Bool = false) {}
+    func edit(_ op: String, _ fields: [TypingLogField] = []) {}
+    func ui(_ action: String, _ fields: [TypingLogField] = []) {}
+    func touch(_ phase: TypingLogTouchPhase, id: Int, sample: TypingLogTouchSample, key: KeyboardKey?, under: KeyboardKey? = nil) {}
+    func keyboardState(layout: KeyboardLayout, shift: ShiftStateMachine, cause: String) {}
+    func viewGeometry(size: CGSize, safeArea: UIEdgeInsets) {}
+    func commitGeometry() {}
+    func suggestionsChanged(_ suggestions: [KeyboardSuggestion]) {}
+    static func candidates(_ suggestions: [KeyboardSuggestion]) -> TypingLogValue { .string("") }
+    nonisolated static func keyID(_ kind: KeyKind) -> String { "" }
+}
+
+nonisolated enum TypingLogTouchPhase { case began, moved, ended, cancelled }
+
+nonisolated struct TypingLogTouchSample {
+    var point: CGPoint
+    var timestamp: TimeInterval
+}
+
+nonisolated enum KeyboardTheme: String, CaseIterable, Sendable {
+    case automatic, black, white, navy, forest, ember
 }

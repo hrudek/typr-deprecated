@@ -31,8 +31,11 @@ bin=$(ios/tools/keyboard_replay/build.sh)   # builds into ~/.cache/typr-keyboard
 "$bin" ~/typr-private/typr-typing-log.json
 ```
 
-Options: `--show-words` lists the words that did not reproduce or differ from the meant word
-(private text, keep it off screenshots and issues), `--json` prints the report as JSON,
+Options: `--engine hex` replays through Hex's keyboard and autocorrect instead of Typr's typing
+engine (`--engine typr`, the default), `--parity` replays every word through both and reports where
+their commits differ, `--show-words` lists the words that did not reproduce, differ from the meant
+word or differ between the engines (private text, keep it off screenshots and issues), `--json`
+prints the report as JSON.
 The report goes to the terminal only; to keep it, redirect it into your private folder, for
 example `"$bin" ~/typr-private/typr-typing-log.json > ~/typr-private/report.txt`. Rebuild after
 pulling keyboard changes, so the replay runs today's code.
@@ -61,10 +64,27 @@ words against the bundled word lists and never makes spelling-only corrections. 
 includes each key's aim memories at export time.
 The replay sees at most the three words logged before each word as context.
 
+## Hex's engine and parity
+
+`--engine hex` types each word's logged taps on Hex's keys: every tap lands at the same place
+relative to the same key, the language is German on QWERTZ keys or when English is not among the
+word's languages, and the other of the two is the bilingual partner. Hex runs with its default
+settings (Spatial autocorrect with the English model; German's model stays behind its experiment)
+and none of your learning: Hex keeps its own, which the export does not carry. Taps move onto Hex's
+keys with the same mapping Hex's keyboard uses to log them for Typr typing. Hex's models and lists
+must sit next to the binary (`build.sh` copies them); without them the Hex replay stops with an
+error. Hex checks spelling with the bundled German and English word lists, not the iPhone's system
+dictionary, so a word whose commit asks for spelling guesses, completions or a capitalised
+spelling is skipped as "needs system spelling". The words replayed
+are the same as with Typr's engine, so `--parity` compares like with like; a word only one engine
+skips is counted under that engine's name. With `--show-words`, a word whose replayed letters
+differ from the logged ones also shows them.
+
 ## Tests
 
 `python3 -m unittest discover -s ios/tools/keyboard_replay/tests` builds the tool and replays
-`fixture/synthetic.json`, invented text typed through the engine. After changing the export format,
+`fixture/synthetic.json`, invented text typed through the engine, and `fixture/hex-join.json`,
+invented text typed on Hex's keyboard with Typr typing (exported by `HexTyprTypingLogTests`). After changing the export format,
 regenerate it with `keyboard-replay --make-fixture ios/tools/keyboard_replay/fixture/synthetic.json`.
 `keyboard-replay --touch-posterior` prints the learned touch densities after fixed labels; the tests
 compare them with an independent computation of the touch model.

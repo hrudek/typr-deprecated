@@ -1,0 +1,357 @@
+{
+  "appBuild": "hex-join-test",
+  "exportedAt": "2027-01-15T08:00:00Z",
+  "format": "typr-typing-log",
+  "learning": {
+    "bigrams": {
+      "following": {},
+      "updates": 0
+    },
+    "counts": {
+      "think": {
+        "count": 1,
+        "lastUpdated": "2026-11-24T06:51:28Z"
+      }
+    },
+    "kept": {},
+    "languages": {
+      "think": "en"
+    },
+    "layouts": {
+      "portrait-392-strip-no-globe": {
+        "aims": {
+          "h": {
+            "lately": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "now": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "weights": [
+              0.3333333333333333,
+              0.3333333333333333,
+              0.3333333333333333
+            ]
+          },
+          "i": {
+            "lately": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "now": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "weights": [
+              0.3333333333333333,
+              0.3333333333333333,
+              0.3333333333333333
+            ]
+          },
+          "k": {
+            "lately": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "now": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "weights": [
+              0.3333333333333333,
+              0.3333333333333333,
+              0.3333333333333333
+            ]
+          },
+          "n": {
+            "lately": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "now": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "weights": [
+              0.3333333333333333,
+              0.3333333333333333,
+              0.3333333333333333
+            ]
+          },
+          "t": {
+            "lately": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "now": {
+              "count": 1,
+              "x": 0,
+              "y": 0
+            },
+            "weights": [
+              0.3333333333333333,
+              0.3333333333333333,
+              0.3333333333333333
+            ]
+          }
+        },
+        "global": {
+          "covarianceXY": 0,
+          "meanX": 0,
+          "meanY": 0,
+          "n": 5,
+          "varianceX": 0,
+          "varianceY": 0
+        },
+        "keys": {
+          "h": {
+            "covarianceXY": 0,
+            "meanX": 0,
+            "meanY": 0,
+            "n": 1,
+            "varianceX": 0,
+            "varianceY": 0
+          },
+          "i": {
+            "covarianceXY": 0,
+            "meanX": 0,
+            "meanY": 0,
+            "n": 1,
+            "varianceX": 0,
+            "varianceY": 0
+          },
+          "k": {
+            "covarianceXY": 0,
+            "meanX": 0,
+            "meanY": 0,
+            "n": 1,
+            "varianceX": 0,
+            "varianceY": 0
+          },
+          "n": {
+            "covarianceXY": 0,
+            "meanX": 0,
+            "meanY": 0,
+            "n": 1,
+            "varianceX": 0,
+            "varianceY": 0
+          },
+          "t": {
+            "covarianceXY": 0,
+            "meanX": 0,
+            "meanY": 0,
+            "n": 1,
+            "varianceX": 0,
+            "varianceY": 0
+          }
+        },
+        "lastUpdated": "2026-11-24T06:51:28Z",
+        "signature": {
+          "orientation": "portrait",
+          "showsGlobe": false,
+          "showsStrip": true,
+          "widthBucket": 392
+        },
+        "space": {
+          "covarianceXY": 0,
+          "meanX": 0,
+          "meanY": 0,
+          "n": 1,
+          "varianceX": 0,
+          "varianceY": 0
+        }
+      }
+    },
+    "rejected": [],
+    "schemaVersion": 5
+  },
+  "protectedWords": [],
+  "version": 2,
+  "words": [
+    {
+      "at": "2027-01-15T08:00:00Z",
+      "commit": {
+        "kind": "literal",
+        "text": "think"
+      },
+      "corrections": [],
+      "end": " ",
+      "languages": [
+        "en"
+      ],
+      "layout": {
+        "bottomRow": [
+          "space",
+          "period",
+          "typr"
+        ],
+        "field": "text",
+        "globeKey": "switches",
+        "horizontalInset": 0,
+        "layer": "letters",
+        "metrics": {
+          "gap": 6,
+          "keyHeight": 45,
+          "keysBottom": 5,
+          "keysTop": 0,
+          "numberRowHeight": 0,
+          "rowGap": 11,
+          "side": 6.5,
+          "stripBottom": 2,
+          "stripHeight": 33,
+          "stripTop": 0
+        },
+        "numberRow": false,
+        "orientation": "portrait",
+        "periodKey": false,
+        "showsGlobe": false,
+        "showsStrip": true,
+        "width": 393
+      },
+      "literal": "think",
+      "meant": "think",
+      "taps": [
+        {
+          "key": "t",
+          "t": 0,
+          "text": "t",
+          "x": 177.2,
+          "y": 57.5
+        },
+        {
+          "key": "h",
+          "t": 100,
+          "text": "h",
+          "x": 235.1,
+          "y": 113.5
+        },
+        {
+          "key": "i",
+          "t": 200,
+          "text": "i",
+          "x": 293,
+          "y": 57.5
+        },
+        {
+          "key": "n",
+          "t": 300,
+          "text": "n",
+          "x": 273.7,
+          "y": 169.5
+        },
+        {
+          "key": "k",
+          "t": 400,
+          "text": "k",
+          "x": 312.3,
+          "y": 113.5
+        }
+      ]
+    },
+    {
+      "at": "2027-01-15T08:00:00Z",
+      "commit": {
+        "correction": "rule",
+        "kind": "autocorrect",
+        "text": "observe"
+      },
+      "corrections": [],
+      "end": " ",
+      "languages": [
+        "en"
+      ],
+      "layout": {
+        "bottomRow": [
+          "space",
+          "period",
+          "typr"
+        ],
+        "field": "text",
+        "globeKey": "switches",
+        "horizontalInset": 0,
+        "layer": "letters",
+        "metrics": {
+          "gap": 6,
+          "keyHeight": 45,
+          "keysBottom": 5,
+          "keysTop": 0,
+          "numberRowHeight": 0,
+          "rowGap": 11,
+          "side": 6.5,
+          "stripBottom": 2,
+          "stripHeight": 33,
+          "stripTop": 0
+        },
+        "numberRow": false,
+        "orientation": "portrait",
+        "periodKey": false,
+        "showsGlobe": false,
+        "showsStrip": true,
+        "width": 393
+      },
+      "literal": "obser e",
+      "meant": "observe",
+      "taps": [
+        {
+          "key": "o",
+          "t": 0,
+          "text": "o",
+          "x": 331.6,
+          "y": 57.5
+        },
+        {
+          "key": "b",
+          "t": 100,
+          "text": "b",
+          "x": 235.1,
+          "y": 169.5
+        },
+        {
+          "key": "s",
+          "t": 200,
+          "text": "s",
+          "x": 80.7,
+          "y": 113.5
+        },
+        {
+          "key": "e",
+          "t": 300,
+          "text": "e",
+          "x": 100,
+          "y": 57.5
+        },
+        {
+          "key": "r",
+          "t": 400,
+          "text": "r",
+          "x": 138.6,
+          "y": 57.5
+        },
+        {
+          "t": 500,
+          "text": " ",
+          "x": 196.5,
+          "y": 204
+        },
+        {
+          "key": "e",
+          "t": 600,
+          "text": "e",
+          "x": 100,
+          "y": 57.5
+        }
+      ]
+    }
+  ]
+}

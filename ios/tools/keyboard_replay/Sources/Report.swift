@@ -41,9 +41,11 @@ struct WordLine: Codable {
     var known: Bool
     var logged: String
     var replayed: String
+    var replayedLetters: String?
 }
 
 struct Report: Codable {
+    var engine: String
     var exported = 0
     var replayed = 0
     var skipped: [String: Int] = [:]
@@ -52,9 +54,9 @@ struct Report: Codable {
     var words: [WordLine]?
 
     /// `results[i]`: the preparation and replay of `logged[i]`, or why it was skipped.
-    static func build(words logged: [TypingLogWord], results: [Result<(PreparedWord, ReplayedWord), SkipReason>],
-                      showWords: Bool) -> Report {
-        var report = Report(exported: logged.count)
+    static func build(engine: ReplayEngine, words logged: [TypingLogWord],
+                      results: [Result<(PreparedWord, ReplayedWord), SkipReason>], showWords: Bool) -> Report {
+        var report = Report(engine: engine.rawValue, exported: logged.count)
         var lines: [WordLine] = []
         for (word, result) in zip(logged, results) {
             let prepared: PreparedWord, replay: ReplayedWord
@@ -79,7 +81,8 @@ struct Report: Codable {
             report.score[known: prepared.known].add(committed: replay.committed, meant: word.meant)
             if showWords, !reproduced || replay.committed != word.meant {
                 lines.append(WordLine(meant: word.meant, known: prepared.known, logged: word.commit?.text ?? word.literal,
-                                      replayed: replay.committed))
+                                      replayed: replay.committed,
+                                      replayedLetters: replay.literal == prepared.plan.literal ? nil : replay.literal))
             }
         }
         if showWords { report.words = lines }
@@ -87,7 +90,8 @@ struct Report: Codable {
     }
 
     func text() -> String {
-        var out = "Typing log replay: \(exported) words exported, \(replayed) replayed\n"
+        var out = "Typing log replay\(engine == ReplayEngine.hex.rawValue ? " through Hex's engine" : ""):"
+        out += " \(exported) words exported, \(replayed) replayed\n"
         let r = reproduction
         out += "Reproduction: committed word matches the iPhone for"
         out += " \(r.commitMatches)/\(r.commits) words, \(Self.percent(r.commitMatches, r.commits))\n"
@@ -102,20 +106,91 @@ struct Report: Codable {
             out += "\nNot reproduced or not the meant word (\(words.count)):\n"
             for line in words {
                 out += "  meant \(line.meant) | logged \(line.logged) | replayed \(line.replayed)"
+                if let letters = line.replayedLetters { out += " | replayed letters \(letters)" }
                 out += line.known ? "\n" : " (unknown)\n"
             }
         }
         return out
     }
 
-    private static func percent(_ part: Int, _ whole: Int) -> String {
+    static func percent(_ part: Int, _ whole: Int) -> String {
         whole == 0 ? "-" : String(format: "%.1f%%", Double(part) * 100 / Double(whole))
     }
 
-    private static func line(_ name: String, _ score: Score) -> String {
+    static func line(_ name: String, _ score: Score) -> String {
         return "  \(name) \(score.words) words: word errors \(percent(score.wordErrors, score.words))"
             + " (\(score.wordErrors)), letter errors \(percent(score.letterErrors, score.letters))"
             + " (\(score.letterErrors)/\(score.letters))\n"
+    }
+}
+
+struct ParityLine: Codable {
+    var meant: String
+    var literal: String
+    var typr: String
+    var hex: String
+}
+
+typealias ParityResult = Result<(PreparedWord, typr: Result<ReplayedWord, SkipReason>,
+                                 hex: Result<ReplayedWord, SkipReason>), SkipReason>
+
+struct ParityReport: Codable {
+    var exported = 0
+    var compared = 0
+    var sameCommit = 0
+    var skipped: [String: Int] = [:]
+    var typr = Split()
+    var hex = Split()
+    var differences: [ParityLine]?
+
+    static func build(words logged: [TypingLogWord], results: [ParityResult], showWords: Bool) -> ParityReport {
+        var report = ParityReport(exported: logged.count)
+        var lines: [ParityLine] = []
+        for (word, result) in zip(logged, results) {
+            let prepared: PreparedWord, typr: ReplayedWord, hex: ReplayedWord
+            switch result {
+            case .failure(let reason):
+                report.skipped[reason.rawValue, default: 0] += 1
+                continue
+            case .success(let (ready, typrResult, hexResult)):
+                switch (typrResult, hexResult) {
+                case (.success(let t), .success(let h)): (prepared, typr, hex) = (ready, t, h)
+                case (.failure(let reason), _): report.skipped["Typr: " + reason.rawValue, default: 0] += 1; continue
+                case (_, .failure(let reason)): report.skipped["Hex: " + reason.rawValue, default: 0] += 1; continue
+                }
+            }
+            report.compared += 1
+            report.typr[known: prepared.known].add(committed: typr.committed, meant: word.meant)
+            report.hex[known: prepared.known].add(committed: hex.committed, meant: word.meant)
+            if typr.committed == hex.committed {
+                report.sameCommit += 1
+            } else if showWords {
+                lines.append(ParityLine(meant: word.meant, literal: prepared.plan.literal, typr: typr.committed,
+                                        hex: hex.committed))
+            }
+        }
+        if showWords { report.differences = lines }
+        return report
+    }
+
+    func text() -> String {
+        var out = "Engine parity: \(exported) words exported, \(compared) replayed through both engines\n"
+        out += "Hex runs on the bundled word lists, not system spelling: words whose commit asks for guesses,"
+        out += " completions or capitalised spellings are skipped\n"
+        out += "Same commit: \(sameCommit)/\(compared) words, \(Report.percent(sameCommit, compared))\n"
+        if !skipped.isEmpty {
+            out += "Skipped: " + skipped.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }
+                .joined(separator: ", ") + "\n"
+        }
+        out += "\nVs meant word, Typr's engine:\n" + Report.line("known", typr.known) + Report.line("unknown", typr.unknown)
+        out += "Vs meant word, Hex's engine:\n" + Report.line("known", hex.known) + Report.line("unknown", hex.unknown)
+        if let differences {
+            out += "\nCommits differ (\(differences.count)):\n"
+            for line in differences {
+                out += "  meant \(line.meant) | typed \(line.literal) | Typr \(line.typr) | Hex \(line.hex)\n"
+            }
+        }
+        return out
     }
 }
 
