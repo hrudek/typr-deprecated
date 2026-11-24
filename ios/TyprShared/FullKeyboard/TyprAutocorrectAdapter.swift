@@ -325,6 +325,15 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
 
     func tappedSpace(at point: CGPoint, after: String?) {
         guard learnsFromTyping, let typrPoint = typrSpacePoint(point) else { return }
+        let calibration = engine.learning.calibration(for: touchLayout)
+        if let asSpace = KeyboardBoundaryTouch.spaceDensity(typrPoint, layout: touchLayout, calibration: calibration),
+           KeyboardBoundaryTouch.adjacentLetters(in: touchLayout).contains(where: { key in
+               KeyboardBoundaryTouch.letterDensity(typrPoint, key: key, layout: touchLayout, calibration: calibration)
+                   .map { $0 > asSpace } ?? false
+           }) {
+            // As on Typr keyboard: a space that may have been a letter never teaches the word before it.
+            engine.discardFeedback()
+        }
         engine.spaceTyped(at: typrPoint, layout: touchLayout, afterInput: after)
     }
 
