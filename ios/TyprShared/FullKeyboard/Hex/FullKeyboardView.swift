@@ -630,14 +630,16 @@ final class FullKeyboardView: UIView {
     /// `supportsSwipeTyping` lists English and Spanish only, and the experiment does not add it.
     private func syncSwipeTyping() {
         let settings = FullKeyboardSettings(defaults: settingsDefaults)
-        let on = (swipeOverride ?? settings.swipeTyping) && engine.language.supportsSwipeTyping
+        let typr = typrSwipe
+        let on = (swipeOverride ?? settings.swipeTyping) && (typr != nil || engine.language.supportsSwipeTyping)
             && !UIAccessibility.isVoiceOverRunning
-        let model = on ? settings.typingModel(for: engine.language) : nil
+        let model = on ? (typr != nil ? TypingDecoderModel.bundled(engine.language.rawValue) : settings.typingModel(for: engine.language)) : nil
         if plane.swipe?.model !== model {
             plane.swipe = model.map { SwipeTyping(engine: engine, model: $0) }
         } else {
             plane.swipe?.syncWords()
         }
+        plane.swipe?.typrDecode = typr
     }
 
     /// Settings › Keyboard › Spatial autocorrect (on by default): maps the layout language's

@@ -26,7 +26,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
-    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
+    static let typrVariants: [ExperimentalSwitch] = [.typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries, .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup, .spokenPunctuation, .typrKeyboard, .typrTyping, .typrSwipeTyping, .typrCursorSliding, .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard, .spaceTrackpad, .formatLists, .deleteSlide, .learnFromEdits, .wordsFromContext, .typrTranslationPolicy, .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .learnEachLanguage]
 
     /// Settings > Experimental › Hex keyboard experiments: Hex's typing experiments under Hex's
     /// keys, names and defaults (all off). They act on the Hex keyboard view.
@@ -180,7 +180,13 @@ nonisolated struct ExperimentalSwitch: Hashable {
     static let typrTyping = ExperimentalSwitch(
         name: "variant.typrTyping",
         title: "Typr typing and autocorrect",
-        detail: "Hex's keyboard uses Typr's autocorrect and suggestions for German and English, with your imported contacts and vocabulary protected and Words from context. It reads where you tap and joins words split by a stray space. Not yet: learning from each typed letter and next-word predictions."
+        detail: "Hex's keyboard uses Typr's autocorrect and suggestions for German and English, with your imported contacts and vocabulary protected and Words from context. It reads where you tap, joins words split by a stray space, learns from what you type and adds next-word predictions, as Typr keyboard does."
+    )
+
+    static let typrSwipeTyping = ExperimentalSwitch(
+        name: "variant.typrSwipe",
+        title: "Typr swipe typing",
+        detail: "Swipe typing on Hex's keyboard reads your swipes with Typr's own model, in German and English. Needs Typr typing and autocorrect and Keyboard › Swipe typing."
     )
 
     static let typrCursorSliding = ExperimentalSwitch(
@@ -231,7 +237,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
         .typrExclusiveAudioSession, .typrKeepSelectedWarmMicrophone, .typrAudioActivationRetries,
         .typrStrictDictationLanguage, .typrFixedDictationLanguage, .typrGermanFormattingRules, .typrConservativeSpokenCleanup,
         .typrAICleanupPipeline, .typrVocabularyMatching, .typrDictationEditLearning, .typrTranslationPolicy,
-        .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrTyping, .typrCursorSliding,
+        .typrAlwaysDictateInApp, .typrAutomaticHostReturn, .typrLiveActivityForAllDictations, .typrKeyboard, .typrTyping, .typrSwipeTyping, .typrCursorSliding,
         .typrDeleteSliding, .typrBottomRow, .typrCompactStrip, .typrSplitKeyboard,
     ]
 

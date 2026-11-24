@@ -101,6 +101,17 @@ extension FullKeyboardView {
         }
     }
 
+    var typrSwipe: (([CGPoint], [TimeInterval]) async -> [String])? {
+        guard TyprSettings(defaults: settingsDefaults)[experiment: .typrSwipeTyping],
+              let typr = engine.autocorrect as? TyprAutocorrectAdapter,
+              [.english, .german].contains(engine.language) else { return nil }
+        return { [weak self, weak typr] points, times in
+            guard let self, let typr, let key = self.engine.layout.key(.character("g")) else { return [] }
+            return await typr.swipeWords(points, times: times, keys: self.engine.swipeKeys, keySize: key.frame.size,
+                                         before: self.engine.target.documentContextBeforeInput)
+        }
+    }
+
     static func typrTypingBackend(
         _ settings: TyprSettings = TyprSettings(),
         engine: () -> TyprAutocorrectEngine
