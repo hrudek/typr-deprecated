@@ -27,3 +27,14 @@ nonisolated struct TyprAccentMenu: Equatable, Sendable {
 
     func index(for x: CGFloat) -> Int { selectedIndex }
 }
+
+/// FullKeyboardSettings.swift and CzechTyping.swift pull in the whole Hex keyboard. The replay has no Korean keyboard.
+nonisolated enum KoreanKeyboardExperiment {
+    static let isEnabled = false
+    static func isEnabled(in defaults: UserDefaults?) -> Bool { false }
+}
+
+nonisolated enum FrenchTyping {
+    static let key = "\u{00B4}"
+    static func typesApostrophe(after before: String?) -> Bool { before?.last?.isLetter == true }
+}
