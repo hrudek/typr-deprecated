@@ -3,9 +3,6 @@ import Foundation
 /// Everything one dictation needs from vocabulary, frozen at recording start: the Apple Speech
 /// hints, the spelling fixes before AI cleanup, the terms named to cleanup, and the spelling
 /// restore after formatting.
-/// As in Hex: fixes learned from your edits, then Custom vocabulary's terms. Typr variant
-/// (Settings › Experimental) Typr vocabulary matching adds the terms' sounds-like forms and the
-/// built-in tech glossary.
 /// Callers never order the passes or merge the lists themselves.
 nonisolated struct DictationVocabulary: Sendable {
     enum Source: String, Sendable {
@@ -63,8 +60,8 @@ nonisolated struct DictationVocabulary: Sendable {
             .map(VocabularySpelling.Rule.init(term:))
     }
 
-    /// The user's terms first, then learned spellings (then, with Typr vocabulary matching, the
-    /// glossary's listed terms), without duplicate spellings, capped at Apple's limit of 100.
+    /// The user's terms first, then learned spellings, without duplicate spellings, capped at
+    /// Apple's limit of 100.
     var speechHints: [String] {
         var seen = Set<String>()
         let all = (userTerms + learnedFixes.map(\.meant) + (typrMatching ? TechGlossary.listedTerms : [])).filter {
