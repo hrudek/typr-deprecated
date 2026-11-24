@@ -91,6 +91,21 @@ final class TyprLearningHooksTests: XCTestCase {
         XCTAssertEqual(count("hello"), 0)
     }
 
+    func testTheHostEchoingTheKeysTextKeepsTheWordToLearn() throws {
+        try type("hello ")
+        engine.textDidChange()
+        try type("w")
+        XCTAssertEqual(count("hello"), 1)
+    }
+
+    func testAnEditElsewhereDropsTheWordToLearn() throws {
+        try type("hello ")
+        target.insertText("hello ")
+        engine.textDidChange()
+        try type("w")
+        XCTAssertEqual(count("hello"), 0)
+    }
+
     func testKeepingWhatWasTypedCountsItOnceAndSurvivesTheHandover() throws {
         try type("teh")
         let keep = try XCTUnwrap(engine.suggestions.first { $0.kind == .keepLiteral })

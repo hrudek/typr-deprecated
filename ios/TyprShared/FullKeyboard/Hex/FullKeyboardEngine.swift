@@ -293,7 +293,7 @@ final class FullKeyboardEngine {
     /// Call after the text or the cursor changed outside these keys.
     func textDidChange() {
         commitHangulIfHostMoved()
-        if textBefore != typingContext { autocorrect.textEdited() }
+        if !hostReportsKeysOwnText { autocorrect.textEdited() }
         lastSpaceAt = nil
         // The host's report may be an echo of the keys' own insert, or still lag it: either
         // leaves the text as the keys left it (`typingContext`, `SwipedWord.before`).
