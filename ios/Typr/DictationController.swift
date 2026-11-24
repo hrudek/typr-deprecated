@@ -920,7 +920,8 @@ final class DictationController {
         let vocabularyTerms = vocabularyEnabled ? savedVocabularyTerms : []
         let vocabulary = DictationVocabulary(
             settings: customVocabularySettings,
-            learnedFixes: languageSettings[experiment: .learnFromEdits] ? dictationLearning.corrections : []
+            learnedFixes: languageSettings[experiment: .learnFromEdits] ? dictationLearning.corrections : [],
+            typrMatching: languageSettings[experiment: .typrVocabularyMatching]
         )
         let appleIntelligenceCleanup = effectiveStyle != .verbatim
             && languageSettings[experiment: .appleIntelligenceCleanup]

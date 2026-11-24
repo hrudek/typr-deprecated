@@ -201,6 +201,7 @@ final class DictationLogControllerTests: XCTestCase {
 
     func testBuiltInGlossaryReplacementsAreLoggedWithTheirSource() async throws {
         let f = LogControllerFixture()
+        f.env.settings[experiment: .typrVocabularyMatching] = true
         await f.asr.setOutput("Erstelle einen Pulrequest auf Gitub")
         f.model.result = "Erstelle einen Pull Request auf GitHub"
         try await f.start()

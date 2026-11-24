@@ -3,6 +3,7 @@ import SwiftUI
 /// Preferred spellings and sounds-like forms, under AI & vocabulary settings.
 struct CustomVocabularyEditor: View {
     private let settings = CustomVocabularySettings()
+    private let typrMatching = TyprSettings()[experiment: .typrVocabularyMatching]
 
     @State private var terms: [String] = []
     @State private var draft = ""
@@ -27,18 +28,20 @@ struct CustomVocabularyEditor: View {
 
                         Spacer(minLength: 8)
 
-                        Button {
-                            toggleSoundsLike(for: term)
-                        } label: {
-                            Image(systemName: editingTerm == term ? "checkmark" : "waveform")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(editingTerm == term ? TyprTheme.textBase : TyprTheme.textMuted)
-                                .frame(width: 32, height: 32)
-                                .background(TyprTheme.layer02, in: Circle())
-                                .frame(width: 44, height: 44)
+                        if typrMatching {
+                            Button {
+                                toggleSoundsLike(for: term)
+                            } label: {
+                                Image(systemName: editingTerm == term ? "checkmark" : "waveform")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(editingTerm == term ? TyprTheme.textBase : TyprTheme.textMuted)
+                                    .frame(width: 32, height: 32)
+                                    .background(TyprTheme.layer02, in: Circle())
+                                    .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(editingTerm == term ? "Save sounds-like forms for \(term)" : "Edit sounds-like forms for \(term)")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(editingTerm == term ? "Save sounds-like forms for \(term)" : "Edit sounds-like forms for \(term)")
 
                         Button {
                             remove(term)
@@ -63,7 +66,7 @@ struct CustomVocabularyEditor: View {
                             .submitLabel(.done)
                             .onSubmit { saveSoundsLike(for: term) }
                             .accessibilityLabel("Sounds like for \(term), separated by commas")
-                    } else if let forms = soundsLike[VocabularySpelling.normalizedKey(term)], !forms.isEmpty {
+                    } else if typrMatching, let forms = soundsLike[VocabularySpelling.normalizedKey(term)], !forms.isEmpty {
                         Text("Sounds like: \(forms.joined(separator: ", "))")
                             .font(.system(size: 12))
                             .foregroundStyle(TyprTheme.textMuted)

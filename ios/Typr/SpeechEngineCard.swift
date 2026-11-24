@@ -79,7 +79,7 @@ nonisolated struct SpeechEngineRowState: Equatable, Sendable {
             ? (preferred == nil ? "In use · automatic" : "In use")
             : (isChosen ? "Chosen" : nil)
         let warning = languageWarning(engine: engine, language: language)
-        let preparationNote = "Opening Typr prepares the installed, chosen model automatically. First optimization can take several minutes. iOS may continue it in the background, but can pause or stop it; reopen Typr to retry. Vocabulary and the tech glossary apply after recognition"
+        let preparationNote = "Opening Typr prepares the installed, chosen model automatically. First optimization can take several minutes. iOS may continue it in the background, but can pause or stop it; reopen Typr to retry. Vocabulary applies after recognition"
         let note: String? = switch engine {
         case .whisperLargeV3Turbo: preparationNote + ", not as Whisper hints."
         case .parakeetV3, .orukeet, .cohereTranscribe: preparationNote + "."

@@ -1,9 +1,11 @@
 import Foundation
 
 /// Everything one dictation needs from vocabulary, frozen at recording start: the Apple Speech
-/// hints, the spelling fixes before AI cleanup (fixes learned from your edits, then Custom
-/// vocabulary, then the built-in tech glossary), the terms named to cleanup, and the spelling
+/// hints, the spelling fixes before AI cleanup, the terms named to cleanup, and the spelling
 /// restore after formatting.
+/// As in Hex: fixes learned from your edits, then Custom vocabulary's terms. Typr variant
+/// (Settings › Experimental) Typr vocabulary matching adds the terms' sounds-like forms and the
+/// built-in tech glossary.
 /// Callers never order the passes or merge the lists themselves.
 nonisolated struct DictationVocabulary: Sendable {
     enum Source: String, Sendable {
@@ -27,30 +29,47 @@ nonisolated struct DictationVocabulary: Sendable {
     private let userRules: [VocabularySpelling.Rule]
     /// Fixes Learn from my edits learned (empty while that experiment is off).
     let learnedFixes: [TyprDictationCorrection]
+    private let typrMatching: Bool
     private let restoreRules: [VocabularySpelling.Rule]
 
-    init(userTerms: [String], soundsLike: [String: [String]] = [:], learnedFixes: [TyprDictationCorrection] = []) {
+    init(userTerms: [String], soundsLike: [String: [String]] = [:], learnedFixes: [TyprDictationCorrection] = [],
+         typrMatching: Bool = false) {
         self.userTerms = userTerms
         self.learnedFixes = learnedFixes
-        userRules = CustomVocabularySettings.rules(terms: userTerms, soundsLike: soundsLike)
-        restoreRules = userRules + TyprDictationCorrections.spellings(learnedFixes).map(VocabularySpelling.Rule.init(term:))
-    }
-
-    /// Reads the Custom vocabulary switch, terms and sounds-like forms once.
-    init(settings: CustomVocabularySettings, learnedFixes: [TyprDictationCorrection] = []) {
-        if settings.isEnabled {
-            self.init(userTerms: settings.terms, soundsLike: settings.soundsLike, learnedFixes: learnedFixes)
+        self.typrMatching = typrMatching
+        let spellings = TyprDictationCorrections.spellings(learnedFixes)
+        if typrMatching {
+            userRules = CustomVocabularySettings.rules(terms: userTerms, soundsLike: soundsLike)
+            restoreRules = userRules + spellings.map(VocabularySpelling.Rule.init(term:))
         } else {
-            self.init(userTerms: [], learnedFixes: learnedFixes)
+            userRules = Self.hexRules(userTerms)
+            restoreRules = Self.hexRules(userTerms + spellings)
         }
     }
 
-    /// The user's terms first, then learned spellings, then the glossary's listed terms, without
-    /// duplicate spellings, capped at Apple's limit of 100.
+    /// Reads the Custom vocabulary switch, terms and sounds-like forms once.
+    init(settings: CustomVocabularySettings, learnedFixes: [TyprDictationCorrection] = [], typrMatching: Bool = false) {
+        if settings.isEnabled {
+            self.init(userTerms: settings.terms, soundsLike: settings.soundsLike, learnedFixes: learnedFixes,
+                      typrMatching: typrMatching)
+        } else {
+            self.init(userTerms: [], learnedFixes: learnedFixes, typrMatching: typrMatching)
+        }
+    }
+
+    private static func hexRules(_ terms: [String]) -> [VocabularySpelling.Rule] {
+        var seen = Set<String>()
+        return terms.filter { seen.insert(VocabularySpelling.normalizedKey($0)).inserted }
+            .map(VocabularySpelling.Rule.init(term:))
+    }
+
+    /// The user's terms first, then learned spellings (then, with Typr vocabulary matching, the
+    /// glossary's listed terms), without duplicate spellings, capped at Apple's limit of 100.
     var speechHints: [String] {
         var seen = Set<String>()
-        let all = (userTerms + learnedFixes.map(\.meant) + TechGlossary.listedTerms).filter {
-            seen.insert(VocabularySpelling.normalizedKey($0)).inserted
+        let all = (userTerms + learnedFixes.map(\.meant) + (typrMatching ? TechGlossary.listedTerms : [])).filter {
+            let key = VocabularySpelling.normalizedKey($0)
+            return (typrMatching || key.count >= 2) && seen.insert(key).inserted
         }
         return Array(all.prefix(Self.maxSpeechHints))
     }
@@ -79,9 +98,10 @@ nonisolated struct DictationVocabulary: Sendable {
         let reportBuiltIn: ((String, String, String) -> Void)? = onReplacement.map { report in
             { before, after, term in report(before, after, term, .builtIn) }
         }
-        let protected = protectedKeys
         let learned = TyprDictationCorrections.apply(learnedFixes, to: recognized)
         let custom = VocabularySpelling.apply(rules: userRules, to: learned, onReplacement: reportCustom)
+        guard typrMatching else { return Prepared(text: custom, cleanupTerms: userTerms) }
+        let protected = protectedKeys
         let glossary = TechGlossary.apply(to: custom, protectedKeys: protected, onReplacement: reportBuiltIn)
         let glossaryTerms = glossary.terms.filter { !protected.contains(VocabularySpelling.normalizedKey($0)) }
         return Prepared(text: glossary.text, cleanupTerms: userTerms + glossaryTerms)

@@ -60,6 +60,27 @@ final class DefaultPathParityTests: XCTestCase {
         XCTAssertTrue(stages.tagged.contains("Dienstag"), "Typr's conservative cleanup would drop the repair")
     }
 
+    func testVocabularyMatchesOnlyTheTermsAsHexDoes() async {
+        let settings = TyprSettings(defaults: defaults)
+        settings.chooseDictationLanguage(.german)
+        let vocabulary = CustomVocabularySettings(defaults: defaults)
+        vocabulary.isEnabled = true
+        vocabulary.terms = ["herdr", "GitHub"]
+        vocabulary.setSoundsLike(["Herder"], for: "herdr")
+        let learning = DictationLearningStore(defaults: defaults)
+        let heard = "Öffne den Herder und einen Pulrequest auf github"
+
+        let hex = await KeyboardLocalCapture.text(from: heard, style: .verbatim, settings: settings,
+                                                  vocabulary: vocabulary, learning: learning)
+        XCTAssertTrue(hex.contains("den Herder und einen Pulrequest auf GitHub"), hex)
+        XCTAssertEqual(DictationVocabulary(settings: vocabulary).speechHints, ["herdr", "GitHub"])
+
+        settings[experiment: .typrVocabularyMatching] = true
+        let typr = await KeyboardLocalCapture.text(from: heard, style: .verbatim, settings: settings,
+                                                   vocabulary: vocabulary, learning: learning)
+        XCTAssertTrue(typr.contains("den herdr und einen Pull Request auf GitHub"), typr)
+    }
+
     func testListsFollowHexsFormatting() {
         let pipeline = DictationPipeline(style: .polished, language: .english,
                                          vocabulary: DictationVocabulary(userTerms: []), settings: TyprSettings(defaults: defaults))
