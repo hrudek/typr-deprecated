@@ -22,7 +22,7 @@ nonisolated struct ExperimentalSwitch: Hashable {
 
     /// Settings > Experimental › Hex experiments: Hex's own experiments, with Hex's names and
     /// defaults. Each is listed once its implementation works.
-    static let hexExperiments: [ExperimentalSwitch] = [.appleIntelligenceCleanup, .multilingualParakeet]
+    static let hexExperiments: [ExperimentalSwitch] = [.appleIntelligenceCleanup, .twoLanguageDictation, .multilingualParakeet]
 
     /// Settings > Experimental › Typr variants: where Typr behaves differently from Hex, in
     /// display order. Each is listed once its implementation works.
@@ -309,6 +309,12 @@ nonisolated struct ExperimentalSwitch: Hashable {
         name: "wordsFromContext",
         title: "Words from context",
         detail: "Only with Typr keyboard or Typr typing and autocorrect. Autocorrect picks its or it's, your or you're, then or than by the words around them, and writes geht's and gibt's with an apostrophe."
+    )
+
+    static let twoLanguageDictation = ExperimentalSwitch(
+        hexKey: "experiments.twoLanguageDictation",
+        title: "Two-language dictation",
+        detail: "Also reads dictation in Typr in the other of German and English, when its Apple Speech model is downloaded, and keeps the better one for each phrase. Keyboard dictation stays in one language."
     )
 
     /// Hex's multilingual model (anomalyco/hex #2197, #2337): Parakeet Ultra
