@@ -55,6 +55,14 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
     private var typing: (field: KeyboardFieldKind, autocorrection: UITextAutocorrectionType?)?
     private var keptByPick: String?
     var isSecureField = false
+    var allowsPredictions = true
+    var onLateSuggestions: (() -> Void)?
+    var cloudPredictions: (any ModelPredictionProvider)?
+    var hasCloudKey: () -> Bool = { false }
+    var onDeviceModel: (any OnDeviceNextWordModel)?
+    private(set) var predictionSource: ModelPredictionSource?
+    private(set) var predictions: ModelPredictionSession?
+    private var cloudKeyStored = false
     private var learnsFromTyping: Bool {
         !isSecureField && hasDictionary && typing?.field == .text && typing?.autocorrection != UITextAutocorrectionType.no
     }
@@ -91,6 +99,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
             engine.german = nil
         }
         engine.preferredLanguage = language == .german ? .german : .english
+        applyPredictionSource()
     }
 
     func setKeys(_ language: KeyboardLanguage, letters: KeyboardLetterLayout) {
@@ -125,6 +134,7 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
         loadTouches(beforeInput: beforeInput)
         let finishedWord = TyprAutocorrectEngine.currentToken(in: beforeInput) == nil
         strip = engine.suggestions(beforeInput: beforeInput, field: Self.field(field), autocorrectionType: autocorrectionType)
+        if finishedWord { strip = withModelPredictions(strip, before: beforeInput) } else { predictions?.keep(only: nil) }
         return strip
             .compactMap { suggestion in
                 guard suggestion.boundary == nil, !suggestion.isSwipe else { return nil }
@@ -137,8 +147,47 @@ final class TyprAutocorrectAdapter: KeyboardAutocorrecting {
                 case .primary(let autoReplace): kind = .primary(autoReplace: autoReplace)
                 case .secondary: kind = .secondary
                 }
-                return KeyboardSuggestion(displayText: suggestion.displayText, replacement: suggestion.replacement, kind: kind)
+                guard kind == .nextWord, capitalizesNext else {
+                    return KeyboardSuggestion(displayText: suggestion.displayText, replacement: suggestion.replacement, kind: kind)
+                }
+                let word = suggestion.replacement.prefix(1).uppercased() + suggestion.replacement.dropFirst()
+                return KeyboardSuggestion(displayText: word, replacement: word, kind: kind)
             }
+    }
+
+    func syncPredictions() {
+        cloudKeyStored = hasCloudKey()
+        applyPredictionSource()
+    }
+
+    private func applyPredictionSource() {
+        let source = ModelPredictionSource.choose(hasCloud: cloudPredictions != nil && cloudKeyStored, onDevice: onDeviceModel,
+                                                  languages: engine.suggestionLanguages)
+        guard source != predictionSource else { return }
+        predictionSource = source
+        predictions?.cancel()
+        predictions = switch source {
+        case .cloud: cloudPredictions.map { ModelPredictionSession(provider: $0) }
+        case .onDevice: onDeviceModel.map {
+            ModelPredictionSession(provider: OnDeviceModelPredictions(model: $0), timeout: OnDeviceModelPredictions.timeout)
+        }
+        case nil: nil
+        }
+        if source == .onDevice { onDeviceModel?.prewarm() }
+    }
+
+    private func withModelPredictions(_ counted: [TyprKeyboardSuggestion], before: String?) -> [TyprKeyboardSuggestion] {
+        guard let predictions, learnsFromTyping, allowsPredictions, engine.canPredictNextWord(after: before),
+              let request = ModelPredictionRequest(before: before) else {
+            predictions?.keep(only: nil)
+            return counted
+        }
+        predictions.keep(only: request)
+        guard let words = predictions.words(for: request) else {
+            predictions.request(request) { [weak self] _ in self?.onLateSuggestions?() }
+            return counted
+        }
+        return ModelPredictionSession.merge(words.filter { engine.mayOffer($0, before: before) }, into: counted)
     }
 
     func replacementOnSpace(

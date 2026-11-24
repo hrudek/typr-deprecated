@@ -55,6 +55,7 @@ final class KeyboardViewController: UIInputViewController {
         refreshProtectedLexicon()
         fullKeyboard?.prepareForField()
         hexKeyboard?.prepareForField()
+        hexTypr?.syncPredictions()
         handOffNumericPadIfNeeded()
         syncFromBridge(animated: false)
         schedulePoll(force: true)
@@ -328,11 +329,8 @@ final class KeyboardViewController: UIInputViewController {
                 DictationLearningStore().record(result)
             }
             if hasFullAccess {
-                keyboard.hasCloudKey = {
-                    KeychainSecret.keyboardAnthropicAPIKey.read()?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-                }
-                keyboard.cloudPredictions = AnthropicPredictionProvider(
-                    key: { KeychainSecret.keyboardAnthropicAPIKey.read() })
+                keyboard.hasCloudKey = Self.hasAnthropicKey
+                keyboard.cloudPredictions = Self.anthropicPredictions()
             }
             keyboard.allowsHaptics = { [weak self] in self?.hasFullAccess ?? false }
             keyboard.allowsCompactBar = isPhone
@@ -384,11 +382,27 @@ final class KeyboardViewController: UIInputViewController {
         )
     }
 
+    private static func hasAnthropicKey() -> Bool {
+        KeychainSecret.keyboardAnthropicAPIKey.read()?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+    }
+
+    private static func anthropicPredictions() -> AnthropicPredictionProvider {
+        AnthropicPredictionProvider(key: { KeychainSecret.keyboardAnthropicAPIKey.read() })
+    }
+
     private func makeHexKeyboard() -> FullKeyboardView {
         let typr = FullKeyboardView.typrTypingBackend {
             TyprAutocorrectEngine(learning: learning.session(fullAccess: hasFullAccess))
         }
         typr?.engine.loadProtectedLexicon(protectedLexicon)
+        if let typr {
+            if hasFullAccess {
+                typr.hasCloudKey = Self.hasAnthropicKey
+                typr.cloudPredictions = Self.anthropicPredictions()
+            }
+            typr.onDeviceModel = OnDeviceModelPredictions.systemModel()
+            typr.syncPredictions()
+        }
         let keyboard = FullKeyboardView(
             model: viewModel,
             target: DocumentProxyTextTarget { [weak self] in self?.textDocumentProxy },
@@ -419,6 +433,7 @@ final class KeyboardViewController: UIInputViewController {
             self.mountSurface()
             self.fullKeyboard?.prepareForField()
             self.hexKeyboard?.prepareForField()
+            self.hexTypr?.syncPredictions()
             self.warmFullKeyboardLexiconIfNeeded()
             self.syncFromBridge(animated: false)
             self.schedulePoll(force: true)
