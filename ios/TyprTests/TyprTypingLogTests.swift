@@ -60,7 +60,7 @@ final class TyprTypingLogTests: XCTestCase {
     }
 
     func testSettledWordRecordsTapsLayoutAndMeantWord() throws {
-        type("hello w ")
+        type("hello w")
         XCTAssertEqual(written.count, 1)
         let word = try XCTUnwrap(written.first)
         XCTAssertEqual(word.meant, "hello")
@@ -81,7 +81,7 @@ final class TyprTypingLogTests: XCTestCase {
         XCTAssertEqual(target.text, "the ")
         engine.deleteAndRevert()
         XCTAssertEqual(target.text, "teh")
-        type(" x ")
+        type(" x")
         let word = try XCTUnwrap(written.first)
         XCTAssertEqual(word.commit?.kind, .autocorrect)
         XCTAssertEqual(word.commit?.text, "the")
@@ -90,7 +90,7 @@ final class TyprTypingLogTests: XCTestCase {
     }
 
     func testAcceptedAutocorrectionIsTheMeantWord() throws {
-        type("teh x ")
+        type("teh x")
         let word = try XCTUnwrap(written.first)
         XCTAssertEqual(word.literal, "teh")
         XCTAssertEqual(word.meant, "the")
@@ -100,7 +100,7 @@ final class TyprTypingLogTests: XCTestCase {
         type("hrl")
         engine.deleteBackward()
         engine.deleteBackward()
-        type("ello x ")
+        type("ello x")
         let word = try XCTUnwrap(written.first)
         XCTAssertEqual(word.meant, "hello")
         XCTAssertEqual(word.literal, "hello")
@@ -116,13 +116,6 @@ final class TyprTypingLogTests: XCTestCase {
         XCTAssertEqual(word.meant, "world")
         XCTAssertEqual(word.commit?.kind, .pick)
         XCTAssertEqual(word.corrections, [.init(kind: .pick, from: "wor", to: "world", chip: "primary")])
-    }
-
-    func testATappedSpaceKeepsItsWordUntilTheNextOneEnds() {
-        type("hello w")
-        XCTAssertEqual(written, [])
-        engine.configureForField()
-        XCTAssertEqual(written.map(\.meant), ["hello", "w"])
     }
 
     func testFieldChangeSettlesTheOpenWord() throws {
@@ -307,7 +300,7 @@ final class TyprTypingLogTests: XCTestCase {
     }
 
     func testExportIsVersionedAndCarriesLearningAndPersonalWords() throws {
-        type("hello w ")
+        type("hello w")
         let store = TyprTypingLogStore(directory: directory)
         written.forEach(store.append)
         let model = PersonalTypingModel(now: { [unowned self] in self.wall })

@@ -248,4 +248,47 @@ final class HexTyprTypingLogTests: XCTestCase {
         XCTAssertEqual(try TypingLogExport.decoder().decode(TypingLogExport.self, from: data).words, written)
         print("HEX-TYPING-LOG-EXPORT " + data.base64EncodedString())
     }
+
+    func testHexWritesWhatTyprsKeyboardWritesForTheSameTyping() throws {
+        type("teh hrl")
+        tap(.delete)
+        tap(.delete)
+        type("ello x ")
+        engine.configureForField()
+        let hex = written
+
+        written = []
+        let typrTarget = FixtureTextTarget()
+        typrTarget.autocapitalizationType = UITextAutocapitalizationType.none
+        let typr = TyprFullKeyboardEngine(
+            target: typrTarget,
+            autocorrect: TyprAutocorrectEngine(checker: Checker(), learning: KeyboardLearningSession(defaults: defaults), spatialDecoder: nil),
+            typingLog: TypingLogRecorder(write: { [unowned self] in self.written.append($0) }, now: { [unowned self] in self.wall }))
+        typr.width = 393
+        typr.clock = { [unowned self] in self.now }
+        typr.configureForField()
+        func press(_ kind: TyprKeyKind) {
+            let frame = typr.layout.key(kind)!.frame
+            let point = CGPoint(x: frame.midX, y: frame.midY)
+            typr.touchBegan(id: 1, at: point)
+            typr.touchEnded(id: 1, at: point)
+            now += 0.1
+        }
+        func typeOnTypr(_ text: String) {
+            for character in text { press(character == " " ? .space : .character(String(character))) }
+        }
+        typeOnTypr("teh hrl")
+        press(.delete)
+        press(.delete)
+        typeOnTypr("ello x ")
+        typr.configureForField()
+
+        XCTAssertEqual(hex.map(\.meant), ["the", "hello", "x"])
+        func shape(_ word: TypingLogWord) -> String {
+            "\(word.meant)|\(word.literal)|\(word.end)|\(String(describing: word.commit))|\(word.languages)|"
+                + "\(word.taps.map(\.text))|\(word.taps.map(\.key))|\(word.taps.map(\.t))|"
+                + "\(word.corrections.map { "\($0.kind)\($0.erased?.map(\.text) ?? [])\($0.from ?? "")\($0.to ?? "")\($0.chip ?? "")" })"
+        }
+        XCTAssertEqual(hex.map(shape), written.map(shape))
+    }
 }

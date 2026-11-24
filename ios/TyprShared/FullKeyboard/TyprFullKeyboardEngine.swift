@@ -1367,7 +1367,6 @@ final class TyprFullKeyboardEngine {
         prepareStatisticsEdit()
         if sample == nil { autocorrect.forgetSpaceTaps() }
         if spacePending { return }
-        if let sample { logTyping { $0.spaceTapped(at: sample.point, layout: layout, time: clock()) } }
         let ending = holdsTypedSpace ? "" : " "
         // Only an actual, unambiguous Space release can retain boundary geometry.
         // Typr/programmatic spaces deliberately call with nil.
@@ -1409,13 +1408,7 @@ final class TyprFullKeyboardEngine {
             let inserted = replacement + ending
             autocorrect.touchInput.clear()
             target.insertText(inserted)
-            logTyping { log in
-                if original.contains(" ") {
-                    log.joined(" ", replacement: replacement, correction: autocorrect.typingLogCorrection)
-                } else {
-                    log.boundary(" ", replacement: replacement, correction: autocorrect.typingLogCorrection)
-                }
-            }
+            logTyping { $0.boundary(" ", replacement: replacement, correction: autocorrect.typingLogCorrection) }
             autocorrect.recordAppliedCorrection(original: original, corrected: replacement, separator: ending,
                                                 before: target.documentContextBeforeInput)
             if let sample {
