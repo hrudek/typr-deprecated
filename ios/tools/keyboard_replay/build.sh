@@ -52,8 +52,37 @@ sources=(
   Statistics/UsageStatisticsSession Statistics/UsageStatisticsStore DictationFeedback DictationFeedbackBridge
   DictationLanguage SpeechEngineChoice HexLanguageSettings FullKeyboard/Hex/KeyboardLanguage TyprSettings FullKeyboard/TyprFullKeyboardSettings FullKeyboard/TyprReturnKeyStyle
 )
+# Hex's keyboard and autocorrect, for --engine hex and --parity.
+sources+=(
+  FullKeyboard/KeyboardAutocorrecting FullKeyboard/TyprAutocorrectAdapter
+  FullKeyboard/Hex/AdaptiveTouch FullKeyboard/Hex/AdaptiveTouchLabels FullKeyboard/Hex/AutocorrectEngine
+  FullKeyboard/Hex/AutocorrectEngine+Accents FullKeyboard/Hex/AutocorrectEngine+Dictionaries
+  FullKeyboard/Hex/AutocorrectEngine+Distance FullKeyboard/Hex/AutocorrectEngine+Vocabulary FullKeyboard/Hex/CzechTyping
+  FullKeyboard/Hex/FullKeyboardEngine FullKeyboard/Hex/FullKeyboardEngine+Field FullKeyboard/Hex/FullKeyboardEngine+Hangul
+  FullKeyboard/Hex/FullKeyboardEngine+HostText FullKeyboard/Hex/FullKeyboardEngine+Keys FullKeyboard/Hex/FullKeyboardEngine+Revert
+  FullKeyboard/Hex/FullKeyboardEngine+Selection FullKeyboard/Hex/FullKeyboardEngine+SmartSpace
+  FullKeyboard/Hex/FullKeyboardEngine+SwipeTyping FullKeyboard/Hex/FullKeyboardEngine+Trackpad
+  FullKeyboard/Hex/FullKeyboardEngine+TyprCursorSliding FullKeyboard/Hex/FullKeyboardEngine+TyprTypingLog
+  FullKeyboard/Hex/FullKeyboardSettings FullKeyboard/Hex/FullKeyboardTouch FullKeyboard/Hex/GermanCapitals
+  FullKeyboard/Hex/GreekTyping FullKeyboard/Hex/HangulComposer FullKeyboard/Hex/KeyboardLayout FullKeyboard/Hex/KeyboardLayout+Typr
+  FullKeyboard/Hex/KeyboardPadRows FullKeyboard/Hex/LanguageLearning FullKeyboard/Hex/OffensiveWords
+  FullKeyboard/Hex/ShiftStateMachine FullKeyboard/Hex/SmartPunctuation FullKeyboard/Hex/SwipeDecoder FullKeyboard/Hex/TextChecking
+  FullKeyboard/Hex/TrackpadCursor FullKeyboard/Hex/TrackpadSelection FullKeyboard/Hex/TypingDecoder
+  FullKeyboard/Hex/TypingJournal FullKeyboard/Hex/TypingJournalLearning Hex/DictationCorrections Hex/DictationEditInference
+  Hex/TypingLog/TypingLogEvent CustomVocabularySettings VocabularySpelling
+)
 files=()
 for name in "${sources[@]}"; do files+=("$shared/$name.swift"); done
+# These end with a UIKit view the replay never shows (stand-ins in Sources/SharedShims.swift).
+rm -rf "$build/trimmed"
+mkdir -p "$build/trimmed"
+for name in FullKeyboard/Hex/SwipeTyping FullKeyboard/Hex/AccentPicker; do
+  out="$build/trimmed/$(basename "$name").swift"
+  awk '/^(\/\/\/|@MainActor)/ { held = held $0 "\n"; next }
+       /^final class [A-Za-z]+: UIView / { exit }
+       { printf "%s", held; held = ""; print }' "$shared/$name.swift" > "$out"
+  files+=("$out")
+done
 
 # Stand-in modules for the Apple frameworks this platform lacks.
 modules=(UIKit)
@@ -68,6 +97,9 @@ for module in "${modules[@]}"; do
   objects+=("$build/modules/$module.o")
 done
 cp "$shared"/FullKeyboard/WordData/keyboard-{de,en}.{words,tbg} "$build/WordData/"
+# Hex finds its typing models, German capitals and never-suggest list next to the executable.
+cp "$tool"/../../TyprKeyboard/TypingModel/{de,en}.hextm "$tool"/../../TyprKeyboard/TypingModel/de.capitals \
+  "$shared"/FullKeyboard/Hex/never-suggest.tsv "$build/"
 
 "${swiftc[@]}" -O -swift-version 6 -I "$build/modules" "${files[@]}" "$tool"/Sources/*.swift "${objects[@]}" \
   -o "$build/keyboard-replay" >&2
