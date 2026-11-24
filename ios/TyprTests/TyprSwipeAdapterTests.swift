@@ -33,7 +33,7 @@ final class TyprSwipeAdapterTests: XCTestCase {
         let keyboard = TyprFullKeyboardSettings(defaults: defaults)
         settings[experiment: .typrBottomRow] = keys == .bottomRow
         keyboard.bottomRow = BottomRow(order: [.typr, .space, .period], periodKey: true)
-        settings[experiment: .typrSplitKeyboard] = keys == .split || keys == .splitColumns
+        settings[experiment: .typrSplitKeyboard] = keys == .unfoldedJoined || keys == .split || keys == .splitColumns
         keyboard.splitKeyboard = keys == .split || keys == .splitColumns
         keyboard.splitColumns = keys == .splitColumns
         let adapter = TyprAutocorrectAdapter(engine: TyprAutocorrectEngine(
