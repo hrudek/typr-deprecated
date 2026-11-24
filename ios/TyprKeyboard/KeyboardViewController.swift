@@ -27,6 +27,7 @@ final class KeyboardViewController: UIInputViewController {
     private var handOffWaitsForPosture = false
     private var offeredDictation: KeyboardSnapshot?
     private var autoStartWork: DispatchWorkItem?
+    private var autoStart = DictationBarAutoStartPending()
     private let switchGuess = KeyboardSwitchGuessStore()
     private static let hostLeaveObserver: NSObjectProtocol = NotificationCenter.default.addObserver(
         forName: .NSExtensionHostDidEnterBackground,
@@ -54,6 +55,7 @@ final class KeyboardViewController: UIInputViewController {
         if ownedFeedbackJobs.count > 32 { ownedFeedbackJobs = [coldStartJobID] }
         coldStartJobID = UUID().uuidString
         didHandOffCurrentField = false
+        autoStart.appeared()
         KeyboardHost.appeared()
         viewModel.hostNotice = nil
         viewModel.globeKey = TyprFullKeyboardSettings().globeKey
@@ -89,11 +91,13 @@ final class KeyboardViewController: UIInputViewController {
     private func autoStartDictation() {
         autoStartWork = nil
         let document = TypingLogTraits.documentIdentifier(of: textDocumentProxy)
-        guard FullKeyboardSettings().dictationBarAutoStart.startsDictation(
+        guard autoStart.take(
+            FullKeyboardSettings().dictationBarAutoStart,
             onDictationBar: !hasFullKeyboard,
             isSwitchBack: switchGuess.guess.isSwitchBack(to: document),
             hasFullAccess: viewModel.hasFullAccess,
             isIdle: viewModel.stagePhase == .idle,
+            hasPendingCommand: viewModel.pendingCommand != nil,
             route: KeyboardFieldRouting.route(for: textDocumentProxy.keyboardType)
         ) else { return }
         if viewModel.dictatesThroughHex {
@@ -107,6 +111,7 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillDisappear(animated)
         autoStartWork?.cancel()
         autoStartWork = nil
+        autoStart.cancel()
         switchGuess.keyboardHid(in: TypingLogTraits.documentIdentifier(of: textDocumentProxy), at: Date().timeIntervalSince1970)
         fullKeyboard?.suspendSuggestions()
         fullKeyboard?.engine.endTypingLogWord("dismiss")
@@ -788,6 +793,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func stopWarmDictation() {
+        autoStart.cancel()
         if localDictation.isActive {
             localDictation.stop()
             return
@@ -803,6 +809,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func cancelWarmDictation() {
+        autoStart.cancel()
         if localDictation.isActive {
             localDictation.cancel()
             return

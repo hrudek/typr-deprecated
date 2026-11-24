@@ -45,6 +45,7 @@ extension DictationBarAutoStart {
         isSwitchBack: Bool,
         hasFullAccess: Bool,
         isIdle: Bool,
+        hasPendingCommand: Bool,
         route: KeyboardFieldRoute
     ) -> Bool {
         let wanted = switch self {
@@ -52,6 +53,31 @@ extension DictationBarAutoStart {
         case .always: true
         case .whenSwitching: isSwitchBack
         }
-        return wanted && onDictationBar && hasFullAccess && isIdle && route != .handOff
+        return wanted && onDictationBar && hasFullAccess && isIdle && !hasPendingCommand && route != .handOff
+    }
+}
+
+struct DictationBarAutoStartPending {
+    private(set) var isPending = false
+
+    mutating func appeared() { isPending = true }
+
+    mutating func cancel() { isPending = false }
+
+    mutating func take(
+        _ choice: DictationBarAutoStart,
+        onDictationBar: Bool,
+        isSwitchBack: Bool,
+        hasFullAccess: Bool,
+        isIdle: Bool,
+        hasPendingCommand: Bool,
+        route: KeyboardFieldRoute
+    ) -> Bool {
+        guard isPending else { return false }
+        isPending = false
+        return choice.startsDictation(
+            onDictationBar: onDictationBar, isSwitchBack: isSwitchBack, hasFullAccess: hasFullAccess,
+            isIdle: isIdle, hasPendingCommand: hasPendingCommand, route: route
+        )
     }
 }

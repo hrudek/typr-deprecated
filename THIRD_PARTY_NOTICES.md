@@ -57,6 +57,12 @@ as is, `ios/HEXShared/AppleSpeechTwoLanguage.swift` with the second language fix
 other of German and English, `ios/HEXShared/TwoLanguageDictationSettings.swift` under
 Typr's experiment switch, and `ios/HEXMobileTests/TwoLanguageMergeTests.swift`.
 
+Dictation bar Auto-start (anomalyco/hex #2267) at
+`0c1c13d71b853ac3113d9a622e4fd9af3755d068` (MIT): `ios/HEXShared/KeyboardSwitchGuess.swift`
+and `ios/HEXMobileTests/KeyboardSwitchGuessTests.swift` as is, and the Auto-start gate,
+delay and Settings row from `ios/HEXKeyboard/KeyboardViewController.swift` and
+`ios/HEXMobile/SettingsPages.swift`, adapted to Typr's compact dictation bar.
+
 ## OpenCode iOS scope port
 
 The iOS scope credits `DotScopeView.swift`, `DictationScopeBar` and
