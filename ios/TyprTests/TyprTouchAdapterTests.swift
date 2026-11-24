@@ -242,7 +242,7 @@ final class TyprTouchAdapterTests: XCTestCase {
         try hexLetters("er")
         hexSpaceTap(hexCentredSpace)
 
-        print("JOIN_LEARNING_ON typr=\(typrTarget.text.debugDescription) hex=\(hexTarget.text.debugDescription)")
+        XCTAssertEqual(typrTarget.text, "think ne er ", "Typr keyboard with learning on keeps both words")
         XCTAssertEqual(hexTarget.text, typrTarget.text)
     }
 }
